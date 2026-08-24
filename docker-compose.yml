@@ -1,0 +1,129 @@
+services:
+  volur-mysql:
+    image: mysql:9.6.0
+    container_name: volur-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_PASSWORD}
+      MYSQL_DATABASE: volur_db
+      MYSQL_USER: volur_db
+      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD}
+    volumes:
+      - volur-mysql-data:/var/lib/mysql
+      - ./src/VolurService/MySQL/volurSQL:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${VOLUR_MYSQL_PASSWORD}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - volur-network
+    restart: always
+
+  volur-mongodb:
+    image: mongo:8.2.7
+    container_name: volur-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: volur_db
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - volur-network
+    restart: always
+
+  volur-redis:
+    image: redis:8.6.2-alpine
+    container_name: volur-redis
+    command: [ "redis-server", "--requirepass", "${VOLUR_REDIS_PASSWORD}", "--appendonly", "yes" ]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${VOLUR_REDIS_PASSWORD}", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redis-data:/data
+    networks:
+      - volur-network
+    restart: always
+
+  volur-elasticsearch:
+    image: elasticsearch:9.3.2
+    container_name: volur-elasticsearch
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS:-Xms512m -Xmx512m}
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - volur-network
+    restart: always
+
+  volur-kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: volur-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@volur-kafka:9093'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://volur-kafka:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LOG_DIRS: '/var/lib/kafka/data'
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - volur-network
+    restart: always
+
+  volur-nginx:
+    build:
+      context: ./src/VolurView
+      dockerfile: Dockerfile
+    container_name: volur-nginx
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    volumes:
+      - ./src/VolurService/Nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./src/VolurService/Nginx/lua:/etc/nginx/lua:ro
+    environment:
+      - REDIS_HOST=volur-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD}
+    depends_on:
+      volur-gateway:
+        condition: service_started
+      volur-redis:
+        condition: service_healthy
+    networks:
+      - volur-network
+    restart: always
+
+  volur-lite-platform:
+
+
+networks:
+  volur-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  nacos-mysql-data:
+  mongodb-data:
+  redis-data:
+  elasticsearch-data:
+  kafka-data:

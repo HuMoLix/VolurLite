@@ -1,0 +1,29 @@
+package com.humolix.volur.system.controller.v1;
+
+import com.humolix.volur.framework.common.api.ApiResponse;
+import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import com.humolix.volur.system.service.SystemSettingService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+@Tag(name = "系统公开设置", description = "系统公开设置相关接口")
+@RestController
+@RequestMapping("/api/v1/system/settings")
+@RequiredArgsConstructor
+public class SystemSettingController {
+
+    private final SystemSettingService systemSettingService;
+
+    @Operation(summary = "获取公开系统设置")
+    @GetMapping("/public")
+    public ApiResponse<Map<String, String>> getPublicSettings() {
+        return ApiResponseEntity.ok("获取公开系统设置成功", systemSettingService.getPublicSettingsMap());
+    }
+
+}

@@ -1,0 +1,57 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+    encoding:
+      charset: UTF-8
+      force: true
+      enabled: true
+
+spring:
+  application:
+    name: volur-server
+  profiles:
+    active: dev
+  main:
+    allow-bean-definition-overriding: true
+    banner-mode: console
+
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+# Knife4j / OpenAPI Configuration
+knife4j:
+  enable: true
+  openapi:
+    title: "Volur Lite CTF Platform API"
+    description: "API Documentation for Volur Lite Modular Monolith CTF Platform"
+    version: "v1.0.0"
+    group:
+      default:
+        group-name: "All APIs"
+        api-rule: package
+        api-rule-resources:
+          - com.humolix.volur
+
+# Volur Custom Business Configurations
+volur:
+  jwt:
+    secret: "VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!"
+    expire-seconds: 86400 # 24 hours
+    header: "Authorization"
+    token-prefix: "Bearer "
+  container:
+    docker-host: "tcp://localhost:2375" # Or unix:///var/run/docker.sock for Linux
+    default-timeout-minutes: 60
+    max-instances-per-user: 1
+    network-name: "volur-challenge-net"
+  challenge:
+    flag-prefix: "flag{"
+    flag-suffix: "}"
