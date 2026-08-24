@@ -19,6 +19,9 @@ public final class SnowflakeConstants {
 
     public static final long TIMESTAMP_LEFT_SHIFT = SEQUENCE_BITS + WORKER_ID_BITS;
 
-    public static final String REDIS_WORKER_KEY_PREFIX = "volur:snowflake:worker:";
+    public static final String VREDIS_FRAMEWORK_SNOWFLAKE_WORKER_KEY_PREFIX = "vredis:framework:snowflake_worker:";
+
+    @Deprecated
+    public static final String REDIS_WORKER_KEY_PREFIX = VREDIS_FRAMEWORK_SNOWFLAKE_WORKER_KEY_PREFIX;
 
 }

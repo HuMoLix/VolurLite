@@ -36,6 +36,9 @@ public class SnowflakeIdentifierGenerator implements BeforeExecutionGenerator, I
 
     @Override
     public Object generate(SharedSessionContractImplementor session, Object owner, Object currentValue, EventType eventType) {
+        if (currentValue != null) {
+            return currentValue;
+        }
         return generateNextId();
     }
 

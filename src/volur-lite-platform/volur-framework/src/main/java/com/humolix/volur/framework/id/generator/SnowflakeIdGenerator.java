@@ -45,15 +45,20 @@ public class SnowflakeIdGenerator implements IdGenerator {
             long lastTimestamp = currentState.lastTimestamp;
             long sequence = currentState.sequence;
 
-            long effectiveWorkerId = this.workerId;
-
             if (currentTimestamp < lastTimestamp) {
                 long offset = lastTimestamp - currentTimestamp;
                 if (offset <= 5) {
-                    effectiveWorkerId = this.workerId ^ 0x200;
-                    currentTimestamp = lastTimestamp;
+                    try {
+                        Thread.sleep(offset);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    currentTimestamp = timeGen();
+                    if (currentTimestamp < lastTimestamp) {
+                        currentTimestamp = tilNextMillis(lastTimestamp);
+                    }
                 } else {
-                    throw new SnowflakeClockBackwardsException("Clock moved backwards by " + offset + " ms");
+                    throw new SnowflakeClockBackwardsException("Clock moved backwards by " + offset + " ms, refusing to generate id");
                 }
             }
 
@@ -72,7 +77,7 @@ public class SnowflakeIdGenerator implements IdGenerator {
             State nextState = new State(newTimestamp, newSequence);
             if (stateRef.compareAndSet(currentState, nextState)) {
                 return ((newTimestamp - SnowflakeConstants.START_TIMESTAMP) << SnowflakeConstants.TIMESTAMP_LEFT_SHIFT)
-                        | (effectiveWorkerId << SnowflakeConstants.WORKER_ID_SHIFT)
+                        | (this.workerId << SnowflakeConstants.WORKER_ID_SHIFT)
                         | newSequence;
             }
         }
