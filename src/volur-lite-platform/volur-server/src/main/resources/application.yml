@@ -1,17 +1,11 @@
 server:
-  port: 8080
-  servlet:
-    context-path: /api
-    encoding:
-      charset: UTF-8
-      force: true
-      enabled: true
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: volur-server
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   main:
     allow-bean-definition-overriding: true
     banner-mode: console
@@ -20,38 +14,49 @@ spring:
     multipart:
       max-file-size: 100MB
       max-request-size: 100MB
+    encoding:
+      enabled: true
+      force: true
+      charset: UTF-8
 
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
     default-property-inclusion: non_null
 
-# Knife4j / OpenAPI Configuration
-knife4j:
-  enable: true
-  openapi:
-    title: "Volur Lite CTF Platform API"
-    description: "API Documentation for Volur Lite Modular Monolith CTF Platform"
-    version: "v1.0.0"
-    group:
-      default:
-        group-name: "All APIs"
-        api-rule: package
-        api-rule-resources:
-          - com.humolix.volur
+# SpringDoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    doc-expansion: none
+  show-actuator: false
 
 # Volur Custom Business Configurations
 volur:
   jwt:
-    secret: "VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!"
-    expire-seconds: 86400 # 24 hours
+    secret: "${VOLUR_JWT_SECRET:VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}"
+    expire-seconds: ${VOLUR_JWT_EXPIRE_SECONDS:86400} # 24 hours
+    refresh-expiration-ms: ${VOLUR_JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+    remember-me-refresh-expiration-ms: ${VOLUR_JWT_REMEMBER_ME_REFRESH_EXPIRATION_MS:2592000000} # 30 days
     header: "Authorization"
     token-prefix: "Bearer "
   container:
-    docker-host: "tcp://localhost:2375" # Or unix:///var/run/docker.sock for Linux
+    docker-host: "${VOLUR_CONTAINER_DOCKER_HOST:tcp://localhost:2375}" # Or unix:///var/run/docker.sock for Linux
     default-timeout-minutes: 60
     max-instances-per-user: 1
     network-name: "volur-challenge-net"
-  challenge:
-    flag-prefix: "flag{"
-    flag-suffix: "}"
+  k3s:
+    namespace: "${VOLUR_K3S_NAMESPACE:volur-challenges}"
+    public-host: "${VOLUR_K3S_PUBLIC_HOST:127.0.0.1}"
+    kubeconfig-path: "${VOLUR_K3S_KUBECONFIG_PATH:/etc/rancher/k3s/k3s.yaml}"
+    master-url: "${VOLUR_K3S_MASTER_URL:https://127.0.0.1:6443}"
+  captcha:
+    puzzle:
+      custom-path: "${VOLUR_CAPTCHA_PUZZLE_CUSTOM_PATH:}" # Optional external custom background images directory
+

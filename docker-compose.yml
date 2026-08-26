@@ -3,15 +3,15 @@ services:
     image: mysql:9.6.0
     container_name: volur-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_PASSWORD:-root123456}
       MYSQL_DATABASE: volur_db
-      MYSQL_USER: volur_db
-      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD}
+      MYSQL_USER: ${VOLUR_MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD:-root123456}
     volumes:
       - volur-mysql-data:/var/lib/mysql
       - ./src/VolurService/MySQL/volurSQL:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${VOLUR_MYSQL_PASSWORD}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${VOLUR_MYSQL_PASSWORD:-root123456}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -33,9 +33,9 @@ services:
   volur-redis:
     image: redis:8.6.2-alpine
     container_name: volur-redis
-    command: [ "redis-server", "--requirepass", "${VOLUR_REDIS_PASSWORD}", "--appendonly", "yes" ]
+    command: [ "redis-server", "--requirepass", "${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}", "--appendonly", "yes" ]
     healthcheck:
-      test: [ "CMD", "redis-cli", "-a", "${VOLUR_REDIS_PASSWORD}", "ping" ]
+      test: [ "CMD", "redis-cli", "-a", "${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -103,17 +103,13 @@ services:
     environment:
       - REDIS_HOST=volur-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD}
+      - REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}
     depends_on:
-      volur-gateway:
-        condition: service_started
       volur-redis:
         condition: service_healthy
     networks:
       - volur-network
     restart: always
-
-  volur-lite-platform:
 
 
 networks:
@@ -121,8 +117,7 @@ networks:
     driver: bridge
 
 volumes:
-  mysql-data:
-  nacos-mysql-data:
+  volur-mysql-data:
   mongodb-data:
   redis-data:
   elasticsearch-data:

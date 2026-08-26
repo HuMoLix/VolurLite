@@ -1,21 +1,20 @@
 package com.humolix.volur.challenge.service.admin.stage.ctf;
 
-import com.humolix.volur.challenge.object.dto.stage.ctf.CtfChallengeCategoryCreateRequestDTO;
-import com.humolix.volur.challenge.object.dto.stage.ctf.CtfChallengeCategoryUpdateRequestDTO;
-import com.humolix.volur.challenge.object.vo.stage.ctf.CtfChallengeCategoryResponseVO;
-import org.springframework.data.domain.Page;
+import com.humolix.volur.challenge.domain.dto.stage.ctf.CtfCategoryCreateRequestDTO;
+import com.humolix.volur.challenge.domain.dto.stage.ctf.CtfCategoryUpdateRequestDTO;
+import com.humolix.volur.challenge.domain.vo.stage.ctf.CtfCategoryVO;
 
 import java.util.List;
 
 public interface AdminCtfCategoryService {
 
-    List<CtfChallengeCategoryResponseVO> listCategories();
+    List<CtfCategoryVO> listCategories();
 
-    Page<CtfChallengeCategoryResponseVO> pageCategories(Integer page, Integer size, String keyword);
+    CtfCategoryVO getCategory(Long id);
 
-    CtfChallengeCategoryResponseVO createCategory(CtfChallengeCategoryCreateRequestDTO request);
+    Long createCategory(CtfCategoryCreateRequestDTO request);
 
-    CtfChallengeCategoryResponseVO updateCategory(Long id, CtfChallengeCategoryUpdateRequestDTO request);
+    void updateCategory(Long id, CtfCategoryUpdateRequestDTO request);
 
     void deleteCategory(Long id);
 

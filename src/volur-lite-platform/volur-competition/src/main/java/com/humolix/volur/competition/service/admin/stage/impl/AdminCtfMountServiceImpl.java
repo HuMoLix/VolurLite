@@ -1,0 +1,107 @@
+package com.humolix.volur.competition.service.admin.stage.impl;
+
+import com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge;
+import com.humolix.volur.challenge.repository.stage.ctf.CtfChallengeRepository;
+import com.humolix.volur.competition.domain.dto.stage.ctf.CtfChallengeBatchMountRequestDTO;
+import com.humolix.volur.competition.domain.dto.stage.ctf.CtfChallengeMountRequestDTO;
+import com.humolix.volur.competition.domain.entity.Competition;
+import com.humolix.volur.competition.domain.entity.stage.ctf.CtfCompetitionChallenge;
+import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeVO;
+import com.humolix.volur.competition.mapper.CompetitionMapper;
+import com.humolix.volur.competition.domain.entity.CompetitionStageConfig;
+import com.humolix.volur.competition.domain.enums.CompetitionStage;
+import com.humolix.volur.competition.repository.CompetitionRepository;
+import com.humolix.volur.competition.repository.CompetitionStageConfigRepository;
+import com.humolix.volur.competition.repository.stage.ctf.CtfCompetitionChallengeRepository;
+import com.humolix.volur.competition.service.admin.stage.AdminCtfMountService;
+import com.humolix.volur.framework.common.exception.BusinessException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class AdminCtfMountServiceImpl implements AdminCtfMountService {
+
+    private final CompetitionRepository competitionRepository;
+    private final CompetitionStageConfigRepository stageConfigRepository;
+    private final CtfChallengeRepository rawChallengeRepository;
+    private final CtfCompetitionChallengeRepository compChallengeRepository;
+    private final CompetitionMapper competitionMapper;
+
+    @Override
+    public List<CtfCompetitionChallengeVO> listMountedChallenges(Long competitionId) {
+        List<CtfCompetitionChallenge> list = compChallengeRepository.findByCompetitionIdOrderBySortOrderAsc(competitionId);
+        return competitionMapper.toCtfChallengeVOList(list);
+    }
+
+    @Override
+    @Transactional
+    public void mountChallenge(Long competitionId, CtfChallengeMountRequestDTO request) {
+        Competition competition = competitionRepository.findById(competitionId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
+
+        CompetitionStageConfig stage = null;
+        if (request.getStageId() != null) {
+            stage = stageConfigRepository.findById(request.getStageId())
+                    .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "指定的赛段不存在"));
+            if (!stage.getCompetition().getId().equals(competitionId)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "该赛段不属于此竞赛");
+            }
+            if (compChallengeRepository.existsByCompetitionIdAndStageIdAndChallengeId(competitionId, request.getStageId(), request.getChallengeId())) {
+                throw new BusinessException(HttpStatus.CONFLICT, "该赛题已挂载至该赛段");
+            }
+        } else {
+            List<CompetitionStageConfig> ctfStages = stageConfigRepository.findByCompetitionIdAndStageOrderByStageOrderAsc(competitionId, CompetitionStage.CTF);
+            if (!ctfStages.isEmpty()) {
+                stage = ctfStages.getFirst();
+            }
+            if (compChallengeRepository.existsByCompetitionIdAndChallengeId(competitionId, request.getChallengeId())) {
+                throw new BusinessException(HttpStatus.CONFLICT, "该赛题已挂载至本场竞赛");
+            }
+        }
+
+        CtfChallenge challenge = rawChallengeRepository.findById(request.getChallengeId())
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "题库中题目不存在"));
+
+        int initial = request.getInitialPoints() != null ? request.getInitialPoints() : 1000;
+        int min = request.getMinPoints() != null ? request.getMinPoints() : 100;
+        int decay = request.getDecayCount() != null ? request.getDecayCount() : 30;
+
+        CtfCompetitionChallenge compChal = CtfCompetitionChallenge.builder()
+                .competition(competition)
+                .stage(stage)
+                .challenge(challenge)
+                .initialPoints(initial)
+                .minPoints(min)
+                .decayCount(decay)
+                .currentPoints(initial)
+                .solvesCount(0)
+                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
+                .isVisible(request.getIsVisible() != null ? request.getIsVisible() : true)
+                .build();
+
+        compChallengeRepository.save(compChal);
+    }
+
+    @Override
+    @Transactional
+    public void batchMountChallenges(Long competitionId, CtfChallengeBatchMountRequestDTO request) {
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            return;
+        }
+        for (CtfChallengeMountRequestDTO item : request.getItems()) {
+            mountChallenge(competitionId, item);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void unmountChallenge(Long competitionId, Long competitionChallengeId) {
+        compChallengeRepository.deleteById(competitionChallengeId);
+    }
+
+}

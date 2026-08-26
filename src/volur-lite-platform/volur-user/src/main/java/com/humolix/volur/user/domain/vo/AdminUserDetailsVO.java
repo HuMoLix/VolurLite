@@ -1,6 +1,6 @@
 package com.humolix.volur.user.domain.vo;
 
-import com.humolix.volur.user.entity.enums.Gender;
+import com.humolix.volur.user.domain.enums.Gender;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

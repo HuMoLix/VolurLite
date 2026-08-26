@@ -1,6 +1,6 @@
 package com.humolix.volur.user.repository;
 
-import com.humolix.volur.user.entity.UserProfile;
+import com.humolix.volur.user.domain.entity.UserProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

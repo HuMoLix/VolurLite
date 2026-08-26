@@ -13,7 +13,7 @@
     <artifactId>volur-container</artifactId>
     <packaging>jar</packaging>
     <name>volur-container</name>
-    <description>Dynamic container and sandbox orchestration module</description>
+    <description>Dynamic k3s container and sandbox orchestration module</description>
 
     <dependencies>
         <dependency>
@@ -32,6 +32,10 @@
             <groupId>com.humolix.volur</groupId>
             <artifactId>volur-challenge</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-system</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -46,19 +50,26 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
-        <!-- Docker Java SDK -->
+        <!-- K3s / Kubernetes Fabric8 SDK -->
         <dependency>
-            <groupId>com.github.docker-java</groupId>
-            <artifactId>docker-java-core</artifactId>
+            <groupId>io.fabric8</groupId>
+            <artifactId>kubernetes-client</artifactId>
         </dependency>
+
         <dependency>
-            <groupId>com.github.docker-java</groupId>
-            <artifactId>docker-java-transport-httpclient5</artifactId>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
         </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

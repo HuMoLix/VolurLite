@@ -1,16 +1,16 @@
 package com.humolix.volur.user.service.admin;
 
+import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.user.domain.dto.AdminUserCreateRequestDTO;
 import com.humolix.volur.user.domain.dto.AdminUserUpdateRequestDTO;
-import com.humolix.volur.user.entity.Role;
 import com.humolix.volur.user.domain.vo.AdminUserDetailsVO;
-import org.springframework.data.domain.Page;
+import com.humolix.volur.user.domain.vo.RoleVO;
 
 import java.util.List;
 
 public interface AdminUserService {
 
-    Page<AdminUserDetailsVO> getUserList(Integer page, Integer size, String keyword);
+    PageResponse<AdminUserDetailsVO> getUserList(Integer page, Integer size, String keyword);
 
     AdminUserDetailsVO getUserDetails(Long id);
 
@@ -22,12 +22,12 @@ public interface AdminUserService {
 
     void deleteUsers(List<Long> ids);
 
-    void toggleHiddenStatus(Long id, Boolean isHidden);
+    void toggleHiddenStatus(Long id, boolean isHidden);
 
-    void toggleUserStatus(Long id, Boolean status);
+    void toggleUserStatus(Long id, boolean status);
 
-    void toggleUsersStatus(List<Long> ids, Boolean status);
+    void toggleUsersStatus(List<Long> ids, boolean status);
 
-    List<Role> getAllRoles();
+    List<RoleVO> getAllRoles();
 
 }

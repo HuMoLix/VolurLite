@@ -2,16 +2,18 @@ package com.humolix.volur.auth.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.humolix.volur.auth.domain.dto.*;
-import com.humolix.volur.user.entity.User;
-import com.humolix.volur.user.entity.UserProfile;
-import com.humolix.volur.user.entity.Role;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.entity.UserProfile;
+import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.event.UserStatusAction;
 import com.humolix.volur.user.event.UserStatusChangedEvent;
 import com.humolix.volur.auth.exception.UserOrEmailExistException;
 import com.humolix.volur.auth.exception.TokenAlreadyBlacklistedException;
 import com.humolix.volur.auth.exception.TokenInvalidException;
 import com.humolix.volur.auth.exception.InvalidCaptchaException;
-import com.humolix.volur.user.repository.RoleRepository;
+import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.notification.domain.enums.SecurityEventType;
+import com.humolix.volur.notification.event.SecurityNotificationEvent;
 import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
@@ -63,7 +65,6 @@ public class AuthServiceImpl implements AuthService {
     private final CaptchaService captchaService;
     private final EmailService emailService;
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final UserProfileRepository userProfileRepository;
     private final SystemSettingService systemSettingService;
     private final StringRedisTemplate redisTemplate;
@@ -149,19 +150,12 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        String defaultRoleName = systemSettingService.getSettingValue("DEFAULT_USER_ROLE", "USER");
-        Role userRole = roleRepository.findByName(defaultRoleName)
-                .orElseGet(() -> roleRepository.findByName("USER")
-                        .orElseThrow(() -> new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "系统默认角色配置缺失")));
-
         User user = User.builder()
                 .username(normalizedUsername)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .email(normalizedEmail)
-                .role(userRole)
+                .role(UserRole.USER)
                 .status(true)
-                .totalPoints(0.0)
-                .solves(0L)
                 .build();
 
         User savedUser;
@@ -301,6 +295,14 @@ public class AuthServiceImpl implements AuthService {
         redisTemplate.delete(redisKey);
         tokenService.forceLogoutUser(user.getId());
         evictUserCache(user);
+
+        SpringContextHolder.publishEvent(new SecurityNotificationEvent(
+                this,
+                user.getId(),
+                SecurityEventType.PASSWORD_RESET,
+                RequestHolder.getClientIp(),
+                "通过重置令牌重置密码"
+        ));
     }
 
     @Override
@@ -316,6 +318,14 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
         tokenService.forceLogoutUser(user.getId());
         evictUserCache(user);
+
+        SpringContextHolder.publishEvent(new SecurityNotificationEvent(
+                this,
+                user.getId(),
+                SecurityEventType.PASSWORD_RESET,
+                RequestHolder.getClientIp(),
+                "通过邮箱验证码重置密码"
+        ));
     }
 
     @Override
@@ -373,6 +383,14 @@ public class AuthServiceImpl implements AuthService {
         redisTemplate.delete(redisKey);
         tokenService.forceLogoutUser(user.getId());
         evictUserCache(user);
+
+        SpringContextHolder.publishEvent(new SecurityNotificationEvent(
+                this,
+                user.getId(),
+                SecurityEventType.PASSWORD_CHANGED,
+                RequestHolder.getClientIp(),
+                "修改账号密码成功"
+        ));
     }
 
     @Override

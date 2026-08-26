@@ -1,6 +1,7 @@
 package com.humolix.volur.verification.captcha.engine;
 
 import cn.hutool.core.codec.Base64;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -14,19 +15,25 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class SlidePuzzleEngine {
 
-    private static final int CANVAS_WIDTH = 280;
-    private static final int CANVAS_HEIGHT = 150;
+    public static final int CANVAS_WIDTH = PuzzleImageLoader.TARGET_WIDTH;
+    public static final int CANVAS_HEIGHT = PuzzleImageLoader.TARGET_HEIGHT;
     private static final int BLOCK_SIZE = 45;
     private static final int BLOCK_RADIUS = 8;
     private static final String BASE64_PREFIX = "data:image/png;base64,";
+
+    private final PuzzleImageLoader puzzleImageLoader;
 
     public record PuzzleResult(String backgroundImageBase64, String sliderImageBase64, int x, int y) {
     }
 
     public PuzzleResult generatePuzzle() {
-        BufferedImage backgroundCanvas = generateRandomBackground(CANVAS_WIDTH, CANVAS_HEIGHT);
+        BufferedImage backgroundCanvas = puzzleImageLoader.loadRandomImage();
+        if (backgroundCanvas == null) {
+            backgroundCanvas = generateRandomBackground(CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
 
         int targetX = ThreadLocalRandom.current().nextInt(BLOCK_SIZE + 20, CANVAS_WIDTH - BLOCK_SIZE - 15);
         int targetY = ThreadLocalRandom.current().nextInt(15, CANVAS_HEIGHT - BLOCK_SIZE - 15);
@@ -112,29 +119,25 @@ public class SlidePuzzleEngine {
         GeneralPath path = new GeneralPath();
         path.moveTo(x, y);
 
-        // Top line with protruding circle tab
         path.lineTo(x + (size - 2 * r) / 2.0, y);
         path.quadTo(x + size / 2.0, y - r, x + (size + 2 * r) / 2.0, y);
         path.lineTo(x + size, y);
 
-        // Right line with protruding circle tab
         path.lineTo(x + size, y + (size - 2 * r) / 2.0);
         path.quadTo(x + size + r, y + size / 2.0, x + size, y + (size + 2 * r) / 2.0);
         path.lineTo(x + size, y + size);
 
-        // Bottom line with indented circle
         path.lineTo(x + (size + 2 * r) / 2.0, y + size);
         path.quadTo(x + size / 2.0, y + size - r, x + (size - 2 * r) / 2.0, y + size);
-        path.lineTo(x, y + size);
+        path.lineTo(x + size, y + size);
 
-        // Left line
         path.lineTo(x, y);
         path.closePath();
         return path;
     }
 
     private String imageToBase64(BufferedImage image) {
-        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream(16384)) {
             ImageIO.write(image, "PNG", os);
             return BASE64_PREFIX + Base64.encode(os.toByteArray());
         } catch (IOException e) {

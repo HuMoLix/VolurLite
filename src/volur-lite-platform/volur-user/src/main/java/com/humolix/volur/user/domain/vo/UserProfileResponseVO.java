@@ -1,7 +1,7 @@
 package com.humolix.volur.user.domain.vo;
 
-import com.humolix.volur.user.entity.enums.Gender;
-import com.humolix.volur.user.entity.enums.PrivacyType;
+import com.humolix.volur.user.domain.enums.Gender;
+import com.humolix.volur.user.domain.enums.PrivacyType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -33,9 +33,6 @@ public class UserProfileResponseVO implements Serializable {
     private PrivacyType emailPrivacy;
     private PrivacyType phonePrivacy;
     private PrivacyType orgPrivacy;
-    private Double totalPoints;
-    private Long solves;
-    private Integer ranking;
     private Instant createdAt;
 
 }

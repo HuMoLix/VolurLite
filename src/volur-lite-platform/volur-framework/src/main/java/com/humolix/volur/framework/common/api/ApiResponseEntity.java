@@ -68,6 +68,10 @@ public final class ApiResponseEntity {
         return of(HttpStatus.NOT_FOUND, messageKey, null);
     }
 
+    public static <T> ApiResponse<T> methodNotAllowed(String messageKey) {
+        return of(HttpStatus.METHOD_NOT_ALLOWED, messageKey, null);
+    }
+
     public static <T> ApiResponse<T> error(String messageKey) {
         return of(HttpStatus.INTERNAL_SERVER_ERROR, messageKey, null);
     }
@@ -76,73 +80,12 @@ public final class ApiResponseEntity {
         return of(status, messageKey, null);
     }
 
-    public static <T> ApiResponse<T> internalServerError(String messageKey) {
-        return of(HttpStatus.INTERNAL_SERVER_ERROR, messageKey, null);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> OK(T data) {
-        return ok(data);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> OK(String messageKey, T data) {
-        return ok(messageKey, data);
-    }
-
-    @Deprecated
-    public static ApiResponse<Void> SUCCESS(String messageKey) {
-        return success(messageKey);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> CREATED(T data) {
-        return created(data);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> CREATED(String messageKey, T data) {
-        return created(messageKey, data);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> BAD_REQUEST(String messageKey) {
-        return badRequest(messageKey);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> BAD_REQUEST(String messageKey, T data) {
-        return badRequest(messageKey, data);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> UNAUTHORIZED(String messageKey) {
-        return unauthorized(messageKey);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> FORBIDDEN(String messageKey) {
-        return forbidden(messageKey);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> NOT_FOUND(String messageKey) {
-        return notFound(messageKey);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> ERROR(String messageKey) {
-        return error(messageKey);
-    }
-
-    @Deprecated
-    public static <T> ApiResponse<T> ERROR(HttpStatusCode status, int errorCode, String messageKey) {
+    public static <T> ApiResponse<T> error(HttpStatusCode status, int errorCode, String messageKey) {
         return of(status, errorCode, messageKey, null);
     }
 
-    @Deprecated
-    public static <T> ApiResponse<T> INTERNAL_SERVER_ERROR(String messageKey) {
-        return internalServerError(messageKey);
+    public static <T> ApiResponse<T> internalServerError(String messageKey) {
+        return of(HttpStatus.INTERNAL_SERVER_ERROR, messageKey, null);
     }
 
 }

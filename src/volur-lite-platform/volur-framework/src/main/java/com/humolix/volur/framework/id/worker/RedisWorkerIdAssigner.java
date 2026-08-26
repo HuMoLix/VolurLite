@@ -5,20 +5,24 @@ import com.humolix.volur.framework.id.constant.SnowflakeConstants;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.Lifecycle;
+import org.springframework.context.SmartLifecycle;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.net.InetAddress;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.UUID;
 
 @Slf4j
 @Component
+@DependsOn("stringRedisTemplate")
 @RequiredArgsConstructor
-public class RedisWorkerIdAssigner implements WorkerIdAssigner {
+public class RedisWorkerIdAssigner implements WorkerIdAssigner, SmartLifecycle {
 
     private final StringRedisTemplate redisTemplate;
     private final SnowflakeProperties properties;
@@ -26,6 +30,7 @@ public class RedisWorkerIdAssigner implements WorkerIdAssigner {
     private Long allocatedWorkerId = null;
     private String currentServiceKey;
     private String instanceIdentifier;
+    private volatile boolean running = false;
 
     private static final String LUA_ASSIGN_SCRIPT =
             """
@@ -74,9 +79,10 @@ public class RedisWorkerIdAssigner implements WorkerIdAssigner {
             Long res = redisTemplate.execute(script, Collections.singletonList(prefix),
                     instanceIdentifier, String.valueOf(properties.getWorkerTtlSeconds()));
 
-            if (res != null && res >= 0) {
+            if (res >= 0) {
                 this.allocatedWorkerId = res;
                 this.currentServiceKey = prefix + allocatedWorkerId;
+                this.running = true;
                 log.info("[RedisWorkerIdAssigner] Successfully assigned WorkerID [{}] for service [{}] via Lua", allocatedWorkerId, serviceName);
                 return allocatedWorkerId;
             }
@@ -87,34 +93,80 @@ public class RedisWorkerIdAssigner implements WorkerIdAssigner {
         long fallbackId = Math.abs(instanceIdentifier.hashCode()) % (SnowflakeConstants.MAX_WORKER_ID + 1);
         log.warn("[RedisWorkerIdAssigner] Fallback to Hash WorkerID [{}] for service [{}]", fallbackId, serviceName);
         this.allocatedWorkerId = fallbackId;
+        this.running = true;
         return fallbackId;
     }
 
     @Scheduled(fixedRate = 10000)
     public void renewWorkerId() {
-        if (allocatedWorkerId != null && currentServiceKey != null && instanceIdentifier != null) {
-            try {
-                DefaultRedisScript<Long> script = new DefaultRedisScript<>(LUA_RENEW_SCRIPT, Long.class);
-                Long res = redisTemplate.execute(script, Collections.singletonList(currentServiceKey),
-                        instanceIdentifier, String.valueOf(properties.getWorkerTtlSeconds()));
-                if (res == null || res == 0) {
-                    log.warn("[RedisWorkerIdAssigner] Failed to renew WorkerID key [{}], ownership lost", currentServiceKey);
-                }
-            } catch (Exception e) {
-                log.warn("[RedisWorkerIdAssigner] Error renewing WorkerID key [{}]", currentServiceKey, e);
+        if (!running || allocatedWorkerId == null || currentServiceKey == null || instanceIdentifier == null) {
+            return;
+        }
+        try {
+            DefaultRedisScript<Long> script = new DefaultRedisScript<>(LUA_RENEW_SCRIPT, Long.class);
+            Long res = redisTemplate.execute(script, Collections.singletonList(currentServiceKey),
+                    instanceIdentifier, String.valueOf(properties.getWorkerTtlSeconds()));
+            if (res == 0) {
+                log.warn("[RedisWorkerIdAssigner] Failed to renew WorkerID key [{}], ownership lost", currentServiceKey);
             }
+        } catch (IllegalStateException e) {
+            log.debug("[RedisWorkerIdAssigner] Redis connection closed during renew: {}", e.getMessage());
+        } catch (Exception e) {
+            log.warn("[RedisWorkerIdAssigner] Error renewing WorkerID key [{}]", currentServiceKey, e);
         }
     }
 
     @PreDestroy
-    public void releaseWorkerId() {
+    public void cleanupOnPreDestroy() {
+        stop();
+    }
+
+    @Override
+    public synchronized void stop() {
+        if (!this.running && allocatedWorkerId == null) {
+            return;
+        }
+        this.running = false;
+        releaseWorkerId();
+    }
+
+    @Override
+    public void start() {
+        this.running = true;
+    }
+
+    @Override
+    public boolean isRunning() {
+        return this.running;
+    }
+
+    @Override
+    public int getPhase() {
+        return Integer.MAX_VALUE - 1000;
+    }
+
+    private synchronized void releaseWorkerId() {
         if (allocatedWorkerId != null && currentServiceKey != null && instanceIdentifier != null) {
+            String keyToRelease = currentServiceKey;
+            String idToRelease = instanceIdentifier;
+
+            this.allocatedWorkerId = null;
+            this.currentServiceKey = null;
+            this.instanceIdentifier = null;
+
             try {
+                RedisConnectionFactory connectionFactory = redisTemplate.getConnectionFactory();
+                if (connectionFactory instanceof Lifecycle lifecycle && !lifecycle.isRunning()) {
+                    log.debug("[RedisWorkerIdAssigner] Redis connection factory is already stopped, key [{}] will expire by TTL", keyToRelease);
+                    return;
+                }
                 DefaultRedisScript<Long> script = new DefaultRedisScript<>(LUA_RELEASE_SCRIPT, Long.class);
-                redisTemplate.execute(script, Collections.singletonList(currentServiceKey), instanceIdentifier);
-                log.info("[RedisWorkerIdAssigner] Released WorkerID key [{}]", currentServiceKey);
+                redisTemplate.execute(script, Collections.singletonList(keyToRelease), idToRelease);
+                log.info("[RedisWorkerIdAssigner] Released WorkerID key [{}]", keyToRelease);
+            } catch (IllegalStateException e) {
+                log.debug("[RedisWorkerIdAssigner] Redis connection factory stopped during shutdown, key [{}] will expire naturally by TTL", keyToRelease);
             } catch (Exception e) {
-                log.warn("[RedisWorkerIdAssigner] Failed to release WorkerID key [{}]", currentServiceKey, e);
+                log.debug("[RedisWorkerIdAssigner] Notice: WorkerID key [{}] could not be actively released (will expire by TTL): {}", keyToRelease, e.getMessage());
             }
         }
     }

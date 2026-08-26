@@ -1,0 +1,58 @@
+package com.humolix.volur.competition.controller.v1.admin.stage;
+
+import com.humolix.volur.competition.domain.dto.stage.ctf.CtfChallengeBatchMountRequestDTO;
+import com.humolix.volur.competition.domain.dto.stage.ctf.CtfChallengeMountRequestDTO;
+import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeVO;
+import com.humolix.volur.competition.service.admin.stage.AdminCtfMountService;
+import com.humolix.volur.framework.common.api.ApiResponse;
+import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@Tag(name = "管理端 CTF 赛题挂载", description = "管理员在比赛中挂载、批量挂载与卸载题库题目接口")
+@RestController
+@RequestMapping("/api/v1/admin/competitions/{competitionId}/stage/ctf/mount")
+@RequiredArgsConstructor
+public class AdminCtfMountController {
+
+    private final AdminCtfMountService mountService;
+
+    @Operation(summary = "获取当前比赛已挂载的 CTF 赛题列表")
+    @GetMapping
+    public ApiResponse<List<CtfCompetitionChallengeVO>> listMountedChallenges(@PathVariable Long competitionId) {
+        return ApiResponseEntity.ok("获取已挂载赛题成功", mountService.listMountedChallenges(competitionId));
+    }
+
+    @Operation(summary = "单个挂载题库题目到竞赛")
+    @PostMapping
+    public ApiResponse<Void> mountChallenge(
+            @PathVariable Long competitionId,
+            @Valid @RequestBody CtfChallengeMountRequestDTO request) {
+        mountService.mountChallenge(competitionId, request);
+        return ApiResponseEntity.success("挂载赛题成功");
+    }
+
+    @Operation(summary = "批量挂载题库题目到竞赛")
+    @PostMapping("/batch")
+    public ApiResponse<Void> batchMountChallenges(
+            @PathVariable Long competitionId,
+            @Valid @RequestBody CtfChallengeBatchMountRequestDTO request) {
+        mountService.batchMountChallenges(competitionId, request);
+        return ApiResponseEntity.success("批量挂载赛题成功");
+    }
+
+    @Operation(summary = "从竞赛中卸载赛题")
+    @DeleteMapping("/{competitionChallengeId}")
+    public ApiResponse<Void> unmountChallenge(
+            @PathVariable Long competitionId,
+            @PathVariable Long competitionChallengeId) {
+        mountService.unmountChallenge(competitionId, competitionChallengeId);
+        return ApiResponseEntity.success("卸载赛题成功");
+    }
+
+}

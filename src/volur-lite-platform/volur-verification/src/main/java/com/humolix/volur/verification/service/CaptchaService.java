@@ -4,6 +4,7 @@ import com.humolix.volur.verification.domain.dto.CaptchaVerifyDTO;
 import com.humolix.volur.verification.domain.vo.CaptchaResponseVO;
 import com.humolix.volur.verification.domain.vo.CaptchaTicketVO;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
+import com.humolix.volur.verification.risk.enums.CaptchaType;
 
 public interface CaptchaService {
 
@@ -18,5 +19,7 @@ public interface CaptchaService {
     CaptchaTicketVO verifyAndIssueTicket(CaptchaVerifyDTO request);
 
     boolean verifyTicket(String ticket, CaptchaScene scene);
+
+    boolean verifyTicket(String ticket, CaptchaScene scene, CaptchaType minRequiredType);
 
 }

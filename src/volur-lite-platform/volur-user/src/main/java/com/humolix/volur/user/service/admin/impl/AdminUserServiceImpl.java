@@ -1,69 +1,50 @@
 package com.humolix.volur.user.service.admin.impl;
 
-import cn.hutool.crypto.SmUtil;
+import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.SortUtils;
 import com.humolix.volur.user.domain.dto.AdminUserCreateRequestDTO;
 import com.humolix.volur.user.domain.dto.AdminUserUpdateRequestDTO;
-import com.humolix.volur.user.entity.Role;
-import com.humolix.volur.user.entity.User;
-import com.humolix.volur.user.entity.UserProfile;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.entity.UserProfile;
+import com.humolix.volur.user.domain.enums.UserRole;
+import com.humolix.volur.user.domain.vo.AdminUserDetailsVO;
+import com.humolix.volur.user.domain.vo.RoleVO;
 import com.humolix.volur.user.event.UserStatusAction;
 import com.humolix.volur.user.event.UserStatusChangedEvent;
-import com.humolix.volur.user.repository.RoleRepository;
+import com.humolix.volur.user.mapper.UserMapper;
 import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.user.service.admin.AdminUserService;
-import com.humolix.volur.user.domain.vo.AdminUserDetailsVO;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class AdminUserServiceImpl implements AdminUserService {
 
+    public static final String SUPER_ADMIN_USERNAME = "VolurSuperAdmin";
+
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
     private final UserProfileRepository userProfileRepository;
     private final ApplicationEventPublisher eventPublisher;
-
-    private AdminUserDetailsVO toAdminDetailsResponse(User user) {
-        if (user == null) return null;
-        UserProfile profile = user.getUserProfile();
-        return AdminUserDetailsVO.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .realName(user.getRealName())
-                .gender(user.getGender())
-                .birthday(user.getBirthday())
-                .role(user.getRole() != null ? user.getRole().getName() : "USER")
-                .org(profile != null ? profile.getOrg() : null)
-                .major(profile != null ? profile.getMajor() : null)
-                .bio(profile != null ? profile.getBio() : null)
-                .avatarUrl(profile != null ? profile.getAvatarUrl() : null)
-                .status(user.getStatus())
-                .isHidden(user.getIsHidden())
-                .lastLoginIp(user.getLastLoginIp())
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .build();
-    }
+    private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
-    public Page<AdminUserDetailsVO> getUserList(Integer page, Integer size, String keyword) {
+    public PageResponse<AdminUserDetailsVO> getUserList(Integer page, Integer size, String keyword) {
         Pageable pageable = SortUtils.createPageable(page, size);
         Specification<User> spec = (root, query, cb) -> {
             if (!StringUtils.hasText(keyword)) return null;
@@ -75,14 +56,14 @@ public class AdminUserServiceImpl implements AdminUserService {
                     cb.like(profileJoin.get("org"), pattern)
             );
         };
-        return userRepository.findAll(spec, pageable).map(this::toAdminDetailsResponse);
+        return PageResponse.of(userRepository.findAll(spec, pageable).map(userMapper::toAdminUserDetailsVO));
     }
 
     @Override
     public AdminUserDetailsVO getUserDetails(Long id) {
         User user = userRepository.findByIdWithProfileAndRole(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
-        return toAdminDetailsResponse(user);
+        return userMapper.toAdminUserDetailsVO(user);
     }
 
     @Override
@@ -96,10 +77,19 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new BusinessException(HttpStatus.CONFLICT, "邮箱已存在");
         }
 
-        Role role = roleRepository.findByName(StringUtils.hasText(request.getRoleName()) ? request.getRoleName() : "USER")
-                .orElseGet(() -> roleRepository.findByName("USER").orElse(null));
+        UserRole role = UserRole.USER;
+        if (StringUtils.hasText(request.getRoleName())) {
+            try {
+                role = UserRole.valueOf(request.getRoleName().trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "指定的角色不存在: " + request.getRoleName());
+            }
+            if (role == UserRole.SUPER_ADMIN) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "超级管理员(SUPER_ADMIN)仅限系统唯一账号" + SUPER_ADMIN_USERNAME + "，不可手动创建");
+            }
+        }
 
-        String encodedPassword = SmUtil.sm3(request.getPassword());
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
 
         User user = User.builder()
                 .username(request.getUsername())
@@ -108,8 +98,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .role(role)
                 .status(true)
                 .isHidden(false)
-                .totalPoints(0.001 - (System.currentTimeMillis() * 0.0000000000000001))
-                .solves(0L)
                 .build();
 
         User savedUser = userRepository.saveAndFlush(user);
@@ -130,7 +118,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 
+        boolean isSuperAdmin = SUPER_ADMIN_USERNAME.equals(user.getUsername());
+
         if (StringUtils.hasText(request.getUsername()) && !user.getUsername().equals(request.getUsername())) {
+            if (isSuperAdmin) {
+                throw new BusinessException(HttpStatus.FORBIDDEN, "超级管理员用户名不可变更");
+            }
             if (userRepository.existsByUsername(request.getUsername())) {
                 throw new BusinessException(HttpStatus.CONFLICT, "用户名已存在");
             }
@@ -145,16 +138,31 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
 
         if (StringUtils.hasText(request.getPassword())) {
-            user.setPassword(SmUtil.sm3(request.getPassword()));
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
         if (StringUtils.hasText(request.getRoleName())) {
-            Role role = roleRepository.findByName(request.getRoleName())
-                    .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "指定的角色不存在"));
-            user.setRole(role);
+            if (isSuperAdmin) {
+                if (!UserRole.SUPER_ADMIN.name().equalsIgnoreCase(request.getRoleName())) {
+                    throw new BusinessException(HttpStatus.FORBIDDEN, "超级管理员角色不可变更");
+                }
+            } else {
+                try {
+                    UserRole targetRole = UserRole.valueOf(request.getRoleName().trim().toUpperCase());
+                    if (targetRole == UserRole.SUPER_ADMIN) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST, "超级管理员在系统中只能存在一个(" + SUPER_ADMIN_USERNAME + ")，禁止分配超级管理员角色");
+                    }
+                    user.setRole(targetRole);
+                } catch (IllegalArgumentException e) {
+                    throw new BusinessException(HttpStatus.NOT_FOUND, "指定的角色不存在");
+                }
+            }
         }
 
         if (request.getStatus() != null) {
+            if (isSuperAdmin && Boolean.FALSE.equals(request.getStatus())) {
+                throw new BusinessException(HttpStatus.FORBIDDEN, "超级管理员账号不可禁用");
+            }
             user.setStatus(request.getStatus());
         }
 
@@ -173,6 +181,10 @@ public class AdminUserServiceImpl implements AdminUserService {
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+
+        if (SUPER_ADMIN_USERNAME.equals(user.getUsername())) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "超级管理员账号禁止删除");
+        }
 
         user.setStatus(false);
         long timestamp = System.currentTimeMillis();
@@ -197,7 +209,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional
-    public void toggleHiddenStatus(Long id, Boolean isHidden) {
+    public void toggleHiddenStatus(Long id, boolean isHidden) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
         user.setIsHidden(isHidden);
@@ -206,19 +218,25 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     @Transactional
-    public void toggleUserStatus(Long id, Boolean status) {
+    public void toggleUserStatus(Long id, boolean status) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        if (SUPER_ADMIN_USERNAME.equals(user.getUsername()) && !status) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "超级管理员账号不可禁用");
+        }
         user.setStatus(status);
         userRepository.save(user);
     }
 
     @Override
     @Transactional
-    public void toggleUsersStatus(List<Long> ids, Boolean status) {
+    public void toggleUsersStatus(List<Long> ids, boolean status) {
         if (ids != null) {
             List<User> users = userRepository.findAllById(ids);
             for (User user : users) {
+                if (SUPER_ADMIN_USERNAME.equals(user.getUsername()) && !status) {
+                    continue; // 跳过超级管理员，防止被意外批量禁用
+                }
                 user.setStatus(status);
             }
             userRepository.saveAll(users);
@@ -226,8 +244,13 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
-    public List<Role> getAllRoles() {
-        return roleRepository.findAll();
+    public List<RoleVO> getAllRoles() {
+        return Arrays.stream(UserRole.values())
+                .map(r -> RoleVO.builder()
+                        .name(r.name())
+                        .description(r.getDescription())
+                        .build())
+                .toList();
     }
 
 }

@@ -16,10 +16,18 @@
     <description>Core framework, common models, exceptions and middleware utilities</description>
 
     <dependencies>
-        <!-- Spring Boot Web Starter -->
+        <!-- Spring Boot Web & Security Core -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context-support</artifactId>
         </dependency>
 
         <!-- JPA Persistence API, Hibernate Core & Spring Data Commons -->
@@ -60,12 +68,6 @@
             <artifactId>mapstruct</artifactId>
         </dependency>
 
-        <!-- MyBatis Plus -->
-        <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-        </dependency>
-
         <!-- Hutool & JSON -->
         <dependency>
             <groupId>cn.hutool</groupId>
@@ -76,10 +78,10 @@
             <artifactId>fastjson2</artifactId>
         </dependency>
 
-        <!-- Knife4j / Swagger OpenAPI -->
+        <!-- SpringDoc OpenAPI WebMvc UI -->
         <dependency>
-            <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         </dependency>
 
         <!-- JWT -->
@@ -99,6 +101,15 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
         </dependency>
     </dependencies>
 </project>

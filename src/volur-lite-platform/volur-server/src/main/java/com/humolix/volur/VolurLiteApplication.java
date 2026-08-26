@@ -1,6 +1,5 @@
 package com.humolix.volur;
 
-import org.mybatis.spring.annotation.MapperScan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
@@ -16,12 +15,11 @@ import java.net.UnknownHostException;
 @EnableAsync
 @EnableScheduling
 @SpringBootApplication(scanBasePackages = "com.humolix.volur")
-@MapperScan("com.humolix.volur.**.mapper")
 public class VolurLiteApplication {
 
     private static final Logger log = LoggerFactory.getLogger(VolurLiteApplication.class);
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         long startTime = System.currentTimeMillis();
         ConfigurableApplicationContext context = SpringApplication.run(VolurLiteApplication.class, args);
         Environment env = context.getEnvironment();
@@ -60,8 +58,8 @@ public class VolurLiteApplication {
                 \tStartup Duration  : {} ms
                 \tLocal URL         : {}://localhost:{}{}
                 \tExternal URL      : {}://{}:{}{}
-                \tDoc (Knife4j)     : {}://localhost:{}{}doc.html
                 \tSwagger UI        : {}://localhost:{}{}swagger-ui/index.html
+                \tOpenAPI Spec      : {}://localhost:{}{}v3/api-docs
                 --------------------------------------------------------------------------------
                 """,
                 env.getProperty("spring.application.name", "volur-server"),

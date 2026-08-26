@@ -1,6 +1,6 @@
 package com.humolix.volur.auth.security.jwt;
 
-import com.humolix.volur.user.entity.User;
+import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.security.entity.UserDetails;
 import com.humolix.volur.auth.security.jwt.exception.InvalidTokenException;

@@ -1,0 +1,69 @@
+package com.humolix.volur.competition.domain.entity;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.humolix.volur.competition.domain.enums.MemberRole;
+import com.humolix.volur.competition.domain.enums.MemberStatus;
+import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
+import com.humolix.volur.user.domain.entity.User;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.io.Serializable;
+import java.time.Instant;
+
+@Entity
+@Table(name = "competition_member", indexes = {
+        @Index(name = "idx_comp_user_status", columnList = "competition_id, user_id, status"),
+        @Index(name = "idx_team_status", columnList = "team_id, status")
+})
+@DynamicUpdate
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class CompetitionMember implements Serializable {
+
+    @Id
+    @SnowflakeGenerated
+    @EqualsAndHashCode.Include
+    @Column(name = "id", nullable = false, updatable = false, unique = true, columnDefinition = "BIGINT")
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "competition_id", nullable = false, columnDefinition = "BIGINT")
+    @ToString.Exclude
+    private Competition competition;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id", nullable = false, columnDefinition = "BIGINT")
+    @JsonBackReference
+    @ToString.Exclude
+    private CompetitionTeam team;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, columnDefinition = "BIGINT")
+    private User user;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 32, columnDefinition = "VARCHAR(32)")
+    @Builder.Default
+    private MemberRole role = MemberRole.MEMBER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 32, columnDefinition = "VARCHAR(32)")
+    @Builder.Default
+    private MemberStatus status = MemberStatus.INVITED;
+
+    @CreationTimestamp
+    @Column(name = "joined_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    private Instant joinedAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+    private Instant updatedAt;
+
+}

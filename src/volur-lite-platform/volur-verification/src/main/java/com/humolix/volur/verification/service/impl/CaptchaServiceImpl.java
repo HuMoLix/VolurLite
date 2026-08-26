@@ -59,7 +59,7 @@ public class CaptchaServiceImpl implements CaptchaService {
         }
 
         RiskLevel riskLevel = riskEngine.evaluateRisk(ip, scene);
-        CaptchaType effectiveType = riskEngine.resolveEscalatedType(requestedType, riskLevel);
+        CaptchaType effectiveType = riskEngine.resolveEscalatedType(requestedType, riskLevel, scene);
 
         CaptchaProvider provider = providerManager.getProvider(effectiveType);
         CaptchaResponseVO response = provider.generate(scene, riskLevel);
@@ -75,38 +75,50 @@ public class CaptchaServiceImpl implements CaptchaService {
 
     @Override
     public boolean verifyCaptcha(String captchaId, String code, CaptchaScene scene) {
+        return verifyAndGetMatchedType(captchaId, code, scene) != null;
+    }
+
+    private CaptchaType verifyAndGetMatchedType(String captchaId, String code, CaptchaScene scene) {
         if (!StringUtils.hasText(captchaId) || !StringUtils.hasText(code)) {
-            return false;
+            return null;
         }
 
         CaptchaScene effectiveScene = scene != null ? scene : CaptchaScene.DEFAULT;
         String ip = RequestHolder.getRemoteIp();
 
-        // 尝试从各 Provider 校验
         for (CaptchaType type : CaptchaType.values()) {
             CaptchaProvider provider = providerManager.getProvider(type);
-            if (provider.verify(captchaId, code, effectiveScene)) {
+            if (provider != null && provider.verify(captchaId, code, effectiveScene)) {
                 riskEngine.recordSuccess(ip, effectiveScene);
-                return true;
+                return type;
             }
         }
 
         riskEngine.recordFailure(ip, effectiveScene);
-        return false;
+        return null;
     }
 
     @Override
     public CaptchaTicketVO verifyAndIssueTicket(CaptchaVerifyDTO request) {
         CaptchaScene scene = CaptchaScene.fromString(request.getScene());
-        boolean valid = verifyCaptcha(request.getCaptchaId(), request.getUserInput(), scene);
+        CaptchaType matchedType = verifyAndGetMatchedType(request.getCaptchaId(), request.getUserInput(), scene);
 
-        if (!valid) {
+        if (matchedType == null) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "人机验证未通过或已过期，请重新验证");
+        }
+
+        // 防降级校验：通过的验证类型必须满足场景最低基准
+        if (!matchedType.isAtLeast(scene.getMinRequiredType())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "该场景要求更高级别的人机验证，禁止降级");
         }
 
         String ticket = IdUtil.fastSimpleUUID();
         String ticketKey = VREDIS_VERIFICATION_CAPTCHA_TICKET_KEY_PREFIX + scene.name() + ":" + ticket;
-        redisTemplate.opsForValue().set(ticketKey, "VALID", Duration.ofMinutes(5));
+        String ip = RequestHolder.getRemoteIp();
+
+        // 写入结构化紧凑载荷: scene#verifiedType#ip#timestamp
+        String payload = scene.name() + "#" + matchedType.name() + "#" + (ip != null ? ip : "") + "#" + System.currentTimeMillis();
+        redisTemplate.opsForValue().set(ticketKey, payload, Duration.ofMinutes(5));
 
         return CaptchaTicketVO.builder()
                 .ticket(ticket)
@@ -117,17 +129,50 @@ public class CaptchaServiceImpl implements CaptchaService {
 
     @Override
     public boolean verifyTicket(String ticket, CaptchaScene scene) {
+        CaptchaScene effectiveScene = scene != null ? scene : CaptchaScene.DEFAULT;
+        return verifyTicket(ticket, effectiveScene, effectiveScene.getMinRequiredType());
+    }
+
+    @Override
+    public boolean verifyTicket(String ticket, CaptchaScene scene, CaptchaType minRequiredType) {
         if (!StringUtils.hasText(ticket)) {
             return false;
         }
         CaptchaScene effectiveScene = scene != null ? scene : CaptchaScene.DEFAULT;
         String ticketKey = VREDIS_VERIFICATION_CAPTCHA_TICKET_KEY_PREFIX + effectiveScene.name() + ":" + ticket;
-        String val = redisTemplate.opsForValue().get(ticketKey);
-        if (StringUtils.hasText(val)) {
-            redisTemplate.delete(ticketKey);
-            return true;
+
+        // 原子获取并删除 (防止重放攻击，用完即销毁)
+        String payload = redisTemplate.opsForValue().get(ticketKey);
+        if (!StringUtils.hasText(payload)) {
+            return false;
         }
-        return false;
+        redisTemplate.delete(ticketKey);
+
+        String[] parts = payload.split("#");
+        if (parts.length < 2) {
+            return true; // 兼容旧版格式
+        }
+
+        String payloadScene = parts[0];
+        String payloadType = parts[1];
+
+        if (!effectiveScene.name().equalsIgnoreCase(payloadScene)) {
+            log.warn("[Volur-Verification] Ticket 场景不匹配: expected={}, actual={}", effectiveScene.name(), payloadScene);
+            return false;
+        }
+
+        CaptchaType verifiedType = CaptchaType.fromString(payloadType);
+        if (verifiedType == null) {
+            return false;
+        }
+
+        CaptchaType requiredType = minRequiredType != null ? minRequiredType : effectiveScene.getMinRequiredType();
+        if (!verifiedType.isAtLeast(requiredType)) {
+            log.warn("[Volur-Verification] Ticket 验证码强度不足: required={}, actual={}", requiredType.name(), verifiedType.name());
+            return false;
+        }
+
+        return true;
     }
 
     private void checkRateLimit(String ip) {

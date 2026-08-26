@@ -1,0 +1,90 @@
+package com.humolix.volur.competition.domain.entity;
+
+import com.humolix.volur.competition.domain.enums.CompetitionStatus;
+import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
+import com.humolix.volur.user.domain.entity.User;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.io.Serializable;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "competition")
+@DynamicUpdate
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class Competition implements Serializable {
+
+    @Id
+    @SnowflakeGenerated
+    @EqualsAndHashCode.Include
+    @Column(name = "id", nullable = false, updatable = false, unique = true, columnDefinition = "BIGINT")
+    private Long id;
+
+    @Column(name = "title", nullable = false, length = 128, columnDefinition = "VARCHAR(128)")
+    private String title;
+
+    @Column(name = "slug", nullable = false, unique = true, length = 64, columnDefinition = "VARCHAR(64)")
+    private String slug;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "banner_url", columnDefinition = "VARCHAR(255)")
+    private String bannerUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, columnDefinition = "VARCHAR(32)")
+    @Builder.Default
+    private CompetitionStatus status = CompetitionStatus.DRAFT;
+
+    @Column(name = "reg_start_time")
+    private Instant regStartTime;
+
+    @Column(name = "reg_end_time")
+    private Instant regEndTime;
+
+    @Column(name = "start_time", nullable = false)
+    private Instant startTime;
+
+    @Column(name = "end_time", nullable = false)
+    private Instant endTime;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id", columnDefinition = "BIGINT")
+    private User createdBy;
+
+    @OneToOne(mappedBy = "competition", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    private CompetitionConfig config;
+
+    @OneToMany(mappedBy = "competition", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("stageOrder ASC")
+    @ToString.Exclude
+    @Builder.Default
+    private List<CompetitionStageConfig> stageConfigs = new ArrayList<>();
+
+    @OneToMany(mappedBy = "competition", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    @ToString.Exclude
+    @Builder.Default
+    private List<CompetitionFieldSchema> fieldSchemas = new ArrayList<>();
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+    private Instant updatedAt;
+
+}

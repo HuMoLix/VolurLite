@@ -1,38 +1,47 @@
 package com.humolix.volur.container.controller.v1;
 
-import com.humolix.volur.auth.security.util.SecurityUtils;
 import com.humolix.volur.container.service.CtfInstanceService;
-import com.humolix.volur.container.vo.CtfTrainingChallengeInstanceResponseVO;
+import com.humolix.volur.container.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import com.humolix.volur.framework.security.annotation.CurrentUserId;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "赛题靶机容器管理", description = "动态靶机容器启动、销毁与租期延长接口")
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/v1/challenges/instances")
+@RequiredArgsConstructor
 public class CtfInstanceController {
 
     private final CtfInstanceService instanceService;
 
+    @Operation(summary = "启动靶机容器")
     @PostMapping("/{challengeId}/start")
-    public ApiResponse<CtfTrainingChallengeInstanceResponseVO> startInstance(@PathVariable Long challengeId) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        CtfTrainingChallengeInstanceResponseVO vo = instanceService.startTrainingInstance(challengeId, userId);
+    public ApiResponse<ChallengeInstanceResponseVO> startInstance(
+            @PathVariable Long challengeId,
+            @CurrentUserId Long userId) {
+        ChallengeInstanceResponseVO vo = instanceService.startInstance(challengeId, userId);
         return ApiResponseEntity.ok("容器启动成功", vo);
     }
 
+    @Operation(summary = "销毁/停止靶机容器")
     @PostMapping("/{challengeId}/stop")
-    public ApiResponse<Void> stopInstance(@PathVariable Long challengeId) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        instanceService.stopTrainingInstance(challengeId, userId);
+    public ApiResponse<Void> stopInstance(
+            @PathVariable Long challengeId,
+            @CurrentUserId Long userId) {
+        instanceService.stopInstance(challengeId, userId);
         return ApiResponseEntity.success("容器销毁成功");
     }
 
+    @Operation(summary = "延长靶机容器租期")
     @PostMapping("/{challengeId}/extend")
-    public ApiResponse<CtfTrainingChallengeInstanceResponseVO> extendInstance(@PathVariable Long challengeId) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        CtfTrainingChallengeInstanceResponseVO vo = instanceService.extendTrainingInstance(challengeId, userId);
+    public ApiResponse<ChallengeInstanceResponseVO> extendInstance(
+            @PathVariable Long challengeId,
+            @CurrentUserId Long userId) {
+        ChallengeInstanceResponseVO vo = instanceService.extendInstance(challengeId, userId);
         return ApiResponseEntity.ok("容器延期成功", vo);
     }
 

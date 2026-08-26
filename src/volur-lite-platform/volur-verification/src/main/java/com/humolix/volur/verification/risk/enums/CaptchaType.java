@@ -1,13 +1,28 @@
 package com.humolix.volur.verification.risk.enums;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
 
+@Getter
+@RequiredArgsConstructor
 public enum CaptchaType {
-    LINE,
-    MATH,
-    SHEAR,
-    SLIDE_PUZZLE,
-    CLOUD_TURNSTILE;
+
+    LINE(1, "线段干扰验证码"),
+    MATH(2, "算术计算验证码"),
+    SHEAR(2, "扭曲字符验证码"),
+    SLIDE_PUZZLE(3, "滑块拼图验证码"),
+    CLOUD_TURNSTILE(4, "云端智能核验");
+
+    private final int level;
+    private final String description;
+
+    public boolean isAtLeast(CaptchaType requiredType) {
+        if (requiredType == null) {
+            return true;
+        }
+        return this.level >= requiredType.level;
+    }
 
     public static CaptchaType fromString(String typeStr) {
         if (!StringUtils.hasText(typeStr)) {
@@ -20,4 +35,5 @@ public enum CaptchaType {
         }
         return null;
     }
+
 }

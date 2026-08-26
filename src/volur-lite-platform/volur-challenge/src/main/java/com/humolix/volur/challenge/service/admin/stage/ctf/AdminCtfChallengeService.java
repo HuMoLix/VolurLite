@@ -1,20 +1,20 @@
 package com.humolix.volur.challenge.service.admin.stage.ctf;
 
-import com.humolix.volur.challenge.object.dto.stage.ctf.CtfChallengeCreateRequestDTO;
-import com.humolix.volur.challenge.object.dto.stage.ctf.CtfChallengeUpdateRequestDTO;
-import com.humolix.volur.challenge.object.vo.admin.AdminChallengeDetailResponseVO;
-import com.humolix.volur.challenge.object.vo.admin.AdminChallengeListResponseVO;
-import org.springframework.data.domain.Page;
+import com.humolix.volur.challenge.domain.dto.stage.ctf.CtfChallengeCreateRequestDTO;
+import com.humolix.volur.challenge.domain.dto.stage.ctf.CtfChallengeUpdateRequestDTO;
+import com.humolix.volur.challenge.domain.vo.stage.ctf.CtfChallengeDetailVO;
+import com.humolix.volur.challenge.domain.vo.stage.ctf.CtfChallengeListVO;
+import com.humolix.volur.framework.common.api.PageResponse;
 
 public interface AdminCtfChallengeService {
 
-    Page<AdminChallengeListResponseVO> pageChallenges(Integer page, Integer size, Long categoryId, String keyword);
+    PageResponse<CtfChallengeListVO> listChallenges(Integer page, Integer size, Long categoryId, String keyword);
 
-    AdminChallengeDetailResponseVO getChallengeDetail(Long id);
+    CtfChallengeDetailVO getChallenge(Long id);
 
-    AdminChallengeDetailResponseVO createChallenge(CtfChallengeCreateRequestDTO request, Long authorId);
+    Long createChallenge(CtfChallengeCreateRequestDTO request, Long authorId);
 
-    AdminChallengeDetailResponseVO updateChallenge(Long id, CtfChallengeUpdateRequestDTO request);
+    void updateChallenge(Long id, CtfChallengeUpdateRequestDTO request);
 
     void deleteChallenge(Long id);
 

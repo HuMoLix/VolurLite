@@ -1,0 +1,32 @@
+package com.humolix.volur.competition.domain.vo.stage.ctf;
+
+import com.humolix.volur.challenge.domain.enums.ChallengeType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CtfCompetitionChallengeVO implements Serializable {
+
+    private Long id; // competition challenge id
+    private Long challengeId; // bank challenge id
+    private String name;
+    private Long categoryId;
+    private String categoryName;
+    private ChallengeType type;
+    private Integer difficulty;
+    private Integer initialPoints;
+    private Integer currentPoints;
+    private Integer solvesCount;
+    private Boolean isSolvedByMyTeam;
+    private Long stageId;
+    private String stageName;
+    private Integer sortOrder;
+
+}

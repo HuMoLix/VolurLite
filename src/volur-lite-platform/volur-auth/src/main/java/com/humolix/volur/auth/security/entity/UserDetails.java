@@ -1,7 +1,8 @@
 package com.humolix.volur.auth.security.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.humolix.volur.user.entity.User;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.framework.security.UserIdentity;
 import lombok.Getter;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.security.core.GrantedAuthority;
@@ -10,11 +11,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-public class UserDetails implements org.springframework.security.core.userdetails.UserDetails, Serializable {
+public class UserDetails implements org.springframework.security.core.userdetails.UserDetails, UserIdentity, Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -30,9 +30,9 @@ public class UserDetails implements org.springframework.security.core.userdetail
 
     private Collection<? extends GrantedAuthority> calculateAuthorities(User user) {
         if (user.getRole() == null) {
-            return Collections.emptyList();
+            return List.of(new SimpleGrantedAuthority("ROLE_USER"));
         }
-        String roleName = user.getRole().getName();
+        String roleName = user.getRole().name();
         if (!roleName.startsWith("ROLE_")) {
             roleName = "ROLE_" + roleName;
         }

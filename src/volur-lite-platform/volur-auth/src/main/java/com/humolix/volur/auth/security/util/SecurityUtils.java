@@ -1,6 +1,6 @@
 package com.humolix.volur.auth.security.util;
 
-import com.humolix.volur.user.entity.User;
+import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.auth.security.entity.UserDetails;
 import org.springframework.http.HttpStatus;
@@ -84,11 +84,11 @@ public final class SecurityUtils {
     }
 
     public static boolean isSuperAdmin() {
-        return hasRole("SUPERADMIN");
+        return hasAnyRole("SUPER_ADMIN", "SUPERADMIN");
     }
 
     public static boolean isAdmin() {
-        return hasAnyRole("ADMIN", "SUPERADMIN");
+        return hasAnyRole("ADMIN", "SUPER_ADMIN", "SUPERADMIN");
     }
 
     public static void logout() {

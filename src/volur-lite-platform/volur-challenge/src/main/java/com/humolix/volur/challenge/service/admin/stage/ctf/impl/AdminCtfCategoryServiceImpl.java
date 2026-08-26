@@ -1,25 +1,22 @@
 package com.humolix.volur.challenge.service.admin.stage.ctf.impl;
 
-import com.humolix.volur.challenge.entity.stage.ctf.CtfChallengeCategory;
-import com.humolix.volur.challenge.object.dto.stage.ctf.CtfChallengeCategoryCreateRequestDTO;
-import com.humolix.volur.challenge.object.dto.stage.ctf.CtfChallengeCategoryUpdateRequestDTO;
-import com.humolix.volur.challenge.object.vo.stage.ctf.CtfChallengeCategoryResponseVO;
+import com.humolix.volur.challenge.domain.dto.stage.ctf.CtfCategoryCreateRequestDTO;
+import com.humolix.volur.challenge.domain.dto.stage.ctf.CtfCategoryUpdateRequestDTO;
+import com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallengeCategory;
+import com.humolix.volur.challenge.domain.vo.stage.ctf.CtfCategoryVO;
+import com.humolix.volur.challenge.mapper.ChallengeMapper;
 import com.humolix.volur.challenge.repository.stage.ctf.CtfChallengeCategoryRepository;
 import com.humolix.volur.challenge.repository.stage.ctf.CtfChallengeRepository;
 import com.humolix.volur.challenge.service.admin.stage.ctf.AdminCtfCategoryService;
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.common.util.SortUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,81 +24,67 @@ public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
 
     private final CtfChallengeCategoryRepository categoryRepository;
     private final CtfChallengeRepository challengeRepository;
+    private final ChallengeMapper challengeMapper;
 
-    private CtfChallengeCategoryResponseVO toResponseVO(CtfChallengeCategory cat) {
-        if (cat == null) return null;
-        return CtfChallengeCategoryResponseVO.builder()
-                .id(cat.getId())
-                .name(cat.getName())
-                .description(cat.getDescription())
-                .iconUrl(cat.getIconUrl())
-                .build();
+    @Override
+    public List<CtfCategoryVO> listCategories() {
+        return challengeMapper.toCtfCategoryVOList(
+                categoryRepository.findAll(Sort.by(Sort.Direction.ASC, "sortOrder", "id"))
+        );
     }
 
     @Override
-    public List<CtfChallengeCategoryResponseVO> listCategories() {
-        return categoryRepository.findAll().stream()
-                .map(this::toResponseVO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public Page<CtfChallengeCategoryResponseVO> pageCategories(Integer page, Integer size, String keyword) {
-        Pageable pageable = SortUtils.createPageable(page, size);
-        Specification<CtfChallengeCategory> spec = (root, query, cb) -> {
-            if (StringUtils.hasText(keyword)) {
-                return cb.like(root.get("name"), "%" + keyword + "%");
-            }
-            return cb.conjunction();
-        };
-        return categoryRepository.findAll(spec, pageable).map(this::toResponseVO);
+    public CtfCategoryVO getCategory(Long id) {
+        CtfChallengeCategory category = categoryRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "分类不存在"));
+        return challengeMapper.toCtfCategoryVO(category);
     }
 
     @Override
     @Transactional
-    public CtfChallengeCategoryResponseVO createCategory(CtfChallengeCategoryCreateRequestDTO request) {
-        if (categoryRepository.findByName(request.getName()).isPresent()) {
+    public Long createCategory(CtfCategoryCreateRequestDTO request) {
+        if (categoryRepository.existsByName(request.getName().trim())) {
             throw new BusinessException(HttpStatus.CONFLICT, "分类名称已存在");
         }
 
-        CtfChallengeCategory cat = CtfChallengeCategory.builder()
-                .name(request.getName())
+        CtfChallengeCategory category = CtfChallengeCategory.builder()
+                .name(request.getName().trim())
                 .description(request.getDescription())
-                .iconUrl(request.getIconUrl())
+                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
                 .build();
 
-        CtfChallengeCategory saved = categoryRepository.save(cat);
-        return toResponseVO(saved);
+        return categoryRepository.save(category).getId();
     }
 
     @Override
     @Transactional
-    public CtfChallengeCategoryResponseVO updateCategory(Long id, CtfChallengeCategoryUpdateRequestDTO request) {
-        CtfChallengeCategory cat = categoryRepository.findById(id)
+    public void updateCategory(Long id, CtfCategoryUpdateRequestDTO request) {
+        CtfChallengeCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "分类不存在"));
 
-        if (StringUtils.hasText(request.getName())) {
-            cat.setName(request.getName());
-        }
-        if (request.getDescription() != null) {
-            cat.setDescription(request.getDescription());
-        }
-        if (request.getIconUrl() != null) {
-            cat.setIconUrl(request.getIconUrl());
+        if (StringUtils.hasText(request.getName()) && !category.getName().equals(request.getName().trim())) {
+            if (categoryRepository.existsByName(request.getName().trim())) {
+                throw new BusinessException(HttpStatus.CONFLICT, "分类名称已存在");
+            }
+            category.setName(request.getName().trim());
         }
 
-        return toResponseVO(categoryRepository.save(cat));
+        if (request.getDescription() != null) {
+            category.setDescription(request.getDescription());
+        }
+
+        if (request.getSortOrder() != null) {
+            category.setSortOrder(request.getSortOrder());
+        }
+
+        categoryRepository.save(category);
     }
 
     @Override
     @Transactional
     public void deleteCategory(Long id) {
-        if (!categoryRepository.existsById(id)) {
-            throw new BusinessException(HttpStatus.NOT_FOUND, "分类不存在");
-        }
-        Long challengeCount = challengeRepository.countByCategoryId(id);
-        if (challengeCount != null && challengeCount > 0) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "该分类下存在题目，无法直接删除");
+        if (challengeRepository.existsByCategoryId(id)) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该分类下存在题目，无法删除");
         }
         categoryRepository.deleteById(id);
     }

@@ -46,14 +46,28 @@ public class RiskEvaluationEngine {
         return RiskLevel.LOW;
     }
 
-    public CaptchaType resolveEscalatedType(CaptchaType requestedType, RiskLevel riskLevel) {
+    public CaptchaType resolveEscalatedType(CaptchaType requestedType, RiskLevel riskLevel, CaptchaScene scene) {
+        CaptchaScene effectiveScene = scene != null ? scene : CaptchaScene.DEFAULT;
+        CaptchaType minType = effectiveScene.getMinRequiredType();
+
+        CaptchaType baseType;
+        if (requestedType == null || !requestedType.isAtLeast(minType)) {
+            baseType = minType;
+        } else {
+            baseType = requestedType;
+        }
+
         if (riskLevel == RiskLevel.HIGH) {
-            return CaptchaType.SLIDE_PUZZLE;
+            return baseType.isAtLeast(CaptchaType.SLIDE_PUZZLE) ? baseType : CaptchaType.SLIDE_PUZZLE;
         }
         if (riskLevel == RiskLevel.MEDIUM) {
-            return requestedType == CaptchaType.SLIDE_PUZZLE ? CaptchaType.SLIDE_PUZZLE : CaptchaType.SHEAR;
+            if (baseType == CaptchaType.LINE) {
+                return CaptchaType.SHEAR;
+            }
+            return baseType;
         }
-        return requestedType != null ? requestedType : CaptchaType.LINE;
+
+        return baseType;
     }
 
     public void recordFailure(String ip, CaptchaScene scene) {

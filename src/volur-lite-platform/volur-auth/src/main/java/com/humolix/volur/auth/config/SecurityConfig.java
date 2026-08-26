@@ -1,6 +1,7 @@
 package com.humolix.volur.auth.config;
 
 import com.humolix.volur.auth.security.crypto.Sm3AuthProvider;
+import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.exception.SecurityAccessDeniedHandler;
 import com.humolix.volur.auth.security.exception.SecurityAuthenticationEntryPoint;
 import com.humolix.volur.auth.security.jwt.JwtAuthFilter;
@@ -17,6 +18,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -27,16 +29,21 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final Sm3AuthProvider sm3AuthProvider;
+    private final Sm3PasswordEncoder sm3PasswordEncoder;
     private final JwtAuthFilter jwtAuthFilter;
     private final SecurityAccessDeniedHandler securityAccessDeniedHandler;
     private final SecurityAuthenticationEntryPoint securityAuthenticationEntryPoint;
 
     @Bean
+    public PasswordEncoder passwordEncoder() {
+        return sm3PasswordEncoder;
+    }
+
+    @Bean
     public RoleHierarchy roleHierarchy() {
         return RoleHierarchyImpl.withDefaultRolePrefix()
-                .role("SUPERADMIN").implies("ADMIN")
-                .role("ADMIN").implies("TEACHER")
-                .role("TEACHER").implies("USER")
+                .role("SUPER_ADMIN").implies("ADMIN")
+                .role("ADMIN").implies("USER")
                 .build();
     }
 
@@ -72,7 +79,7 @@ public class SecurityConfig {
                                 "/api/v1/verification/**",
                                 "/api/v1/rank/**"
                         ).permitAll()
-                        .requestMatchers("/api/v1/ws/**", "/ws/**", "/api/v1/terminal/**").permitAll()
+                        .requestMatchers("/api/v1/ws/**", "/ws/**", "/api/v1/terminal/**", "/api/v1/realtime/stream").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/", "/index.html", "/static/**", "/api/v1/uploads/**", "/api/v1/system/settings/public").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/doc.html", "/webjars/**").permitAll()

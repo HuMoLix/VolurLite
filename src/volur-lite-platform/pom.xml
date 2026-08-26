@@ -26,7 +26,8 @@
         <module>volur-auth</module>
         <module>volur-challenge</module>
         <module>volur-container</module>
-        <module>volur-scoreboard</module>
+        <module>volur-competition</module>
+        <module>volur-notification</module>
         <module>volur-server</module>
     </modules>
 
@@ -42,13 +43,12 @@
 
         <!-- Third-party Dependency Versions aligned with VolurCTF -->
         <jjwt.version>0.13.0</jjwt.version>
-        <mybatis-plus.version>3.5.10.1</mybatis-plus.version>
         <mysql.version>9.7.0</mysql.version>
         <bouncycastle.version>1.85</bouncycastle.version>
         <hutool.version>5.8.47</hutool.version>
         <fastjson2.version>2.0.56</fastjson2.version>
-        <knife4j.version>4.5.0</knife4j.version>
-        <docker-java.version>3.7.1</docker-java.version>
+        <springdoc.version>3.1.0</springdoc.version>
+        <fabric8-kubernetes.version>7.8.0</fabric8-kubernetes.version>
         <caffeine.version>3.2.0</caffeine.version>
         <mapstruct.version>1.7.0.Beta1</mapstruct.version>
         <lombok.version>1.18.46</lombok.version>
@@ -94,7 +94,12 @@
             </dependency>
             <dependency>
                 <groupId>com.humolix.volur</groupId>
-                <artifactId>volur-scoreboard</artifactId>
+                <artifactId>volur-competition</artifactId>
+                <version>${volur.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.humolix.volur</groupId>
+                <artifactId>volur-notification</artifactId>
                 <version>${volur.version}</version>
             </dependency>
 
@@ -108,13 +113,6 @@
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcpkix-jdk18on</artifactId>
                 <version>${bouncycastle.version}</version>
-            </dependency>
-
-            <!-- MyBatis Plus -->
-            <dependency>
-                <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-                <version>${mybatis-plus.version}</version>
             </dependency>
 
             <!-- MySQL Connector -->
@@ -143,23 +141,18 @@
                 <scope>runtime</scope>
             </dependency>
 
-            <!-- Docker Java Client for Container Dispatching -->
+            <!-- K3s / Kubernetes Client for Container Dispatching -->
             <dependency>
-                <groupId>com.github.docker-java</groupId>
-                <artifactId>docker-java-core</artifactId>
-                <version>${docker-java.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.github.docker-java</groupId>
-                <artifactId>docker-java-transport-httpclient5</artifactId>
-                <version>${docker-java.version}</version>
+                <groupId>io.fabric8</groupId>
+                <artifactId>kubernetes-client</artifactId>
+                <version>${fabric8-kubernetes.version}</version>
             </dependency>
 
-            <!-- OpenAPI / Swagger / Knife4j -->
+            <!-- SpringDoc OpenAPI WebMvc UI -->
             <dependency>
-                <groupId>com.github.xiaoymin</groupId>
-                <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
-                <version>${knife4j.version}</version>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
             </dependency>
 
             <!-- Hutool & JSON Utilities -->

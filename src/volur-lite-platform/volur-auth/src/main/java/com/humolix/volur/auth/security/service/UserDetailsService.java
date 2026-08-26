@@ -1,7 +1,7 @@
 package com.humolix.volur.auth.security.service;
 
 import com.humolix.volur.auth.security.entity.UserDetails;
-import com.humolix.volur.user.entity.User;
+import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
