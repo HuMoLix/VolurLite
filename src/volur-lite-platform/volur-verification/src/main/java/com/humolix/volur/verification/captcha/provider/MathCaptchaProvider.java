@@ -21,7 +21,7 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class MathCaptchaProvider implements CaptchaProvider {
 
-    private static final String VREDIS_CAPTCHA_IMAGE_KEY_PREFIX = "vredis:verification:captcha:image:";
+    private static final String VREDIS_CAPTCHA_MATH_KEY_PREFIX = "vredis:verification:captcha:math:";
     private static final String CAPTCHA_IMAGE_TYPE = "data:image/png;base64,";
     private static final int WIDTH = 130;
     private static final int HEIGHT = 48;
@@ -49,7 +49,7 @@ public class MathCaptchaProvider implements CaptchaProvider {
         // Calculate result:
         String calculatedAnswer = computeMathResult(code);
 
-        String redisKey = VREDIS_CAPTCHA_IMAGE_KEY_PREFIX + scene.name() + ":" + captchaId;
+        String redisKey = VREDIS_CAPTCHA_MATH_KEY_PREFIX + scene.name() + ":" + captchaId;
         redisTemplate.opsForValue().set(redisKey, calculatedAnswer, Duration.ofMinutes(2));
 
         return CaptchaResponseVO.builder()
@@ -84,8 +84,13 @@ public class MathCaptchaProvider implements CaptchaProvider {
         if (!StringUtils.hasText(captchaId) || !StringUtils.hasText(userInput)) {
             return false;
         }
-        String redisKey = VREDIS_CAPTCHA_IMAGE_KEY_PREFIX + scene.name() + ":" + captchaId;
+        CaptchaScene effectiveScene = scene != null ? scene : CaptchaScene.DEFAULT;
+        String redisKey = VREDIS_CAPTCHA_MATH_KEY_PREFIX + effectiveScene.name() + ":" + captchaId;
         String storedAnswer = redisTemplate.opsForValue().get(redisKey);
+        if (!StringUtils.hasText(storedAnswer) && effectiveScene != CaptchaScene.DEFAULT) {
+            redisKey = VREDIS_CAPTCHA_MATH_KEY_PREFIX + CaptchaScene.DEFAULT.name() + ":" + captchaId;
+            storedAnswer = redisTemplate.opsForValue().get(redisKey);
+        }
         if (!StringUtils.hasText(storedAnswer)) {
             return false;
         }

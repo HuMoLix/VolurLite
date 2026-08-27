@@ -19,7 +19,7 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class SlidePuzzleCaptchaProvider implements CaptchaProvider {
 
-    private static final String VREDIS_CAPTCHA_IMAGE_KEY_PREFIX = "vredis:verification:captcha:image:";
+    private static final String VREDIS_CAPTCHA_SLIDE_KEY_PREFIX = "vredis:verification:captcha:slide:";
     private static final int TOLERANCE_PIXELS = 6;
 
     private final SlidePuzzleEngine slidePuzzleEngine;
@@ -35,7 +35,7 @@ public class SlidePuzzleCaptchaProvider implements CaptchaProvider {
         SlidePuzzleEngine.PuzzleResult puzzle = slidePuzzleEngine.generatePuzzle();
         String captchaId = IdUtil.fastSimpleUUID();
 
-        String redisKey = VREDIS_CAPTCHA_IMAGE_KEY_PREFIX + scene.name() + ":" + captchaId;
+        String redisKey = VREDIS_CAPTCHA_SLIDE_KEY_PREFIX + scene.name() + ":" + captchaId;
         redisTemplate.opsForValue().set(redisKey, String.valueOf(puzzle.x()), Duration.ofMinutes(2));
 
         return CaptchaResponseVO.builder()
@@ -53,8 +53,13 @@ public class SlidePuzzleCaptchaProvider implements CaptchaProvider {
             return false;
         }
 
-        String redisKey = VREDIS_CAPTCHA_IMAGE_KEY_PREFIX + scene.name() + ":" + captchaId;
+        CaptchaScene effectiveScene = scene != null ? scene : CaptchaScene.DEFAULT;
+        String redisKey = VREDIS_CAPTCHA_SLIDE_KEY_PREFIX + effectiveScene.name() + ":" + captchaId;
         String storedX = redisTemplate.opsForValue().get(redisKey);
+        if (!StringUtils.hasText(storedX) && effectiveScene != CaptchaScene.DEFAULT) {
+            redisKey = VREDIS_CAPTCHA_SLIDE_KEY_PREFIX + CaptchaScene.DEFAULT.name() + ":" + captchaId;
+            storedX = redisTemplate.opsForValue().get(redisKey);
+        }
         if (!StringUtils.hasText(storedX)) {
             return false;
         }

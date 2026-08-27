@@ -10,6 +10,7 @@ import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
+import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -41,6 +42,7 @@ public class AdminAwdChallengeController {
     }
 
     @Operation(summary = "创建 AWD 题目")
+    @Syslog(module = "CHALLENGE", value = "创建 AWD 题目", recordParams = true)
     @PostMapping
     public ApiResponse<Long> createChallenge(
             @Valid @RequestBody AwdChallengeCreateRequestDTO request,
@@ -49,6 +51,7 @@ public class AdminAwdChallengeController {
     }
 
     @Operation(summary = "更新 AWD 题目")
+    @Syslog(module = "CHALLENGE", value = "更新 AWD 题目", recordParams = true)
     @PutMapping("/{id}")
     public ApiResponse<Void> updateChallenge(
             @PathVariable Long id,
@@ -58,6 +61,7 @@ public class AdminAwdChallengeController {
     }
 
     @Operation(summary = "删除 AWD 题目")
+    @Syslog(module = "CHALLENGE", value = "删除 AWD 题目", recordParams = true)
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteChallenge(@PathVariable Long id) {
         awdService.deleteChallenge(id);

@@ -28,6 +28,7 @@
         <module>volur-container</module>
         <module>volur-competition</module>
         <module>volur-notification</module>
+        <module>volur-logging</module>
         <module>volur-server</module>
     </modules>
 
@@ -100,6 +101,11 @@
             <dependency>
                 <groupId>com.humolix.volur</groupId>
                 <artifactId>volur-notification</artifactId>
+                <version>${volur.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.humolix.volur</groupId>
+                <artifactId>volur-logging</artifactId>
                 <version>${volur.version}</version>
             </dependency>
 

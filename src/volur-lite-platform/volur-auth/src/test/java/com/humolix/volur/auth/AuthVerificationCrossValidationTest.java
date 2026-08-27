@@ -66,8 +66,8 @@ public class AuthVerificationCrossValidationTest {
 
     @Test
     public void testRegisterRequiresValidCaptchaTicketWhenCaptchaEnabled() {
-        when(systemSettingService.getBoolean("REGISTER_ENABLED", true)).thenReturn(true);
-        when(systemSettingService.getBoolean("ENABLE_CAPTCHA", false)).thenReturn(true);
+        when(systemSettingService.getBoolean("system.auth.registration_enabled", true)).thenReturn(true);
+        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(true);
         when(captchaService.verifyTicket(eq("invalid_ticket"), eq(CaptchaScene.REGISTER))).thenReturn(false);
 
         RegisterRequestDTO request = new RegisterRequestDTO();
@@ -81,10 +81,10 @@ public class AuthVerificationCrossValidationTest {
 
     @Test
     public void testRegisterPassesWhenCaptchaTicketIsValid() {
-        when(systemSettingService.getBoolean("REGISTER_ENABLED", true)).thenReturn(true);
-        when(systemSettingService.getBoolean("ENABLE_CAPTCHA", false)).thenReturn(true);
+        when(systemSettingService.getBoolean("system.auth.registration_enabled", true)).thenReturn(true);
+        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(true);
         when(captchaService.verifyTicket(eq("valid_slide_ticket"), eq(CaptchaScene.REGISTER))).thenReturn(true);
-        when(systemSettingService.getBoolean("REQUIRE_EMAIL_VERIFICATION", false)).thenReturn(false);
+        when(systemSettingService.getBoolean("system.auth.require_email_verification", false)).thenReturn(false);
         when(userRepository.existsByUsername("testuser")).thenReturn(false);
         when(userRepository.existsByEmail("testuser@volur.local")).thenReturn(false);
         when(userRepository.saveAndFlush(any())).thenAnswer(invocation -> {
@@ -104,9 +104,9 @@ public class AuthVerificationCrossValidationTest {
 
     @Test
     public void testRegisterFailsWhenEmailVerificationFails() {
-        when(systemSettingService.getBoolean("REGISTER_ENABLED", true)).thenReturn(true);
-        when(systemSettingService.getBoolean("ENABLE_CAPTCHA", false)).thenReturn(false);
-        when(systemSettingService.getBoolean("REQUIRE_EMAIL_VERIFICATION", false)).thenReturn(true);
+        when(systemSettingService.getBoolean("system.auth.registration_enabled", true)).thenReturn(true);
+        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(false);
+        when(systemSettingService.getBoolean("system.auth.require_email_verification", false)).thenReturn(true);
         when(userRepository.existsByUsername("testuser")).thenReturn(false);
         when(userRepository.existsByEmail("testuser@volur.local")).thenReturn(false);
         when(emailService.verifyCode("testuser@volur.local", "wrong_code")).thenReturn(false);
@@ -120,4 +120,41 @@ public class AuthVerificationCrossValidationTest {
         Assertions.assertThrows(InvalidCaptchaException.class, () -> authService.register(request));
     }
 
+    @Test
+    public void testRegisterFailsWhenUsernameExists() {
+        when(systemSettingService.getBoolean("system.auth.registration_enabled", true)).thenReturn(true);
+        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(false);
+        when(userRepository.existsByUsername("testuser")).thenReturn(true);
+
+        RegisterRequestDTO request = new RegisterRequestDTO();
+        request.setUsername("testuser");
+        request.setPassword("Password123#");
+        request.setEmail("testuser@volur.local");
+
+        com.humolix.volur.auth.exception.UserOrEmailExistException ex =
+                Assertions.assertThrows(com.humolix.volur.auth.exception.UserOrEmailExistException.class, () -> authService.register(request));
+        Assertions.assertEquals("用户名或邮箱已存在", ex.getMessage());
+        Assertions.assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
+        Assertions.assertInstanceOf(com.humolix.volur.framework.common.exception.BusinessException.class, ex);
+    }
+
+    @Test
+    public void testRegisterFailsWhenEmailExists() {
+        when(systemSettingService.getBoolean("system.auth.registration_enabled", true)).thenReturn(true);
+        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(false);
+        when(userRepository.existsByUsername("testuser")).thenReturn(false);
+        when(userRepository.existsByEmail("testuser@volur.local")).thenReturn(true);
+
+        RegisterRequestDTO request = new RegisterRequestDTO();
+        request.setUsername("testuser");
+        request.setPassword("Password123#");
+        request.setEmail("testuser@volur.local");
+
+        com.humolix.volur.auth.exception.UserOrEmailExistException ex =
+                Assertions.assertThrows(com.humolix.volur.auth.exception.UserOrEmailExistException.class, () -> authService.register(request));
+        Assertions.assertEquals("用户名或邮箱已存在", ex.getMessage());
+        Assertions.assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
+    }
+
 }
+

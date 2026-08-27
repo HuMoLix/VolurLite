@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.domain.dto.SystemSettingUpdateDTO;
 import com.humolix.volur.system.domain.entity.SystemSettingEntity;
+import com.humolix.volur.system.domain.vo.AdminSystemOverviewVO;
 import com.humolix.volur.system.domain.vo.SystemSettingVO;
 import com.humolix.volur.system.mapper.SystemMapper;
 import com.humolix.volur.system.repository.SystemSettingRepository;
@@ -12,6 +13,7 @@ import com.humolix.volur.system.service.SystemSettingService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.SpringBootVersion;
 import org.springframework.core.env.Environment;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -127,17 +129,78 @@ public class SystemSettingServiceImpl implements SystemSettingService {
 
     @Override
     public Map<String, String> getPublicSettingsMap() {
-        return systemSettingRepository.findByIsPublicTrue().stream()
+        Map<String, String> map = systemSettingRepository.findByIsPublicTrue().stream()
+                .filter(setting -> setting.getSettingKey().startsWith("system."))
                 .collect(Collectors.toMap(
                         SystemSettingEntity::getSettingKey,
                         setting -> getSettingValue(setting.getSettingKey(), setting.getSettingValue()),
-                        (existing, replacing) -> existing
+                        (existing, replacing) -> replacing
                 ));
+
+        String maintenanceEnabled = String.valueOf(getBoolean(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_ENABLED, false));
+        String maintenanceNotice = getSettingValue(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, "系统正在全站维护升级中，暂不可用，请稍后访问。");
+        map.put(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_ENABLED, maintenanceEnabled);
+        map.put(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, maintenanceNotice);
+
+        return map;
     }
 
     @Override
     public List<SystemSettingVO> getAllSettings() {
         return systemMapper.toSettingVOList(systemSettingRepository.findAll());
+    }
+
+    @Override
+    public AdminSystemOverviewVO getSystemOverview() {
+        String springBootVer = SpringBootVersion.getVersion();
+        String javaSpecVer = System.getProperty("java.specification.version", "25");
+        String javaVendor = System.getProperty("java.vendor", "Oracle Corporation");
+        String javaFullVer = System.getProperty("java.version", "25");
+        String osName = System.getProperty("os.name", "Windows 11");
+        String osArch = System.getProperty("os.arch", "amd64");
+        String osVersion = System.getProperty("os.version", "");
+
+        String redisStatus = "DISCONNECTED";
+        double redisLatencyMs = -1.0;
+        try {
+            long start = System.nanoTime();
+            String pong = null;
+            if (redisTemplate.getConnectionFactory() != null) {
+                pong = redisTemplate.getConnectionFactory().getConnection().ping();
+            }
+            long costNs = System.nanoTime() - start;
+            if ("PONG".equalsIgnoreCase(pong)) {
+                redisStatus = "CONNECTED";
+                redisLatencyMs = Math.round((costNs / 1_000_000.0) * 100.0) / 100.0;
+            }
+        } catch (Exception e) {
+            log.warn("[SystemOverview] Redis 连通性探测异常: {}", e.getMessage());
+            redisStatus = "DISCONNECTED";
+        }
+
+        long uptimeSeconds = 0;
+        try {
+            uptimeSeconds = java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime() / 1000;
+        } catch (Exception ignored) {
+        }
+
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemoryMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        long maxMemoryMb = runtime.maxMemory() / (1024 * 1024);
+
+        return AdminSystemOverviewVO.builder()
+                .kernelVersion("Volur Lite v1.0.0-SNAPSHOT")
+                .springBootVersion(springBootVer)
+                .javaVersion("JDK " + javaFullVer + " (" + javaVendor + ")")
+                .runtimeEnv("Spring Boot " + springBootVer + " / JDK " + javaSpecVer)
+                .osInfo(osName + " " + osVersion + " (" + osArch + ")")
+                .redisStatus(redisStatus)
+                .redisLatencyMs(redisLatencyMs)
+                .sseStatus("ONLINE")
+                .uptimeSeconds(uptimeSeconds)
+                .heapMemoryUsedMb(usedMemoryMb)
+                .heapMemoryMaxMb(maxMemoryMb)
+                .build();
     }
 
     @Override
@@ -147,15 +210,22 @@ public class SystemSettingServiceImpl implements SystemSettingService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "配置项键名不能为空");
         }
 
+        boolean isPublic = dto.getKey().startsWith("system.general.")
+                || dto.getKey().startsWith("system.maintenance.")
+                || com.humolix.volur.system.constant.SystemSettingKeys.CAPTCHA_ENABLED.equals(dto.getKey())
+                || com.humolix.volur.system.constant.SystemSettingKeys.AUTH_REGISTRATION_ENABLED.equals(dto.getKey())
+                || com.humolix.volur.system.constant.SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION.equals(dto.getKey());
+
         SystemSettingEntity entity = systemSettingRepository.findBySettingKey(dto.getKey())
                 .orElseGet(() -> SystemSettingEntity.builder()
                         .settingKey(dto.getKey())
                         .settingGroup("GENERAL")
                         .valueType("STRING")
-                        .isPublic(false)
+                        .isPublic(isPublic)
                         .build());
 
-        entity.setSettingValue(dto.getValue());
+        entity.setSettingValue(dto.getValue() != null ? dto.getValue() : "");
+        entity.setIsPublic(isPublic);
         systemSettingRepository.save(entity);
 
         evictCache(dto.getKey());

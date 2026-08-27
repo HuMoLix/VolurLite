@@ -22,7 +22,6 @@ import com.humolix.volur.auth.security.jwt.exception.MissingTokenException;
 import com.humolix.volur.auth.security.util.SecurityUtils;
 import com.humolix.volur.auth.service.AuthService;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
-import com.humolix.volur.verification.domain.dto.VerifyChangePasswordCodeRequestDTO;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.service.CaptchaService;
 import com.humolix.volur.verification.service.EmailService;
@@ -99,7 +98,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void checkCaptchaIfEnabled(String captchaId, String captchaCode, String captchaTicket, CaptchaScene scene) throws InvalidCaptchaException {
-        if (systemSettingService.getBoolean("ENABLE_CAPTCHA", false)) {
+        if (systemSettingService.getBoolean("system.captcha.enabled", false)) {
             if (StringUtils.hasText(captchaTicket)) {
                 if (!captchaService.verifyTicket(captchaTicket, scene)) {
                     throw new InvalidCaptchaException("人机验证凭证已失效，请重新验证");
@@ -116,12 +115,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void register(RegisterRequestDTO request) throws InvalidCaptchaException, UserOrEmailExistException {
-        if (!systemSettingService.getBoolean("REGISTER_ENABLED", true)) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "系统已关闭注册功能");
+    public void register(RegisterRequestDTO request) {
+        if (systemSettingService.getBoolean("system.maintenance.enabled", false)) {
+            String notice = systemSettingService.getSettingValue("system.maintenance.notice_message", "系统正在全站维护中，暂不支持注册");
+            throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, notice);
         }
 
-        checkCaptchaIfEnabled(request.getCaptchaId(), request.getCaptchaCode(), request.getCaptchaTicket(), CaptchaScene.REGISTER);
+        if (!systemSettingService.getBoolean("system.auth.registration_enabled", true)) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "系统已关闭注册功能");
+        }
 
         String normalizedUsername = request.getUsername().trim();
         String normalizedEmail = request.getEmail().trim().toLowerCase();
@@ -130,7 +132,7 @@ public class AuthServiceImpl implements AuthService {
             throw new UserOrEmailExistException();
         }
 
-        String whitelistStr = systemSettingService.getSettingValue("EMAIL_WHITELIST_SUFFIXES", "");
+        String whitelistStr = systemSettingService.getSettingValue("system.auth.email_whitelist_suffixes", "");
         if (StringUtils.hasText(whitelistStr)) {
             String emailDomain = normalizedEmail.substring(normalizedEmail.lastIndexOf("@") + 1);
             boolean isWhitelisted = Arrays.stream(whitelistStr.split(","))
@@ -144,10 +146,15 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        if (systemSettingService.getBoolean("REQUIRE_EMAIL_VERIFICATION", false)) {
-            if (!emailService.verifyCode(normalizedEmail, request.getEmailCaptcha())) {
+        boolean requireEmailVerification = systemSettingService.getBoolean("system.auth.require_email_verification", false);
+        String emailCaptcha = request.getEmailCaptcha();
+
+        if (requireEmailVerification || StringUtils.hasText(emailCaptcha)) {
+            if (!emailService.verifyCode(normalizedEmail, emailCaptcha)) {
                 throw new InvalidCaptchaException("邮箱验证码错误或已过期");
             }
+        } else {
+            checkCaptchaIfEnabled(request.getCaptchaId(), request.getCaptchaCode(), request.getCaptchaTicket(), CaptchaScene.REGISTER);
         }
 
         User user = User.builder()
@@ -177,13 +184,13 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthenticateResponseVO authenticate(AuthenticateRequestDTO request) throws InvalidCaptchaException {
+    public AuthenticateResponseVO authenticate(AuthenticateRequestDTO request) {
         checkCaptchaIfEnabled(request.getCaptchaId(), request.getCaptchaCode(), request.getCaptchaTicket(), CaptchaScene.LOGIN);
 
         String rawAccount = request.getUsername().trim();
         String normalizedAccount = rawAccount.toLowerCase();
 
-        int maxAttempts = systemSettingService.getInt("MAX_LOGIN_ATTEMPTS", 5);
+        int maxAttempts = systemSettingService.getInt("system.auth.max_login_attempts", 5);
         String lockKey = VREDIS_AUTH_LOGIN_LOCK_KEY_PREFIX + normalizedAccount;
         String attemptsKey = VREDIS_AUTH_LOGIN_ATTEMPTS_KEY_PREFIX + normalizedAccount;
 
@@ -196,6 +203,20 @@ public class AuthServiceImpl implements AuthService {
                     rawAccount, request.getPassword()
             );
             Authentication authentication = authenticationManager.authenticate(authenticationToken);
+
+            boolean isMaintenance = systemSettingService.getBoolean("system.maintenance.enabled", false);
+            if (isMaintenance) {
+                boolean isAdmin = authentication.getAuthorities().stream()
+                        .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority())
+                                || "ROLE_SUPER_ADMIN".equals(a.getAuthority())
+                                || "ADMIN".equals(a.getAuthority())
+                                || "SUPER_ADMIN".equals(a.getAuthority()));
+                if (!isAdmin) {
+                    String notice = systemSettingService.getSettingValue("system.maintenance.notice_message", "系统正在全站维护升级中，暂仅限管理员登录");
+                    throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, notice);
+                }
+            }
+
             String jti = IdUtil.fastSimpleUUID();
 
             boolean rememberMe = Boolean.TRUE.equals(request.getRememberMe());
@@ -329,11 +350,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void sendVerificationEmail(EmailCaptchaRequestDTO request) {
-        emailService.sendVerificationEmail(request);
-    }
-
-    @Override
     public void sendChangePasswordEmail(EmailCaptchaRequestDTO request) {
         User user = SecurityUtils.getCurrentUser();
         String normalizedEmail = request.getEmail().trim().toLowerCase();
@@ -394,7 +410,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(HttpServletRequest request) throws TokenAlreadyBlacklistedException, TokenInvalidException {
+    public void logout(HttpServletRequest request) {
         String token = jwtUtil.parseToken(request);
         if (!StringUtils.hasText(token)) {
             throw new MissingTokenException("未找到有效的令牌");

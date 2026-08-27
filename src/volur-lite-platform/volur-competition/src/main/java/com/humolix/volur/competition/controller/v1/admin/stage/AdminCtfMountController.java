@@ -6,6 +6,7 @@ import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallenge
 import com.humolix.volur.competition.service.admin.stage.AdminCtfMountService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,6 +30,7 @@ public class AdminCtfMountController {
     }
 
     @Operation(summary = "单个挂载题库题目到竞赛")
+    @Syslog(module = "COMPETITION", value = "挂载题目到竞赛", recordParams = true)
     @PostMapping
     public ApiResponse<Void> mountChallenge(
             @PathVariable Long competitionId,
@@ -38,6 +40,7 @@ public class AdminCtfMountController {
     }
 
     @Operation(summary = "批量挂载题库题目到竞赛")
+    @Syslog(module = "COMPETITION", value = "批量挂载题目到竞赛", recordParams = true)
     @PostMapping("/batch")
     public ApiResponse<Void> batchMountChallenges(
             @PathVariable Long competitionId,
@@ -47,6 +50,7 @@ public class AdminCtfMountController {
     }
 
     @Operation(summary = "从竞赛中卸载赛题")
+    @Syslog(module = "COMPETITION", value = "从竞赛卸载赛题", recordParams = true)
     @DeleteMapping("/{competitionChallengeId}")
     public ApiResponse<Void> unmountChallenge(
             @PathVariable Long competitionId,

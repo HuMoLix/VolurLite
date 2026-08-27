@@ -4,6 +4,7 @@ import com.humolix.volur.auth.security.crypto.Sm3AuthProvider;
 import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.exception.SecurityAccessDeniedHandler;
 import com.humolix.volur.auth.security.exception.SecurityAuthenticationEntryPoint;
+import com.humolix.volur.auth.security.filter.MaintenanceModeFilter;
 import com.humolix.volur.auth.security.jwt.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +32,7 @@ public class SecurityConfig {
     private final Sm3AuthProvider sm3AuthProvider;
     private final Sm3PasswordEncoder sm3PasswordEncoder;
     private final JwtAuthFilter jwtAuthFilter;
+    private final MaintenanceModeFilter maintenanceModeFilter;
     private final SecurityAccessDeniedHandler securityAccessDeniedHandler;
     private final SecurityAuthenticationEntryPoint securityAuthenticationEntryPoint;
 
@@ -62,7 +64,6 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                        .maximumSessions(1)
                 )
                 .authenticationProvider(sm3AuthProvider)
                 .authorizeHttpRequests(auth -> auth
@@ -73,11 +74,13 @@ public class SecurityConfig {
                                 "/api/v1/auth/password-resets",
                                 "/api/v1/auth/reset-password-confirm",
                                 "/api/v1/auth/refresh",
-                                "/api/v1/auth/email/**",
                                 "/api/v1/captcha/**",
                                 "/api/v1/email/**",
                                 "/api/v1/verification/**",
-                                "/api/v1/rank/**"
+                                "/api/v1/rank/**",
+                                "/api/v1/broadcasts/**",
+                                "/api/v1/competitions",
+                                "/api/v1/competitions/**"
                         ).permitAll()
                         .requestMatchers("/api/v1/ws/**", "/ws/**", "/api/v1/terminal/**", "/api/v1/realtime/stream").permitAll()
                         .requestMatchers("/error").permitAll()
@@ -91,7 +94,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint(securityAuthenticationEntryPoint)
                         .accessDeniedHandler(securityAccessDeniedHandler)
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(maintenanceModeFilter, JwtAuthFilter.class);
         return http.build();
     }
 

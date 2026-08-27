@@ -1,0 +1,20 @@
+{
+  "title": "Challenge Management",
+  "desc": "Manage CTF, Theory, ISW, AWD, and AWD+ challenges, score values, and environment configs.",
+  "placeholder": "Loading challenge management data...",
+  "ctf_title": "CTF Challenge Management",
+  "ctf_desc": "Create and configure Web, Pwn, Reverse, Crypto, and Misc jeopardy challenges, attachments, and Flags.",
+  "ctf_placeholder": "Loading CTF challenges...",
+  "theory_title": "Theory Challenge Management",
+  "theory_desc": "Manage single choice, multiple choice, true/false, and QA questions for cybersecurity fundamentals.",
+  "theory_placeholder": "Loading theory questions...",
+  "isw_title": "ISW Challenge Management",
+  "isw_desc": "Manage Industrial Security Workshop (ISW) challenges, ICS targets, and network topologies.",
+  "isw_placeholder": "Loading ISW challenges...",
+  "awd_title": "AWD Challenge Management",
+  "awd_desc": "Manage Attack & Defense target container images, SLA health checks, and automated scoring targets.",
+  "awd_placeholder": "Loading AWD challenges...",
+  "awd_plus_title": "AWD+ Challenge Management",
+  "awd_plus_desc": "Manage advanced AWD Plus multi-service target architectures, SLA checks, and automated defense metrics.",
+  "awd_plus_placeholder": "Loading AWD+ challenges..."
+}

@@ -7,7 +7,6 @@ import com.humolix.volur.framework.security.util.RequestHolder;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
-import com.humolix.volur.verification.domain.dto.VerifyChangePasswordCodeRequestDTO;
 import com.humolix.volur.verification.mail.bo.MailMessageBO;
 import com.humolix.volur.verification.mail.dispatcher.FailoverMailDispatcher;
 import com.humolix.volur.verification.mail.executor.MailTaskExecutor;
@@ -45,7 +44,6 @@ public class EmailServiceImpl implements EmailService {
     private static final String VREDIS_EMAIL_DAILY_CAP_KEY_PREFIX = "vredis:verification:email_daily_cap:";
     private static final String VREDIS_EMAIL_IP_LIMIT_KEY_PREFIX = "vredis:verification:email_ip_limit:";
     private static final String VREDIS_PASSWORD_RESET_KEY_PREFIX = "vredis:verification:password_reset:";
-    private static final String VREDIS_CHANGE_PASSWORD_KEY_PREFIX = "vredis:verification:change_password:";
 
     private static final int SEND_LIMIT_PERIOD_SECONDS = 60;
     private static final int VERIFY_CODE_EXPIRATION_SECONDS = 300;
@@ -108,8 +106,8 @@ public class EmailServiceImpl implements EmailService {
             throw new BusinessException(HttpStatus.CONFLICT, "该邮箱已被注册");
         }
 
-        if (systemSettingService.getBoolean("REQUIRE_EMAIL_VERIFICATION", false)) {
-            String whitelistStr = systemSettingService.getSettingValue("EMAIL_WHITELIST_SUFFIXES", "");
+        if (systemSettingService.getBoolean("system.auth.require_email_verification", false)) {
+            String whitelistStr = systemSettingService.getSettingValue("system.auth.email_whitelist_suffixes", "");
             if (StringUtils.hasText(whitelistStr)) {
                 String[] whitelist = whitelistStr.split(",");
                 boolean isWhitelisted = Arrays.stream(whitelist)
@@ -139,7 +137,10 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private void checkCaptchaIfEnabled(EmailCaptchaRequestDTO request, CaptchaScene scene) {
-        if (systemSettingService.getBoolean("ENABLE_CAPTCHA", false)) {
+        if (systemSettingService.getBoolean("system.captcha.enabled", false)) {
+            if (request == null) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "请先完成人机安全验证");
+            }
             if (StringUtils.hasText(request.getCaptchaTicket())) {
                 if (!captchaService.verifyTicket(request.getCaptchaTicket(), scene)) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "人机验证凭证已失效，请重新验证");
@@ -195,18 +196,6 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public String verifyChangePasswordCode(VerifyChangePasswordCodeRequestDTO request) {
-        String normalizedEmail = request.getEmail().toLowerCase().trim();
-        if (!verifyCode(normalizedEmail, request.getCode())) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "验证码错误或已过期");
-        }
-        String token = IdUtil.fastSimpleUUID();
-        String redisKey = VREDIS_CHANGE_PASSWORD_KEY_PREFIX + token;
-        redisTemplate.opsForValue().set(redisKey, normalizedEmail, Duration.ofMinutes(PASSWORD_RESET_EXPIRE_MINUTES));
-        return token;
-    }
-
-    @Override
     public void sendResetPasswordEmail(String email, String username) {
         String normalizedEmail = email.toLowerCase().trim();
         checkMultiTierSendLimit(normalizedEmail);
@@ -214,7 +203,7 @@ public class EmailServiceImpl implements EmailService {
         String resetToken = IdUtil.fastSimpleUUID();
         redisTemplate.opsForValue().set(VREDIS_PASSWORD_RESET_KEY_PREFIX + resetToken, normalizedEmail, Duration.ofMinutes(PASSWORD_RESET_EXPIRE_MINUTES));
 
-        String frontendUrl = systemSettingService.getSettingValue("FRONTEND_URL", "");
+        String frontendUrl = systemSettingService.getSettingValue("system.general.frontend_url", "");
         if (!StringUtils.hasText(frontendUrl)) {
             try {
                 frontendUrl = RequestHolder.getDomainUrl();

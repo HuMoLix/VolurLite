@@ -1,0 +1,8 @@
+{
+  "title": "System Overview Dashboard",
+  "desc": "Welcome to Volur Lite Admin Control System. Monitor platform status and key operational metrics.",
+  "stat_competitions": "Competitions",
+  "stat_challenges": "Total Challenges",
+  "stat_users": "Registered Users",
+  "stat_containers": "Running Containers"
+}

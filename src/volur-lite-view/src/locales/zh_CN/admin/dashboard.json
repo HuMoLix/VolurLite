@@ -1,0 +1,8 @@
+{
+  "title": "系统概览仪表盘",
+  "desc": "欢迎进入 Volur Lite 后台管理系统，监控平台运行状态及核心业务指标。",
+  "stat_competitions": "竞赛场次",
+  "stat_challenges": "题库总数",
+  "stat_users": "注册用户",
+  "stat_containers": "运行中容器"
+}

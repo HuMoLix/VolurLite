@@ -6,6 +6,7 @@ import com.humolix.volur.competition.service.stage.isw.IswStageService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
+import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,6 +32,7 @@ public class IswStageController {
     }
 
     @Operation(summary = "提交 ISW 场景靶标 Flag")
+    @Syslog(module = "COMPETITION", value = "提交 ISW 靶标 Flag", recordParams = true, recordResponse = true)
     @PostMapping("/submit-flag")
     public ApiResponse<Boolean> submitFlag(
             @PathVariable Long competitionId,

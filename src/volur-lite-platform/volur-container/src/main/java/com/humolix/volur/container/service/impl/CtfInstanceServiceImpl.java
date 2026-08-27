@@ -85,7 +85,7 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
                 .teamToken(teamToken)
                 .build();
 
-        String dynamicFlag = dynamicFlagGenerator.generateFlag(flagContext);
+        String dynamicFlag = dynamicFlagGenerator.generateFlag(challenge.getFlag(), flagContext);
         String resourceName = "volur-u" + userId + "-c" + challengeId + "-" + System.currentTimeMillis();
 
         ContainerRunResultDTO runResult = runtimeStrategy.startContainer(resourceName, challenge, dynamicFlag, cpu, mem);

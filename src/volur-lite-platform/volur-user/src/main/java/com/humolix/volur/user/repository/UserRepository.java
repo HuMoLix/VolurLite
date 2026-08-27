@@ -47,4 +47,8 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     List<User> findByRoleAndUsernameNot(UserRole role, String username);
 
+    long countByRoleIn(List<UserRole> roles);
+
+    long countByStatus(Boolean status);
+
 }

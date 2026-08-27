@@ -143,6 +143,11 @@ public class GlobalSseManager {
         if (emitter == null) {
             return;
         }
+        try {
+            emitter.complete();
+        } catch (Exception ignored) {
+            // 连接已断开或已完成时忽略
+        }
         allActiveEmitters.remove(emitter);
         EmitterMetadata metadata = emitterMetadataMap.remove(emitter);
         if (metadata != null) {

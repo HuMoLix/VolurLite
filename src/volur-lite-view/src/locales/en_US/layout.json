@@ -1,0 +1,30 @@
+{
+  "platform_title": "Volur Lite",
+  "admin_portal": "Admin Console",
+  "competitions": "Competitions",
+  "announcements": "Announcements",
+  "notifications": "Notifications",
+  "admin_panel": "Admin Panel",
+  "return_to_platform": "Return to Platform",
+  "return_to_competitions": "Return to Competitions",
+  "profile": "User Profile",
+  "logout": "Log Out",
+  "login_register": "Log In / Sign Up",
+  "footer_text": "Volur Lite Platform © 2026 Crafted for High-Performance Cybersecurity Competitions",
+  "admin_footer_text": "Volur Lite Management Control System © 2026 Crafted for Cybersecurity Competitions",
+  "menu": {
+    "dashboard": "Dashboard",
+    "users": "User Management",
+    "challenges": "Challenge Management",
+    "ctf_challenges": "CTF Challenges",
+    "theory_challenges": "Theory Challenges",
+    "isw_challenges": "ISW Challenges",
+    "awd_challenges": "AWD Challenges",
+    "awd_plus_challenges": "AWD+ Challenges",
+    "competitions": "Competition Management",
+    "broadcasts": "Broadcast Management",
+    "containers": "Container Management",
+    "logs": "System Logs",
+    "system": "System Settings"
+  }
+}

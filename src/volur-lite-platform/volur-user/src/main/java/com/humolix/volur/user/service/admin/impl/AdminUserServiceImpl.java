@@ -1,14 +1,14 @@
 package com.humolix.volur.user.service.admin.impl;
 
-import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.common.util.SortUtils;
 import com.humolix.volur.user.domain.dto.AdminUserCreateRequestDTO;
+import com.humolix.volur.user.domain.dto.AdminUserPageRequestDTO;
 import com.humolix.volur.user.domain.dto.AdminUserUpdateRequestDTO;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.domain.vo.AdminUserDetailsVO;
+import com.humolix.volur.user.domain.vo.AdminUserStatisticsVO;
 import com.humolix.volur.user.domain.vo.RoleVO;
 import com.humolix.volur.user.event.UserStatusAction;
 import com.humolix.volur.user.event.UserStatusChangedEvent;
@@ -18,8 +18,10 @@ import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.user.service.admin.AdminUserService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -28,11 +30,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminUserServiceImpl implements AdminUserService {
 
     public static final String SUPER_ADMIN_USERNAME = "VolurSuperAdmin";
@@ -44,19 +48,66 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public PageResponse<AdminUserDetailsVO> getUserList(Integer page, Integer size, String keyword) {
-        Pageable pageable = SortUtils.createPageable(page, size);
+    public Page<AdminUserDetailsVO> getUserList(AdminUserPageRequestDTO pageRequest) {
+        AdminUserPageRequestDTO request = pageRequest != null ? pageRequest : new AdminUserPageRequestDTO();
+        Pageable pageable = request.toPageable(User.class, "id");
+
         Specification<User> spec = (root, query, cb) -> {
-            if (!StringUtils.hasText(keyword)) return null;
-            String pattern = "%" + keyword + "%";
-            Join<User, UserProfile> profileJoin = root.join("userProfile", JoinType.LEFT);
-            return cb.or(
-                    cb.like(root.get("username"), pattern),
-                    cb.like(root.get("email"), pattern),
-                    cb.like(profileJoin.get("org"), pattern)
-            );
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (StringUtils.hasText(request.getKeyword())) {
+                String cleanKeyword = request.getKeyword().trim();
+                if (cleanKeyword.length() > 50) {
+                    cleanKeyword = cleanKeyword.substring(0, 50);
+                }
+                String pattern = "%" + cleanKeyword.toLowerCase() + "%";
+                Join<User, UserProfile> profileJoin = root.join("userProfile", JoinType.LEFT);
+                Predicate usernameLike = cb.like(cb.lower(root.get("username")), pattern);
+                Predicate emailLike = cb.like(cb.lower(root.get("email")), pattern);
+                Predicate orgLike = cb.like(cb.lower(profileJoin.get("org")), pattern);
+                predicates.add(cb.or(usernameLike, emailLike, orgLike));
+            }
+
+            if (StringUtils.hasText(request.getRole())) {
+                try {
+                    UserRole userRole = UserRole.valueOf(request.getRole().trim().toUpperCase());
+                    predicates.add(cb.equal(root.get("role"), userRole));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+
+            if (request.getStatus() != null) {
+                predicates.add(cb.equal(root.get("status"), request.getStatus()));
+            }
+
+            if (request.getStartTime() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), request.getStartTime()));
+            }
+
+            if (request.getEndTime() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), request.getEndTime()));
+            }
+
+            return predicates.isEmpty() ? null : cb.and(predicates.toArray(new Predicate[0]));
         };
-        return PageResponse.of(userRepository.findAll(spec, pageable).map(userMapper::toAdminUserDetailsVO));
+
+        Page<User> entityPage = userRepository.findAll(spec, pageable);
+        return entityPage.map(userMapper::toAdminUserDetailsVO);
+    }
+
+    @Override
+    public AdminUserStatisticsVO getUserStatistics() {
+        long totalUsers = userRepository.count();
+        long adminCount = userRepository.countByRoleIn(List.of(UserRole.ADMIN, UserRole.SUPER_ADMIN));
+        long bannedCount = userRepository.countByStatus(false);
+        long activeCount = userRepository.countByStatus(true);
+
+        return AdminUserStatisticsVO.builder()
+                .totalUsers(totalUsers)
+                .adminCount(adminCount)
+                .bannedCount(bannedCount)
+                .activeCount(activeCount)
+                .build();
     }
 
     @Override

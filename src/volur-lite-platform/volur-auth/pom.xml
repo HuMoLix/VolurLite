@@ -23,6 +23,10 @@
         </dependency>
         <dependency>
             <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-logging</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
             <artifactId>volur-system</artifactId>
         </dependency>
         <dependency>

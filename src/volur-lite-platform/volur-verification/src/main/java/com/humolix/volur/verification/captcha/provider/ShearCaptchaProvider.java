@@ -21,7 +21,7 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class ShearCaptchaProvider implements CaptchaProvider {
 
-    private static final String VREDIS_CAPTCHA_IMAGE_KEY_PREFIX = "vredis:verification:captcha:image:";
+    private static final String VREDIS_CAPTCHA_SHEAR_KEY_PREFIX = "vredis:verification:captcha:shear:";
     private static final String BASE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final String CAPTCHA_IMAGE_TYPE = "data:image/png;base64,";
     private static final int CAPTCHA_LENGTH = 6;
@@ -45,7 +45,7 @@ public class ShearCaptchaProvider implements CaptchaProvider {
         String captchaId = IdUtil.fastSimpleUUID();
         String code = captcha.getCode();
 
-        String redisKey = VREDIS_CAPTCHA_IMAGE_KEY_PREFIX + scene.name() + ":" + captchaId;
+        String redisKey = VREDIS_CAPTCHA_SHEAR_KEY_PREFIX + scene.name() + ":" + captchaId;
         redisTemplate.opsForValue().set(redisKey, code, Duration.ofMinutes(2));
 
         return CaptchaResponseVO.builder()
@@ -60,8 +60,13 @@ public class ShearCaptchaProvider implements CaptchaProvider {
         if (!StringUtils.hasText(captchaId) || !StringUtils.hasText(userInput)) {
             return false;
         }
-        String redisKey = VREDIS_CAPTCHA_IMAGE_KEY_PREFIX + scene.name() + ":" + captchaId;
+        CaptchaScene effectiveScene = scene != null ? scene : CaptchaScene.DEFAULT;
+        String redisKey = VREDIS_CAPTCHA_SHEAR_KEY_PREFIX + effectiveScene.name() + ":" + captchaId;
         String storedCode = redisTemplate.opsForValue().get(redisKey);
+        if (!StringUtils.hasText(storedCode) && effectiveScene != CaptchaScene.DEFAULT) {
+            redisKey = VREDIS_CAPTCHA_SHEAR_KEY_PREFIX + CaptchaScene.DEFAULT.name() + ":" + captchaId;
+            storedCode = redisTemplate.opsForValue().get(redisKey);
+        }
         if (!StringUtils.hasText(storedCode)) {
             return false;
         }

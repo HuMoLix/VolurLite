@@ -1,7 +1,6 @@
 package com.humolix.volur.verification.service;
 
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
-import com.humolix.volur.verification.domain.dto.VerifyChangePasswordCodeRequestDTO;
 
 public interface EmailService {
 
@@ -18,8 +17,6 @@ public interface EmailService {
     void sendResetPasswordEmail(String email, String username);
 
     boolean verifyCode(String email, String code);
-
-    String verifyChangePasswordCode(VerifyChangePasswordCodeRequestDTO request);
 
     void sendEmail(String to, String subject, String content);
 

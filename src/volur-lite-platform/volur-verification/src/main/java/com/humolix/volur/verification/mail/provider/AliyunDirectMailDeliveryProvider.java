@@ -23,9 +23,9 @@ public class AliyunDirectMailDeliveryProvider implements MailDeliveryProvider {
 
     @Override
     public boolean isAvailable() {
-        String accessKey = systemSettingService.getSettingValue("ALIYUN_DM_ACCESS_KEY");
-        String secretKey = systemSettingService.getSettingValue("ALIYUN_DM_SECRET_KEY");
-        String account = systemSettingService.getSettingValue("ALIYUN_DM_ACCOUNT");
+        String accessKey = systemSettingService.getSettingValue("system.mail.aliyun_access_key");
+        String secretKey = systemSettingService.getSettingValue("system.mail.aliyun_secret_key");
+        String account = systemSettingService.getSettingValue("system.mail.aliyun_account");
         return StringUtils.hasText(accessKey) && StringUtils.hasText(secretKey) && StringUtils.hasText(account);
     }
 

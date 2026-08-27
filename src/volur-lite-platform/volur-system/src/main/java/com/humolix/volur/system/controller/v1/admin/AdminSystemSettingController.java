@@ -2,8 +2,9 @@ package com.humolix.volur.system.controller.v1.admin;
 
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
-import com.humolix.volur.framework.security.annotation.Audit;
+import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.system.domain.dto.SystemSettingUpdateDTO;
+import com.humolix.volur.system.domain.vo.AdminSystemOverviewVO;
 import com.humolix.volur.system.domain.vo.SystemSettingVO;
 import com.humolix.volur.system.service.SystemSettingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +25,12 @@ public class AdminSystemSettingController {
 
     private final SystemSettingService systemSettingService;
 
+    @Operation(summary = "获取系统运行健康与底层环境概览")
+    @GetMapping("/overview")
+    public ApiResponse<AdminSystemOverviewVO> getSystemOverview() {
+        return ApiResponseEntity.ok("获取系统概览成功", systemSettingService.getSystemOverview());
+    }
+
     @Operation(summary = "获取所有系统设置列表")
     @GetMapping
     public ApiResponse<List<SystemSettingVO>> getAllSettings() {
@@ -31,7 +38,7 @@ public class AdminSystemSettingController {
     }
 
     @Operation(summary = "单个更新系统设置")
-    @Audit(module = "system", action = "update_setting")
+    @Syslog(module = "SYSTEM", value = "单个更新系统设置", recordParams = true)
     @PostMapping("/update")
     public ApiResponse<Void> updateSetting(@Valid @RequestBody SystemSettingUpdateDTO request) {
         systemSettingService.updateSetting(request);
@@ -39,7 +46,7 @@ public class AdminSystemSettingController {
     }
 
     @Operation(summary = "批量更新系统设置")
-    @Audit(module = "system", action = "batch_update_settings")
+    @Syslog(module = "SYSTEM", value = "批量更新系统设置", recordParams = true)
     @PostMapping("/batch-update")
     public ApiResponse<Void> batchUpdateSettings(@RequestBody List<@Valid SystemSettingUpdateDTO> requests) {
         systemSettingService.updateSettings(requests);

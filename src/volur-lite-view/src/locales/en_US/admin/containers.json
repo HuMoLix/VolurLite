@@ -1,0 +1,5 @@
+{
+  "title": "Container Management",
+  "desc": "Monitor Docker / Podman challenge container lifecycles, port mappings, and dynamic flag injections.",
+  "placeholder": "Loading container management data..."
+}

@@ -6,6 +6,7 @@ import com.humolix.volur.challenge.domain.vo.stage.ctf.CtfCategoryVO;
 import com.humolix.volur.challenge.service.admin.stage.ctf.AdminCtfCategoryService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,12 +36,14 @@ public class AdminCtfCategoryController {
     }
 
     @Operation(summary = "创建 CTF 赛题分类")
+    @Syslog(module = "CHALLENGE", value = "创建 CTF 赛题分类", recordParams = true)
     @PostMapping
     public ApiResponse<Long> createCategory(@Valid @RequestBody CtfCategoryCreateRequestDTO request) {
         return ApiResponseEntity.created("创建分类成功", categoryService.createCategory(request));
     }
 
     @Operation(summary = "更新 CTF 赛题分类")
+    @Syslog(module = "CHALLENGE", value = "更新 CTF 赛题分类", recordParams = true)
     @PutMapping("/{id}")
     public ApiResponse<Void> updateCategory(@PathVariable Long id, @Valid @RequestBody CtfCategoryUpdateRequestDTO request) {
         categoryService.updateCategory(id, request);
@@ -48,6 +51,7 @@ public class AdminCtfCategoryController {
     }
 
     @Operation(summary = "删除 CTF 赛题分类")
+    @Syslog(module = "CHALLENGE", value = "删除 CTF 赛题分类", recordParams = true)
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteCategory(@PathVariable Long id) {
         categoryService.deleteCategory(id);

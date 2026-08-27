@@ -36,8 +36,14 @@ public class BroadcastMessageVO {
     @Builder.Default
     private Integer priority = 0;
 
+    private String publisher;
+
+    private String category;
+
     @Builder.Default
     private Instant publishTime = Instant.now();
+
+    private Instant createdAt;
 
     private Instant expireTime;
 

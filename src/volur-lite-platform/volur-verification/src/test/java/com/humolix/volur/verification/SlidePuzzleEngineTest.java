@@ -69,4 +69,16 @@ public class SlidePuzzleEngineTest {
         Assertions.assertEquals(CaptchaType.SLIDE_PUZZLE, loginHighResolved);
     }
 
+    @Test
+    public void testPuzzleCutoutShapeIntegrity() {
+        PuzzleImageLoader loader = new PuzzleImageLoader();
+        loader.init();
+        SlidePuzzleEngine engine = new SlidePuzzleEngine(loader);
+        SlidePuzzleEngine.PuzzleResult result = engine.generatePuzzle();
+
+        // 验证坐标在合理视口范围内
+        Assertions.assertTrue(result.x() >= 45 && result.x() <= 280, "targetX should be in valid viewport range");
+        Assertions.assertTrue(result.y() >= 10 && result.y() <= 120, "targetY should be in valid viewport range");
+    }
+
 }

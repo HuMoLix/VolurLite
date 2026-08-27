@@ -1,0 +1,112 @@
+// Flexbox Mixins
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@mixin flex-start {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+// Text Ellipsis
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin multi-line-ellipsis($lines: 2) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: $lines;
+  overflow: hidden;
+}
+
+// Glassmorphism Card
+@mixin glass-card($blur: 12px, $opacity: 0.7) {
+  background: rgba(30, 41, 59, $opacity);
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+// ==========================================
+// Theme Mixins (Day & Night Mode Helpers)
+// ==========================================
+
+// 暗色主题作用域
+@mixin theme-dark {
+  html.dark &,
+  [data-theme='dark'] & {
+    @content;
+  }
+}
+
+// 亮色主题作用域
+@mixin theme-light {
+  html:not(.dark) &,
+  [data-theme='light'] & {
+    @content;
+  }
+}
+
+// 标准卡片容器
+@mixin v-card {
+  background-color: var(--v-bg-card);
+  border: 1px solid var(--v-border-base);
+  border-radius: 12px;
+  box-shadow: var(--v-shadow-sm);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+// Volur 标准主要操作按钮 (亮色黑底白字 / 暗色反色白底黑字)
+@mixin v-primary-button {
+  background-color: var(--v-btn-primary-bg);
+  color: var(--v-btn-primary-text);
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  height: 48px;
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.1s ease;
+
+  &:hover {
+    background-color: var(--v-btn-primary-hover);
+  }
+
+  &:active {
+    background-color: var(--v-btn-primary-active);
+    transform: scale(0.99);
+  }
+}
+
+// Volur 标准描述文本 (#444 / 暗色 #9ca3af)
+@mixin v-text-desc {
+  color: var(--v-text-desc);
+  font-size: 14px;
+}
+
+// Volur 辅助弱化文本 (#666 / 暗色 #6b7280)
+@mixin v-text-muted {
+  color: var(--v-text-muted);
+  font-size: 13px;
+}
+

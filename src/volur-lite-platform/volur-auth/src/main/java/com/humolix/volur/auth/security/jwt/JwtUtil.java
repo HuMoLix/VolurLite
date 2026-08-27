@@ -239,7 +239,15 @@ public class JwtUtil {
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
-        throw new MissingTokenException("未发现 Bearer 认证头部");
+        final String queryToken = request.getParameter("token");
+        if (StringUtils.hasText(queryToken)) {
+            return queryToken;
+        }
+        final String queryAccessToken = request.getParameter("access_token");
+        if (StringUtils.hasText(queryAccessToken)) {
+            return queryAccessToken;
+        }
+        throw new MissingTokenException("未发现 Bearer 认证头部或 Token 查询参数");
     }
 
     public String parseTokenFromHeader(String authHeader) {

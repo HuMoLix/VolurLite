@@ -2,10 +2,10 @@ package com.humolix.volur.auth.controller.v1;
 
 import com.humolix.volur.auth.domain.dto.RefreshTokenRequestDTO;
 import com.humolix.volur.auth.domain.vo.AuthenticateResponseVO;
-import com.humolix.volur.auth.exception.AuthException;
 import com.humolix.volur.auth.service.AuthService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,8 +25,9 @@ public class TokenController {
     private final AuthService authService;
 
     @Operation(summary = "用户登出")
+    @Syslog(module = "AUTH", value = "用户登出", logType = "AUTH")
     @PostMapping("/logout")
-    public ApiResponse<Void> logout(HttpServletRequest request) throws AuthException {
+    public ApiResponse<Void> logout(HttpServletRequest request) {
         authService.logout(request);
         return ApiResponseEntity.success("登出成功");
     }

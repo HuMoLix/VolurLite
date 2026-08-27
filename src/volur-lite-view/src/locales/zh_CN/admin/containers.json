@@ -1,0 +1,5 @@
+{
+  "title": "容器管理",
+  "desc": "监控 Docker / Podman 靶机容器生命周期、端口映射与动态 Flag 注入状态。",
+  "placeholder": "容器管理数据载入中"
+}

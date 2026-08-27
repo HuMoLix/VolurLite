@@ -5,14 +5,17 @@ import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.user.domain.dto.AdminUserBatchRequestDTO;
 import com.humolix.volur.user.domain.dto.AdminUserCreateRequestDTO;
+import com.humolix.volur.user.domain.dto.AdminUserPageRequestDTO;
 import com.humolix.volur.user.domain.dto.AdminUserUpdateRequestDTO;
 import com.humolix.volur.user.domain.vo.AdminUserDetailsVO;
+import com.humolix.volur.user.domain.vo.AdminUserStatisticsVO;
 import com.humolix.volur.user.domain.vo.RoleVO;
 import com.humolix.volur.user.service.admin.AdminUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,13 +28,17 @@ public class AdminUserController {
 
     private final AdminUserService adminUserService;
 
+    @Operation(summary = "获取用户统计数据")
+    @GetMapping("/statistics")
+    public ApiResponse<AdminUserStatisticsVO> getUserStatistics() {
+        return ApiResponseEntity.ok("获取用户统计数据成功", adminUserService.getUserStatistics());
+    }
+
     @Operation(summary = "分页获取用户列表")
     @GetMapping
-    public ApiResponse<PageResponse<AdminUserDetailsVO>> listUsers(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String keyword) {
-        return ApiResponseEntity.ok("获取用户列表成功", adminUserService.getUserList(page, size, keyword));
+    public ApiResponse<PageResponse<AdminUserDetailsVO>> listUsers(AdminUserPageRequestDTO pageRequest) {
+        Page<AdminUserDetailsVO> pageResponse = adminUserService.getUserList(pageRequest);
+        return ApiResponseEntity.ok("获取用户列表成功", new PageResponse<>(pageResponse));
     }
 
     @Operation(summary = "获取指定用户详情")

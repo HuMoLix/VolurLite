@@ -53,6 +53,10 @@
             <groupId>com.humolix.volur</groupId>
             <artifactId>volur-notification</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-logging</artifactId>
+        </dependency>
 
         <!-- Database Driver Runtime -->
         <dependency>

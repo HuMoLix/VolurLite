@@ -1,6 +1,7 @@
 package com.humolix.volur.system.service;
 
 import com.humolix.volur.system.domain.dto.SystemSettingUpdateDTO;
+import com.humolix.volur.system.domain.vo.AdminSystemOverviewVO;
 import com.humolix.volur.system.domain.vo.SystemSettingVO;
 
 import java.util.List;
@@ -21,6 +22,8 @@ public interface SystemSettingService {
     Map<String, String> getPublicSettingsMap();
 
     List<SystemSettingVO> getAllSettings();
+
+    AdminSystemOverviewVO getSystemOverview();
 
     void updateSetting(SystemSettingUpdateDTO dto);
 

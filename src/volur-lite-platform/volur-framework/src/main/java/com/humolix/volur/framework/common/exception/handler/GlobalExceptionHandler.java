@@ -42,6 +42,17 @@ public class GlobalExceptionHandler {
         return ApiResponseEntity.badRequest(message);
     }
 
+    @ExceptionHandler(org.springframework.web.method.annotation.HandlerMethodValidationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleHandlerMethodValidationException(org.springframework.web.method.annotation.HandlerMethodValidationException ex) {
+        String message = ex.getAllErrors().stream()
+                .map(org.springframework.context.MessageSourceResolvable::getDefaultMessage)
+                .filter(msg -> msg != null && !msg.isBlank())
+                .collect(Collectors.joining(", "));
+        log.warn("方法参数校验失败: {}", message);
+        return ApiResponseEntity.badRequest(message.isBlank() ? "请求参数校验未通过" : message);
+    }
+
     @ExceptionHandler(BindException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleBindException(BindException ex) {
@@ -112,11 +123,10 @@ public class GlobalExceptionHandler {
         return ApiResponseEntity.badRequest("文件上传失败，请检查上传文件大小与格式是否符合要求");
     }
 
-    @ExceptionHandler(ClientAbortException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleClientAbortException(ClientAbortException ex) {
-        log.warn("客户端连接中断: {}", ex.getMessage());
-        return ApiResponseEntity.badRequest("客户端连接中断");
+    @ExceptionHandler({ClientAbortException.class, org.springframework.web.context.request.async.AsyncRequestNotUsableException.class})
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void handleClientAbortException(Exception ex) {
+        log.debug("客户端主动断开长连接或异步请求已关闭: {}", ex.getMessage());
     }
 
     @ExceptionHandler(MailException.class)
@@ -128,6 +138,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ApiResponse<Void> handleBusinessException(BusinessException ex) {
+        log.warn("业务异常: status={}, errorCode={}, message={}", ex.getStatus(), ex.getErrorCode(), ex.getMessage());
         return ApiResponseEntity.of(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), null);
     }
 

@@ -35,23 +35,20 @@ public class SlidePuzzleEngine {
             backgroundCanvas = generateRandomBackground(CANVAS_WIDTH, CANVAS_HEIGHT);
         }
 
-        int targetX = ThreadLocalRandom.current().nextInt(BLOCK_SIZE + 20, CANVAS_WIDTH - BLOCK_SIZE - 15);
-        int targetY = ThreadLocalRandom.current().nextInt(15, CANVAS_HEIGHT - BLOCK_SIZE - 15);
+        int targetX = ThreadLocalRandom.current().nextInt(BLOCK_SIZE + 15, CANVAS_WIDTH - BLOCK_SIZE - 20);
+        int targetY = ThreadLocalRandom.current().nextInt(BLOCK_RADIUS * 2 + 5, CANVAS_HEIGHT - BLOCK_SIZE - 15);
 
-        BufferedImage sliderBlock = new BufferedImage(BLOCK_SIZE, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage sliderBlock = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_ARGB);
         Graphics2D sliderG2d = sliderBlock.createGraphics();
         sliderG2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         Shape puzzleShape = createPuzzleShape(0, targetY, BLOCK_SIZE, BLOCK_RADIUS);
 
         sliderG2d.setClip(puzzleShape);
-        sliderG2d.drawImage(
-                backgroundCanvas.getSubimage(targetX, 0, BLOCK_SIZE, CANVAS_HEIGHT),
-                0, 0, null
-        );
+        sliderG2d.drawImage(backgroundCanvas, -targetX, 0, null);
 
         sliderG2d.setClip(null);
-        sliderG2d.setColor(new Color(255, 255, 255, 180));
+        sliderG2d.setColor(new Color(255, 255, 255, 220));
         sliderG2d.setStroke(new BasicStroke(2.0f));
         sliderG2d.draw(puzzleShape);
         sliderG2d.dispose();
@@ -63,7 +60,7 @@ public class SlidePuzzleEngine {
 
         bgG2d.setColor(new Color(0, 0, 0, 160));
         bgG2d.fill(bgCutoutShape);
-        bgG2d.setColor(new Color(255, 255, 255, 140));
+        bgG2d.setColor(new Color(255, 255, 255, 160));
         bgG2d.setStroke(new BasicStroke(1.5f));
         bgG2d.draw(bgCutoutShape);
         bgG2d.dispose();
@@ -119,19 +116,26 @@ public class SlidePuzzleEngine {
         GeneralPath path = new GeneralPath();
         path.moveTo(x, y);
 
+        // Top edge: line -> tab up -> line
         path.lineTo(x + (size - 2 * r) / 2.0, y);
-        path.quadTo(x + size / 2.0, y - r, x + (size + 2 * r) / 2.0, y);
+        path.quadTo(x + size / 2.0, y - r * 1.5, x + (size + 2 * r) / 2.0, y);
         path.lineTo(x + size, y);
 
+        // Right edge: line -> tab right -> line
         path.lineTo(x + size, y + (size - 2 * r) / 2.0);
-        path.quadTo(x + size + r, y + size / 2.0, x + size, y + (size + 2 * r) / 2.0);
+        path.quadTo(x + size + r * 1.5, y + size / 2.0, x + size, y + (size + 2 * r) / 2.0);
         path.lineTo(x + size, y + size);
 
+        // Bottom edge: line -> notch up (inward) -> line
         path.lineTo(x + (size + 2 * r) / 2.0, y + size);
-        path.quadTo(x + size / 2.0, y + size - r, x + (size - 2 * r) / 2.0, y + size);
-        path.lineTo(x + size, y + size);
+        path.quadTo(x + size / 2.0, y + size - r * 1.5, x + (size - 2 * r) / 2.0, y + size);
+        path.lineTo(x, y + size);
 
+        // Left edge: line -> notch right (inward) -> line
+        path.lineTo(x, y + (size + 2 * r) / 2.0);
+        path.quadTo(x + r * 1.5, y + size / 2.0, x, y + (size - 2 * r) / 2.0);
         path.lineTo(x, y);
+
         path.closePath();
         return path;
     }

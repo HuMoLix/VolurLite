@@ -1,0 +1,169 @@
+package com.humolix.volur.system.init;
+
+import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.system.domain.entity.SystemSettingEntity;
+import com.humolix.volur.system.repository.SystemSettingRepository;
+import com.humolix.volur.system.service.SystemSettingService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * 系统动态配置自动化迁移与初始化器
+ * 负责在系统启动时将数据库中历史遗留扁平/大写键名自动清洗并平滑迁移至标准层级规范（system.<group>.<field_name>）
+ */
+@Slf4j
+@Component
+@Order(10)
+@RequiredArgsConstructor
+public class SystemSettingInitializer implements ApplicationRunner {
+
+    private final SystemSettingRepository systemSettingRepository;
+    private final SystemSettingService systemSettingService;
+
+    private static final Map<String, String> MIGRATION_MAPPINGS = Map.ofEntries(
+            Map.entry("ENABLE_CAPTCHA", SystemSettingKeys.CAPTCHA_ENABLED),
+            Map.entry("REGISTER_ENABLED", SystemSettingKeys.AUTH_REGISTRATION_ENABLED),
+            Map.entry("REQUIRE_EMAIL_VERIFICATION", SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION),
+            Map.entry("MAX_LOGIN_ATTEMPTS", SystemSettingKeys.AUTH_MAX_LOGIN_ATTEMPTS),
+            Map.entry("EMAIL_WHITELIST_SUFFIXES", SystemSettingKeys.AUTH_EMAIL_WHITELIST_SUFFIXES),
+            Map.entry("MAINTENANCE_MODE", SystemSettingKeys.MAINTENANCE_ENABLED),
+            Map.entry("MAINTENANCE_NOTICE", SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE),
+            Map.entry("PLATFORM_NAME", SystemSettingKeys.GENERAL_PLATFORM_NAME),
+            Map.entry("PLATFORM_DESC", SystemSettingKeys.GENERAL_PLATFORM_DESC),
+            Map.entry("ICP_NUMBER", SystemSettingKeys.GENERAL_ICP_NUMBER),
+            Map.entry("DEFAULT_LOCALE", SystemSettingKeys.GENERAL_DEFAULT_LOCALE),
+            Map.entry("FRONTEND_URL", SystemSettingKeys.GENERAL_FRONTEND_URL),
+            Map.entry("SMTP_HOST", SystemSettingKeys.MAIL_SMTP_HOST),
+            Map.entry("SMTP_PORT", SystemSettingKeys.MAIL_SMTP_PORT),
+            Map.entry("SMTP_USERNAME", SystemSettingKeys.MAIL_SMTP_USER),
+            Map.entry("SMTP_USER", SystemSettingKeys.MAIL_SMTP_USER),
+            Map.entry("SMTP_PASSWORD", SystemSettingKeys.MAIL_SMTP_PASS),
+            Map.entry("SMTP_PASS", SystemSettingKeys.MAIL_SMTP_PASS),
+            Map.entry("SMTP_FROM", SystemSettingKeys.MAIL_SENDER_NAME),
+            Map.entry("SMTP_SSL", SystemSettingKeys.MAIL_SMTP_SSL),
+            Map.entry("ALIYUN_DM_ACCESS_KEY", SystemSettingKeys.MAIL_ALIYUN_ACCESS_KEY),
+            Map.entry("ALIYUN_DM_SECRET_KEY", SystemSettingKeys.MAIL_ALIYUN_SECRET_KEY),
+            Map.entry("ALIYUN_DM_ACCOUNT", SystemSettingKeys.MAIL_ALIYUN_ACCOUNT),
+            Map.entry("TURNSTILE_SITE_KEY", SystemSettingKeys.CAPTCHA_TURNSTILE_SITE_KEY),
+            Map.entry("TURNSTILE_SECRET_KEY", SystemSettingKeys.CAPTCHA_TURNSTILE_SECRET_KEY)
+    );
+
+    private static final List<String> OBSOLETE_KEYS_TO_CLEAN = List.of(
+            "FLAG_PREFIX",
+            "FLAG_SUFFIX",
+            "FLAG_TEMPLATE",
+            "DYNAMIC_FLAG_TEMPLATE",
+            "system.challenge.flag_prefix",
+            "system.challenge.flag_suffix",
+            "system.challenge.flag_template",
+            "system.container.default_duration_minutes",
+            "system.container.max_user_containers"
+    );
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void run(ApplicationArguments args) {
+        log.info("[SystemSettingInitializer] 正在执行系统配置项历史版本检查与规范化迁移...");
+        int migratedCount = 0;
+
+        for (Map.Entry<String, String> entry : MIGRATION_MAPPINGS.entrySet()) {
+            String legacyKey = entry.getKey();
+            String canonicalKey = entry.getValue();
+
+            Optional<SystemSettingEntity> legacyEntityOpt = systemSettingRepository.findBySettingKey(legacyKey);
+            if (legacyEntityOpt.isPresent()) {
+                SystemSettingEntity legacyEntity = legacyEntityOpt.get();
+                String value = legacyEntity.getSettingValue();
+
+                Optional<SystemSettingEntity> canonicalOpt = systemSettingRepository.findBySettingKey(canonicalKey);
+                if (canonicalOpt.isEmpty()) {
+                    SystemSettingEntity newEntity = SystemSettingEntity.builder()
+                            .settingKey(canonicalKey)
+                            .settingValue(value)
+                            .settingGroup(resolveGroup(canonicalKey))
+                            .valueType(legacyEntity.getValueType())
+                            .isPublic(isPublicSetting(canonicalKey))
+                            .description(legacyEntity.getDescription())
+                            .build();
+                    systemSettingRepository.save(newEntity);
+                }
+
+                systemSettingRepository.delete(legacyEntity);
+                systemSettingService.evictCache(legacyKey);
+                systemSettingService.evictCache(canonicalKey);
+                migratedCount++;
+                log.info("[SystemSettingInitializer] 成功迁移旧版配置项: {} -> {}", legacyKey, canonicalKey);
+            }
+        }
+
+        // 清理已下放到竞赛规则的废弃系统级键
+        for (String obsoleteKey : OBSOLETE_KEYS_TO_CLEAN) {
+            systemSettingRepository.findBySettingKey(obsoleteKey).ifPresent(entity -> {
+                systemSettingRepository.delete(entity);
+                systemSettingService.evictCache(obsoleteKey);
+                log.info("[SystemSettingInitializer] 已清理已下放到比赛规则的废弃全局配置: {}", obsoleteKey);
+            });
+        }
+
+        ensureDefaultSettings();
+
+        if (migratedCount > 0) {
+            log.info("[SystemSettingInitializer] 系统配置项规范化迁移完成，共清理迁移 {} 项历史键", migratedCount);
+        }
+    }
+
+    private void ensureDefaultSettings() {
+        initDefaultIfAbsent(SystemSettingKeys.CAPTCHA_ENABLED, "true", "CAPTCHA", "BOOLEAN", true, "人机验证是否开启");
+        initDefaultIfAbsent(SystemSettingKeys.AUTH_REGISTRATION_ENABLED, "true", "AUTH", "BOOLEAN", true, "是否开放用户注册");
+        initDefaultIfAbsent(SystemSettingKeys.GENERAL_PLATFORM_NAME, "Volur Lite", "GENERAL", "STRING", true, "平台全称");
+        initDefaultIfAbsent(SystemSettingKeys.GENERAL_DEFAULT_LOCALE, "zh_CN", "GENERAL", "STRING", true, "系统默认语言");
+        initDefaultIfAbsent(SystemSettingKeys.MAINTENANCE_ENABLED, "false", "MAINTENANCE", "BOOLEAN", true, "全站维护模式开关");
+        initDefaultIfAbsent(SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, "系统正在全站维护升级中，暂不可用，请稍后访问。", "MAINTENANCE", "STRING", true, "维护公告提示");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_PORT_RANGE_START, "20000", "CONTAINER", "INTEGER", false, "靶机动态端口映射起始端口");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_PORT_RANGE_END, "30000", "CONTAINER", "INTEGER", false, "靶机动态端口映射结束端口");
+    }
+
+    private void initDefaultIfAbsent(String key, String defaultValue, String group, String type, boolean isPublic, String desc) {
+        if (systemSettingRepository.findBySettingKey(key).isEmpty()) {
+            SystemSettingEntity entity = SystemSettingEntity.builder()
+                    .settingKey(key)
+                    .settingValue(defaultValue)
+                    .settingGroup(group)
+                    .valueType(type)
+                    .isPublic(isPublic)
+                    .description(desc)
+                    .build();
+            systemSettingRepository.save(entity);
+            systemSettingService.evictCache(key);
+        }
+    }
+
+    private String resolveGroup(String key) {
+        if (key.startsWith("system.general.")) return "GENERAL";
+        if (key.startsWith("system.auth.")) return "AUTH";
+        if (key.startsWith("system.captcha.")) return "CAPTCHA";
+        if (key.startsWith("system.mail.")) return "MAIL";
+        if (key.startsWith("system.container.")) return "CONTAINER";
+        if (key.startsWith("system.challenge.")) return "CHALLENGE";
+        if (key.startsWith("system.maintenance.")) return "MAINTENANCE";
+        if (key.startsWith("system.security.")) return "SECURITY";
+        return "GENERAL";
+    }
+
+    private boolean isPublicSetting(String key) {
+        return key.startsWith("system.general.")
+                || key.startsWith("system.maintenance.")
+                || SystemSettingKeys.CAPTCHA_ENABLED.equals(key)
+                || SystemSettingKeys.AUTH_REGISTRATION_ENABLED.equals(key)
+                || SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION.equals(key);
+    }
+}

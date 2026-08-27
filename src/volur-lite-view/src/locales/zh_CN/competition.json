@@ -1,0 +1,13 @@
+{
+  "page_title": "竞赛演练",
+  "page_subtitle": "实时攻防演练、CTF 多阶段竞技对抗赛事",
+  "status_pending": "未开始",
+  "status_running": "进行中",
+  "status_ended": "已结束",
+  "start_time": "开始时间",
+  "end_time": "结束时间",
+  "scale": "参赛规模",
+  "scale_format": "{teamCount} 支战队 / {participantCount} 名选手",
+  "enter_lobby": "进入竞赛大厅",
+  "enter_competition_msg": "进入竞赛 #{id}"
+}

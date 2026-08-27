@@ -1,4 +1,4 @@
-package com.humolix.volur.verification.domain.dto;
+package com.humolix.volur.auth.domain.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

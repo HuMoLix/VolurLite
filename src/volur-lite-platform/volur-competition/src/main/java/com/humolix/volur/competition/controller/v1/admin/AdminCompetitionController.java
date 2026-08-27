@@ -9,6 +9,7 @@ import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
+import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,6 +40,7 @@ public class AdminCompetitionController {
     }
 
     @Operation(summary = "创建新竞赛")
+    @Syslog(module = "COMPETITION", value = "创建竞赛", recordParams = true)
     @PostMapping
     public ApiResponse<Long> createCompetition(
             @Valid @RequestBody CompetitionCreateRequestDTO request,
@@ -47,6 +49,7 @@ public class AdminCompetitionController {
     }
 
     @Operation(summary = "更新竞赛基本信息与规则")
+    @Syslog(module = "COMPETITION", value = "更新竞赛信息", recordParams = true)
     @PutMapping("/{id}")
     public ApiResponse<Void> updateCompetition(
             @PathVariable Long id,
@@ -56,6 +59,7 @@ public class AdminCompetitionController {
     }
 
     @Operation(summary = "删除竞赛")
+    @Syslog(module = "COMPETITION", value = "删除竞赛", recordParams = true)
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteCompetition(@PathVariable Long id) {
         competitionService.deleteCompetition(id);
@@ -63,6 +67,7 @@ public class AdminCompetitionController {
     }
 
     @Operation(summary = "设置竞赛天梯榜封榜/解封状态")
+    @Syslog(module = "COMPETITION", value = "设置竞赛封榜状态", recordParams = true)
     @PostMapping("/{id}/freeze")
     public ApiResponse<Void> setFreezeScoreboard(
             @PathVariable Long id,

@@ -8,6 +8,7 @@ import com.humolix.volur.competition.service.admin.AdminTeamService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
+import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -42,6 +43,7 @@ public class AdminCompetitionTeamController {
     }
 
     @Operation(summary = "审核参赛队伍资质（通过/驳回）")
+    @Syslog(module = "COMPETITION", value = "审核参赛队伍资质", recordParams = true)
     @PostMapping("/{teamId}/audit")
     public ApiResponse<Void> auditTeam(
             @PathVariable Long competitionId,
@@ -52,6 +54,7 @@ public class AdminCompetitionTeamController {
     }
 
     @Operation(summary = "删除参赛队伍")
+    @Syslog(module = "COMPETITION", value = "删除参赛队伍", recordParams = true)
     @DeleteMapping("/{teamId}")
     public ApiResponse<Void> deleteTeam(
             @PathVariable Long competitionId,

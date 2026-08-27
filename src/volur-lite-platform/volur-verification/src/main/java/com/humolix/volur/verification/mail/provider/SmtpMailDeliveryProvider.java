@@ -28,10 +28,10 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
 
     @Override
     public boolean isAvailable() {
-        String host = systemSettingService.getSettingValue("SMTP_HOST");
-        String port = systemSettingService.getSettingValue("SMTP_PORT");
-        String username = systemSettingService.getSettingValue("SMTP_USERNAME");
-        String password = systemSettingService.getSettingValue("SMTP_PASSWORD");
+        String host = systemSettingService.getSettingValue("system.mail.smtp_host");
+        String port = systemSettingService.getSettingValue("system.mail.smtp_port");
+        String username = systemSettingService.getSettingValue("system.mail.smtp_user");
+        String password = systemSettingService.getSettingValue("system.mail.smtp_pass");
         return StringUtils.hasText(host) && StringUtils.hasText(port) && StringUtils.hasText(username) && StringUtils.hasText(password);
     }
 
@@ -40,7 +40,7 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
         JavaMailSenderImpl mailSender = createMailSender();
         String from = message.getFrom();
         if (!StringUtils.hasText(from)) {
-            from = systemSettingService.getSettingValue("SMTP_FROM", mailSender.getUsername());
+            from = systemSettingService.getSettingValue("system.mail.sender_name", mailSender.getUsername());
         }
 
         try {
@@ -77,10 +77,10 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
     }
 
     private JavaMailSenderImpl createMailSender() {
-        String host = trim(systemSettingService.getSettingValue("SMTP_HOST"));
-        String portValue = trim(systemSettingService.getSettingValue("SMTP_PORT"));
-        String username = trim(systemSettingService.getSettingValue("SMTP_USERNAME"));
-        String password = trim(systemSettingService.getSettingValue("SMTP_PASSWORD"));
+        String host = trim(systemSettingService.getSettingValue("system.mail.smtp_host"));
+        String portValue = trim(systemSettingService.getSettingValue("system.mail.smtp_port"));
+        String username = trim(systemSettingService.getSettingValue("system.mail.smtp_user"));
+        String password = trim(systemSettingService.getSettingValue("system.mail.smtp_pass"));
 
         if (!StringUtils.hasText(host) || !StringUtils.hasText(portValue) || !StringUtils.hasText(username) || !StringUtils.hasText(password)) {
             throw new IllegalStateException("SMTP 服务配置不完整");
@@ -90,7 +90,7 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
         try {
             port = Integer.parseInt(portValue);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("SMTP_PORT 配置格式错误: " + portValue);
+            throw new IllegalArgumentException("system.mail.smtp_port 配置格式错误: " + portValue);
         }
 
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();

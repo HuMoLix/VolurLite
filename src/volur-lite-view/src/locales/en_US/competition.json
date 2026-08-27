@@ -1,0 +1,13 @@
+{
+  "page_title": "Competitions",
+  "page_subtitle": "Real-time offensive/defensive drills and multi-stage CTF competitions",
+  "status_pending": "Upcoming",
+  "status_running": "In Progress",
+  "status_ended": "Finished",
+  "start_time": "Start Time",
+  "end_time": "End Time",
+  "scale": "Scale",
+  "scale_format": "{teamCount} Teams / {participantCount} Players",
+  "enter_lobby": "Enter Competition Lobby",
+  "enter_competition_msg": "Entering competition #{id}"
+}

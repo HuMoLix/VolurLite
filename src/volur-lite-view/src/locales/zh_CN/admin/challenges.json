@@ -1,0 +1,20 @@
+{
+  "title": "题库管理",
+  "desc": "管理 CTF、理论题、ISW、AWD 及 AWD+ 全类型题目的创建、分值与环境配置。",
+  "placeholder": "题库管理数据载入中",
+  "ctf_title": "CTF 题库管理",
+  "ctf_desc": "管理 Web、Pwn、Reverse、Crypto、Misc 等经典夺旗题目的创建、题目描述、附件与 Flag 配置。",
+  "ctf_placeholder": "CTF 题库数据载入中",
+  "theory_title": "理论题库管理",
+  "theory_desc": "管理单选、多选、判断与简答等网络安全基础理论题目及解析题库。",
+  "theory_placeholder": "理论题库数据载入中",
+  "isw_title": "ISW 题库管理",
+  "isw_desc": "管理工业互联网、工控网络与靶场仿真 (ISW) 专属赛题与拓扑环境。",
+  "isw_placeholder": "ISW 题库数据载入中",
+  "awd_title": "AWD 题库管理",
+  "awd_desc": "管理 Attack & Defense (攻防对抗) 靶机镜像、漏洞修复检查 (Check) 与自动化攻击服务靶标。",
+  "awd_placeholder": "AWD 题库数据载入中",
+  "awd_plus_title": "AWD+ 题库管理",
+  "awd_plus_desc": "管理 AWD Plus 高级攻防对抗靶机体系、动态加固检测与自动化攻防计分环境。",
+  "awd_plus_placeholder": "AWD+ 题库数据载入中"
+}

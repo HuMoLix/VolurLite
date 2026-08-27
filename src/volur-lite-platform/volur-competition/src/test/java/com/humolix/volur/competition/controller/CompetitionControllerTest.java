@@ -1,0 +1,65 @@
+package com.humolix.volur.competition.controller;
+
+import com.humolix.volur.competition.controller.v1.CompetitionController;
+import com.humolix.volur.competition.domain.vo.CompetitionSummaryVO;
+import com.humolix.volur.competition.service.CompetitionService;
+import com.humolix.volur.framework.common.api.PageResponse;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@ExtendWith(MockitoExtension.class)
+class CompetitionControllerTest {
+
+    private MockMvc mockMvc;
+
+    @Mock
+    private CompetitionService competitionService;
+
+    @InjectMocks
+    private CompetitionController competitionController;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(competitionController).build();
+    }
+
+    @Test
+    @DisplayName("验证 GET /api/v1/competitions 接口路由正常")
+    void testListCompetitionsRoute() throws Exception {
+        CompetitionSummaryVO summaryVO = CompetitionSummaryVO.builder()
+                .id(1L)
+                .title("Volur 2026 迎新赛")
+                .slug("volur-2026-welcome")
+                .teamCount(5L)
+                .build();
+
+        PageResponse<CompetitionSummaryVO> pageResponse = PageResponse.of(List.of(summaryVO), 1L, 1, 10);
+        when(competitionService.listCompetitions(anyInt(), anyInt(), any())).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/v1/competitions")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("获取竞赛列表成功"))
+                .andExpect(jsonPath("$.data.list[0].title").value("Volur 2026 迎新赛"));
+    }
+}

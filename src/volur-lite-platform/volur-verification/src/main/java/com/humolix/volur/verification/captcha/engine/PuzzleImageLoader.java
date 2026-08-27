@@ -29,8 +29,8 @@ import java.util.stream.Stream;
 @Component
 public class PuzzleImageLoader {
 
-    public static final int TARGET_WIDTH = 280;
-    public static final int TARGET_HEIGHT = 150;
+    public static final int TARGET_WIDTH = 320;
+    public static final int TARGET_HEIGHT = 160;
     private static final int MAX_CACHED_IMAGES = 50;
     private static final Set<String> SUPPORTED_EXTENSIONS = Set.of(".png", ".jpg", ".jpeg", ".webp");
     private static final String CLASSPATH_PUZZLE_PATTERN = "classpath*:captcha/puzzle/*.*";

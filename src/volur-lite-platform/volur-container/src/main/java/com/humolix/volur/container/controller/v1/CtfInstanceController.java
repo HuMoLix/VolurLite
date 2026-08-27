@@ -5,6 +5,7 @@ import com.humolix.volur.container.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
+import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class CtfInstanceController {
     private final CtfInstanceService instanceService;
 
     @Operation(summary = "启动靶机容器")
+    @Syslog(module = "CONTAINER", value = "启动靶机容器", recordParams = true)
     @PostMapping("/{challengeId}/start")
     public ApiResponse<ChallengeInstanceResponseVO> startInstance(
             @PathVariable Long challengeId,
@@ -28,6 +30,7 @@ public class CtfInstanceController {
     }
 
     @Operation(summary = "销毁/停止靶机容器")
+    @Syslog(module = "CONTAINER", value = "销毁靶机容器", recordParams = true)
     @PostMapping("/{challengeId}/stop")
     public ApiResponse<Void> stopInstance(
             @PathVariable Long challengeId,
@@ -37,6 +40,7 @@ public class CtfInstanceController {
     }
 
     @Operation(summary = "延长靶机容器租期")
+    @Syslog(module = "CONTAINER", value = "延长靶机容器租期", recordParams = true)
     @PostMapping("/{challengeId}/extend")
     public ApiResponse<ChallengeInstanceResponseVO> extendInstance(
             @PathVariable Long challengeId,
