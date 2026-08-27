@@ -33,19 +33,7 @@ out/
 .classpath
 .settings/
 
-# Environment Variables
-.env
-!.env.example
-
 # OS generated files
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Agent design rules, documents & scripts
-agent/
-
-# AI Prompts
-GEMINI.md
-CALUDE.md
-CLAUDE.md
