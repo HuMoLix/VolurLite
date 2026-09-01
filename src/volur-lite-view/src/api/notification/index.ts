@@ -15,6 +15,8 @@ import type {
 export function getNotificationListApi(params?: {
   page?: number
   size?: number
+  keyword?: string
+  status?: string
   unreadOnly?: boolean
   type?: string
 }): Promise<ApiResponse<PageResponse<NotificationVO>>> {
@@ -35,14 +37,6 @@ export function getUnreadNotificationCountApi(): Promise<ApiResponse<number>> {
  */
 export function getNotificationDetailApi(id: number | string): Promise<ApiResponse<NotificationVO>> {
   return request.get<NotificationVO>(`/notifications/${id}`)
-}
-
-/**
- * 单个标记通知为已读
- * 对应后端: PATCH /api/v1/notifications/{id}/read
- */
-export function markNotificationReadApi(id: number | string): Promise<ApiResponse<void>> {
-  return request.patch<void>(`/notifications/${id}/read`)
 }
 
 /**

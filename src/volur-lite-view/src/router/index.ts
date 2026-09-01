@@ -13,13 +13,11 @@ const router = createRouter({
   }
 })
 
-// Route guard
 router.beforeEach(async (to) => {
   const token = getAccessToken()
   const userStore = useUserStore()
   const systemStore = useSystemStore()
 
-  // Ensure public settings are loaded
   if (!systemStore.isLoaded) {
     await systemStore.fetchPublicSettings()
   }
@@ -30,16 +28,14 @@ router.beforeEach(async (to) => {
     : (to.meta.title as string) || ''
   document.title = title ? `${title} | ${siteName}` : siteName
 
-  // 1. 全站维护拦截判定
   if (systemStore.isMaintenanceMode && !userStore.isAdmin) {
     if (to.path !== '/maintenance' && !to.path.startsWith('/auth') && !to.path.startsWith('/admin')) {
       return { path: '/maintenance' }
     }
-  } else if (to.path === '/maintenance' && !systemStore.isMaintenanceMode) {
+  } else if (to.path === '/maintenance' && systemStore.isLoaded && systemStore.isServerReachable && !systemStore.isMaintenanceMode) {
     return { path: '/' }
   }
 
-  // 2. 鉴权与权限校验
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
   const requiredRoles = to.matched.find((record) => record.meta.roles)?.meta.roles
 

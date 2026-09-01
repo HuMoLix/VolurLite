@@ -37,3 +37,6 @@ out/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Uploaded files
+uploads/**

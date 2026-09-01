@@ -23,6 +23,12 @@ export const routes: RouteRecordRaw[] = [
         name: 'Announcements',
         component: () => import('@/views/announcement/AnnouncementListView.vue'),
         meta: { title: '全站公告', titleKey: 'layout.announcements', requiresAuth: false }
+      },
+      {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('@/views/profile/ProfileView.vue'),
+        meta: { title: '个人中心', titleKey: 'layout.profile', requiresAuth: true }
       }
     ]
   },

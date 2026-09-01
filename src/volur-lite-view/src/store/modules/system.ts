@@ -7,6 +7,7 @@ export const useSystemStore = defineStore('system', () => {
   const settings = ref<Record<string, string>>({})
   const loading = ref<boolean>(false)
   const isLoaded = ref<boolean>(false)
+  const isServerReachable = ref<boolean>(true)
   let inFlightFetchPromise: Promise<Record<string, string>> | null = null
 
   // 1. 基础信息配置
@@ -64,6 +65,7 @@ export const useSystemStore = defineStore('system', () => {
         const res = await getPublicSystemSettingsApi()
         settings.value = res.data || {}
         isLoaded.value = true
+        isServerReachable.value = true
 
         // 1. 动态初始化系统默认语言（若本地用户无手动覆盖偏好）
         const savedLocale = localStorage.getItem('locale')
@@ -83,6 +85,11 @@ export const useSystemStore = defineStore('system', () => {
         return settings.value
       } catch (e) {
         console.error('Failed to fetch public system settings', e)
+        isLoaded.value = false
+        isServerReachable.value = false
+        if (force) {
+          throw e
+        }
         return {}
       } finally {
         loading.value = false
@@ -101,6 +108,7 @@ export const useSystemStore = defineStore('system', () => {
     settings,
     loading,
     isLoaded,
+    isServerReachable,
     platformName,
     platformDesc,
     icpNumber,

@@ -81,6 +81,13 @@ public class NotificationServiceImpl implements NotificationService {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("receiverId"), userId));
 
+            if (StringUtils.hasText(queryDTO.getKeyword())) {
+                String pattern = "%" + queryDTO.getKeyword().trim().toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), pattern),
+                        cb.like(cb.lower(root.get("content")), pattern)
+                ));
+            }
             if (queryDTO.getType() != null) {
                 predicates.add(cb.equal(root.get("type"), queryDTO.getType()));
             }
@@ -128,20 +135,6 @@ public class NotificationServiceImpl implements NotificationService {
             vo.setSenderUsername("系统通知");
         }
         return vo;
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void markAsRead(Long userId, Long notificationId) {
-        Notification notification = notificationRepository.findByIdAndReceiverId(notificationId, userId)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "站内信不存在"));
-
-        if (notification.getStatus() == NotificationStatus.UNREAD) {
-            notification.setStatus(NotificationStatus.READ);
-            notification.setReadTime(Instant.now());
-            notificationRepository.save(notification);
-            evictOrDecrementUnreadCount(userId);
-        }
     }
 
     @Override

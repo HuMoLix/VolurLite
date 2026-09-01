@@ -86,11 +86,31 @@ public class AuthController {
         return ApiResponseEntity.success("密码修改成功，请重新登录");
     }
 
-    @Operation(summary = "注销当前用户账号")
+    @Operation(summary = "发送注销账号邮箱验证码 (2FA)")
+    @Syslog(module = "AUTH", value = "发送注销账号邮箱验证码", logType = "AUTH", recordParams = true)
+    @PostMapping("/account/send-code")
+    public ApiResponse<Void> sendDeleteAccountEmail(@Valid @RequestBody(required = false) EmailCaptchaRequestDTO request) {
+        authService.sendDeleteAccountEmail(request);
+        return ApiResponseEntity.success("注销账号验证码已发送");
+    }
+
+    @Operation(summary = "双重验证安全注销当前用户账号 (2FA)")
+    @Syslog(module = "AUTH", value = "注销当前用户账号", logType = "AUTH")
+    @PostMapping("/account/delete")
+    public ApiResponse<Void> deleteAccount(
+            @Valid @RequestBody DeleteAccountRequestDTO request,
+            HttpServletRequest httpRequest) {
+        authService.deleteAccount(request, httpRequest);
+        return ApiResponseEntity.success("账号注销成功");
+    }
+
+    @Operation(summary = "双重验证安全注销当前用户账号 (DELETE兼容)")
     @Syslog(module = "AUTH", value = "注销当前用户账号", logType = "AUTH")
     @DeleteMapping("/account")
-    public ApiResponse<Void> deleteAccount(HttpServletRequest request) {
-        authService.deleteAccount(request);
+    public ApiResponse<Void> deleteAccountByDelete(
+            @Valid @RequestBody DeleteAccountRequestDTO request,
+            HttpServletRequest httpRequest) {
+        authService.deleteAccount(request, httpRequest);
         return ApiResponseEntity.success("账号注销成功");
     }
 

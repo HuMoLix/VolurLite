@@ -132,10 +132,12 @@
 
           <n-dropdown :options="userDropdownOptions" @select="handleUserDropdown">
             <div class="user-profile cursor-pointer">
-              <n-avatar round size="small" :src="userStore.user?.avatar || undefined">
-                {{ userStore.user?.nickname?.charAt(0) || userStore.user?.username?.charAt(0) || 'A' }}
-              </n-avatar>
-              <span class="user-nickname">{{ userStore.user?.nickname || userStore.user?.username || 'Admin' }}</span>
+              <UserAvatar
+                size="small"
+                :src="userStore.user?.avatarUrl"
+                :username="userStore.user?.username || 'Admin'"
+              />
+              <span class="user-nickname">{{ userStore.user?.username || 'Admin' }}</span>
             </div>
           </n-dropdown>
         </div>
@@ -180,7 +182,6 @@ import {
   NBreadcrumb,
   NBreadcrumbItem,
   NButton,
-  NAvatar,
   NDropdown,
   NIcon,
   NTooltip,
@@ -206,6 +207,7 @@ import {
   SunnyOutline,
   MoonOutline
 } from '@vicons/ionicons5'
+import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { useSystemStore } from '@/store/modules/system'
@@ -433,21 +435,33 @@ async function handleUserDropdown(key: string) {
     gap: 16px;
 
     .user-profile {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 10px;
       padding: 4px 8px;
       border-radius: 6px;
+      cursor: pointer;
+      user-select: none;
       transition: background-color 0.2s ease;
 
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.04);
+      :deep(.n-avatar) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
       }
 
       .user-nickname {
         font-size: 13px;
         font-weight: 500;
         color: var(--v-text-primary, #111111);
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.04);
       }
     }
   }

@@ -33,3 +33,12 @@ export interface SystemSettingUpdateDTO {
   value: string
 }
 
+/** 文件存储上传响应 VO (对应 com.humolix.volur.system.domain.vo.StorageResponseVO) */
+export interface StorageResponseVO {
+  fileName: string
+  filePath: string
+  fileSize: number
+  sha256?: string
+}
+
+

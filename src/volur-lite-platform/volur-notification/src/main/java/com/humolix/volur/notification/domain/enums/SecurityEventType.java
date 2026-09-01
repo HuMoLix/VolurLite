@@ -12,6 +12,7 @@ public enum SecurityEventType {
     ACCOUNT_LOCKED("账号已被锁定"),
     ACCOUNT_UNLOCKED("账号已被解锁"),
     ACCOUNT_DISABLED("账号已被封禁"),
+    ACCOUNT_DELETED("账号已被注销"),
     ROLE_CHANGED("角色权限变动");
 
     private final String description;

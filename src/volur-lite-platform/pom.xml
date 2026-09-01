@@ -53,6 +53,8 @@
         <caffeine.version>3.2.0</caffeine.version>
         <mapstruct.version>1.7.0.Beta1</mapstruct.version>
         <lombok.version>1.18.46</lombok.version>
+        <aliyun-oss.version>3.18.5</aliyun-oss.version>
+        <commons-io.version>2.18.0</commons-io.version>
     </properties>
 
     <dependencyManagement>
@@ -185,6 +187,18 @@
                 <groupId>org.mapstruct</groupId>
                 <artifactId>mapstruct</artifactId>
                 <version>${mapstruct.version}</version>
+            </dependency>
+
+            <!-- Aliyun OSS & Commons IO -->
+            <dependency>
+                <groupId>com.aliyun.oss</groupId>
+                <artifactId>aliyun-sdk-oss</artifactId>
+                <version>${aliyun-oss.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -73,7 +73,7 @@ async function handleRefresh() {
       message.info('系统仍在维护中，请稍后再试')
     }
   } catch {
-    message.error('检测服务状态异常')
+    message.warning('无法连接到服务器，系统仍在维护中')
   } finally {
     refreshing.value = false
   }

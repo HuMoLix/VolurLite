@@ -1,8 +1,10 @@
 package com.humolix.volur.framework.common.exception;
 
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 
+@Getter
 public class BusinessException extends RuntimeException {
 
     private final HttpStatusCode status;
@@ -36,14 +38,6 @@ public class BusinessException extends RuntimeException {
         super(message, cause);
         this.status = status;
         this.errorCode = errorCode;
-    }
-
-    public HttpStatusCode getStatus() {
-        return status;
-    }
-
-    public int getErrorCode() {
-        return errorCode;
     }
 
 }

@@ -9,7 +9,8 @@ import type {
   ForgotPasswordResetRequestDTO,
   ResetPasswordRequestDTO,
   VerifyChangePasswordCodeRequestDTO,
-  ChangePasswordRequestDTO
+  ChangePasswordRequestDTO,
+  DeleteAccountRequestDTO
 } from '@/types/auth'
 import type { EmailCaptchaRequestDTO } from '@/types/verification'
 
@@ -94,9 +95,25 @@ export function changePasswordApi(data: ChangePasswordRequestDTO): Promise<ApiRe
 }
 
 /**
- * 注销当前用户账号
+ * 发送注销账号邮箱验证码 (2FA)
+ * 对应后端: POST /api/v1/auth/account/send-code
+ */
+export function sendDeleteAccountEmailCodeApi(data?: EmailCaptchaRequestDTO): Promise<ApiResponse<void>> {
+  return request.post<void>('/auth/account/send-code', data || {})
+}
+
+/**
+ * 双重验证安全注销当前用户账号 (2FA)
+ * 对应后端: POST /api/v1/auth/account/delete
+ */
+export function deleteAccountWith2FaApi(data: DeleteAccountRequestDTO): Promise<ApiResponse<void>> {
+  return request.post<void>('/auth/account/delete', data)
+}
+
+/**
+ * 注销当前用户账号 (DELETE兼容)
  * 对应后端: DELETE /api/v1/auth/account
  */
-export function deleteAccountApi(): Promise<ApiResponse<void>> {
-  return request.delete<void>('/auth/account')
+export function deleteAccountApi(data?: DeleteAccountRequestDTO): Promise<ApiResponse<void>> {
+  return request.delete<void>('/auth/account', { data })
 }

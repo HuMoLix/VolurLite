@@ -38,26 +38,6 @@ public class PageRequestDTO implements Serializable {
     @Schema(description = "排序方向 (ASC / DESC)", example = "DESC", defaultValue = "DESC")
     private String sortOrder = "DESC";
 
-    /**
-     * 兼容前端或旧接口传入的 sortBy 命名
-     */
-    public void setSortBy(String sortBy) {
-        if (StringUtils.hasText(sortBy)) {
-            this.sortField = sortBy;
-        }
-    }
-
-    public String getSortBy() {
-        return this.sortField;
-    }
-
-    /**
-     * 构建 Spring Data Pageable 对象，默认降序
-     *
-     * @param entityClass      实体类型（用于校验排序字段合法性，防止 SQL 注入）
-     * @param defaultSortField 默认排序字段
-     * @return Pageable 实例
-     */
     public Pageable toPageable(Class<?> entityClass, String defaultSortField) {
         return PageSortUtil.createPageable(
                 this.page,
@@ -70,14 +50,6 @@ public class PageRequestDTO implements Serializable {
         );
     }
 
-    /**
-     * 构建 Spring Data Pageable 对象，支持自定义默认排序方向
-     *
-     * @param entityClass      实体类型（用于校验排序字段合法性，防止 SQL 注入）
-     * @param defaultSortField 默认排序字段
-     * @param defaultDirection 默认排序方向
-     * @return Pageable 实例
-     */
     public Pageable toPageable(Class<?> entityClass, String defaultSortField, Sort.Direction defaultDirection) {
         return PageSortUtil.createPageable(
                 this.page,
@@ -90,11 +62,6 @@ public class PageRequestDTO implements Serializable {
         );
     }
 
-    /**
-     * 构建基础 Spring Data Pageable 对象（无排序）
-     *
-     * @return Pageable 实例
-     */
     public Pageable toPageable() {
         return PageSortUtil.createPageable(this.page, this.size);
     }

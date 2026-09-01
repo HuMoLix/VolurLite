@@ -71,7 +71,7 @@
               v-for="item in notificationList"
               :key="item.id"
               class="notification-item"
-              :class="{ unread: !item.read }"
+              :class="{ unread: item.status === 'UNREAD' }"
               @click="handleItemClick(item)"
             >
               <div class="item-icon-wrapper" :class="item.type?.toLowerCase() || 'system'">
@@ -87,7 +87,7 @@
                 <div class="item-desc">{{ item.content }}</div>
               </div>
               <div class="item-actions">
-                <span v-if="!item.read" class="unread-dot" />
+                <span v-if="item.status === 'UNREAD'" class="unread-dot" />
                 <n-button
                   quaternary
                   circle
@@ -107,6 +107,14 @@
         <!-- Footer -->
         <div class="panel-footer">
           <span class="total-text">共 {{ totalCount }} 条通知</span>
+          <n-button text type="primary" size="tiny" class="view-more-btn" @click="handleViewMore">
+            <span>{{ t('profile.notifications_view_more') }}</span>
+            <template #icon>
+              <n-icon size="13">
+                <ChevronForwardOutline />
+              </n-icon>
+            </template>
+          </n-button>
         </div>
       </div>
     </n-popover>
@@ -143,6 +151,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import {
   NPopover,
   NBadge,
@@ -163,12 +173,13 @@ import {
   MailOutline,
   TrophyOutline,
   PeopleOutline,
-  RibbonOutline
+  RibbonOutline,
+  ChevronForwardOutline
 } from '@vicons/ionicons5'
 import {
   getUnreadNotificationCountApi,
   getNotificationListApi,
-  markNotificationReadApi,
+  getNotificationDetailApi,
   markAllNotificationsReadApi,
   deleteNotificationApi
 } from '@/api/notification'
@@ -176,6 +187,8 @@ import type { NotificationVO } from '@/types/notification'
 import { useUserStore } from '@/store/modules/user'
 import { SseClient } from '@/utils/sse'
 
+const { t } = useI18n()
+const router = useRouter()
 const message = useMessage()
 const userStore = useUserStore()
 
@@ -285,27 +298,35 @@ function handleTabChange() {
   fetchNotifications()
 }
 
+function handleViewMore() {
+  showPopover.value = false
+  router.push({ path: '/profile', query: { tab: 'notifications' } })
+}
+
 async function handleItemClick(item: NotificationVO) {
   selectedNotification.value = item
   showDetailModal.value = true
 
-  if (!item.read) {
-    try {
-      await markNotificationReadApi(item.id)
-      item.read = true
+  try {
+    const res = await getNotificationDetailApi(item.id)
+    if (res.data) {
+      selectedNotification.value = res.data
+    }
+    if (item.status === 'UNREAD') {
+      item.status = 'READ'
       if (unreadCount.value > 0) {
         unreadCount.value--
       }
-    } catch (error) {
-      console.error('Failed to mark notification read:', error)
     }
+  } catch (error) {
+    console.error('Failed to fetch notification detail:', error)
   }
 }
 
 async function handleMarkAllRead() {
   try {
     await markAllNotificationsReadApi()
-    notificationList.value.forEach((item) => (item.read = true))
+    notificationList.value.forEach((item) => (item.status = 'READ'))
     unreadCount.value = 0
     message.success('已全部标记为已读')
   } catch (error: any) {
@@ -318,7 +339,7 @@ async function handleDeleteItem(item: NotificationVO) {
     await deleteNotificationApi(item.id)
     notificationList.value = notificationList.value.filter((n) => n.id !== item.id)
     totalCount.value = Math.max(0, totalCount.value - 1)
-    if (!item.read && unreadCount.value > 0) {
+    if (item.status === 'UNREAD' && unreadCount.value > 0) {
       unreadCount.value--
     }
     message.success('通知已删除')

@@ -14,6 +14,10 @@ public interface EmailService {
 
     void sendChangePasswordEmail(String email, String username);
 
+    void sendDeleteAccountEmail(EmailCaptchaRequestDTO request);
+
+    void sendDeleteAccountEmail(String email, String username);
+
     void sendResetPasswordEmail(String email, String username);
 
     boolean verifyCode(String email, String code);

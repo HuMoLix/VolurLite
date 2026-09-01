@@ -2,14 +2,20 @@
  * 通知与实时流模块类型定义 (对应 com.humolix.volur.notification)
  */
 
-/** 站内信通知 VO */
+/** 站内信通知 VO (对应 com.humolix.volur.notification.domain.vo.NotificationVO) */
 export interface NotificationVO {
   id: number | string
-  userId: number | string
+  senderId?: number | string
+  senderUsername?: string
+  receiverId?: number | string
   title: string
   content: string
   type: 'SYSTEM' | 'COMPETITION' | 'TEAM' | 'AWARD'
-  read: boolean
+  status: 'UNREAD' | 'READ'
+  actionStatus?: 'NONE' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+  actionData?: string
+  readTime?: string
+  expireTime?: string
   createdAt: string
 }
 

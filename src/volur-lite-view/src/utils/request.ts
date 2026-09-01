@@ -3,9 +3,6 @@ import type { ApiResponse } from '@/types/common/api'
 import type { AuthenticateResponseVO } from '@/types/auth'
 import { getAccessToken, getRefreshToken, setAccessToken, clearAuthStorage } from './auth'
 
-/**
- * 安全 JSON 反序列化：自动将超出 JS 安全整数范围（16 位及以上）的 Long / Snowflake ID 转换为字符串，彻底杜绝精度截断
- */
 export function safeJsonParse(data: any): any {
   if (typeof data !== 'string') {
     return data
@@ -18,7 +15,6 @@ export function safeJsonParse(data: any): any {
   }
 }
 
-// Create Axios instance
 const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 15000,
@@ -42,7 +38,6 @@ function onRefreshed(token: string) {
   refreshSubscribers = []
 }
 
-// Request interceptor
 service.interceptors.request.use(
   (config) => {
     const token = getAccessToken()
@@ -56,16 +51,30 @@ service.interceptors.request.use(
   }
 )
 
-// Response interceptor
+let lastNetworkErrorTime = 0
+const NETWORK_ERROR_THROTTLE = 2000
+
+function showThrottledNetworkError(msg: string) {
+  const now = Date.now()
+  const currentPath = window.location.pathname
+  if (currentPath === '/maintenance') {
+    return
+  }
+  if (now - lastNetworkErrorTime > NETWORK_ERROR_THROTTLE) {
+    lastNetworkErrorTime = now
+    if (window.$message) {
+      window.$message.error(msg)
+    }
+  }
+}
+
 service.interceptors.response.use(
   (response: AxiosResponse<ApiResponse<any>>) => {
     const res = response.data
-    // If backend returns standard ApiResponse
     if (res && typeof res.success === 'boolean') {
       if (res.success) {
         return response
       }
-      // Business Error
       const errorMsg = res.message || '系统业务处理异常'
       if (window.$message) {
         window.$message.error(errorMsg)
@@ -77,10 +86,15 @@ service.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
+    const navigateToMaintenance = () => {
+      const currentPath = window.location.pathname
+      if (currentPath !== '/maintenance') {
+        window.location.href = '/maintenance'
+      }
+    }
+
     if (error.response) {
       const { status, data } = error.response
-
-      // Handle 401 Unauthorized with Refresh Token
       if (status === 401 && !originalRequest._retry) {
         const refreshToken = getRefreshToken()
         if (refreshToken) {
@@ -112,7 +126,6 @@ service.interceptors.response.use(
               return Promise.reject(refreshErr)
             }
           } else {
-            // Queue requests while refreshing
             return new Promise((resolve) => {
               subscribeTokenRefresh((newToken: string) => {
                 originalRequest.headers.Authorization = `Bearer ${newToken}`
@@ -128,13 +141,12 @@ service.interceptors.response.use(
         }
       } else if (status === 503) {
         const message = data?.message || '系统正在全站维护升级中，暂不可用'
-        if (window.$message) {
-          window.$message.warning(message)
-        }
-        const currentPath = window.location.pathname
-        if (currentPath !== '/maintenance' && !currentPath.startsWith('/auth') && !currentPath.startsWith('/admin')) {
-          window.location.href = '/maintenance'
-        }
+        showThrottledNetworkError(message)
+        navigateToMaintenance()
+      } else if (status === 502 || status === 504) {
+        const message = data?.message || '后端服务连接超时或网关异常， 正在进入维护页面'
+        showThrottledNetworkError(message)
+        navigateToMaintenance()
       } else {
         const message = data?.message || error.message || '网络请求错误'
         if (window.$message) {
@@ -142,17 +154,13 @@ service.interceptors.response.use(
         }
       }
     } else {
-      if (window.$message) {
-        window.$message.error('网络连接不可用，请检查网络设置')
-      }
+      showThrottledNetworkError('网络请求错误，请检查网络连接')
+      navigateToMaintenance()
     }
     return Promise.reject(error)
   }
 )
 
-/**
- * Standard typed request helper functions
- */
 export const request = {
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     const res = await service.get<ApiResponse<T>>(url, config)

@@ -27,9 +27,11 @@ public interface AuthService {
 
     void changePassword(ChangePasswordRequestDTO request);
 
+    void sendDeleteAccountEmail(EmailCaptchaRequestDTO request);
+
     void logout(HttpServletRequest request);
 
-    void deleteAccount(HttpServletRequest request);
+    void deleteAccount(DeleteAccountRequestDTO request, HttpServletRequest httpRequest);
 
 }
 

@@ -1,6 +1,6 @@
 import { request } from '@/utils/request'
 import type { ApiResponse } from '@/types/common/api'
-import type { SystemSettingVO, SystemSettingUpdateDTO, AdminSystemOverviewVO } from '@/types/system'
+import type { SystemSettingVO, SystemSettingUpdateDTO, AdminSystemOverviewVO, StorageResponseVO } from '@/types/system'
 
 /**
  * 获取公开系统设置
@@ -48,4 +48,26 @@ export function batchUpdateAdminSystemSettingsApi(data: SystemSettingUpdateDTO[]
  */
 export function testSmtpConnectionApi(): Promise<ApiResponse<void>> {
   return request.post<void>('/email/test')
+}
+
+/**
+ * 上传图片文件 (动态 OSS/LOCAL 存储)
+ * 对应后端: POST /api/v1/system/upload/image
+ */
+export function uploadImageApi(formData: FormData, folder: string = 'images'): Promise<ApiResponse<StorageResponseVO>> {
+  return request.post<StorageResponseVO>('/system/upload/image', formData, {
+    params: { folder },
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+/**
+ * 上传资源文件 (动态 OSS/LOCAL 存储)
+ * 对应后端: POST /api/v1/system/upload/resource
+ */
+export function uploadResourceApi(formData: FormData, folder: string = 'resources'): Promise<ApiResponse<StorageResponseVO>> {
+  return request.post<StorageResponseVO>('/system/upload/resource', formData, {
+    params: { folder },
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 }

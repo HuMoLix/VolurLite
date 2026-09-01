@@ -17,7 +17,6 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
     static {
-        // 忽略自定义身份解析注解修饰的方法入参，避免在 Swagger/OpenAPI 文档中暴露为必填请求参数
         SpringDocUtils.getConfig().addAnnotationsToIgnore(
                 CurrentUserId.class,
                 CurrentUser.class

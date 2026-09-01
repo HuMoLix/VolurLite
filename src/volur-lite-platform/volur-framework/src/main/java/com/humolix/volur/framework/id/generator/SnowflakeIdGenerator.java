@@ -47,16 +47,8 @@ public class SnowflakeIdGenerator implements IdGenerator {
 
             if (currentTimestamp < lastTimestamp) {
                 long offset = lastTimestamp - currentTimestamp;
-                if (offset <= 5) {
-                    try {
-                        Thread.sleep(offset);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                    currentTimestamp = timeGen();
-                    if (currentTimestamp < lastTimestamp) {
-                        currentTimestamp = tilNextMillis(lastTimestamp);
-                    }
+                if (offset <= SnowflakeConstants.MAX_BACKWARD_MS) {
+                    currentTimestamp = tilNextMillis(lastTimestamp);
                 } else {
                     throw new SnowflakeClockBackwardsException("Clock moved backwards by " + offset + " ms, refusing to generate id");
                 }
@@ -80,12 +72,15 @@ public class SnowflakeIdGenerator implements IdGenerator {
                         | (this.workerId << SnowflakeConstants.WORKER_ID_SHIFT)
                         | newSequence;
             }
+
+            Thread.onSpinWait();
         }
     }
 
     private long tilNextMillis(long lastTimestamp) {
         long timestamp = timeGen();
         while (timestamp <= lastTimestamp) {
+            Thread.onSpinWait();
             timestamp = timeGen();
         }
         return timestamp;

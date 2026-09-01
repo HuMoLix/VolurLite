@@ -124,10 +124,12 @@
 
             <n-dropdown :options="userDropdownOptions" @select="handleUserDropdown">
               <div class="user-profile cursor-pointer">
-                <n-avatar round size="small" :src="userStore.user?.avatar || undefined">
-                  {{ userStore.user?.nickname?.charAt(0) || 'U' }}
-                </n-avatar>
-                <span class="user-nickname">{{ userStore.user?.nickname || userStore.user?.username }}</span>
+                <UserAvatar
+                  size="small"
+                  :src="userStore.user?.avatarUrl"
+                  :username="userStore.user?.username"
+                />
+                <span class="user-nickname">{{ userStore.user?.username }}</span>
               </div>
             </n-dropdown>
           </template>
@@ -178,7 +180,6 @@ import {
   NBreadcrumb,
   NBreadcrumbItem,
   NButton,
-  NAvatar,
   NDropdown,
   NIcon,
   NTooltip,
@@ -193,6 +194,7 @@ import {
   ShieldCheckmarkOutline
 } from '@vicons/ionicons5'
 import NotificationCenter from '@/components/notification/NotificationCenter.vue'
+import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { useSystemStore } from '@/store/modules/system'
@@ -250,9 +252,9 @@ function handleAdminPanelClick() {
 
 async function handleUserDropdown(key: string) {
   if (key === 'profile') {
-    // Navigate to profile if available
+    router.push('/profile')
   } else if (key === 'logout') {
-    userStore.logout()
+    await userStore.logout()
     router.push('/auth/login')
   }
 }
@@ -315,20 +317,37 @@ async function handleUserDropdown(key: string) {
     justify-content: flex-start;
     align-items: center;
     gap: 8px;
-    font-weight: 600;
-    color: #f59e0b;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--v-text-desc, #444444);
     border-radius: 6px;
+    transition: color 0.2s ease, background-color 0.2s ease;
 
     &:hover {
-      background-color: rgba(245, 158, 11, 0.08);
+      color: var(--v-text-primary, #111111);
+      background-color: rgba(0, 0, 0, 0.04);
+    }
+
+    @include theme-dark {
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
     }
   }
 
   .admin-panel-btn-collapsed {
-    color: #f59e0b;
+    color: var(--v-text-desc, #444444);
+    transition: color 0.2s ease, background-color 0.2s ease;
 
     &:hover {
-      background-color: rgba(245, 158, 11, 0.08);
+      color: var(--v-text-primary, #111111);
+      background-color: rgba(0, 0, 0, 0.04);
+    }
+
+    @include theme-dark {
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
     }
   }
 }
@@ -371,21 +390,33 @@ async function handleUserDropdown(key: string) {
     gap: 16px;
 
     .user-profile {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 10px;
       padding: 4px 8px;
       border-radius: 6px;
+      cursor: pointer;
+      user-select: none;
       transition: background-color 0.2s ease;
 
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.04);
+      :deep(.n-avatar) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
       }
 
       .user-nickname {
         font-size: 13px;
         font-weight: 500;
         color: var(--v-text-primary, #111111);
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.04);
       }
     }
   }

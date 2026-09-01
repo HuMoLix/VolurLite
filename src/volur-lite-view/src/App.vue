@@ -56,12 +56,8 @@ onMounted(async () => {
   if (!systemStore.isLoaded) {
     await systemStore.fetchPublicSettings()
   }
-  if (userStore.isLoggedIn && !userStore.user) {
-    try {
-      await userStore.fetchUserProfile()
-    } catch {
-      // ignore
-    }
+  if (userStore.isLoggedIn) {
+    userStore.fetchCurrentUser().catch(() => {})
   }
   if (systemStore.isMaintenanceMode && !userStore.isAdmin) {
     const currentPath = window.location.pathname

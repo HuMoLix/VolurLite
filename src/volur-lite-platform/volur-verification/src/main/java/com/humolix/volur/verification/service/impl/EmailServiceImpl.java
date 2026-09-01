@@ -60,6 +60,7 @@ public class EmailServiceImpl implements EmailService {
     private static final String TEMPLATE_NAME = "verification_email";
     private static final String RESET_TEMPLATE_NAME = "reset_password_email";
     private static final String CHANGE_PASSWORD_TEMPLATE_NAME = "change_password_email";
+    private static final String DELETE_ACCOUNT_TEMPLATE_NAME = "delete_account_email";
     private static final String TEST_TEMPLATE_NAME = "smtp_test_email";
 
     private final Map<String, String> templateCache = new ConcurrentHashMap<>();
@@ -79,6 +80,7 @@ public class EmailServiceImpl implements EmailService {
             templateCache.put(TEMPLATE_NAME, loadTemplate(TEMPLATE_NAME));
             templateCache.put(RESET_TEMPLATE_NAME, loadTemplate(RESET_TEMPLATE_NAME));
             templateCache.put(CHANGE_PASSWORD_TEMPLATE_NAME, loadTemplate(CHANGE_PASSWORD_TEMPLATE_NAME));
+            templateCache.put(DELETE_ACCOUNT_TEMPLATE_NAME, loadTemplate(DELETE_ACCOUNT_TEMPLATE_NAME));
             templateCache.put(TEST_TEMPLATE_NAME, loadTemplate(TEST_TEMPLATE_NAME));
             log.info("[Volur-Verification] 邮件模板预加载完成");
         } catch (Exception ex) {
@@ -133,7 +135,20 @@ public class EmailServiceImpl implements EmailService {
     public void sendChangePasswordEmail(String email, String username) {
         String normalizedEmail = email.toLowerCase().trim();
         validateEmailDomain(normalizedEmail);
-        sendVerificationCodeEmail(normalizedEmail, username, "[VolurCTF] 修改密码——邮箱验证", CHANGE_PASSWORD_TEMPLATE_NAME);
+        sendVerificationCodeEmail(normalizedEmail, username, "[Volur Lite] 修改密码——安全验证", CHANGE_PASSWORD_TEMPLATE_NAME);
+    }
+
+    @Override
+    public void sendDeleteAccountEmail(EmailCaptchaRequestDTO request) {
+        checkCaptchaIfEnabled(request, CaptchaScene.CHANGE_PASSWORD);
+        sendDeleteAccountEmail(request.getEmail(), request.getUsername());
+    }
+
+    @Override
+    public void sendDeleteAccountEmail(String email, String username) {
+        String normalizedEmail = email.toLowerCase().trim();
+        validateEmailDomain(normalizedEmail);
+        sendVerificationCodeEmail(normalizedEmail, username, "[Volur Lite] 注销账号——安全验证", DELETE_ACCOUNT_TEMPLATE_NAME);
     }
 
     private void checkCaptchaIfEnabled(EmailCaptchaRequestDTO request, CaptchaScene scene) {

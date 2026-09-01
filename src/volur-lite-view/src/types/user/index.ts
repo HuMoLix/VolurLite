@@ -3,24 +3,63 @@
  */
 import type { PageRequestDTO } from '../common/api'
 
-/** 当前登录用户信息响应 VO */
+export type Gender = 'MALE' | 'FEMALE' | 'OTHER' | 'SECRET'
+export type PrivacyType = 'PUBLIC' | 'PRIVATE'
+
+/** 当前登录用户概要信息响应 VO (对应 com.humolix.volur.user.domain.vo.UserSummaryVO) */
+export interface UserSummaryVO {
+  id: number | string
+  username: string
+  email: string
+  avatarUrl?: string
+  role: string
+  org?: string
+  bio?: string
+  createdAt: string
+}
+
+/** 当前登录用户信息响应 VO (对应 com.humolix.volur.user.domain.vo.UserProfileResponseVO) */
 export interface UserProfileResponseVO {
   id: number | string
   username: string
-  nickname: string
   email: string
-  avatar?: string
-  bio?: string
+  phone?: string
+  gender?: Gender
+  birthday?: string
   role: string
+  org?: string
+  major?: string
+  bio?: string
+  avatarUrl?: string
+  bannerUrl?: string
+  notice?: string
+  emailPrivacy?: PrivacyType
+  phonePrivacy?: PrivacyType
+  orgPrivacy?: PrivacyType
   createdAt: string
-  updatedAt?: string
 }
 
-/** 用户资料更新请求 DTO */
+/** 用户资料更新请求 DTO (对应 com.humolix.volur.user.domain.dto.UpdateUserProfileRequestDTO) */
 export interface UpdateUserProfileRequestDTO {
-  nickname?: string
+  gender?: Gender
+  birthday?: string
+  org?: string
+  major?: string
   bio?: string
-  avatar?: string
+  emailPrivacy?: PrivacyType
+  phonePrivacy?: PrivacyType
+  orgPrivacy?: PrivacyType
+}
+
+/** 用户头像更新 DTO */
+export interface UpdateAvatarRequestDTO {
+  avatarUrl: string
+}
+
+/** 用户密码修改 DTO */
+export interface ChangeUserPasswordRequestDTO {
+  oldPassword: string
+  newPassword: string
 }
 
 /** 用户详细信息 VO */

@@ -42,15 +42,6 @@ public class NotificationController {
         return ApiResponseEntity.ok("获取通知详情成功", notificationService.getNotificationDetail(userId, id));
     }
 
-    @Operation(summary = "单个标记通知为已读")
-    @PatchMapping("/{id}/read")
-    public ApiResponse<Void> markAsRead(
-            @CurrentUserId Long userId,
-            @PathVariable Long id) {
-        notificationService.markAsRead(userId, id);
-        return ApiResponseEntity.success("已标记为已读");
-    }
-
     @Operation(summary = "一键全部标记为已读")
     @PatchMapping("/read-all")
     public ApiResponse<Void> markAllAsRead(@CurrentUserId Long userId) {

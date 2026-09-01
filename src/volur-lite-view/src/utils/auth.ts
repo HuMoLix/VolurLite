@@ -37,3 +37,5 @@ export function clearAuthStorage(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY)
   localStorage.removeItem(USER_INFO_KEY)
 }
+
+export { formatAvatarUrl, getCachedImageUrl, setMemoryImageCache, evictImageCache, preloadAndCacheImage } from './imageCache'

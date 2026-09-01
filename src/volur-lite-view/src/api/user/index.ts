@@ -1,7 +1,10 @@
 import { request } from '@/utils/request'
 import type { ApiResponse, PageResponse } from '@/types/common/api'
 import type {
+  UserSummaryVO,
   UserProfileResponseVO,
+  UpdateUserProfileRequestDTO,
+  UpdateAvatarRequestDTO,
   AdminUserDetailsVO,
   AdminUserStatisticsVO,
   AdminUserPageRequestDTO,
@@ -11,7 +14,15 @@ import type {
 } from '@/types/user'
 
 /**
- * 获取当前登录用户详细个人资料
+ * 获取当前登录用户概要基础信息 (顶部栏/全局鉴权使用)
+ * 对应后端: GET /api/v1/users/me
+ */
+export function getCurrentUserApi(): Promise<ApiResponse<UserSummaryVO>> {
+  return request.get<UserSummaryVO>('/users/me')
+}
+
+/**
+ * 获取当前登录用户详细个人资料 (个人中心编辑使用)
  * 对应后端: GET /api/v1/users/profile
  */
 export function getCurrentUserProfileApi(): Promise<ApiResponse<UserProfileResponseVO>> {
@@ -24,6 +35,32 @@ export function getCurrentUserProfileApi(): Promise<ApiResponse<UserProfileRespo
  */
 export function getUserProfileByIdApi(userId: number | string): Promise<ApiResponse<UserProfileResponseVO>> {
   return request.get<UserProfileResponseVO>(`/users/${userId}/profile`)
+}
+
+/**
+ * 更新当前登录用户资料与隐私设置
+ * 对应后端: PUT /api/v1/users/profile
+ */
+export function updateUserProfileApi(data: UpdateUserProfileRequestDTO): Promise<ApiResponse<UserProfileResponseVO>> {
+  return request.put<UserProfileResponseVO>('/users/profile', data)
+}
+
+/**
+ * 上传头像文件并更新当前用户头像
+ * 对应后端: POST /api/v1/users/avatar
+ */
+export function uploadUserAvatarApi(formData: FormData): Promise<ApiResponse<string>> {
+  return request.post<string>('/users/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+/**
+ * 直接更新当前用户头像 URL
+ * 对应后端: PUT /api/v1/users/avatar
+ */
+export function updateUserAvatarApi(data: UpdateAvatarRequestDTO): Promise<ApiResponse<string>> {
+  return request.put<string>('/users/avatar', data)
 }
 
 /**

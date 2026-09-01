@@ -22,7 +22,7 @@ export interface AuthenticateResponseVO {
   username: string
   nickname: string
   role: string
-  avatar?: string
+  avatarUrl?: string
 }
 
 /** 用户注册请求 DTO (对应 com.humolix.volur.auth.domain.dto.RegisterRequestDTO) */
@@ -72,6 +72,16 @@ export interface VerifyChangePasswordCodeRequestDTO {
 
 /** 修改密码请求 DTO (对应 com.humolix.volur.auth.domain.dto.ChangePasswordRequestDTO) */
 export interface ChangePasswordRequestDTO {
+  oldPassword: string
   token: string
   newPassword: string
+}
+
+/** 双重验证注销账号请求 DTO (对应 com.humolix.volur.auth.domain.dto.DeleteAccountRequestDTO) */
+export interface DeleteAccountRequestDTO {
+  code: string
+  username: string
+  captchaId?: string
+  captchaCode?: string
+  captchaTicket?: string
 }

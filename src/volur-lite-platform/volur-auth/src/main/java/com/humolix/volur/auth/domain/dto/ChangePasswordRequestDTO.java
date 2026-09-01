@@ -12,6 +12,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ChangePasswordRequestDTO {
 
+    @NotBlank(message = "原密码不能为空")
+    private String oldPassword;
+
     @NotBlank(message = "修改密码令牌不能为空")
     private String token;
 

@@ -52,4 +52,12 @@ public final class SystemSettingKeys {
     public static final String SECURITY_RATE_LIMIT_WINDOW = "system.security.rate_limit_window";
     public static final String SECURITY_RATE_LIMIT_MAX_REQUESTS = "system.security.rate_limit_max_requests";
 
+    // ========== 7. 文件存储 (Storage) ==========
+    public static final String STORAGE_TYPE = "system.storage.type";
+    public static final String STORAGE_LOCAL_UPLOAD_DIR = "system.storage.local_upload_dir";
+    public static final String STORAGE_OSS_ENDPOINT = "system.storage.oss_endpoint";
+    public static final String STORAGE_OSS_ACCESS_KEY = "system.storage.oss_access_key";
+    public static final String STORAGE_OSS_SECRET_KEY = "system.storage.oss_secret_key";
+    public static final String STORAGE_OSS_BUCKET = "system.storage.oss_bucket";
+
 }

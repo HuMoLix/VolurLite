@@ -54,7 +54,13 @@ public class SystemSettingInitializer implements ApplicationRunner {
             Map.entry("ALIYUN_DM_SECRET_KEY", SystemSettingKeys.MAIL_ALIYUN_SECRET_KEY),
             Map.entry("ALIYUN_DM_ACCOUNT", SystemSettingKeys.MAIL_ALIYUN_ACCOUNT),
             Map.entry("TURNSTILE_SITE_KEY", SystemSettingKeys.CAPTCHA_TURNSTILE_SITE_KEY),
-            Map.entry("TURNSTILE_SECRET_KEY", SystemSettingKeys.CAPTCHA_TURNSTILE_SECRET_KEY)
+            Map.entry("TURNSTILE_SECRET_KEY", SystemSettingKeys.CAPTCHA_TURNSTILE_SECRET_KEY),
+            Map.entry("STORAGE_TYPE", SystemSettingKeys.STORAGE_TYPE),
+            Map.entry("LOCAL_UPLOAD_DIR", SystemSettingKeys.STORAGE_LOCAL_UPLOAD_DIR),
+            Map.entry("OSS_ENDPOINT", SystemSettingKeys.STORAGE_OSS_ENDPOINT),
+            Map.entry("OSS_ACCESS_KEY", SystemSettingKeys.STORAGE_OSS_ACCESS_KEY),
+            Map.entry("OSS_SECRET_KEY", SystemSettingKeys.STORAGE_OSS_SECRET_KEY),
+            Map.entry("OSS_BUCKET", SystemSettingKeys.STORAGE_OSS_BUCKET)
     );
 
     private static final List<String> OBSOLETE_KEYS_TO_CLEAN = List.of(
@@ -130,6 +136,8 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, "系统正在全站维护升级中，暂不可用，请稍后访问。", "MAINTENANCE", "STRING", true, "维护公告提示");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_PORT_RANGE_START, "20000", "CONTAINER", "INTEGER", false, "靶机动态端口映射起始端口");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_PORT_RANGE_END, "30000", "CONTAINER", "INTEGER", false, "靶机动态端口映射结束端口");
+        initDefaultIfAbsent(SystemSettingKeys.STORAGE_TYPE, "LOCAL", "STORAGE", "STRING", false, "文件存储类型(LOCAL/OSS)");
+        initDefaultIfAbsent(SystemSettingKeys.STORAGE_LOCAL_UPLOAD_DIR, "uploads/", "STORAGE", "STRING", false, "本地文件上传保存目录");
     }
 
     private void initDefaultIfAbsent(String key, String defaultValue, String group, String type, boolean isPublic, String desc) {
@@ -156,6 +164,7 @@ public class SystemSettingInitializer implements ApplicationRunner {
         if (key.startsWith("system.challenge.")) return "CHALLENGE";
         if (key.startsWith("system.maintenance.")) return "MAINTENANCE";
         if (key.startsWith("system.security.")) return "SECURITY";
+        if (key.startsWith("system.storage.")) return "STORAGE";
         return "GENERAL";
     }
 

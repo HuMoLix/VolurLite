@@ -16,10 +16,14 @@
     <description>User domain module (Entities, Profiles, Stats, Roles and User Services)</description>
 
     <dependencies>
-        <!-- Internal Framework -->
+        <!-- Internal Framework & System -->
         <dependency>
             <groupId>com.humolix.volur</groupId>
             <artifactId>volur-framework</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-system</artifactId>
         </dependency>
 
         <!-- Spring Boot Starters -->

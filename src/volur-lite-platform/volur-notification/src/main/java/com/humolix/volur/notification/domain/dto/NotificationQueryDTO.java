@@ -16,6 +16,8 @@ public class NotificationQueryDTO {
 
     private Integer size;
 
+    private String keyword;
+
     private NotificationType type;
 
     private NotificationStatus status;

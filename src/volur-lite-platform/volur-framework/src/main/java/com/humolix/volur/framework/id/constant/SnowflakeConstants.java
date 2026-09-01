@@ -15,6 +15,8 @@ public final class SnowflakeConstants {
 
     public static final long MAX_SEQUENCE = ~(-1L << SEQUENCE_BITS);
 
+    public static final long MAX_BACKWARD_MS = 5L;
+
     public static final long WORKER_ID_SHIFT = SEQUENCE_BITS;
 
     public static final long TIMESTAMP_LEFT_SHIFT = SEQUENCE_BITS + WORKER_ID_BITS;

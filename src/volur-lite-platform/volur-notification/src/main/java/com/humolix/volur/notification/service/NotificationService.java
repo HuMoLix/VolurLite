@@ -14,8 +14,6 @@ public interface NotificationService {
 
     NotificationVO getNotificationDetail(Long userId, Long notificationId);
 
-    void markAsRead(Long userId, Long notificationId);
-
     void markAllAsRead(Long userId);
 
     void deleteNotification(Long userId, Long notificationId);

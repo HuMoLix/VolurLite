@@ -394,6 +394,14 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(tokenUserId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "原密码错误，请重新输入");
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "新密码不能与原密码相同");
+        }
+
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         redisTemplate.delete(redisKey);
@@ -438,11 +446,37 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public void sendDeleteAccountEmail(EmailCaptchaRequestDTO request) {
+        User user = SecurityUtils.getCurrentUser();
+        if (user == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        EmailCaptchaRequestDTO mailRequest = new EmailCaptchaRequestDTO();
+        mailRequest.setEmail(user.getEmail());
+        mailRequest.setUsername(user.getUsername());
+        if (request != null) {
+            mailRequest.setCaptchaId(request.getCaptchaId());
+            mailRequest.setCaptchaCode(request.getCaptchaCode());
+            mailRequest.setCaptchaTicket(request.getCaptchaTicket());
+        }
+        emailService.sendDeleteAccountEmail(mailRequest);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteAccount(HttpServletRequest request) {
+    public void deleteAccount(DeleteAccountRequestDTO request, HttpServletRequest httpRequest) {
         Long userId = SecurityUtils.getCurrentUserId();
         User user = userRepository.findById(Objects.requireNonNull(userId))
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+
+        if (!user.getUsername().equals(request.getUsername().trim())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "确认用户名不匹配");
+        }
+
+        String normalizedEmail = user.getEmail().trim().toLowerCase();
+        if (!emailService.verifyCode(normalizedEmail, request.getCode().trim())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱验证码错误或已过期");
+        }
 
         user.setStatus(false);
         user.setIsHidden(true);
@@ -469,10 +503,18 @@ public class AuthServiceImpl implements AuthService {
         tokenService.forceLogoutUser(user.getId());
 
         try {
-            logout(request);
+            logout(httpRequest);
         } catch (Exception ignored) {
         }
         evictUserCache(oldUsername, oldEmail);
+
+        SpringContextHolder.publishEvent(new SecurityNotificationEvent(
+                this,
+                user.getId(),
+                SecurityEventType.ACCOUNT_DELETED,
+                RequestHolder.getClientIp(),
+                "用户通过邮箱 2FA 注销账号"
+        ));
     }
 
 }

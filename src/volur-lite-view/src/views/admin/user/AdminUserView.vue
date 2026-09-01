@@ -283,6 +283,7 @@ import type {
   AdminUserCreateDTO,
   AdminUserUpdateDTO
 } from '@/types/user'
+import { formatAvatarUrl } from '@/utils/auth'
 
 const message = useMessage()
 
@@ -367,13 +368,12 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
             {
               round: true,
               size: 34,
-              src: row.avatarUrl || undefined,
-              fallbackSrc: '/api/v1/uploads/avatar/default_avatar.jpg',
+              src: formatAvatarUrl(row.avatarUrl),
               style: {
                 flexShrink: '0'
               }
             },
-            { default: () => initial }
+            row.avatarUrl ? undefined : { default: () => initial }
           ),
           h(
             'div',
