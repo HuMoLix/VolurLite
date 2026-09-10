@@ -22,7 +22,7 @@ import com.humolix.volur.competition.repository.stage.ctf.CtfCompetitionSolvedRe
 import com.humolix.volur.competition.repository.stage.ctf.CtfCompetitionSubmissionRepository;
 import com.humolix.volur.competition.service.stage.ctf.CtfStageService;
 import com.humolix.volur.container.service.CtfInstanceService;
-import com.humolix.volur.container.vo.ChallengeInstanceResponseVO;
+import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
@@ -209,7 +209,7 @@ public class CtfStageServiceImpl implements CtfStageService {
     }
 
     @Override
-    public com.humolix.volur.container.vo.ChallengeInstanceResponseVO extendInstance(Long competitionId, Long competitionChallengeId, Long userId) {
+    public ChallengeInstanceResponseVO extendInstance(Long competitionId, Long competitionChallengeId, Long userId) {
         getMyApprovedTeamOrThrow(competitionId, userId);
 
         CtfCompetitionChallenge compChallenge = challengeRepository.findByIdWithChallenge(competitionChallengeId)

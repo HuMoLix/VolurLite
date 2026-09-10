@@ -37,6 +37,7 @@ public class MaintenanceModeFilter extends OncePerRequestFilter {
     private static final List<String> EXEMPT_PATHS = List.of(
             "/api/v1/system/settings/public",
             "/api/v1/auth/login",
+            "/api/v1/auth/logout",
             "/api/v1/auth/refresh",
             "/api/v1/captcha/**",
             "/api/v1/verification/**",

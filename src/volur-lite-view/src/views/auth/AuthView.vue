@@ -17,6 +17,12 @@ const router = useRouter()
 const route = useRoute()
 
 const currentMode = computed<'login' | 'register' | 'forgot'>(() => {
+  if (route.name === 'Register' || route.path.endsWith('/register')) {
+    return 'register'
+  }
+  if (route.name === 'ForgotPassword' || route.path.endsWith('/forgot')) {
+    return 'forgot'
+  }
   const queryMode = route.query.mode as string
   if (queryMode === 'register' || queryMode === 'forgot') {
     return queryMode

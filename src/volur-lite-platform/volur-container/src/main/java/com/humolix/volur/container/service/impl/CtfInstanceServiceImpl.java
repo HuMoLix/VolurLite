@@ -2,38 +2,78 @@ package com.humolix.volur.container.service.impl;
 
 import com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge;
 import com.humolix.volur.challenge.repository.stage.ctf.CtfChallengeRepository;
-import com.humolix.volur.container.dto.ContainerRunResultDTO;
-import com.humolix.volur.container.entity.CtfChallengeInstance;
-import com.humolix.volur.container.entity.enums.InstanceStartupStatus;
+import com.humolix.volur.container.domain.dto.ContainerRunResultDTO;
+import com.humolix.volur.container.domain.entity.CtfChallengeInstance;
+import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
+import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.container.repository.CtfChallengeInstanceRepository;
 import com.humolix.volur.container.service.CtfInstanceService;
 import com.humolix.volur.container.strategy.ContainerRuntimeStrategy;
-import com.humolix.volur.container.vo.ChallengeInstanceResponseVO;
+import com.humolix.volur.container.strategy.DockerSwarmRuntimeStrategy;
+import com.humolix.volur.container.strategy.K3sRuntimeStrategy;
 import com.humolix.volur.container.flag.DynamicFlagContext;
 import com.humolix.volur.container.flag.DynamicFlagGenerator;
+import com.humolix.volur.container.domain.entity.ClusterImage;
+import com.humolix.volur.container.domain.entity.ClusterNode;
+import com.humolix.volur.container.repository.ClusterImageRepository;
+import com.humolix.volur.container.repository.ClusterNodeRepository;
+import com.humolix.volur.container.service.admin.AdminImageService;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.system.service.SystemSettingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CtfInstanceServiceImpl implements CtfInstanceService {
 
     private final CtfChallengeRepository challengeRepository;
     private final CtfChallengeInstanceRepository instanceRepository;
-    private final ContainerRuntimeStrategy runtimeStrategy;
     private final DynamicFlagGenerator dynamicFlagGenerator;
+    private final SystemSettingService systemSettingService;
+    private final K3sRuntimeStrategy k3sRuntimeStrategy;
+    private final DockerSwarmRuntimeStrategy dockerSwarmRuntimeStrategy;
+    private final ClusterNodeRepository clusterNodeRepository;
+    private final ClusterImageRepository clusterImageRepository;
+    private final AdminImageService adminImageService;
 
     private static final int DEFAULT_INSTANCE_DURATION_MINUTES = 30;
     private static final int MAX_EXTEND_MINUTES = 15;
+
+    private ContainerRuntimeStrategy getRuntimeStrategy() {
+        String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
+        if ("DOCKER_SWARM".equalsIgnoreCase(containerType)) {
+            return dockerSwarmRuntimeStrategy;
+        }
+        return k3sRuntimeStrategy;
+    }
+
+    private void stopContainerSafely(String containerId) {
+        if (!StringUtils.hasText(containerId)) {
+            return;
+        }
+        if (containerId.startsWith("swarm-")) {
+            dockerSwarmRuntimeStrategy.stopContainer(containerId);
+        } else if (containerId.startsWith("pod-") || containerId.startsWith("mock-")) {
+            k3sRuntimeStrategy.stopContainer(containerId);
+        } else {
+            getRuntimeStrategy().stopContainer(containerId);
+        }
+    }
 
     @Override
     @Transactional
@@ -88,7 +128,14 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
         String dynamicFlag = dynamicFlagGenerator.generateFlag(challenge.getFlag(), flagContext);
         String resourceName = "volur-u" + userId + "-c" + challengeId + "-" + System.currentTimeMillis();
 
-        ContainerRunResultDTO runResult = runtimeStrategy.startContainer(resourceName, challenge, dynamicFlag, cpu, mem);
+        // 调度节点分配策略：普通用户随机分配拥有该镜像的 Worker 节点（若无 Worker 节点则调度到 Master；若节点缺失镜像则自动复制）
+        String targetNodeIp = selectWorkerNodeForUser(challenge);
+        if (StringUtils.hasText(targetNodeIp) && StringUtils.hasText(challenge.getImageName())) {
+            adminImageService.ensureImageOnNode(targetNodeIp, challenge.getImageName());
+        }
+
+        String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
+        ContainerRunResultDTO runResult = getRuntimeStrategy().startContainer(resourceName, challenge, dynamicFlag, cpu, mem, targetNodeIp);
 
         Instant now = Instant.now();
         Instant expiresAt = now.plus(Duration.ofMinutes(DEFAULT_INSTANCE_DURATION_MINUTES));
@@ -97,10 +144,13 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
                 .challenge(challenge)
                 .targetId(userId)
                 .stageId(stageId != null ? stageId : 0L)
+                .imageName(challenge.getImageName())
                 .containerId(runResult.getContainerId())
                 .accessUrl(runResult.getAccessUrl())
                 .flag(dynamicFlag)
+                .nodeIp(targetNodeIp)
                 .status(runResult.getStatus())
+                .containerType(containerType)
                 .createdAt(now)
                 .expiresAt(expiresAt)
                 .build();
@@ -117,13 +167,75 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
                 .build();
     }
 
+    private String selectWorkerNodeForUser(CtfChallenge challenge) {
+        String imageName = challenge.getImageName();
+        // 查找状态就绪的资源节点
+        List<ClusterNode> readyResourceNodes = clusterNodeRepository.findByIsResourceNodeTrue().stream()
+                .filter(n -> "READY".equalsIgnoreCase(n.getStatus()))
+                .toList();
+
+        if (readyResourceNodes.isEmpty()) {
+            readyResourceNodes = clusterNodeRepository.findAll().stream()
+                    .filter(n -> "READY".equalsIgnoreCase(n.getStatus()))
+                    .toList();
+        }
+
+        // 优先筛选 Worker 节点
+        List<ClusterNode> workerNodes = readyResourceNodes.stream()
+                .filter(n -> "WORKER".equalsIgnoreCase(n.getRole()))
+                .toList();
+
+        List<ClusterNode> candidatePool = !workerNodes.isEmpty() ? workerNodes : readyResourceNodes;
+        if (candidatePool.isEmpty()) {
+            return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        }
+
+        // 优先随机分配已有该镜像的 Worker 节点
+        if (StringUtils.hasText(imageName)) {
+            List<ClusterNode> nodesWithImage = candidatePool.stream()
+                    .filter(n -> isImagePresentOnNode(n.getIpAddress(), imageName))
+                    .toList();
+
+            if (!nodesWithImage.isEmpty()) {
+                int randomIndex = ThreadLocalRandom.current().nextInt(nodesWithImage.size());
+                return nodesWithImage.get(randomIndex).getIpAddress();
+            }
+        }
+
+        // 若候选节点均无该镜像，则随机选择一个候选节点（后续调用 ensureImageOnNode 自动跨节点复制镜像）
+        int randomIndex = ThreadLocalRandom.current().nextInt(candidatePool.size());
+        return candidatePool.get(randomIndex).getIpAddress();
+    }
+
+    private boolean isImagePresentOnNode(String nodeIp, String imageName) {
+        if (!StringUtils.hasText(nodeIp) || !StringUtils.hasText(imageName)) {
+            return false;
+        }
+        String repo = imageName.trim();
+        String tag = "latest";
+        int colonIdx = repo.lastIndexOf(':');
+        if (colonIdx > 0 && !repo.substring(colonIdx + 1).contains("/")) {
+            tag = repo.substring(colonIdx + 1);
+            repo = repo.substring(0, colonIdx);
+        }
+        Optional<ClusterImage> imgOpt = clusterImageRepository.findByRepositoryAndTag(repo, tag);
+        if (imgOpt.isPresent()) {
+            String nodeIps = imgOpt.get().getNodeIps();
+            if (nodeIps != null) {
+                List<String> list = Arrays.asList(nodeIps.split(","));
+                return list.contains(nodeIp.trim());
+            }
+        }
+        return false;
+    }
+
     @Override
     @Transactional
     public void stopInstance(Long challengeId, Long userId) {
         instanceRepository.findByChallengeIdAndTargetId(challengeId, userId)
                 .ifPresent(inst -> {
                     if (inst.getContainerId() != null) {
-                        runtimeStrategy.stopContainer(inst.getContainerId());
+                        stopContainerSafely(inst.getContainerId());
                     }
                     instanceRepository.delete(inst);
                 });
@@ -197,7 +309,7 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
         for (CtfChallengeInstance inst : expired) {
             try {
                 if (inst.getContainerId() != null) {
-                    runtimeStrategy.stopContainer(inst.getContainerId());
+                    stopContainerSafely(inst.getContainerId());
                 }
                 instanceRepository.delete(inst);
             } catch (Exception ignored) {}

@@ -3,7 +3,7 @@
  */
 import type { PageRequestDTO } from '../common/api'
 
-export type Gender = 'MALE' | 'FEMALE' | 'OTHER' | 'SECRET'
+export type Gender = 'UNKNOWN' | 'MALE' | 'FEMALE'
 export type PrivacyType = 'PUBLIC' | 'PRIVATE'
 
 /** 当前登录用户概要信息响应 VO (对应 com.humolix.volur.user.domain.vo.UserSummaryVO) */

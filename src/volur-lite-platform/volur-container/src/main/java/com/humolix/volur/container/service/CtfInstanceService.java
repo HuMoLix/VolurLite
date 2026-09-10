@@ -1,7 +1,7 @@
 package com.humolix.volur.container.service;
 
-import com.humolix.volur.container.entity.CtfChallengeInstance;
-import com.humolix.volur.container.vo.ChallengeInstanceResponseVO;
+import com.humolix.volur.container.domain.entity.CtfChallengeInstance;
+import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 
 import java.util.Optional;
 

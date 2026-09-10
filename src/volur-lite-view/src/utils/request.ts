@@ -144,18 +144,28 @@ service.interceptors.response.use(
         showThrottledNetworkError(message)
         navigateToMaintenance()
       } else if (status === 502 || status === 504) {
-        const message = data?.message || '后端服务连接超时或网关异常， 正在进入维护页面'
+        const message = data?.message || '后端服务连接超时或网关异常，请稍后重试'
         showThrottledNetworkError(message)
-        navigateToMaintenance()
       } else {
-        const message = data?.message || error.message || '网络请求错误'
+        let message = data?.message
+        if (data instanceof Blob && (data.type?.includes('application/json') || data.type?.includes('text/plain'))) {
+          try {
+            const text = await data.text()
+            const json = JSON.parse(text)
+            message = json.message || json.msg
+          } catch {
+            // ignore
+          }
+        }
+        message = message || error.message || '网络请求错误'
         if (window.$message) {
           window.$message.error(message)
         }
       }
     } else {
-      showThrottledNetworkError('网络请求错误，请检查网络连接')
-      navigateToMaintenance()
+      const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout')
+      const message = isTimeout ? '网络请求超时，请检查服务与网络连接' : (error.message || '网络请求错误，请检查网络连接')
+      showThrottledNetworkError(message)
     }
     return Promise.reject(error)
   }
@@ -181,6 +191,14 @@ export const request = {
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     const res = await service.delete<ApiResponse<T>>(url, config)
     return res.data
+  },
+  async download(url: string, config?: AxiosRequestConfig): Promise<Blob> {
+    const res = await service.get(url, {
+      responseType: 'blob',
+      timeout: 0,
+      ...config
+    })
+    return res.data as Blob
   }
 }
 

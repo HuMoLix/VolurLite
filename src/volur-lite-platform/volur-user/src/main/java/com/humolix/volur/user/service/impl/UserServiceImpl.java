@@ -143,8 +143,8 @@ public class UserServiceImpl implements UserService {
         StorageResponseVO storageResponse = storageService.uploadImage(file, "avatars");
         String newAvatarUrl = updateAvatar(userId, storageResponse.getFilePath());
 
-        // 头像更新后，清理旧头像物理文件以释放空间
-        if (StringUtils.hasText(oldAvatarUrl) && !oldAvatarUrl.equals(newAvatarUrl)) {
+        // 头像更新后，清理旧头像物理文件以释放空间（避免误删默认头像等系统预置资源）
+        if (StringUtils.hasText(oldAvatarUrl) && !oldAvatarUrl.equals(newAvatarUrl) && !oldAvatarUrl.contains("default_avatar")) {
             storageService.deleteFile(oldAvatarUrl);
         }
 

@@ -1,6 +1,6 @@
 package com.humolix.volur.user.domain.dto;
 
-import com.humolix.volur.framework.common.dto.PageRequestDTO;
+import com.humolix.volur.framework.domain.dto.PageRequestDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;

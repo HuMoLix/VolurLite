@@ -6,6 +6,7 @@ import com.humolix.volur.auth.security.entity.UserDetails;
 import com.humolix.volur.auth.security.jwt.exception.InvalidTokenException;
 import com.humolix.volur.auth.security.jwt.exception.MissingTokenException;
 import com.humolix.volur.auth.security.service.UserDetailsService;
+import com.humolix.volur.auth.security.util.SecurityWhitelistMatcher;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import io.jsonwebtoken.Claims;
@@ -16,9 +17,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,38 +30,17 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Set;
-@Component
-public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
     private final UserDetailsService userDetailsService;
     private final TokenService tokenService;
-
-    public JwtAuthFilter(JwtUtil jwtUtil, ObjectMapper objectMapper, UserDetailsService userDetailsService, TokenService tokenService) {
-        this.jwtUtil = jwtUtil;
-        this.objectMapper = objectMapper;
-        this.userDetailsService = userDetailsService;
-        this.tokenService = tokenService;
-    }
-
-    private static final Set<String> WHITE_LIST = Set.of(
-            "/api/v1/auth/login",
-            "/api/v1/auth/register",
-            "/api/v1/auth/refresh",
-            "/api/v1/auth/captcha",
-            "/api/v1/auth/email-captcha",
-            "/api/v1/auth/forgot-password",
-            "/api/v1/auth/password-resets"
-    );
-
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        return WHITE_LIST.contains(request.getServletPath());
-    }
+    private final SecurityWhitelistMatcher whitelistMatcher;
 
     @Override
     protected void doFilterInternal(
@@ -82,10 +61,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
 
+        boolean isWhitelisted = whitelistMatcher.match(request);
+
         try {
             Claims claims = jwtUtil.getClaimsFromToken(token);
 
             if (tokenService.isTokenBlacklisted(claims.getId())) {
+                if (isWhitelisted) {
+                    log.debug("白名单路径 [{}] 携带了已拉黑令牌，优雅降级为匿名放行", request.getRequestURI());
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "令牌已失效");
                 return;
             }
@@ -94,6 +80,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             final long iat = claims.getIssuedAt().getTime();
 
             if (tokenService.isUserForceLoggedOut(userId, iat)) {
+                if (isWhitelisted) {
+                    log.debug("白名单路径 [{}] 携带了被强制下线令牌，优雅降级为匿名放行", request.getRequestURI());
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "账号已在其他位置强制登出");
                 return;
             }
@@ -115,16 +106,34 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
 
         } catch (ExpiredJwtException ex) {
+            if (isWhitelisted) {
+                log.debug("白名单路径 [{}] 携带了已过期令牌，优雅降级为匿名放行", request.getRequestURI());
+                filterChain.doFilter(request, response);
+                return;
+            }
             sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "令牌已过期");
             return;
         } catch (MalformedJwtException | InvalidTokenException ex) {
+            if (isWhitelisted) {
+                log.debug("白名单路径 [{}] 携带了格式非法令牌，优雅降级为匿名放行", request.getRequestURI());
+                filterChain.doFilter(request, response);
+                return;
+            }
             sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "令牌无效或签名错误");
             return;
         } catch (UsernameNotFoundException ex) {
+            if (isWhitelisted) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "用户不存在");
             return;
         } catch (Exception ex) {
-            log.error("JWT 认证异常", ex);
+            log.error("JWT 认证异常: {}", ex.getMessage());
+            if (isWhitelisted) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, "认证服务异常");
             return;
         }

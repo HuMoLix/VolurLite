@@ -16,7 +16,6 @@
     "general": "General Settings",
     "captcha": "CAPTCHA & Security",
     "mail": "Mail Service (SMTP)",
-    "container": "Containers & Dynamic Targets",
     "maintenance": "Maintenance & Rate Limit"
   },
   "general": {
@@ -59,10 +58,6 @@
     "sender_name_placeholder": "e.g. Volur Lite Cybersecurity Platform",
     "test_connection": "Test Mail Connectivity",
     "send_test": "Send Test Email"
-  },
-  "container": {
-    "port_range": "Dynamic Target Port Range",
-    "port_range_hint": "Publicly exposed port pool allocated by host / cluster for dynamic containers (Default 20000 - 30000)"
   },
   "maintenance": {
     "alert_title": "Platform is currently in full maintenance mode",

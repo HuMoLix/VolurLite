@@ -16,7 +16,6 @@
     "general": "平台基础设置",
     "captcha": "人机验证与风控",
     "mail": "邮件服务配置 (SMTP)",
-    "container": "容器环境与动态靶机",
     "maintenance": "平台运维与风控"
   },
   "general": {
@@ -59,10 +58,6 @@
     "sender_name_placeholder": "如：Volur Lite 安全演练平台",
     "test_connection": "发信联通性自检",
     "send_test": "发送测试邮件"
-  },
-  "container": {
-    "port_range": "靶机动态端口映射范围",
-    "port_range_hint": "宿主机 / 集群为动态容器分配的对外公开访问端口池范围（默认 20000 - 30000）"
   },
   "maintenance": {
     "alert_title": "平台当前正处于全站维护模式中",

@@ -40,3 +40,6 @@ desktop.ini
 
 # Uploaded files
 uploads/**
+
+# Runtime data & certificates
+data/

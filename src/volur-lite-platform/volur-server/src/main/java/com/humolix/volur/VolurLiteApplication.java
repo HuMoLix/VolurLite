@@ -1,9 +1,9 @@
 package com.humolix.volur;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -12,12 +12,12 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+@Slf4j
 @EnableAsync
 @EnableScheduling
+@ConfigurationPropertiesScan
 @SpringBootApplication(scanBasePackages = "com.humolix.volur")
 public class VolurLiteApplication {
-
-    private static final Logger log = LoggerFactory.getLogger(VolurLiteApplication.class);
 
     static void main(String[] args) {
         long startTime = System.currentTimeMillis();

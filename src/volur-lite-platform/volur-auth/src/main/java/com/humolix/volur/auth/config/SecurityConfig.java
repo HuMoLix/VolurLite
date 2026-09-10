@@ -6,6 +6,7 @@ import com.humolix.volur.auth.security.exception.SecurityAccessDeniedHandler;
 import com.humolix.volur.auth.security.exception.SecurityAuthenticationEntryPoint;
 import com.humolix.volur.auth.security.filter.MaintenanceModeFilter;
 import com.humolix.volur.auth.security.jwt.JwtAuthFilter;
+import com.humolix.volur.auth.security.util.SecurityWhitelistMatcher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +36,7 @@ public class SecurityConfig {
     private final MaintenanceModeFilter maintenanceModeFilter;
     private final SecurityAccessDeniedHandler securityAccessDeniedHandler;
     private final SecurityAuthenticationEntryPoint securityAuthenticationEntryPoint;
+    private final SecurityWhitelistMatcher whitelistMatcher;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -67,27 +69,9 @@ public class SecurityConfig {
                 )
                 .authenticationProvider(sm3AuthProvider)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/forgot-password",
-                                "/api/v1/auth/password-resets",
-                                "/api/v1/auth/reset-password-confirm",
-                                "/api/v1/auth/refresh",
-                                "/api/v1/captcha/**",
-                                "/api/v1/email/**",
-                                "/api/v1/verification/**",
-                                "/api/v1/rank/**",
-                                "/api/v1/broadcasts/**",
-                                "/api/v1/competitions",
-                                "/api/v1/competitions/**"
-                        ).permitAll()
-                        .requestMatchers("/api/v1/ws/**", "/ws/**", "/api/v1/terminal/**", "/api/v1/realtime/stream").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers("/", "/index.html", "/static/**", "/api/v1/uploads/**", "/api/v1/system/settings/public").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/doc.html", "/webjars/**").permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers(whitelistMatcher.getPatterns()).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS).permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(handling -> handling

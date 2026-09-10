@@ -170,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { ref, computed, h, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   NLayout,
@@ -186,6 +186,8 @@ import {
   NIcon,
   NTooltip,
   NTag,
+  NBadge,
+  useNotification,
   type MenuOption,
   type DropdownOption
 } from 'naive-ui'
@@ -202,16 +204,24 @@ import {
   MegaphoneOutline,
   CubeOutline,
   ReaderOutline,
+  MailOutline,
   SettingsOutline,
   ArrowBackOutline,
   SunnyOutline,
-  MoonOutline
+  MoonOutline,
+  ServerOutline,
+  HardwareChipOutline,
+  LayersOutline,
+  TimeOutline
 } from '@vicons/ionicons5'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { useSystemStore } from '@/store/modules/system'
 import { useI18n } from 'vue-i18n'
+import { getAdminTaskStatisticsApi } from '@/api/task'
+import { SseClient } from '@/utils/sse'
+import type { AdminAsyncTaskVO } from '@/types/task'
 
 const router = useRouter()
 const route = useRoute()
@@ -297,14 +307,49 @@ const menuOptions = computed<MenuOption[]>(() => [
     icon: () => h(NIcon, null, { default: () => h(MegaphoneOutline) })
   },
   {
-    label: () => t('layout.menu.containers'),
-    key: 'AdminContainers',
-    icon: () => h(NIcon, null, { default: () => h(CubeOutline) })
+    label: () => t('layout.menu.clusters'),
+    key: 'AdminClusterGroup',
+    icon: () => h(NIcon, null, { default: () => h(ServerOutline) }),
+    children: [
+      {
+        label: () => t('layout.menu.cluster_settings'),
+        key: 'AdminClusterSettings',
+        icon: () => h(NIcon, null, { default: () => h(HardwareChipOutline) })
+      },
+      {
+        label: () => t('layout.menu.containers'),
+        key: 'AdminContainers',
+        icon: () => h(NIcon, null, { default: () => h(CubeOutline) })
+      },
+      {
+        label: () => t('layout.menu.images'),
+        key: 'AdminImages',
+        icon: () => h(NIcon, null, { default: () => h(LayersOutline) })
+      }
+    ]
   },
   {
     label: () => t('layout.menu.logs'),
     key: 'AdminLogs',
     icon: () => h(NIcon, null, { default: () => h(ReaderOutline) })
+  },
+  {
+    label: () => t('layout.menu.tasks'),
+    key: 'AdminTasks',
+    icon: () => h(NIcon, null, { default: () => h(TimeOutline) }),
+    extra: () =>
+      runningTaskCount.value > 0
+        ? h(NBadge, {
+            value: runningTaskCount.value,
+            max: 99,
+            type: 'info'
+          })
+        : null
+  },
+  {
+    label: () => t('layout.menu.emails'),
+    key: 'AdminEmails',
+    icon: () => h(NIcon, null, { default: () => h(MailOutline) })
   },
   {
     label: () => t('layout.menu.system'),
@@ -331,6 +376,60 @@ async function handleUserDropdown(key: string) {
     router.push('/auth/login')
   }
 }
+
+const notification = useNotification()
+const runningTaskCount = ref(0)
+let adminSseClient: SseClient | null = null
+
+async function updateTaskBadge() {
+  try {
+    const res = await getAdminTaskStatisticsApi()
+    if (res.data) {
+      runningTaskCount.value = (res.data.runningCount || 0) + (res.data.pendingCount || 0)
+    }
+  } catch {
+    // handled
+  }
+}
+
+onMounted(() => {
+  updateTaskBadge()
+
+  try {
+    adminSseClient = new SseClient('/api/v1/realtime/stream')
+    adminSseClient.on('task_event', (data: AdminAsyncTaskVO) => {
+      if (!data) return
+      updateTaskBadge()
+
+      if (data.status === 'SUCCESS') {
+        const durationText = data.executionDurationMs
+          ? ` (耗时: ${(data.executionDurationMs / 1000).toFixed(1)}s)`
+          : ''
+        notification.success({
+          title: t('admin.tasks.toast.completed'),
+          content: `${data.taskName}${durationText}`,
+          duration: 4500
+        })
+        window.dispatchEvent(new CustomEvent('volur:async-task-completed', { detail: data }))
+      } else if (data.status === 'FAILED') {
+        notification.error({
+          title: t('admin.tasks.toast.failed'),
+          content: `${data.taskName}: ${data.errorMessage || '未知异常'}`,
+          duration: 6000
+        })
+        window.dispatchEvent(new CustomEvent('volur:async-task-failed', { detail: data }))
+      }
+    })
+    adminSseClient.connect()
+  } catch (e) {
+    console.warn('[AdminLayout] SSE connect error', e)
+  }
+})
+
+onUnmounted(() => {
+  adminSseClient?.close()
+  adminSseClient = null
+})
 </script>
 
 <style scoped lang="scss">

@@ -1,7 +1,7 @@
 package com.humolix.volur.container.controller.v1;
 
 import com.humolix.volur.container.service.CtfInstanceService;
-import com.humolix.volur.container.vo.ChallengeInstanceResponseVO;
+import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;

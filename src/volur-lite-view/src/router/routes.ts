@@ -130,16 +130,55 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '公告管理', titleKey: 'admin.broadcasts.title' }
       },
       {
+        path: 'clusters',
+        name: 'AdminClusterSettings',
+        component: () => import('@/views/admin/cluster/AdminClusterSettingsView.vue'),
+        meta: {
+          title: '集群设置',
+          titleKey: 'admin.clusters.settings_title',
+          parentTitle: '集群管理',
+          parentTitleKey: 'layout.menu.clusters'
+        }
+      },
+      {
         path: 'containers',
         name: 'AdminContainers',
         component: () => import('@/views/admin/container/AdminContainerView.vue'),
-        meta: { title: '容器管理', titleKey: 'admin.containers.title' }
+        meta: {
+          title: '容器管理',
+          titleKey: 'admin.containers.title',
+          parentTitle: '集群管理',
+          parentTitleKey: 'layout.menu.clusters'
+        }
+      },
+      {
+        path: 'images',
+        name: 'AdminImages',
+        component: () => import('@/views/admin/image/AdminImageView.vue'),
+        meta: {
+          title: '镜像管理',
+          titleKey: 'admin.images.title',
+          parentTitle: '集群管理',
+          parentTitleKey: 'layout.menu.clusters'
+        }
       },
       {
         path: 'logs',
         name: 'AdminLogs',
         component: () => import('@/views/admin/log/AdminLogView.vue'),
         meta: { title: '系统日志', titleKey: 'admin.logs.title' }
+      },
+      {
+        path: 'tasks',
+        name: 'AdminTasks',
+        component: () => import('@/views/admin/task/AdminTaskView.vue'),
+        meta: { title: '任务管理', titleKey: 'admin.tasks.title' }
+      },
+      {
+        path: 'emails',
+        name: 'AdminEmails',
+        component: () => import('@/views/admin/email/AdminEmailView.vue'),
+        meta: { title: '邮件管理', titleKey: 'admin.emails.title' }
       },
       {
         path: 'system',
@@ -176,7 +215,7 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '找回密码', titleKey: 'auth.forgot_password' }
       },
       {
-        path: 'reset',
+        path: 'reset-password',
         name: 'ResetPassword',
         component: () => import('@/views/auth/ResetView.vue'),
         meta: { title: '重置密码', titleKey: 'auth.reset_password_title' }
@@ -190,6 +229,14 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/register',
     redirect: '/auth/register'
+  },
+  {
+    path: '/forgot',
+    redirect: (to) => ({ path: '/auth/forgot', query: to.query })
+  },
+  {
+    path: '/forgot-password',
+    redirect: (to) => ({ path: '/auth/forgot', query: to.query })
   },
   {
     path: '/maintenance',

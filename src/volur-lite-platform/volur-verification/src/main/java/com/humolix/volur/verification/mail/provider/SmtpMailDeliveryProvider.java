@@ -38,32 +38,32 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
     @Override
     public void send(MailMessageBO message) throws Exception {
         JavaMailSenderImpl mailSender = createMailSender();
-        String from = message.getFrom();
-        if (!StringUtils.hasText(from)) {
-            from = systemSettingService.getSettingValue("system.mail.sender_name", mailSender.getUsername());
+        String recipient = message.getTo() != null ? message.getTo().trim() : "";
+        if (!StringUtils.hasText(recipient)) {
+            throw new IllegalArgumentException("收件人邮箱地址不能为空");
         }
 
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, message.isHtml(), "UTF-8");
-            helper.setFrom(from);
-            helper.setTo(message.getTo());
+            applySender(helper, mailSender, message);
+            helper.setTo(recipient);
             helper.setSubject(message.getSubject());
             helper.setText(message.getContent(), message.isHtml());
 
             mailSender.send(mimeMessage);
-            log.info("[Volur-Verification] SMTP 邮件发送成功 -> to: {}, subject: {}", message.getTo(), message.getSubject());
+            log.info("[Volur-Verification] SMTP 邮件发送成功 -> to: {}, subject: {}", recipient, message.getSubject());
         } catch (Exception ex) {
             log.warn("[Volur-Verification] SMTP 邮件 HTML 投递失败，尝试降级纯文本: {}", ex.getMessage());
             if (StringUtils.hasText(message.getFallbackContent())) {
                 MimeMessage fallbackMessage = mailSender.createMimeMessage();
-                MimeMessageHelper helper = new MimeMessageHelper(fallbackMessage, false, "UTF-8");
-                helper.setFrom(from);
-                helper.setTo(message.getTo());
-                helper.setSubject(message.getSubject());
-                helper.setText(message.getFallbackContent(), false);
+                MimeMessageHelper fallbackHelper = new MimeMessageHelper(fallbackMessage, false, "UTF-8");
+                applySender(fallbackHelper, mailSender, message);
+                fallbackHelper.setTo(recipient);
+                fallbackHelper.setSubject(message.getSubject());
+                fallbackHelper.setText(message.getFallbackContent(), false);
                 mailSender.send(fallbackMessage);
-                log.info("[Volur-Verification] SMTP 邮件纯文本降级发送成功 -> to: {}", message.getTo());
+                log.info("[Volur-Verification] SMTP 邮件纯文本降级发送成功 -> to: {}", recipient);
             } else {
                 throw ex;
             }
@@ -74,6 +74,65 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
     public void testConnection() throws Exception {
         JavaMailSenderImpl mailSender = createMailSender();
         mailSender.testConnection();
+    }
+
+    public void applySender(MimeMessageHelper helper, JavaMailSenderImpl mailSender, MailMessageBO message) throws Exception {
+        String hostUsername = mailSender != null ? mailSender.getUsername() : null;
+        String rawFrom = message != null ? message.getFrom() : null;
+        String senderName = message != null ? message.getSenderName() : null;
+
+        String fromAddress = null;
+
+        if (StringUtils.hasText(rawFrom)) {
+            rawFrom = rawFrom.trim();
+            int startAngle = rawFrom.indexOf('<');
+            int endAngle = rawFrom.lastIndexOf('>');
+            if (startAngle >= 0 && endAngle > startAngle) {
+                String extractedEmail = rawFrom.substring(startAngle + 1, endAngle).trim();
+                if (extractedEmail.contains("@") && !hasWhitespace(extractedEmail)) {
+                    fromAddress = extractedEmail;
+                    if (!StringUtils.hasText(senderName)) {
+                        senderName = rawFrom.substring(0, startAngle).trim();
+                    }
+                }
+            } else if (rawFrom.contains("@") && !hasWhitespace(rawFrom)) {
+                fromAddress = rawFrom;
+            } else {
+                if (!StringUtils.hasText(senderName)) {
+                    senderName = rawFrom;
+                }
+            }
+        }
+
+        if (!StringUtils.hasText(fromAddress)) {
+            fromAddress = hostUsername;
+        }
+        if (!StringUtils.hasText(fromAddress)) {
+            fromAddress = systemSettingService.getSettingValue("system.mail.smtp_user", "noreply@volur.local");
+        }
+        fromAddress = fromAddress.trim();
+
+        if (!StringUtils.hasText(senderName)) {
+            senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+        }
+        if (StringUtils.hasText(senderName)) {
+            senderName = senderName.trim();
+        }
+
+        if (StringUtils.hasText(senderName)) {
+            helper.setFrom(fromAddress, senderName);
+        } else {
+            helper.setFrom(fromAddress);
+        }
+    }
+
+    private boolean hasWhitespace(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            if (Character.isWhitespace(s.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private JavaMailSenderImpl createMailSender() {
@@ -103,14 +162,19 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
 
-        if (port == 465) {
+        boolean ssl = systemSettingService.getBoolean("system.mail.smtp_ssl", port == 465);
+        if (ssl || port == 465) {
             props.put("mail.smtp.ssl.enable", "true");
             props.put("mail.smtp.starttls.enable", "false");
+            props.put("mail.smtp.socketFactory.port", String.valueOf(port));
+            props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+            props.put("mail.smtp.socketFactory.fallback", "false");
         } else {
             props.put("mail.smtp.ssl.enable", "false");
             props.put("mail.smtp.starttls.enable", "true");
         }
 
+        props.put("mail.smtp.ssl.trust", host);
         props.put("mail.debug", "false");
         props.put("mail.smtp.connectiontimeout", "5000");
         props.put("mail.smtp.timeout", "5000");

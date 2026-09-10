@@ -1,4 +1,5 @@
 import { getAccessToken } from './auth'
+import { safeJsonParse } from './request'
 
 export type SseEventHandler<T = any> = (data: T) => void
 
@@ -33,7 +34,7 @@ export class SseClient {
     this.listeners.forEach((handlers, eventName) => {
       this.eventSource?.addEventListener(eventName, (e: MessageEvent) => {
         try {
-          const parsed = JSON.parse(e.data)
+          const parsed = safeJsonParse(e.data)
           handlers.forEach((h) => h(parsed))
         } catch {
           handlers.forEach((h) => h(e.data))
@@ -51,7 +52,7 @@ export class SseClient {
     if (this.eventSource) {
       this.eventSource.addEventListener(event, (e: MessageEvent) => {
         try {
-          const parsed = JSON.parse(e.data)
+          const parsed = safeJsonParse(e.data)
           handler(parsed)
         } catch {
           handler(e.data)

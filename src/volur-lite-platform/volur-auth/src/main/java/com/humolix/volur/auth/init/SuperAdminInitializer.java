@@ -60,7 +60,6 @@ public class SuperAdminInitializer implements ApplicationRunner {
 
             UserProfile profile = UserProfile.builder()
                     .user(savedUser)
-                    .avatarUrl("/api/v1/uploads/avatar/default_avatar.jpg")
                     .org("Volur Lite")
                     .bio("Volur Lite System Super Administrator")
                     .isHidden(false)

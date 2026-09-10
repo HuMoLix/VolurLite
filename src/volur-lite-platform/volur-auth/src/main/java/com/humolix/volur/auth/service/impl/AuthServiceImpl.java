@@ -173,7 +173,6 @@ public class AuthServiceImpl implements AuthService {
         }
 
         UserProfile userProfile = UserProfile.builder()
-                .avatarUrl("/api/v1/uploads/avatar/default_avatar.jpg")
                 .user(savedUser)
                 .isHidden(false)
                 .build();

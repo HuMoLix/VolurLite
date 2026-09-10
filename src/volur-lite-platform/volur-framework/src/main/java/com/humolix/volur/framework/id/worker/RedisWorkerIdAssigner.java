@@ -52,6 +52,9 @@ public class RedisWorkerIdAssigner implements WorkerIdAssigner, SmartLifecycle {
                     if current == ARGV[1] then
                         redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
                         return 1
+                    elseif not current then
+                        redis.call('SET', KEYS[1], ARGV[1], 'EX', tonumber(ARGV[2]))
+                        return 2
                     else
                         return 0
                     end""";
@@ -79,7 +82,7 @@ public class RedisWorkerIdAssigner implements WorkerIdAssigner, SmartLifecycle {
             Long res = redisTemplate.execute(script, Collections.singletonList(prefix),
                     instanceIdentifier, String.valueOf(properties.getWorkerTtlSeconds()));
 
-            if (res >= 0) {
+            if (res != null && res >= 0) {
                 this.allocatedWorkerId = res;
                 this.currentServiceKey = prefix + allocatedWorkerId;
                 this.running = true;
@@ -106,8 +109,10 @@ public class RedisWorkerIdAssigner implements WorkerIdAssigner, SmartLifecycle {
             DefaultRedisScript<Long> script = new DefaultRedisScript<>(LUA_RENEW_SCRIPT, Long.class);
             Long res = redisTemplate.execute(script, Collections.singletonList(currentServiceKey),
                     instanceIdentifier, String.valueOf(properties.getWorkerTtlSeconds()));
-            if (res == 0) {
-                log.warn("[RedisWorkerIdAssigner] Failed to renew WorkerID key [{}], ownership lost", currentServiceKey);
+            if (res != null && res == 2) {
+                log.info("[RedisWorkerIdAssigner] Successfully recovered expired WorkerID key [{}] after pause/sleep", currentServiceKey);
+            } else if (res == null || res == 0) {
+                log.error("[RedisWorkerIdAssigner] Failed to renew WorkerID key [{}], ownership lost to another instance! Potential Snowflake ID collision risk detected.", currentServiceKey);
             }
         } catch (IllegalStateException e) {
             log.debug("[RedisWorkerIdAssigner] Redis connection closed during renew: {}", e.getMessage());

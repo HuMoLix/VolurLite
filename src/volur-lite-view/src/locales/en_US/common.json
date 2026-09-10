@@ -14,6 +14,7 @@
   "purge": "Purge",
   "confirm": "Confirm",
   "cancel": "Cancel",
+  "reset": "Reset",
   "warning": "Warning",
   "save_changes": "Save Changes",
   "operation_failed": "Operation Failed",

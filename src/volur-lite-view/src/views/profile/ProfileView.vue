@@ -698,7 +698,7 @@ const pendingCaptchaAction = ref<'CHANGE_PASSWORD_CODE' | 'DELETE_ACCOUNT_CODE' 
 const infoFormRef = ref<FormInst | null>(null)
 const isSavingInfo = ref(false)
 const infoForm = reactive({
-  gender: 'SECRET' as Gender,
+  gender: 'UNKNOWN' as Gender,
   birthday: null as string | null,
   org: '',
   major: '',
@@ -708,8 +708,7 @@ const infoForm = reactive({
 const genderOptions = computed(() => [
   { label: t('profile.gender_male'), value: 'MALE' },
   { label: t('profile.gender_female'), value: 'FEMALE' },
-  { label: t('profile.gender_other'), value: 'OTHER' },
-  { label: t('profile.gender_secret'), value: 'SECRET' }
+  { label: t('profile.gender_unknown'), value: 'UNKNOWN' }
 ])
 
 // Privacy Form
@@ -796,7 +795,7 @@ async function loadProfile() {
 }
 
 function initFormData(data: UserProfileResponseVO) {
-  infoForm.gender = data.gender || 'SECRET'
+  infoForm.gender = data.gender || 'UNKNOWN'
   infoForm.birthday = data.birthday || null
   infoForm.org = data.org || ''
   infoForm.major = data.major || ''

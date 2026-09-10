@@ -155,7 +155,6 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         UserProfile profile = UserProfile.builder()
                 .user(savedUser)
-                .avatarUrl("/api/v1/uploads/avatar/default_avatar.jpg")
                 .isHidden(false)
                 .build();
         userProfileRepository.save(profile);

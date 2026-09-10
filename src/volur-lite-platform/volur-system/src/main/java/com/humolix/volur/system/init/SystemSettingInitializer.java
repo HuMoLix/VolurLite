@@ -134,8 +134,18 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.GENERAL_DEFAULT_LOCALE, "zh_CN", "GENERAL", "STRING", true, "系统默认语言");
         initDefaultIfAbsent(SystemSettingKeys.MAINTENANCE_ENABLED, "false", "MAINTENANCE", "BOOLEAN", true, "全站维护模式开关");
         initDefaultIfAbsent(SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, "系统正在全站维护升级中，暂不可用，请稍后访问。", "MAINTENANCE", "STRING", true, "维护公告提示");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM", "CONTAINER", "STRING", false, "动态靶机容器集群调度类型(DOCKER_SWARM/K3S)");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_PORT_RANGE_START, "20000", "CONTAINER", "INTEGER", false, "靶机动态端口映射起始端口");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_PORT_RANGE_END, "30000", "CONTAINER", "INTEGER", false, "靶机动态端口映射结束端口");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1", "CONTAINER", "STRING", false, "靶机外部可访问域名或IP");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_DOCKER_SWARM_API_URL, "unix:///var/run/docker.sock", "CONTAINER", "STRING", false, "Docker Swarm API 管理地址");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_DOCKER_SWARM_NETWORK, "volur-swarm-network", "CONTAINER", "STRING", false, "Docker Swarm 覆盖网络名称");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_DOCKER_SWARM_CERT_PATH, "", "CONTAINER", "STRING", false, "Docker Swarm TLS 客户端证书目录");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_MASTER_URL, "https://127.0.0.1:6443", "CONTAINER", "STRING", false, "K3s 集群 API Server 地址");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_NAMESPACE, "volur-challenges", "CONTAINER", "STRING", false, "K3s 靶机命名空间 Namespace");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_KUBECONFIG_PATH, "/etc/rancher/k3s/k3s.yaml", "CONTAINER", "STRING", false, "K3s kubeconfig 配置文件绝对路径");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_RESOURCE_ISOLATION_ENABLED, "true", "CONTAINER", "BOOLEAN", false, "是否开启多节点资源隔离(题目容器仅调度至Worker资源节点)");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_AUTO_MIGRATE_IMAGES_ENABLED, "true", "CONTAINER", "BOOLEAN", false, "扩展集群新增节点时是否自动将主节点题目镜像迁移同步至资源节点");
         initDefaultIfAbsent(SystemSettingKeys.STORAGE_TYPE, "LOCAL", "STORAGE", "STRING", false, "文件存储类型(LOCAL/OSS)");
         initDefaultIfAbsent(SystemSettingKeys.STORAGE_LOCAL_UPLOAD_DIR, "uploads/", "STORAGE", "STRING", false, "本地文件上传保存目录");
     }

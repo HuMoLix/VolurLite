@@ -29,7 +29,7 @@ router.beforeEach(async (to) => {
   document.title = title ? `${title} | ${siteName}` : siteName
 
   if (systemStore.isMaintenanceMode && !userStore.isAdmin) {
-    if (to.path !== '/maintenance' && !to.path.startsWith('/auth') && !to.path.startsWith('/admin')) {
+    if (to.path !== '/maintenance' && !to.path.startsWith('/auth') && to.path !== '/reset-password' && !to.path.startsWith('/admin')) {
       return { path: '/maintenance' }
     }
   } else if (to.path === '/maintenance' && systemStore.isLoaded && systemStore.isServerReachable && !systemStore.isMaintenanceMode) {

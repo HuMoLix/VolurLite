@@ -65,6 +65,13 @@
             <artifactId>hutool-all</artifactId>
         </dependency>
 
+        <!-- Modern JSch for SSH node extension and remote Docker automation -->
+        <dependency>
+            <groupId>com.github.mwiede</groupId>
+            <artifactId>jsch</artifactId>
+            <version>0.2.23</version>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

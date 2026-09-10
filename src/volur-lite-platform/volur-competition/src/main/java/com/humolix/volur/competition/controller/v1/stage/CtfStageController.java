@@ -4,7 +4,7 @@ import com.humolix.volur.competition.domain.dto.stage.ctf.CtfFlagSubmitRequestDT
 import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeDetailVO;
 import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeVO;
 import com.humolix.volur.competition.service.stage.ctf.CtfStageService;
-import com.humolix.volur.container.vo.ChallengeInstanceResponseVO;
+import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;

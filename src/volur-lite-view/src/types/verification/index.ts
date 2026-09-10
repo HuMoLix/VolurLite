@@ -37,3 +37,47 @@ export interface EmailCaptchaRequestDTO {
   captchaCode?: string
   captchaTicket?: string
 }
+
+/** 邮件日志视图 VO (对应 com.humolix.volur.verification.domain.vo.EmailLogVO) */
+export interface EmailLogVO {
+  id: number | string
+  recipient: string
+  subject: string
+  content?: string
+  type: string
+  status: 'SUCCESS' | 'FAILED' | string
+  errorMessage?: string
+  sender?: string
+  operatorId?: number | string
+  operatorIp?: string
+  createdAt: string
+}
+
+/** 管理端邮件发信统计指标 VO (对应 com.humolix.volur.verification.domain.vo.AdminEmailStatisticsVO) */
+export interface AdminEmailStatisticsVO {
+  totalEmails: number
+  successEmails: number
+  failedEmails: number
+  todayEmails: number
+}
+
+/** 管理端邮件分页检索入参 DTO (对应 com.humolix.volur.verification.domain.dto.AdminEmailQueryDTO) */
+export interface AdminEmailQueryDTO {
+  page?: number
+  size?: number
+  sortBy?: string
+  sortOrder?: string
+  keyword?: string
+  type?: string
+  status?: string
+  startTime?: string
+  endTime?: string
+}
+
+/** 管理端手动发送邮件请求 DTO (对应 com.humolix.volur.verification.domain.dto.AdminSendEmailDTO) */
+export interface AdminSendEmailDTO {
+  recipient: string
+  subject: string
+  content: string
+  html?: boolean
+}

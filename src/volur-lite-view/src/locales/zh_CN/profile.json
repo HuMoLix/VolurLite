@@ -8,6 +8,7 @@
   "gender_label": "性别",
   "gender_male": "男",
   "gender_female": "女",
+  "gender_unknown": "保密",
   "gender_other": "其他",
   "gender_secret": "保密",
   "birthday_label": "出生日期",

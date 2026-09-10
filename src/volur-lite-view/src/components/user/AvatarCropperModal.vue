@@ -10,12 +10,12 @@
     @after-leave="resetState"
   >
     <div class="cropper-container">
-      <div v-if="!imageSrc" class="upload-dropzone" @click="triggerFileInput" @dragover.prevent @drop.prevent="handleFileDrop">
+      <div v-if="!imageSrc" class="upload-dropzone" @dragover.prevent @drop.prevent="handleFileDrop">
         <input
           ref="fileInputRef"
           type="file"
           accept="image/png,image/jpeg,image/jpg,image/webp"
-          style="display: none"
+          class="hidden-file-input"
           @change="handleFileChange"
         />
         <n-icon size="48" class="upload-icon">
@@ -23,7 +23,7 @@
         </n-icon>
         <div class="upload-text">{{ t('profile.avatar_drop_hint') }}</div>
         <div class="upload-subtext">{{ t('profile.avatar_format_hint') }}</div>
-        <n-button size="medium" secondary class="select-file-btn">
+        <n-button size="medium" secondary class="select-file-btn" style="pointer-events: none;">
           {{ t('profile.select_local_file') }}
         </n-button>
       </div>
@@ -132,15 +132,12 @@ const position = reactive({ x: 0, y: 0 })
 const isDragging = ref(false)
 const dragStart = reactive({ x: 0, y: 0 })
 
-function triggerFileInput() {
-  fileInputRef.value?.click()
-}
-
 function handleFileChange(e: Event) {
   const target = e.target as HTMLInputElement
   if (target.files && target.files[0]) {
     loadFile(target.files[0])
   }
+  target.value = ''
 }
 
 function handleFileDrop(e: DragEvent) {
@@ -346,6 +343,8 @@ async function handleCropAndUpload() {
 }
 
 .upload-dropzone {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   height: 320px;
   border: 2px dashed var(--v-border-base, #e5e4e7);
@@ -357,6 +356,16 @@ async function handleCropAndUpload() {
   cursor: pointer;
   background-color: var(--v-bg-muted, #fbfbfb);
   transition: all 0.25s ease;
+
+  .hidden-file-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 5;
+  }
 
   &:hover {
     border-color: #000000;

@@ -23,8 +23,13 @@
     "awd_plus_challenges": "AWD+ Challenges",
     "competitions": "Competition Management",
     "broadcasts": "Broadcast Management",
+    "clusters": "Cluster Management",
+    "cluster_settings": "Cluster Settings",
     "containers": "Container Management",
+    "images": "Image Management",
     "logs": "System Logs",
+    "tasks": "Task Management",
+    "emails": "Email Management",
     "system": "System Settings"
   }
 }

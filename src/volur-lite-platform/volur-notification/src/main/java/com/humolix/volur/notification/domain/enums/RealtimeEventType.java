@@ -9,6 +9,7 @@ public enum RealtimeEventType {
     ANNOUNCEMENT("announcement", "全站系统公告"),
     PROMOTION("promotion", "运营活动广告"),
     COMPETITION_EVENT("competition_event", "竞赛动态事件"),
+    TASK_EVENT("task_event", "异步任务状态流与进度更新"),
     HEARTBEAT("heartbeat", "保活心跳");
 
     private final String value;

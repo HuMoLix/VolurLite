@@ -1,60 +1,99 @@
 <template>
   <div class="auth-form">
-    <div class="auth-form__header">
-      <h1 class="auth-form__title">{{ t('auth.set_new_password_title') }}</h1>
-      <p class="auth-form__subtitle">
-        {{ t('auth.set_new_password_subtitle') }}
-      </p>
-    </div>
+    <!-- 无效 Token 状态 (例如直接访问 /reset-password、访问 /reset-password?token= 或 Token 为空) -->
+    <div v-if="!hasValidToken" class="auth-form__invalid">
+      <div class="auth-form__header">
+        <h1 class="auth-form__title">{{ t('auth.invalid_token_title') }}</h1>
+        <p class="auth-form__subtitle">
+          {{ t('auth.invalid_token_subtitle') }}
+        </p>
+      </div>
 
-    <n-form
-      ref="formRef"
-      :model="resetForm"
-      :rules="rules"
-      :show-require-mark="false"
-      @keyup.enter="handleReset"
-    >
-      <n-form-item path="password" :label="t('auth.new_password_label')">
-        <n-input
-          v-model:value="resetForm.password"
-          type="password"
-          show-password-on="click"
-          :placeholder="t('auth.new_password_placeholder')"
-          size="large"
-          clearable
-        />
-      </n-form-item>
+      <div class="invalid-token-card">
+        <n-result
+          status="error"
+          :title="t('auth.invalid_token')"
+          :description="t('auth.invalid_token_description')"
+        >
+          <template #footer>
+            <n-button
+              type="primary"
+              block
+              size="large"
+              class="auth-form__submit-button"
+              @click="router.push('/auth/forgot')"
+            >
+              {{ t('auth.reapply_reset') }}
+            </n-button>
+          </template>
+        </n-result>
+      </div>
 
-      <n-form-item path="confirmPassword" :label="t('auth.confirm_new_password_label')">
-        <n-input
-          v-model:value="resetForm.confirmPassword"
-          type="password"
-          show-password-on="click"
-          :placeholder="t('auth.confirm_new_password_placeholder')"
-          size="large"
-          clearable
-        />
-      </n-form-item>
-
-      <n-button
-        type="primary"
-        block
-        size="large"
-        :loading="loading"
-        @click="handleReset"
-        class="auth-form__submit-button"
-      >
-        {{ t('auth.reset_password_button') }}
-      </n-button>
-    </n-form>
-
-    <div class="auth-form__footer">
-      <n-text depth="3">
-        {{ t('auth.remember_it_now') }}
+      <div class="auth-form__footer">
         <router-link to="/auth/login" class="auth-form__toggle-link">
           {{ t('auth.back_to_sign') }}
         </router-link>
-      </n-text>
+      </div>
+    </div>
+
+    <!-- 拥有有效 Token 时展示重置新密码表单 -->
+    <div v-else class="auth-form__valid">
+      <div class="auth-form__header">
+        <h1 class="auth-form__title">{{ t('auth.set_new_password_title') }}</h1>
+        <p class="auth-form__subtitle">
+          {{ t('auth.set_new_password_subtitle') }}
+        </p>
+      </div>
+
+      <n-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        :show-require-mark="false"
+        @keyup.enter="handleReset"
+      >
+        <n-form-item path="password" :label="t('auth.new_password_label')">
+          <n-input
+            v-model:value="form.password"
+            type="password"
+            show-password-on="click"
+            :placeholder="t('auth.new_password_placeholder')"
+            size="large"
+            clearable
+          />
+        </n-form-item>
+
+        <n-form-item path="confirmPassword" :label="t('auth.confirm_new_password_label')">
+          <n-input
+            v-model:value="form.confirmPassword"
+            type="password"
+            show-password-on="click"
+            :placeholder="t('auth.confirm_new_password_placeholder')"
+            size="large"
+            clearable
+          />
+        </n-form-item>
+
+        <n-button
+          type="primary"
+          block
+          size="large"
+          :loading="loading"
+          @click="handleReset"
+          class="auth-form__submit-button"
+        >
+          {{ t('auth.reset_password_button') }}
+        </n-button>
+      </n-form>
+
+      <div class="auth-form__footer">
+        <n-text depth="3">
+          {{ t('auth.remember_it_now') }}
+          <router-link to="/auth/login" class="auth-form__toggle-link">
+            {{ t('auth.back_to_sign') }}
+          </router-link>
+        </n-text>
+      </div>
     </div>
   </div>
 </template>
@@ -67,6 +106,7 @@ import {
   NFormItem,
   NInput,
   NButton,
+  NResult,
   NText,
   useMessage,
   type FormInst,
@@ -83,36 +123,44 @@ const { t } = useI18n()
 
 const formRef = ref<FormInst | null>(null)
 const loading = ref<boolean>(false)
-const token = ref<string>('')
 
-const resetForm = reactive({
+const token = computed<string>(() => {
+  const q = route.query.token
+  return typeof q === 'string' ? q.trim() : ''
+})
+
+const hasValidToken = computed<boolean>(() => token.value.length > 0)
+
+const form = reactive({
   password: '',
   confirmPassword: ''
 })
 
+// Jakarta Validation Pattern: ^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&._#^&+=])[A-Za-z\d@$!%*?&._#^&+=]{6,32}$
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&._#^&+=])[A-Za-z\d@$!%*?&._#^&+=]{6,32}$/
+
+function validatePasswordRule(_rule: FormItemRule, value: string) {
+  if (!value) return true
+  if (value.length < 6 || value.length > 32) {
+    return new Error(t('auth.password_length'))
+  }
+  if (!PASSWORD_REGEX.test(value)) {
+    return new Error(t('auth.password_pattern'))
+  }
+  return true
+}
+
 const rules = computed<FormRules>(() => ({
   password: [
-    { required: true, message: t('auth.new_password_required') },
-    {
-      validator(_rule: FormItemRule, value: string) {
-        if (!value) return true
-        if (value.length < 6 || value.length > 32) {
-          return new Error(t('auth.password_length'))
-        }
-        if (!/^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&._#^&+=])[A-Za-z\d@$!%*?&._#^&+=]{6,32}$/.test(value)) {
-          return new Error(t('auth.password_pattern'))
-        }
-        return true
-      },
-      trigger: ['blur', 'input']
-    }
+    { required: true, message: t('auth.new_password_required'), trigger: ['blur', 'input'] },
+    { validator: validatePasswordRule, trigger: ['blur', 'input'] }
   ],
   confirmPassword: [
-    { required: true, message: t('auth.confirm_password_required') },
+    { required: true, message: t('auth.confirm_password_required'), trigger: ['blur', 'input'] },
     {
       validator: (_rule: FormItemRule, value: string) => {
         if (!value) return true
-        if (value !== resetForm.password) {
+        if (value !== form.password) {
           return new Error(t('auth.passwords_mismatch'))
         }
         return true
@@ -123,29 +171,27 @@ const rules = computed<FormRules>(() => ({
 }))
 
 async function handleReset() {
+  if (!hasValidToken.value) {
+    message.error(t('auth.invalid_token'))
+    return
+  }
+
   formRef.value?.validate(async (errors) => {
     if (errors) return
-
-    if (!token.value) {
-      message.error(t('auth.invalid_token'))
-      return
-    }
 
     loading.value = true
     try {
       await resetPasswordByTokenApi({
         token: token.value,
-        newPassword: resetForm.password
+        newPassword: form.password
       })
 
       message.success(t('auth.reset_success_hint'))
       setTimeout(() => {
-        router.push('/auth/login').catch((err) => {
-          console.error('Route navigation failed:', err)
-        })
+        router.push('/auth/login').catch(() => {})
       }, 1500)
     } catch {
-      // Global Axios interceptor handles toast error
+      // Handled by request error interceptor
     } finally {
       loading.value = false
     }
@@ -153,11 +199,8 @@ async function handleReset() {
 }
 
 onMounted(() => {
-  const tokenValue = (route.query.token as string) || ''
-  if (!tokenValue) {
-    message.warning(t('auth.no_token_warning'))
-  } else {
-    token.value = tokenValue
+  if (!hasValidToken.value) {
+    message.error(t('auth.invalid_token'))
   }
 })
 </script>
@@ -172,7 +215,7 @@ $text-muted: #666;
   padding: 8px 4px;
 
   &__header {
-    margin-bottom: 28px;
+    margin-bottom: 24px;
 
     .auth-form__title {
       font-size: 24px;
@@ -189,11 +232,36 @@ $text-muted: #666;
     }
   }
 
+  .invalid-token-card {
+    padding: 8px 0 16px;
+
+    :deep(.n-result) {
+      .n-result-header__title {
+        font-size: 17px;
+        font-weight: 500;
+        margin-top: 10px;
+      }
+
+      .n-result-body {
+        margin-top: 6px;
+        font-size: 13px;
+        color: #666;
+        line-height: 1.6;
+      }
+
+      .n-result-footer {
+        margin-top: 20px;
+        width: 100%;
+      }
+    }
+  }
+
   .auth-form__submit-button {
     margin-top: 12px;
     height: 48px;
     font-size: 16px;
     font-weight: 500;
+    border-radius: $border-radius-base;
   }
 
   .auth-form__footer {

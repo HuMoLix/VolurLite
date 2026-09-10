@@ -3,7 +3,7 @@ package com.humolix.volur.competition.service.stage.ctf;
 import com.humolix.volur.competition.domain.dto.stage.ctf.CtfFlagSubmitRequestDTO;
 import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeDetailVO;
 import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeVO;
-import com.humolix.volur.container.vo.ChallengeInstanceResponseVO;
+import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 
 import java.util.List;
 

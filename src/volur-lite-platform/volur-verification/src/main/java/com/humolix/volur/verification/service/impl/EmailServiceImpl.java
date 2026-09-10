@@ -7,9 +7,11 @@ import com.humolix.volur.framework.security.util.RequestHolder;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
+import com.humolix.volur.verification.domain.entity.EmailLog;
 import com.humolix.volur.verification.mail.bo.MailMessageBO;
 import com.humolix.volur.verification.mail.dispatcher.FailoverMailDispatcher;
 import com.humolix.volur.verification.mail.executor.MailTaskExecutor;
+import com.humolix.volur.verification.repository.EmailLogRepository;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.risk.limiter.RedisSlidingWindowRateLimiter;
 import com.humolix.volur.verification.service.CaptchaService;
@@ -72,6 +74,7 @@ public class EmailServiceImpl implements EmailService {
     private final MailTaskExecutor mailTaskExecutor;
     private final RedisSlidingWindowRateLimiter rateLimiter;
     private final StringRedisTemplate redisTemplate;
+    private final EmailLogRepository emailLogRepository;
 
     @PostConstruct
     @Override
@@ -199,12 +202,29 @@ public class EmailServiceImpl implements EmailService {
         ));
         String simpleContent = "您的验证码是: " + code + "\n有效期为 " + (VERIFY_CODE_EXPIRATION_SECONDS / 60) + " 分钟";
 
+        String smtpUser = systemSettingService.getSettingValue("system.mail.smtp_user", "");
+        String from = StringUtils.hasText(smtpUser) ? smtpUser.trim() : "noreply@volur.local";
+        String senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+
+        String emailType = "SYSTEM";
+        if (TEMPLATE_NAME.equals(templateName)) {
+            emailType = "REGISTER_CAPTCHA";
+        } else if (CHANGE_PASSWORD_TEMPLATE_NAME.equals(templateName)) {
+            emailType = "CHANGE_PASSWORD";
+        } else if (DELETE_ACCOUNT_TEMPLATE_NAME.equals(templateName)) {
+            emailType = "DELETE_ACCOUNT";
+        }
+
         MailMessageBO message = MailMessageBO.builder()
-                .to(email)
+                .from(from)
+                .senderName(senderName)
+                .to(email.trim())
                 .subject(subject)
                 .content(htmlContent)
                 .fallbackContent(simpleContent)
                 .html(true)
+                .type(emailType)
+                .operatorIp(RequestHolder.getRemoteIp())
                 .build();
 
         mailTaskExecutor.executeAsyncMail(message);
@@ -238,12 +258,20 @@ public class EmailServiceImpl implements EmailService {
         ));
         String simpleContent = "请点击以下链接重置密码: " + resetLink + " (有效期15分钟)";
 
+        String smtpUser = systemSettingService.getSettingValue("system.mail.smtp_user", "");
+        String from = StringUtils.hasText(smtpUser) ? smtpUser.trim() : "noreply@volur.local";
+        String senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+
         MailMessageBO message = MailMessageBO.builder()
+                .from(from)
+                .senderName(senderName)
                 .to(normalizedEmail)
                 .subject("[VolurCTF] 找回密码")
                 .content(htmlContent)
                 .fallbackContent(simpleContent)
                 .html(true)
+                .type("RESET_PASSWORD")
+                .operatorIp(RequestHolder.getRemoteIp())
                 .build();
 
         mailTaskExecutor.executeAsyncMail(message);
@@ -268,20 +296,52 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendEmail(String to, String subject, String content) {
+        String normalizedTo = to != null ? to.trim() : "";
+        String smtpUser = systemSettingService.getSettingValue("system.mail.smtp_user", "");
+        String from = StringUtils.hasText(smtpUser) ? smtpUser.trim() : "noreply@volur.local";
+        String senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+        String type = "[VolurCTF] SMTP 服务测试邮件".equals(subject) ? "TEST" : "SYSTEM";
+        String ip = RequestHolder.getRemoteIp();
+
+        if ("[VolurCTF] SMTP 服务测试邮件".equals(subject)) {
+            content = buildTemplate(TEST_TEMPLATE_NAME, Map.of());
+        }
+
+        MailMessageBO message = MailMessageBO.builder()
+                .from(from)
+                .senderName(senderName)
+                .to(normalizedTo)
+                .subject(subject)
+                .content(content)
+                .fallbackContent(content)
+                .html(true)
+                .type(type)
+                .operatorIp(ip)
+                .build();
+
         try {
-            if ("[VolurCTF] SMTP 服务测试邮件".equals(subject)) {
-                content = buildTemplate(TEST_TEMPLATE_NAME, Map.of());
-            }
-            MailMessageBO message = MailMessageBO.builder()
-                    .to(to)
+            mailDispatcher.dispatch(message);
+            emailLogRepository.save(EmailLog.builder()
+                    .recipient(normalizedTo)
                     .subject(subject)
                     .content(content)
-                    .fallbackContent(content)
-                    .html(true)
-                    .build();
-            mailDispatcher.dispatch(message);
+                    .type(type)
+                    .status("SUCCESS")
+                    .sender(from)
+                    .operatorIp(ip)
+                    .build());
         } catch (Exception e) {
-            log.error("[Volur-Verification] 发送邮件至 {} 失败", to, e);
+            log.error("[Volur-Verification] 发送邮件至 {} 失败", normalizedTo, e);
+            emailLogRepository.save(EmailLog.builder()
+                    .recipient(normalizedTo)
+                    .subject(subject)
+                    .content(content)
+                    .type(type)
+                    .status("FAILED")
+                    .errorMessage(e.getMessage())
+                    .sender(from)
+                    .operatorIp(ip)
+                    .build());
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "邮件发送失败: " + e.getMessage());
         }
     }

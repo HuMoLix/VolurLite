@@ -8,6 +8,7 @@
   "gender_label": "Gender",
   "gender_male": "Male",
   "gender_female": "Female",
+  "gender_unknown": "Secret",
   "gender_other": "Other",
   "gender_secret": "Secret",
   "birthday_label": "Birthday",

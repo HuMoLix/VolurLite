@@ -34,6 +34,7 @@ public class EmailServiceVerificationTest {
     private RedisSlidingWindowRateLimiter rateLimiter;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
+    private com.humolix.volur.verification.repository.EmailLogRepository emailLogRepository;
 
     private EmailService emailService;
 
@@ -48,6 +49,7 @@ public class EmailServiceVerificationTest {
         rateLimiter = Mockito.mock(RedisSlidingWindowRateLimiter.class);
         redisTemplate = Mockito.mock(StringRedisTemplate.class);
         valueOperations = Mockito.mock(ValueOperations.class);
+        emailLogRepository = Mockito.mock(com.humolix.volur.verification.repository.EmailLogRepository.class);
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(rateLimiter.tryAcquire(anyString(), anyInt(), any(Duration.class))).thenReturn(true);
@@ -60,7 +62,8 @@ public class EmailServiceVerificationTest {
                 mailDispatcher,
                 mailTaskExecutor,
                 rateLimiter,
-                redisTemplate
+                redisTemplate,
+                emailLogRepository
         );
     }
 

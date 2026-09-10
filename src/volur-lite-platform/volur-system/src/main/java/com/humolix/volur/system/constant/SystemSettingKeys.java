@@ -43,8 +43,24 @@ public final class SystemSettingKeys {
     public static final String MAIL_ALIYUN_ACCOUNT = "system.mail.aliyun_account";
 
     // ========== 5. 容器基础设施 (Container Infrastructure) ==========
+    public static final String CONTAINER_TYPE = "system.container.type";
     public static final String CONTAINER_PORT_RANGE_START = "system.container.port_range_start";
     public static final String CONTAINER_PORT_RANGE_END = "system.container.port_range_end";
+    public static final String CONTAINER_PUBLIC_HOST = "system.container.public_host";
+
+    // Docker Swarm 专有配置
+    public static final String CONTAINER_DOCKER_SWARM_API_URL = "system.container.docker_swarm.api_url";
+    public static final String CONTAINER_DOCKER_SWARM_NETWORK = "system.container.docker_swarm.network";
+    public static final String CONTAINER_DOCKER_SWARM_CERT_PATH = "system.container.docker_swarm.cert_path";
+
+    // K3s 专有配置
+    public static final String CONTAINER_K3S_MASTER_URL = "system.container.k3s.master_url";
+    public static final String CONTAINER_K3S_NAMESPACE = "system.container.k3s.namespace";
+    public static final String CONTAINER_K3S_KUBECONFIG_PATH = "system.container.k3s.kubeconfig_path";
+
+    // 集群资源隔离与镜像调度
+    public static final String CONTAINER_RESOURCE_ISOLATION_ENABLED = "system.container.resource_isolation_enabled";
+    public static final String CONTAINER_AUTO_MIGRATE_IMAGES_ENABLED = "system.container.auto_migrate_images_enabled";
 
     // ========== 6. 运维与风控 (Maintenance & Security) ==========
     public static final String MAINTENANCE_ENABLED = "system.maintenance.enabled";

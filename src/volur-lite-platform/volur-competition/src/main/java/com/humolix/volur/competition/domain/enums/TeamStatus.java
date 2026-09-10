@@ -1,7 +1,7 @@
 package com.humolix.volur.competition.domain.enums;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.humolix.volur.framework.common.entity.enums.EnumEntity;
+import com.humolix.volur.framework.domain.enums.EnumEntity;
 
 public enum TeamStatus implements EnumEntity {
 

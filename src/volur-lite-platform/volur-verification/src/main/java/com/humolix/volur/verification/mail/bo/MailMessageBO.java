@@ -11,7 +11,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class MailMessageBO {
 
+    /**
+     * 发件人邮箱地址 (RFC 5321 / RFC 5322 addr-spec，如 service@volur.local)
+     */
     private String from;
+
+    /**
+     * 发件人显示昵称 (Personal display name，如 Volur Lite 安全演练平台)
+     */
+    private String senderName;
 
     private String to;
 
@@ -24,4 +32,9 @@ public class MailMessageBO {
     @Builder.Default
     private boolean html = true;
 
+    private String type;
+
+    private Long operatorId;
+
+    private String operatorIp;
 }

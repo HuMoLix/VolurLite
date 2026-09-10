@@ -23,8 +23,13 @@
     "awd_plus_challenges": "AWD+ 题库",
     "competitions": "竞赛管理",
     "broadcasts": "公告管理",
+    "clusters": "集群管理",
+    "cluster_settings": "集群设置",
     "containers": "容器管理",
+    "images": "镜像管理",
     "logs": "系统日志",
+    "tasks": "任务管理",
+    "emails": "邮件管理",
     "system": "系统设置"
   }
 }
