@@ -54,86 +54,83 @@
     </div>
 
     <!-- Bottom section: Broadcast History Table Card -->
-    <n-card class="table-card" :bordered="false">
-      <!-- Search & Filter Controls -->
-      <div class="filter-header">
-        <div class="filter-left">
-          <n-input
-            v-model:value="searchKeyword"
-            :placeholder="t('admin.broadcasts.search_placeholder')"
-            clearable
-            style="width: 240px;"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <n-icon :component="SearchOutline" />
-            </template>
-          </n-input>
+    <AppTableCard
+      :bordered="true"
+      :table-bordered="true"
+      :scroll-x="1360"
+      remote
+      :columns="columns"
+      :data="broadcastList"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="(row: BroadcastMessageVO) => String(row.id)"
+      table-class="broadcast-data-table"
+      @update:sorter="handleSorterChange"
+      @update:page="handlePageChange"
+      @update:page-size="handlePageSizeChange"
+    >
+      <template #filter-left>
+        <n-input
+          v-model:value="searchKeyword"
+          :placeholder="t('admin.broadcasts.search_placeholder')"
+          clearable
+          style="width: 240px;"
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <n-icon :component="SearchOutline" />
+          </template>
+        </n-input>
 
-          <n-select
-            v-model:value="filterCategory"
-            :placeholder="t('admin.broadcasts.filter_category')"
-            clearable
-            :options="categoryOptions"
-            style="width: 140px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterCategory"
+          :placeholder="t('admin.broadcasts.filter_category')"
+          clearable
+          :options="categoryOptions"
+          style="width: 140px;"
+          @update:value="handleSearch"
+        />
 
-          <n-select
-            v-model:value="filterDisplayType"
-            :placeholder="t('admin.broadcasts.filter_display_type')"
-            clearable
-            :options="displayTypeOptions"
-            style="width: 140px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterDisplayType"
+          :placeholder="t('admin.broadcasts.filter_display_type')"
+          clearable
+          :options="displayTypeOptions"
+          style="width: 140px;"
+          @update:value="handleSearch"
+        />
 
-          <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-            <template #icon>
-              <n-icon :component="SearchOutline" />
-            </template>
-            {{ t('admin.broadcasts.query_btn') }}
-          </n-button>
+        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+          <template #icon>
+            <n-icon :component="SearchOutline" />
+          </template>
+          {{ t('admin.broadcasts.query_btn') }}
+        </n-button>
 
-          <n-button quaternary @click="handleReset">
-            <template #icon>
-              <n-icon :component="RefreshOutline" />
-            </template>
-            {{ t('admin.broadcasts.reset_btn') }}
-          </n-button>
-        </div>
+        <n-button quaternary @click="handleReset">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          {{ t('admin.broadcasts.reset_btn') }}
+        </n-button>
+      </template>
 
-        <div class="filter-right">
-          <n-button type="primary" class="theme-primary-btn" @click="openCreateModal('ANNOUNCEMENT')">
-            <template #icon>
-              <n-icon :component="MegaphoneOutline" />
-            </template>
-            {{ t('admin.broadcasts.create_announcement_btn') }}
-          </n-button>
+      <template #filter-right>
+        <n-button type="primary" class="theme-primary-btn" @click="openCreateModal('ANNOUNCEMENT')">
+          <template #icon>
+            <n-icon :component="MegaphoneOutline" />
+          </template>
+          {{ t('admin.broadcasts.create_announcement_btn') }}
+        </n-button>
 
-          <n-button secondary @click="openCreateModal('PROMOTION')">
-            <template #icon>
-              <n-icon :component="AddOutline" />
-            </template>
-            {{ t('admin.broadcasts.create_promotion_btn') }}
-          </n-button>
-        </div>
-      </div>
-
-      <!-- Data Table -->
-      <n-data-table
-        remote
-        :columns="columns"
-        :data="broadcastList"
-        :loading="loading"
-        :pagination="pagination"
-        :row-key="(row: BroadcastMessageVO) => String(row.id)"
-        @update:sorter="handleSorterChange"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-        class="broadcast-data-table"
-      />
-    </n-card>
+        <n-button secondary @click="openCreateModal('PROMOTION')">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
+          {{ t('admin.broadcasts.create_promotion_btn') }}
+        </n-button>
+      </template>
+    </AppTableCard>
 
     <!-- Create & Dispatch Broadcast Modal -->
     <n-modal
@@ -276,12 +273,10 @@
 import { ref, reactive, computed, h, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  NCard,
   NIcon,
   NInput,
   NSelect,
   NButton,
-  NDataTable,
   NModal,
   NForm,
   NFormItem,
@@ -296,6 +291,7 @@ import {
   type FormRules,
   type SelectOption
 } from 'naive-ui'
+import AppTableCard from '@/components/common/AppTableCard.vue'
 import {
   MegaphoneOutline,
   FlameOutline,
@@ -404,7 +400,7 @@ const columns = computed<DataTableColumns<BroadcastMessageVO>>(() => [
   {
     title: t('admin.broadcasts.columns.id'),
     key: 'id',
-    width: 140,
+    width: 180,
     sorter: true,
     render(row) {
       return h('span', { class: 'id-text' }, String(row.id || '-'))
@@ -800,50 +796,6 @@ onMounted(() => {
       white-space: nowrap;
     }
   }
-}
-
-.table-card {
-  border-radius: 10px;
-  background-color: var(--n-color, #ffffff);
-
-  .filter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 20px;
-
-    .filter-left {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .filter-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-  }
-}
-
-.theme-primary-btn {
-  background-color: #000000;
-  color: #ffffff;
-  font-weight: 500;
-  border-radius: 6px;
-
-  &:hover {
-    background-color: #222222;
-  }
-}
-
-.id-text {
-  font-family: 'Fira Code', monospace;
-  font-size: 13px;
-  color: #666666;
 }
 
 .title-cell {

@@ -3,11 +3,8 @@ package com.humolix.volur.competition.service.admin.impl;
 import com.humolix.volur.competition.domain.dto.*;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionConfig;
-import com.humolix.volur.competition.domain.entity.CompetitionFieldSchema;
-import com.humolix.volur.competition.domain.entity.CompetitionStageConfig;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
-import com.humolix.volur.competition.domain.enums.FillScope;
-import com.humolix.volur.competition.domain.enums.StageStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionListVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
@@ -23,10 +20,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,8 +35,6 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
 
     private final CompetitionRepository competitionRepository;
     private final CompetitionConfigRepository configRepository;
-    private final CompetitionStageConfigRepository stageConfigRepository;
-    private final CompetitionFieldSchemaRepository fieldSchemaRepository;
     private final CompetitionTeamRepository teamRepository;
     private final UserRepository userRepository;
     private final CompetitionMapper competitionMapper;
@@ -49,13 +46,20 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
         Specification<Competition> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (StringUtils.hasText(keyword)) {
-                predicates.add(cb.like(root.get("title"), "%" + keyword.trim() + "%"));
+                String kw = "%" + keyword.trim() + "%";
+                predicates.add(cb.or(
+                        cb.like(root.get("title"), kw),
+                        cb.like(root.get("slug"), kw)
+                ));
             }
             query.orderBy(cb.desc(root.get("createdAt")));
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
         return PageResponse.of(competitionRepository.findAll(spec, pageable).map(comp -> {
+            if (comp.refreshStatus()) {
+                competitionRepository.save(comp);
+            }
             AdminCompetitionListVO vo = competitionMapper.toAdminListVO(comp);
             vo.setTeamCount(teamRepository.countByCompetitionIdAndStatus(comp.getId(), null));
             return vo;
@@ -66,6 +70,9 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
     public AdminCompetitionDetailVO getCompetition(Long id) {
         Competition competition = competitionRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
+        if (competition.refreshStatus()) {
+            competitionRepository.save(competition);
+        }
         return competitionMapper.toAdminDetailVO(competition);
     }
 
@@ -76,14 +83,19 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
             throw new BusinessException(HttpStatus.CONFLICT, "竞赛 Slug 已存在");
         }
 
+        // 校验比赛起止时间与报名起止时间约束
+        validateCompetitionSchedule(request.getStartTime(), request.getEndTime(), request.getRegStartTime(), request.getRegEndTime(), true);
+
         User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
 
+        // 管理员创建竞赛时不可选择竞赛状态，强制初始化为 DRAFT
         Competition competition = Competition.builder()
                 .title(request.getTitle().trim())
                 .slug(request.getSlug().trim())
+                .type(request.getType() != null ? request.getType() : CompetitionType.CTF)
                 .description(request.getDescription())
                 .bannerUrl(request.getBannerUrl())
-                .status(request.getStatus() != null ? request.getStatus() : CompetitionStatus.DRAFT)
+                .status(CompetitionStatus.DRAFT)
                 .regStartTime(request.getRegStartTime())
                 .regEndTime(request.getRegEndTime())
                 .startTime(request.getStartTime())
@@ -97,6 +109,7 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
         CompetitionConfigDTO cDTO = request.getConfig();
         CompetitionConfig config = CompetitionConfig.builder()
                 .competition(savedComp)
+                .maxLeaders(cDTO != null && cDTO.getMaxLeaders() != null ? cDTO.getMaxLeaders() : 1)
                 .maxTeamMembers(cDTO != null && cDTO.getMaxTeamMembers() != null ? cDTO.getMaxTeamMembers() : 4)
                 .minTeamMembers(cDTO != null && cDTO.getMinTeamMembers() != null ? cDTO.getMinTeamMembers() : 1)
                 .maxTeams(cDTO != null && cDTO.getMaxTeams() != null ? cDTO.getMaxTeams() : 500)
@@ -104,46 +117,13 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
                 .freezeScoreboardMinutes(cDTO != null && cDTO.getFreezeScoreboardMinutes() != null ? cDTO.getFreezeScoreboardMinutes() : 0)
                 .isScoreboardFrozen(false)
                 .allowWriteupSubmission(cDTO == null || cDTO.getAllowWriteupSubmission() == null || cDTO.getAllowWriteupSubmission())
+                .maxContainersPerTeam(cDTO != null && cDTO.getMaxContainersPerTeam() != null ? cDTO.getMaxContainersPerTeam() : 2)
+                .writeupTemplateUrl(cDTO != null ? cDTO.getWriteupTemplateUrl() : null)
+                .writeupTemplateName(cDTO != null ? cDTO.getWriteupTemplateName() : null)
+                .writeupStartTime(cDTO != null ? cDTO.getWriteupStartTime() : null)
+                .writeupEndTime(cDTO != null ? cDTO.getWriteupEndTime() : null)
                 .build();
         configRepository.save(config);
-
-        // Save Stages
-        if (request.getStageConfigs() != null) {
-            List<CompetitionStageConfig> stageEntities = new ArrayList<>();
-            for (CompetitionStageConfigDTO sDTO : request.getStageConfigs()) {
-                stageEntities.add(CompetitionStageConfig.builder()
-                        .competition(savedComp)
-                        .stage(sDTO.getStage())
-                        .stageName(StringUtils.hasText(sDTO.getStageName()) ? sDTO.getStageName().trim() : sDTO.getStage().name())
-                        .stageOrder(sDTO.getStageOrder() != null ? sDTO.getStageOrder() : 1)
-                        .startTime(sDTO.getStartTime() != null ? sDTO.getStartTime() : savedComp.getStartTime())
-                        .endTime(sDTO.getEndTime() != null ? sDTO.getEndTime() : savedComp.getEndTime())
-                        .weightPercent(sDTO.getWeightPercent() != null ? sDTO.getWeightPercent() : 100.0)
-                        .status(sDTO.getStatus() != null ? sDTO.getStatus() : StageStatus.PENDING)
-                        .stageParamsJson(sDTO.getStageParamsJson())
-                        .build());
-            }
-            stageConfigRepository.saveAll(stageEntities);
-        }
-
-        // Save Field Schemas
-        if (request.getFieldSchemas() != null) {
-            List<CompetitionFieldSchema> schemas = new ArrayList<>();
-            for (CompetitionFieldSchemaDTO fDTO : request.getFieldSchemas()) {
-                schemas.add(CompetitionFieldSchema.builder()
-                        .competition(savedComp)
-                        .fieldKey(fDTO.getFieldKey().trim())
-                        .fieldLabel(fDTO.getFieldLabel().trim())
-                        .fieldType(fDTO.getFieldType())
-                        .isRequired(fDTO.getIsRequired() == null || fDTO.getIsRequired())
-                        .regexPattern(fDTO.getRegexPattern())
-                        .selectOptions(fDTO.getSelectOptions())
-                        .fillScope(fDTO.getFillScope() != null ? fDTO.getFillScope() : FillScope.ALL_MEMBERS)
-                        .sortOrder(fDTO.getSortOrder() != null ? fDTO.getSortOrder() : 0)
-                        .build());
-            }
-            fieldSchemaRepository.saveAll(schemas);
-        }
 
         return savedComp.getId();
     }
@@ -161,14 +141,42 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
             comp.setSlug(request.getSlug().trim());
         }
 
+        Instant newStart = request.getStartTime() != null ? request.getStartTime() : comp.getStartTime();
+        Instant newEnd = request.getEndTime() != null ? request.getEndTime() : comp.getEndTime();
+        Instant newRegStart = request.getRegStartTime() != null ? request.getRegStartTime() : comp.getRegStartTime();
+        Instant newRegEnd = request.getRegEndTime() != null ? request.getRegEndTime() : comp.getRegEndTime();
+        boolean isNotStarted = (comp.getStatus() == CompetitionStatus.DRAFT || comp.getStatus() == CompetitionStatus.PUBLISHED);
+        validateCompetitionSchedule(newStart, newEnd, newRegStart, newRegEnd, isNotStarted);
+
         if (request.getTitle() != null) comp.setTitle(request.getTitle().trim());
+        if (request.getType() != null) comp.setType(request.getType());
         if (request.getDescription() != null) comp.setDescription(request.getDescription());
         if (request.getBannerUrl() != null) comp.setBannerUrl(request.getBannerUrl());
-        if (request.getStatus() != null) comp.setStatus(request.getStatus());
         if (request.getRegStartTime() != null) comp.setRegStartTime(request.getRegStartTime());
         if (request.getRegEndTime() != null) comp.setRegEndTime(request.getRegEndTime());
         if (request.getStartTime() != null) comp.setStartTime(request.getStartTime());
         if (request.getEndTime() != null) comp.setEndTime(request.getEndTime());
+
+        // 状态更新校验：人工仅允许在 DRAFT 与 PUBLISHED 之间切换；归档通过专用接口控制
+        if (request.getStatus() != null) {
+            if (comp.getStatus() == CompetitionStatus.ARCHIVED) {
+                if (request.getStatus() != CompetitionStatus.ARCHIVED) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "已归档竞赛不可直接修改状态，请先取消归档");
+                }
+            } else {
+                if (request.getStatus() == CompetitionStatus.ARCHIVED) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "请使用专用归档接口对竞赛进行归档");
+                } else if (request.getStatus() == CompetitionStatus.DRAFT) {
+                    comp.setStatus(CompetitionStatus.DRAFT);
+                } else {
+                    // request.getStatus() 为 PUBLISHED、RUNNING 或 ENDED 均视为发布态，重新根据时间计算当前实际运行状态
+                    comp.setStatus(CompetitionStatus.PUBLISHED);
+                    comp.refreshStatus();
+                }
+            }
+        } else {
+            comp.refreshStatus();
+        }
 
         competitionRepository.save(comp);
 
@@ -178,12 +186,18 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
             CompetitionConfig config = configRepository.findByCompetitionId(id)
                     .orElse(CompetitionConfig.builder().competition(comp).build());
 
+            if (cDTO.getMaxLeaders() != null) config.setMaxLeaders(cDTO.getMaxLeaders());
             if (cDTO.getMaxTeamMembers() != null) config.setMaxTeamMembers(cDTO.getMaxTeamMembers());
             if (cDTO.getMinTeamMembers() != null) config.setMinTeamMembers(cDTO.getMinTeamMembers());
             if (cDTO.getMaxTeams() != null) config.setMaxTeams(cDTO.getMaxTeams());
             if (cDTO.getRequireTeamAudit() != null) config.setRequireTeamAudit(cDTO.getRequireTeamAudit());
             if (cDTO.getFreezeScoreboardMinutes() != null) config.setFreezeScoreboardMinutes(cDTO.getFreezeScoreboardMinutes());
             if (cDTO.getAllowWriteupSubmission() != null) config.setAllowWriteupSubmission(cDTO.getAllowWriteupSubmission());
+            if (cDTO.getMaxContainersPerTeam() != null) config.setMaxContainersPerTeam(cDTO.getMaxContainersPerTeam());
+            if (cDTO.getWriteupTemplateUrl() != null) config.setWriteupTemplateUrl(cDTO.getWriteupTemplateUrl());
+            if (cDTO.getWriteupTemplateName() != null) config.setWriteupTemplateName(cDTO.getWriteupTemplateName());
+            if (cDTO.getWriteupStartTime() != null) config.setWriteupStartTime(cDTO.getWriteupStartTime());
+            if (cDTO.getWriteupEndTime() != null) config.setWriteupEndTime(cDTO.getWriteupEndTime());
 
             configRepository.save(config);
         }
@@ -202,6 +216,73 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛配置不存在"));
         config.setIsScoreboardFrozen(frozen);
         configRepository.save(config);
+    }
+
+    @Override
+    @Transactional
+    public void archiveCompetition(Long id) {
+        Competition comp = competitionRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
+        comp.setStatus(CompetitionStatus.ARCHIVED);
+        competitionRepository.save(comp);
+    }
+
+    @Override
+    @Transactional
+    public void unarchiveCompetition(Long id) {
+        Competition comp = competitionRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
+        comp.setStatus(CompetitionStatus.DRAFT);
+        competitionRepository.save(comp);
+    }
+
+    @Scheduled(fixedRate = 60000)
+    @Transactional
+    public void syncCompetitionStatusSchedule() {
+        List<Competition> activeComps = competitionRepository.findByStatusIn(
+                List.of(CompetitionStatus.PUBLISHED, CompetitionStatus.RUNNING)
+        );
+        for (Competition comp : activeComps) {
+            if (comp.refreshStatus()) {
+                competitionRepository.save(comp);
+            }
+        }
+    }
+
+    private void validateCompetitionSchedule(Instant startTime, Instant endTime, Instant regStartTime, Instant regEndTime, boolean isNewOrNotStarted) {
+        if (startTime == null || endTime == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "比赛起止时间不能为空");
+        }
+        if (!startTime.isBefore(endTime)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "比赛开始时间必须早于结束时间");
+        }
+        Instant now = Instant.now();
+        // 比赛起止时间不能是过去的时间（允许 60 秒时钟误差）
+        if (isNewOrNotStarted) {
+            if (startTime.isBefore(now.minusSeconds(60))) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "比赛开始时间不能早于当前时间，比赛起止时间不能是过去的时间");
+            }
+            if (endTime.isBefore(now)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "比赛结束时间不能早于当前时间，比赛起止时间不能是过去的时间");
+            }
+        }
+
+        // 报名时间约束：比赛开始之后不可报名
+        if (regStartTime != null && regEndTime != null) {
+            if (!regStartTime.isBefore(regEndTime)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "报名开始时间必须早于报名截止时间");
+            }
+        }
+        if (regEndTime != null) {
+            if (regEndTime.isAfter(startTime)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "报名起止时间不能在比赛开始之后进行报名（报名截止时间必须早于或等于比赛开始时间）");
+            }
+        }
+        if (regStartTime != null) {
+            if (!regStartTime.isBefore(startTime)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "报名开始时间必须早于比赛开始时间");
+            }
+        }
     }
 
 }

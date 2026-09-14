@@ -15,9 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "competition_team", indexes = {
-        @Index(name = "idx_team_comp_invite", columnList = "competition_id, invite_code")
-})
+@Table(name = "competition_team")
 @DynamicUpdate
 @Data
 @Builder
@@ -50,7 +48,7 @@ public class CompetitionTeam implements Serializable {
     @JoinColumn(name = "captain_id", nullable = false, columnDefinition = "BIGINT")
     private User captain;
 
-    @Column(name = "invite_code", nullable = false, length = 16, columnDefinition = "VARCHAR(16)")
+    @Column(name = "invite_code", length = 16, columnDefinition = "VARCHAR(16)")
     private String inviteCode;
 
     @Enumerated(EnumType.STRING)

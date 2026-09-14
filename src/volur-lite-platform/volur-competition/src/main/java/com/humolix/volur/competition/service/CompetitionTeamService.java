@@ -20,8 +20,16 @@ public interface CompetitionTeamService {
 
     void cancelInvitation(Long competitionId, Long teamId, Long captainUserId, Long targetUserId);
 
+    void deleteMyTeam(Long competitionId, Long captainUserId);
+
+    List<com.humolix.volur.competition.domain.vo.TeamInvitationVO> getMyInvitations(Long competitionId, Long userId);
+
     MyTeamInfoVO getMyTeam(Long competitionId, Long userId);
 
-    List<CompetitionTeamVO> listTeams(Long competitionId);
+    List<CompetitionTeamVO> listTeams(Long competitionId, Long currentUserId);
+
+    default List<CompetitionTeamVO> listTeams(Long competitionId) {
+        return listTeams(competitionId, null);
+    }
 
 }

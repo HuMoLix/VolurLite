@@ -6,11 +6,12 @@ import com.humolix.volur.framework.domain.enums.EnumEntity;
 public enum CompetitionStatus implements EnumEntity {
 
     DRAFT(0, "DRAFT"),
-    REGISTRATION(1, "REGISTRATION"),
+    PUBLISHED(1, "PUBLISHED"),
     RUNNING(2, "RUNNING"),
-    FROZEN(3, "FROZEN"),
-    ENDED(4, "ENDED"),
-    ARCHIVED(5, "ARCHIVED");
+    ENDED(3, "ENDED"),
+    ARCHIVED(4, "ARCHIVED"),
+    REGISTRATION(5, "REGISTRATION"),
+    FROZEN(6, "FROZEN");
 
     private final int code;
     @JsonValue

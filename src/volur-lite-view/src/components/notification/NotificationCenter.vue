@@ -85,6 +85,13 @@
                   <span class="item-time">{{ formatTime(item.createdAt) }}</span>
                 </div>
                 <div class="item-desc">{{ item.content }}</div>
+                <div
+                  v-if="getCompetitionTarget(item)"
+                  class="item-link"
+                  @click.stop="handleNavigateToCompetition(item)"
+                >
+                  前往竞赛主页 &rarr;
+                </div>
               </div>
               <div class="item-actions">
                 <span v-if="item.status === 'UNREAD'" class="unread-dot" />
@@ -141,8 +148,19 @@
         </div>
       </div>
       <template #footer>
-        <div class="modal-footer">
-          <n-button @click="showDetailModal = false">关闭</n-button>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div>
+            <n-button
+              v-if="getCompetitionTarget(selectedNotification)"
+              type="primary"
+              class="theme-primary-btn"
+              size="small"
+              @click="handleNavigateToCompetition(selectedNotification)"
+            >
+              前往竞赛详情
+            </n-button>
+          </div>
+          <n-button size="small" @click="showDetailModal = false">关闭</n-button>
         </div>
       </template>
     </n-modal>
@@ -301,6 +319,33 @@ function handleTabChange() {
 function handleViewMore() {
   showPopover.value = false
   router.push({ path: '/profile', query: { tab: 'notifications' } })
+}
+
+function getCompetitionTarget(notification: NotificationVO | null): string | null {
+  if (!notification || !notification.actionData) return null
+  try {
+    const data = JSON.parse(notification.actionData)
+    if (data.slug) return String(data.slug)
+    if (data.competitionId) return String(data.competitionId)
+  } catch {
+    const trimmed = notification.actionData.trim()
+    if (trimmed.startsWith('/competitions/')) {
+      return trimmed.replace('/competitions/', '')
+    }
+    if (/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+      return trimmed
+    }
+  }
+  return null
+}
+
+function handleNavigateToCompetition(notification: NotificationVO | null) {
+  const target = getCompetitionTarget(notification)
+  if (target) {
+    showDetailModal.value = false
+    showPopover.value = false
+    router.push(`/competitions/${target}`)
+  }
 }
 
 async function handleItemClick(item: NotificationVO) {
@@ -567,6 +612,18 @@ onUnmounted(() => {
             overflow: hidden;
             line-height: 1.4;
           }
+
+          .item-link {
+            font-size: 11px;
+            color: #2563eb;
+            cursor: pointer;
+            margin-top: 2px;
+            font-weight: 500;
+
+            &:hover {
+              text-decoration: underline;
+            }
+          }
         }
 
         .item-actions {
@@ -641,6 +698,18 @@ onUnmounted(() => {
 
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+
+  .theme-primary-btn {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: none;
+    font-weight: 500;
+
+    &:hover {
+      background-color: #222222 !important;
+    }
+  }
 }
 </style>

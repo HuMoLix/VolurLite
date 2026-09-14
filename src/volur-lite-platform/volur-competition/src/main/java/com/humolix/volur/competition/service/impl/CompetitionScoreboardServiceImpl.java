@@ -3,17 +3,15 @@ package com.humolix.volur.competition.service.impl;
 import com.humolix.volur.competition.annotation.RequiredCompetitionRunning;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionConfig;
-import com.humolix.volur.competition.domain.entity.CompetitionStageConfig;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.entity.stage.awd.AwdCompetitionLog;
 import com.humolix.volur.competition.domain.entity.stage.ctf.CtfCompetitionSolved;
 import com.humolix.volur.competition.domain.entity.stage.theory.TheoryCompetitionAnswer;
-import com.humolix.volur.competition.domain.enums.CompetitionStage;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.scoreboard.*;
 import com.humolix.volur.competition.repository.CompetitionConfigRepository;
 import com.humolix.volur.competition.repository.CompetitionRepository;
-import com.humolix.volur.competition.repository.CompetitionStageConfigRepository;
 import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.repository.stage.awd.AwdCompetitionLogRepository;
 import com.humolix.volur.competition.repository.stage.ctf.CtfCompetitionSolvedRepository;
@@ -34,7 +32,6 @@ public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardSe
 
     private final CompetitionRepository competitionRepository;
     private final CompetitionConfigRepository configRepository;
-    private final CompetitionStageConfigRepository stageConfigRepository;
     private final CompetitionTeamRepository teamRepository;
     private final CtfCompetitionSolvedRepository ctfSolvedRepository;
     private final TheoryCompetitionAnswerRepository theoryAnswerRepository;
@@ -106,65 +103,63 @@ public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardSe
         CompetitionConfig config = configRepository.findByCompetitionId(competitionId).orElse(null);
         boolean isFrozen = config != null && Boolean.TRUE.equals(config.getIsScoreboardFrozen());
 
-        List<CompetitionStageConfig> stageConfigs = stageConfigRepository.findByCompetitionIdOrderByStageOrderAsc(competitionId);
         List<CompetitionTeam> teams = teamRepository.findByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_PASSED);
+        CompetitionType type = comp.getType() != null ? comp.getType() : CompetitionType.CTF;
 
-        // Calculate raw scores per stage for each team: teamId -> (stage -> rawScore)
-        Map<Long, Map<CompetitionStage, Double>> teamStageRawScore = new HashMap<>();
+        Map<Long, Double> teamScores = new HashMap<>();
         for (CompetitionTeam t : teams) {
-            teamStageRawScore.put(t.getId(), new HashMap<>());
+            teamScores.put(t.getId(), 0.0);
         }
 
-        // 1. CTF Solves
-        List<CtfCompetitionSolved> allSolves = ctfSolvedRepository.findAllSolvesWithDetails(competitionId);
-        for (CtfCompetitionSolved solve : allSolves) {
-            Long tid = solve.getTeam().getId();
-            if (teamStageRawScore.containsKey(tid)) {
-                Map<CompetitionStage, Double> map = teamStageRawScore.get(tid);
-                map.put(CompetitionStage.CTF, map.getOrDefault(CompetitionStage.CTF, 0.0) + solve.getPointsAwarded());
+        switch (type) {
+            case CTF -> {
+                List<CtfCompetitionSolved> allSolves = ctfSolvedRepository.findAllSolvesWithDetails(competitionId);
+                for (CtfCompetitionSolved solve : allSolves) {
+                    Long tid = solve.getTeam().getId();
+                    if (teamScores.containsKey(tid)) {
+                        teamScores.put(tid, teamScores.get(tid) + solve.getPointsAwarded());
+                    }
+                }
             }
-        }
-
-        // 2. Theory Answers
-        for (CompetitionTeam t : teams) {
-            List<TheoryCompetitionAnswer> answers = theoryAnswerRepository.findByCompetitionIdAndTeamId(competitionId, t.getId());
-            double theoryScore = answers.stream().mapToDouble(TheoryCompetitionAnswer::getScoreObtained).sum();
-            teamStageRawScore.get(t.getId()).put(CompetitionStage.THEORY, theoryScore);
-        }
-
-        // 3. AWD Logs
-        for (CompetitionTeam t : teams) {
-            List<AwdCompetitionLog> attacks = awdLogRepository.findByCompetitionIdAndAttackerTeamId(competitionId, t.getId());
-            double attackPts = attacks.stream().mapToDouble(AwdCompetitionLog::getPointsDelta).sum();
-            teamStageRawScore.get(t.getId()).put(CompetitionStage.AWD, attackPts);
+            case THEORY -> {
+                for (CompetitionTeam t : teams) {
+                    List<TheoryCompetitionAnswer> answers = theoryAnswerRepository.findByCompetitionIdAndTeamId(competitionId, t.getId());
+                    double theoryScore = answers.stream().mapToDouble(TheoryCompetitionAnswer::getScoreObtained).sum();
+                    teamScores.put(t.getId(), theoryScore);
+                }
+            }
+            case AWD, AWD_PLUS -> {
+                for (CompetitionTeam t : teams) {
+                    List<AwdCompetitionLog> attacks = awdLogRepository.findByCompetitionIdAndAttackerTeamId(competitionId, t.getId());
+                    double attackPts = attacks.stream().mapToDouble(AwdCompetitionLog::getPointsDelta).sum();
+                    teamScores.put(t.getId(), attackPts);
+                }
+            }
+            case ISW -> {
+                // ISW single-type scoring placeholder
+            }
         }
 
         List<CompositeTeamScoreVO> compositeList = new ArrayList<>();
         for (CompetitionTeam team : teams) {
-            Map<CompetitionStage, Double> rawMap = teamStageRawScore.get(team.getId());
-            List<StageScoreDetailVO> stageDetails = new ArrayList<>();
-            double totalWeighted = 0.0;
+            double raw = teamScores.getOrDefault(team.getId(), 0.0);
+            double rounded = Math.round(raw * 100.0) / 100.0;
 
-            for (CompetitionStageConfig sc : stageConfigs) {
-                double raw = rawMap.getOrDefault(sc.getStage(), 0.0);
-                double weight = sc.getWeightPercent() != null ? sc.getWeightPercent() : 100.0;
-                double weighted = raw * (weight / 100.0);
-                totalWeighted += weighted;
-
-                stageDetails.add(StageScoreDetailVO.builder()
-                        .stage(sc.getStage())
-                        .stageName(sc.getStageName())
-                        .rawScore(Math.round(raw * 100.0) / 100.0)
-                        .weightPercent(weight)
-                        .weightedScore(Math.round(weighted * 100.0) / 100.0)
-                        .build());
-            }
+            List<StageScoreDetailVO> stageDetails = List.of(
+                    StageScoreDetailVO.builder()
+                            .stage(type)
+                            .stageName(type.getDescription())
+                            .rawScore(rounded)
+                            .weightPercent(100.0)
+                            .weightedScore(rounded)
+                            .build()
+            );
 
             compositeList.add(CompositeTeamScoreVO.builder()
                     .teamId(team.getId())
                     .teamName(team.getTeamName())
                     .avatarUrl(team.getAvatarUrl())
-                    .totalFinalScore(Math.round(totalWeighted * 100.0) / 100.0)
+                    .totalFinalScore(rounded)
                     .stageScores(stageDetails)
                     .build());
         }

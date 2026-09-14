@@ -2,7 +2,6 @@ package com.humolix.volur.competition.domain.entity.stage.ctf;
 
 import com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge;
 import com.humolix.volur.competition.domain.entity.Competition;
-import com.humolix.volur.competition.domain.entity.CompetitionStageConfig;
 import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
 import jakarta.persistence.*;
 import lombok.*;
@@ -15,8 +14,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "ctf_competition_challenge", indexes = {
-        @Index(name = "idx_comp_ctf_chal", columnList = "competition_id, challenge_id"),
-        @Index(name = "idx_comp_ctf_stage_chal", columnList = "competition_id, stage_id, challenge_id")
+        @Index(name = "idx_comp_ctf_chal", columnList = "competition_id, challenge_id")
 })
 @DynamicUpdate
 @Data
@@ -36,11 +34,6 @@ public class CtfCompetitionChallenge implements Serializable {
     @JoinColumn(name = "competition_id", nullable = false, columnDefinition = "BIGINT")
     @ToString.Exclude
     private Competition competition;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "stage_id", columnDefinition = "BIGINT")
-    @ToString.Exclude
-    private CompetitionStageConfig stage;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "challenge_id", nullable = false, columnDefinition = "BIGINT")

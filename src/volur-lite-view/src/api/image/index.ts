@@ -7,8 +7,7 @@ import type {
   AdminImagePageRequestDTO,
   AdminImagePullRequestDTO,
   AdminImageTransferDTO,
-  AdminImageBackupDTO,
-  AdminImageTypeUpdateDTO
+  AdminImageBackupDTO
 } from '@/types/image'
 import type { AdminAsyncTaskSubmitVO } from '@/types/task'
 
@@ -41,17 +40,6 @@ export function getAdminImageDetailApi(
 }
 
 /**
- * 修改 Docker 镜像所属类别
- * 对应后端: PUT /api/v1/admin/images/{id}/type
- */
-export function updateAdminImageTypeApi(
-  id: string | number,
-  data: AdminImageTypeUpdateDTO
-): Promise<ApiResponse<void>> {
-  return request.put<void>(`/admin/images/${id}/type`, data)
-}
-
-/**
  * 重新扫描加载本地及集群子节点中的 Docker 镜像
  * 对应后端: POST /api/v1/admin/images/scan
  */
@@ -63,8 +51,8 @@ export function scanAndSyncAdminImagesApi(): Promise<ApiResponse<void>> {
  * 拉取/下载 Docker 镜像至指定节点
  * 对应后端: POST /api/v1/admin/images/pull
  */
-export function pullAdminImageApi(data: AdminImagePullRequestDTO): Promise<ApiResponse<void>> {
-  return request.post<void>('/admin/images/pull', data)
+export function pullAdminImageApi(data: AdminImagePullRequestDTO): Promise<ApiResponse<AdminAsyncTaskSubmitVO>> {
+  return request.post<AdminAsyncTaskSubmitVO>('/admin/images/pull', data)
 }
 
 /**
@@ -115,4 +103,12 @@ export function deleteAdminImageApi(
  */
 export function syncAllImagesToResourceNodesApi(): Promise<ApiResponse<void>> {
   return request.post<void>('/admin/images/sync-all')
+}
+
+/**
+ * 将镜像推送至中心私有镜像仓库 (Registry)
+ * 对应后端: POST /api/v1/admin/images/{id}/push-registry
+ */
+export function pushAdminImageToRegistryApi(id: string | number): Promise<ApiResponse<void>> {
+  return request.post<void>(`/admin/images/${id}/push-registry`)
 }

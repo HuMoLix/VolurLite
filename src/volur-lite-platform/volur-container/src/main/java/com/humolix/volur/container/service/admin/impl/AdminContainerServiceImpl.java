@@ -381,44 +381,18 @@ public class AdminContainerServiceImpl implements AdminContainerService {
             return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
         }
 
-        if (StringUtils.hasText(imageName)) {
-            for (ClusterNode node : candidateNodes) {
-                if (isImagePresentOnNode(node.getIpAddress(), imageName)) {
-                    return node.getIpAddress();
-                }
-            }
-        }
-
         return candidateNodes.get(0).getIpAddress();
-    }
-
-    private boolean isImagePresentOnNode(String nodeIp, String imageName) {
-        if (!StringUtils.hasText(nodeIp) || !StringUtils.hasText(imageName)) {
-            return false;
-        }
-        String repo = imageName.trim();
-        String tag = "latest";
-        int colonIdx = repo.lastIndexOf(':');
-        if (colonIdx > 0 && !repo.substring(colonIdx + 1).contains("/")) {
-            tag = repo.substring(colonIdx + 1);
-            repo = repo.substring(0, colonIdx);
-        }
-        Optional<ClusterImage> imgOpt = clusterImageRepository.findByRepositoryAndTag(repo, tag);
-        if (imgOpt.isPresent()) {
-            String nodeIps = imgOpt.get().getNodeIps();
-            if (nodeIps != null) {
-                List<String> list = Arrays.asList(nodeIps.split(","));
-                return list.contains(nodeIp.trim());
-            }
-        }
-        return false;
     }
 
     private String formatPortsSummary(List<ContainerPortMappingDTO> ports, Integer defaultPort) {
         if (ports != null && !ports.isEmpty()) {
             return ports.stream()
                     .filter(p -> p.getContainerPort() != null && p.getContainerPort() > 0)
-                    .map(p -> (p.getHostPort() != null ? p.getHostPort() : "*") + ":" + p.getContainerPort() + "/" + (p.getProtocol() != null ? p.getProtocol() : "TCP"))
+                    .map(p -> {
+                        Object hp = (p.getHostPort() != null && p.getHostPort() > 0) ? p.getHostPort() : (defaultPort != null ? defaultPort : "*");
+                        String proto = StringUtils.hasText(p.getProtocol()) ? p.getProtocol().trim().toUpperCase() : "TCP";
+                        return hp + ":" + p.getContainerPort() + "/" + proto;
+                    })
                     .collect(Collectors.joining(", "));
         }
         return defaultPort != null ? defaultPort + ":80/TCP" : null;
@@ -474,6 +448,10 @@ public class AdminContainerServiceImpl implements AdminContainerService {
 
             if (request.getUserId() != null) {
                 predicates.add(cb.equal(root.get("targetId"), request.getUserId()));
+            }
+
+            if (request.getStageId() != null) {
+                predicates.add(cb.equal(root.get("stageId"), request.getStageId()));
             }
 
             if (StringUtils.hasText(request.getKeyword())) {

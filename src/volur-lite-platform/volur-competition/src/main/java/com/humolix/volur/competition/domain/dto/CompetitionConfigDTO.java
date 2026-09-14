@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CompetitionConfigDTO {
 
+    private Integer maxLeaders;
+
     private Integer maxTeamMembers;
 
     private Integer minTeamMembers;
@@ -22,5 +24,15 @@ public class CompetitionConfigDTO {
     private Boolean isScoreboardFrozen;
 
     private Boolean allowWriteupSubmission;
+
+    private Integer maxContainersPerTeam;
+
+    private String writeupTemplateUrl;
+
+    private String writeupTemplateName;
+
+    private java.time.Instant writeupStartTime;
+
+    private java.time.Instant writeupEndTime;
 
 }

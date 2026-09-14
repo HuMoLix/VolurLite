@@ -38,4 +38,6 @@ public interface AdminClusterService {
     List<AdminClusterNodeVO> checkAllNodesHealth();
 
     AdminClusterNodeVO joinCluster(Long id);
+ 
+    List<AdminClusterNodeVO> syncK3sClusterNodes();
 }

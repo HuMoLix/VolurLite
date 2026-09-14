@@ -36,6 +36,9 @@ public class AdminContainerManualStartDTO implements Serializable {
     @Schema(description = "自定义动态 Flag (可选，若不填写则按规则自动注入)")
     private String customFlag;
 
+    @Schema(description = "是否允许容器访问外网 (Outbound/Egress，若未指定则跟随系统集群默认配置)")
+    private Boolean outboundEnabled;
+
     @Schema(description = "端口映射列表 (Ports)")
     private List<ContainerPortMappingDTO> ports;
 

@@ -1,95 +1,53 @@
 <template>
   <n-layout class="app-layout" has-sider>
-    <n-layout-sider
-      bordered
-      collapse-mode="width"
-      :collapsed-width="64"
-      :width="220"
-      :collapsed="appStore.isSidebarCollapsed"
-      show-trigger
-      @collapse="appStore.isSidebarCollapsed = true"
-      @expand="appStore.isSidebarCollapsed = false"
-      content-style="display: flex; flex-direction: column; height: 100%; justify-content: space-between;"
-    >
-      <div class="sidebar-top">
-        <div class="logo-container" @click="router.push('/competitions')">
-          <transition name="logo-fade" mode="out-in">
-            <img
-              v-if="!appStore.isSidebarCollapsed"
-              :key="`expanded-${appStore.theme}`"
-              :src="appStore.theme === 'dark' ? '/long-logo-dark.svg' : '/long-logo.svg'"
-              alt="Volur Lite"
-              class="logo-img-expanded"
-            />
-            <img
-              v-else
-              :key="`collapsed-${appStore.theme}`"
-              :src="appStore.theme === 'dark' ? '/favicon-dark.svg' : '/favicon.svg'"
-              alt="Volur Lite"
-              class="logo-img-collapsed"
-            />
-          </transition>
-        </div>
-        <n-menu
-          :collapsed="appStore.isSidebarCollapsed"
-          :collapsed-width="64"
-          :collapsed-icon-size="22"
-          :options="menuOptions"
-          :value="activeKey"
-          @update:value="handleMenuSelect"
-        />
-      </div>
-
-      <!-- Admin Panel Button at sidebar bottom for Admin users -->
-      <div v-if="userStore.isAdmin" class="sidebar-bottom-admin">
-        <transition name="admin-fade" mode="out-in">
-          <div v-if="appStore.isSidebarCollapsed" key="collapsed" class="admin-wrapper-collapsed">
-            <n-tooltip placement="right" trigger="hover">
-              <template #trigger>
-                <n-button
-                  quaternary
-                  circle
-                  size="large"
-                  class="admin-panel-btn-collapsed"
-                  @click="handleAdminPanelClick"
-                >
-                  <template #icon>
-                    <n-icon size="20">
-                      <ShieldCheckmarkOutline />
-                    </n-icon>
-                  </template>
-                </n-button>
-              </template>
-              {{ t('layout.admin_panel') }}
-            </n-tooltip>
-          </div>
-
-          <div v-else key="expanded" class="admin-wrapper-expanded">
-            <n-button
-              quaternary
-              block
-              size="medium"
-              class="admin-panel-btn-expanded"
-              @click="handleAdminPanelClick"
-            >
-              <template #icon>
-                <n-icon size="18">
-                  <ShieldCheckmarkOutline />
-                </n-icon>
-              </template>
-              {{ t('layout.admin_panel') }}
-            </n-button>
-          </div>
-        </transition>
-      </div>
-    </n-layout-sider>
+    <volur-sidebar
+      v-model:collapsed="appStore.isSidebarCollapsed"
+      :menu-options="menuOptions"
+      :value="activeKey"
+      logo-route="/competitions"
+      :show-bottom-action="userStore.isAdmin"
+      :bottom-action-text="t('layout.admin_panel')"
+      :bottom-action-icon="ShieldCheckmarkOutline"
+      bottom-action-route="/admin/dashboard"
+      @select="handleMenuSelect"
+    />
 
     <n-layout>
       <n-layout-header bordered class="app-header">
         <div class="header-left">
           <n-breadcrumb>
-            <n-breadcrumb-item>{{ systemStore.platformName }}</n-breadcrumb-item>
-            <n-breadcrumb-item>{{ currentRouteTitle }}</n-breadcrumb-item>
+            <n-breadcrumb-item>
+              <span class="breadcrumb-link" @click="router.push('/')">
+                {{ systemStore.platformName }}
+              </span>
+            </n-breadcrumb-item>
+
+            <!-- Case A: 竞赛详情页 (Volur Lite / 竞赛演练 / <比赛名>) -->
+            <template v-if="isCompetitionDetail">
+              <n-breadcrumb-item>
+                <span class="breadcrumb-link" @click="router.push('/competitions')">
+                  {{ t('competition.page_title') }}
+                </span>
+              </n-breadcrumb-item>
+              <n-breadcrumb-item>
+                <span class="breadcrumb-current" :title="competitionTitle">
+                  {{ competitionTitle }}
+                </span>
+              </n-breadcrumb-item>
+            </template>
+
+            <!-- Case B: 其他常规页面或带 parentTitle 的页面 -->
+            <template v-else>
+              <n-breadcrumb-item v-if="parentRouteTitle">
+                <span
+                  :class="{ 'breadcrumb-link': !!parentRoutePath }"
+                  @click="handleParentRouteClick"
+                >
+                  {{ parentRouteTitle }}
+                </span>
+              </n-breadcrumb-item>
+              <n-breadcrumb-item>{{ currentRouteTitle }}</n-breadcrumb-item>
+            </template>
           </n-breadcrumb>
         </div>
         <div class="header-right">
@@ -124,10 +82,10 @@
 
             <n-dropdown :options="userDropdownOptions" @select="handleUserDropdown">
               <div class="user-profile cursor-pointer">
-                <UserAvatar
+                <AppAvatar
                   size="small"
                   :src="userStore.user?.avatarUrl"
-                  :username="userStore.user?.username"
+                  :name="userStore.user?.username"
                 />
                 <span class="user-nickname">{{ userStore.user?.username }}</span>
               </div>
@@ -153,13 +111,18 @@
         <div class="footer-content">
           <span>© {{ currentYear }} {{ systemStore.platformName }}. {{ systemStore.platformDesc }}</span>
           <a
-            v-if="systemStore.icpNumber"
-            href="https://beian.miit.gov.cn/"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="icp-link"
+              v-if="systemStore.icpNumber"
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="icp-link"
           >
-            {{ systemStore.icpNumber }}
+            <img
+                src="/beian.png"
+                alt="工信部备案图标"
+                class="icp-icon"
+            />
+            <span>{{ systemStore.icpNumber }}</span>
           </a>
         </div>
       </n-layout-footer>
@@ -172,20 +135,18 @@ import { computed, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   NLayout,
-  NLayoutSider,
   NLayoutHeader,
   NLayoutContent,
   NLayoutFooter,
-  NMenu,
   NBreadcrumb,
   NBreadcrumbItem,
   NButton,
   NDropdown,
   NIcon,
-  NTooltip,
   type MenuOption,
   type DropdownOption
 } from 'naive-ui'
+import VolurSidebar from '@/public/layout/components/VolurSidebar.vue'
 import {
   SunnyOutline,
   MoonOutline,
@@ -194,10 +155,11 @@ import {
   ShieldCheckmarkOutline
 } from '@vicons/ionicons5'
 import NotificationCenter from '@/components/notification/NotificationCenter.vue'
-import UserAvatar from '@/components/common/UserAvatar.vue'
+import AppAvatar from '@/components/common/AppAvatar.vue'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { useSystemStore } from '@/store/modules/system'
+import { useCompetitionStore } from '@/store/modules/competition'
 import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
@@ -206,12 +168,41 @@ const { t, locale } = useI18n()
 const appStore = useAppStore()
 const userStore = useUserStore()
 const systemStore = useSystemStore()
+const competitionStore = useCompetitionStore()
 const currentYear = new Date().getFullYear()
 
 function toggleLanguage() {
   const next = locale.value === 'zh_CN' ? 'en_US' : 'zh_CN'
   locale.value = next
   localStorage.setItem('locale', next)
+}
+
+const isCompetitionDetail = computed(() => {
+  return route.name === 'CompetitionDetailBySlug' ||
+    route.name === 'CompetitionShortLink' ||
+    route.path.startsWith('/c/') ||
+    (route.path.startsWith('/competitions/') && route.path !== '/competitions')
+})
+
+const competitionTitle = computed(() => {
+  return competitionStore.currentCompetition?.title || (route.meta.title as string) || t('competition.detail_title')
+})
+
+const parentRouteTitle = computed(() => {
+  if (route.meta.parentTitleKey) {
+    return t(route.meta.parentTitleKey as string)
+  }
+  return (route.meta.parentTitle as string) || ''
+})
+
+const parentRoutePath = computed(() => {
+  return (route.meta.parentPath as string) || ''
+})
+
+function handleParentRouteClick() {
+  if (parentRoutePath.value) {
+    router.push(parentRoutePath.value)
+  }
 }
 
 const currentRouteTitle = computed(() => {
@@ -246,16 +237,13 @@ function handleMenuSelect(key: string) {
   router.push({ name: key }).catch(() => {})
 }
 
-function handleAdminPanelClick() {
-  router.push('/admin/dashboard')
-}
 
 async function handleUserDropdown(key: string) {
   if (key === 'profile') {
-    router.push('/profile')
+    await router.push('/profile')
   } else if (key === 'logout') {
     await userStore.logout()
-    router.push('/auth/login')
+    await router.push('/auth/login')
   }
 }
 </script>
@@ -267,109 +255,6 @@ async function handleUserDropdown(key: string) {
   overflow: hidden;
 }
 
-.sidebar-top {
-  display: flex;
-  flex-direction: column;
-}
-
-.logo-container {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  cursor: pointer;
-  overflow: hidden;
-  position: relative;
-
-  .logo-img-expanded {
-    height: 26px;
-    width: auto;
-    max-width: 160px;
-    object-fit: contain;
-  }
-
-  .logo-img-collapsed {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-  }
-}
-
-.sidebar-bottom-admin {
-  padding: 12px 10px;
-  border-top: 1px solid var(--v-border-base, #efeff5);
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
-
-  .admin-wrapper-expanded {
-    width: 100%;
-  }
-
-  .admin-wrapper-collapsed {
-    display: flex;
-    justify-content: center;
-  }
-
-  .admin-panel-btn-expanded {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--v-text-desc, #444444);
-    border-radius: 6px;
-    transition: color 0.2s ease, background-color 0.2s ease;
-
-    &:hover {
-      color: var(--v-text-primary, #111111);
-      background-color: rgba(0, 0, 0, 0.04);
-    }
-
-    @include theme-dark {
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.08);
-      }
-    }
-  }
-
-  .admin-panel-btn-collapsed {
-    color: var(--v-text-desc, #444444);
-    transition: color 0.2s ease, background-color 0.2s ease;
-
-    &:hover {
-      color: var(--v-text-primary, #111111);
-      background-color: rgba(0, 0, 0, 0.04);
-    }
-
-    @include theme-dark {
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.08);
-      }
-    }
-  }
-}
-
-.logo-fade-enter-active,
-.logo-fade-leave-active,
-.admin-fade-enter-active,
-.admin-fade-leave-active {
-  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.logo-fade-enter-from,
-.admin-fade-enter-from {
-  opacity: 0;
-  transform: scale(0.88);
-}
-
-.logo-fade-leave-to,
-.admin-fade-leave-to {
-  opacity: 0;
-  transform: scale(0.88);
-}
 
 .app-header {
   height: 64px;
@@ -382,6 +267,25 @@ async function handleUserDropdown(key: string) {
   .header-left {
     display: flex;
     align-items: center;
+
+    :deep(.breadcrumb-link) {
+      cursor: pointer;
+      transition: color 0.2s ease, opacity 0.2s ease;
+
+      &:hover {
+        color: var(--v-text-primary, #000000);
+        opacity: 0.8;
+      }
+    }
+
+    :deep(.breadcrumb-current) {
+      max-width: 360px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block;
+      vertical-align: bottom;
+    }
   }
 
   .header-right {
@@ -447,6 +351,9 @@ async function handleUserDropdown(key: string) {
     color: #444444;
 
     .icp-link {
+      gap: 4px;
+      display: inline-flex;
+      align-items: center;
       color: #444444;
       text-decoration: none;
       transition: color 0.2s ease;
@@ -455,6 +362,13 @@ async function handleUserDropdown(key: string) {
         color: #000000;
         text-decoration: underline;
       }
+    }
+
+    .icp-icon {
+      width: 14px;
+      height: 14px;
+      vertical-align: middle;
+      object-fit: contain;
     }
   }
 }

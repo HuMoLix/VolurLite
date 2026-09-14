@@ -16,8 +16,7 @@ import java.time.Instant;
  */
 @Entity
 @Table(name = "cluster_image", indexes = {
-        @Index(name = "idx_image_repo_tag", columnList = "repository, tag"),
-        @Index(name = "idx_image_type", columnList = "image_type")
+        @Index(name = "idx_image_repo_tag", columnList = "repository, tag")
 })
 @DynamicUpdate
 @Data
@@ -48,15 +47,12 @@ public class ClusterImage implements Serializable {
     private Long sizeBytes = 0L;
 
     @Builder.Default
-    @Column(name = "image_type", nullable = false, length = 32)
-    private String imageType = "CHALLENGE"; // CHALLENGE / BASE / SYSTEM
-
-    @Column(name = "node_ips", length = 1024)
-    private String nodeIps; // 逗号分隔的节点 IP 列表，如 "127.0.0.1,192.168.1.101"
+    @Column(name = "status", nullable = false, length = 32)
+    private String status = "PULLED";
 
     @Builder.Default
-    @Column(name = "status", nullable = false, length = 32)
-    private String status = "PULLED"; // PULLED / PULLING / FAILED / MIGRATING
+    @Column(name = "in_registry", nullable = false)
+    private Boolean inRegistry = false;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")

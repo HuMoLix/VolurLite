@@ -37,7 +37,7 @@ public class StorageServiceImpl implements StorageService {
 
     private static final List<String> ALLOWED_IMAGE_EXTENSIONS = Arrays.asList("jpg", "jpeg", "png", "gif", "webp", "svg");
     private static final long MAX_IMAGE_SIZE = 5L * 1024 * 1024; // 5MB
-    private static final long MAX_RESOURCE_SIZE = 100L * 1024 * 1024; // 100MB
+    private static final long MAX_RESOURCE_SIZE = 1024L * 1024 * 1024; // 1GB (1024MB)
 
     private final SystemSettingService systemSettingService;
 
@@ -61,7 +61,10 @@ public class StorageServiceImpl implements StorageService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "上传文件不能为空");
         }
         if (file.getSize() > maxSize) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "文件大小超过限制: " + (maxSize / 1024 / 1024) + "MB");
+            String limitDesc = maxSize >= 1024L * 1024 * 1024
+                    ? (maxSize / (1024L * 1024 * 1024)) + "GB"
+                    : (maxSize / (1024L * 1024)) + "MB";
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "文件大小超过限制: " + limitDesc);
         }
         if (allowedExtensions != null) {
             String extension = FilenameUtils.getExtension(file.getOriginalFilename());

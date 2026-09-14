@@ -2,7 +2,6 @@ package com.humolix.volur.competition.domain.entity.stage.awd;
 
 import com.humolix.volur.challenge.domain.entity.stage.awd.AwdChallenge;
 import com.humolix.volur.competition.domain.entity.Competition;
-import com.humolix.volur.competition.domain.entity.CompetitionStageConfig;
 import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
 import jakarta.persistence.*;
 import lombok.*;
@@ -13,8 +12,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "awd_competition_challenge", indexes = {
-        @Index(name = "idx_comp_awd_chal", columnList = "competition_id, challenge_id"),
-        @Index(name = "idx_comp_awd_stage_chal", columnList = "competition_id, stage_id, challenge_id")
+        @Index(name = "idx_comp_awd_chal", columnList = "competition_id, challenge_id")
 })
 @Data
 @Builder
@@ -33,11 +31,6 @@ public class AwdCompetitionChallenge implements Serializable {
     @JoinColumn(name = "competition_id", nullable = false, columnDefinition = "BIGINT")
     @ToString.Exclude
     private Competition competition;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "stage_id", columnDefinition = "BIGINT")
-    @ToString.Exclude
-    private CompetitionStageConfig stage;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "challenge_id", nullable = false, columnDefinition = "BIGINT")

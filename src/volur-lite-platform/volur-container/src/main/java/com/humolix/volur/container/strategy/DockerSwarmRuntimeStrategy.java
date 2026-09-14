@@ -1,6 +1,5 @@
 package com.humolix.volur.container.strategy;
 
-import cn.hutool.core.util.RandomUtil;
 import com.humolix.volur.challenge.domain.entity.Challenge;
 import com.humolix.volur.challenge.domain.entity.Containerizable;
 import com.humolix.volur.container.domain.dto.*;
@@ -9,6 +8,7 @@ import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
 import com.humolix.volur.container.domain.vo.AdminContainerTerminalInfoVO;
 import com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO;
 import com.humolix.volur.container.repository.ClusterNodeRepository;
+import com.humolix.volur.container.util.ContainerPortAllocator;
 import com.humolix.volur.container.util.DockerTlsUtil;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.constant.SystemSettingKeys;
@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -36,6 +37,7 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
 
     private final SystemSettingService systemSettingService;
     private final ClusterNodeRepository clusterNodeRepository;
+    private final ContainerPortAllocator containerPortAllocator;
 
     @Override
     public ContainerRunResultDTO startContainer(String resourceName, Challenge challenge, String dynamicFlag, Integer cpuLimit, Integer memoryLimit, String targetNodeIp) {
@@ -44,12 +46,13 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
         String targetHost = StringUtils.hasText(targetNodeIp) ? targetNodeIp.trim() : publicHost;
         int portStart = systemSettingService.getInt(SystemSettingKeys.CONTAINER_PORT_RANGE_START, 20000);
         int portEnd = systemSettingService.getInt(SystemSettingKeys.CONTAINER_PORT_RANGE_END, 30000);
-        int targetPort = allocateRandomPort(portStart, portEnd);
+        int targetPort = containerPortAllocator.allocateAvailablePort(targetHost, portStart, portEnd, Collections.emptySet());
 
         if (challenge instanceof Containerizable containerizable) {
             String imageName = containerizable.getImageName();
             int containerPort = containerizable.getContainerPort() != null ? containerizable.getContainerPort() : 80;
-            String network = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_NETWORK, "volur-swarm-network");
+            String rawNetwork = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_NETWORK, "volur-swarm-network");
+            String network = StringUtils.hasText(rawNetwork) ? rawNetwork.trim() : "volur-swarm-network";
             String swarmApiUrl = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_API_URL, "unix:///var/run/docker.sock");
             try {
                 ensureOverlayNetwork(network, swarmApiUrl);
@@ -70,7 +73,7 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
                 command.add("--replicas");
                 command.add("1");
                 command.add("--publish");
-                command.add(targetPort + ":" + containerPort);
+                command.add("published=" + targetPort + ",target=" + containerPort + ",protocol=tcp,mode=host");
 
                 if (StringUtils.hasText(network)) {
                     command.add("--network");
@@ -132,17 +135,20 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
                     InstanceStartupStatus initialStatus = waitForServiceReady(sanitizedName, swarmApiUrl, 3500);
                     return new ContainerRunResultDTO(sanitizedName, accessUrl, targetPort, initialStatus);
                 } else {
-                    log.warn("[DockerSwarm] 集群环境命令执行未就绪 (exit={}): {}，自动切换至高可用容错仿真模式",
-                            finished ? process.exitValue() : "timeout", output.toString().trim());
+                    String errOutput = output.toString().trim();
+                    log.error("[DockerSwarm] 集群环境命令执行未就绪 (exit={}): {}",
+                            finished ? process.exitValue() : "timeout", errOutput);
+                    throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "Docker Swarm 靶机服务启动失败: " + errOutput);
                 }
+            } catch (BusinessException be) {
+                throw be;
             } catch (Exception e) {
-                log.warn("[DockerSwarm] 尝试调度 Swarm 集群异常: {}，将降级至高可用容错仿真模式", e.getMessage());
+                log.error("[DockerSwarm] 尝试调度 Swarm 集群异常: {}", e.getMessage(), e);
+                throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "Docker Swarm 调度异常: " + e.getMessage());
             }
         }
 
-        // 高可用容错模拟模式 (针对未接入真实 Swarm 集群的开发/演练环境)
-        String fallbackUrl = "http://" + targetHost + ":" + targetPort;
-        return new ContainerRunResultDTO(sanitizedName, fallbackUrl, targetPort, InstanceStartupStatus.RUNNING);
+        throw new BusinessException(HttpStatus.BAD_REQUEST, "题目未实现 Containerizable 接口，无法启动动态容器");
     }
 
     @Override
@@ -163,33 +169,43 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
         String targetNodeIp = (request != null && StringUtils.hasText(request.getNodeIp())) ? request.getNodeIp().trim() : null;
         String targetHost = StringUtils.hasText(targetNodeIp) ? targetNodeIp : publicHost;
 
-        int primaryPort = allocateRandomPort(portStart, portEnd);
+        int primaryPort = 0;
         List<String> publishArgs = new ArrayList<>();
         if (request != null && request.getPorts() != null && !request.getPorts().isEmpty()) {
             boolean isFirst = true;
             for (ContainerPortMappingDTO portCfg : request.getPorts()) {
                 if (portCfg.getContainerPort() != null && portCfg.getContainerPort() > 0) {
-                    int hPort = (portCfg.getHostPort() != null && portCfg.getHostPort() > 0)
-                            ? portCfg.getHostPort()
-                            : allocateRandomPort(portStart, portEnd);
+                    int hPort;
+                    if (portCfg.getHostPort() != null && portCfg.getHostPort() > 0) {
+                        containerPortAllocator.verifyPortAvailable(targetHost, portCfg.getHostPort(), Collections.emptySet());
+                        hPort = portCfg.getHostPort();
+                    } else {
+                        hPort = containerPortAllocator.allocateAvailablePort(targetHost, portStart, portEnd, Collections.emptySet());
+                        portCfg.setHostPort(hPort);
+                    }
                     if (isFirst) {
                         primaryPort = hPort;
                         isFirst = false;
                     }
                     String proto = StringUtils.hasText(portCfg.getProtocol()) ? portCfg.getProtocol().trim().toLowerCase() : "tcp";
                     publishArgs.add("--publish");
-                    publishArgs.add(hPort + ":" + portCfg.getContainerPort() + "/" + proto);
+                    publishArgs.add("published=" + hPort + ",target=" + portCfg.getContainerPort() + ",protocol=" + proto + ",mode=host");
                 }
             }
         } else {
             int containerPort = (challenge instanceof Containerizable c && c.getContainerPort() != null)
                     ? c.getContainerPort()
                     : 80;
+            primaryPort = containerPortAllocator.allocateAvailablePort(targetHost, portStart, portEnd, Collections.emptySet());
             publishArgs.add("--publish");
-            publishArgs.add(primaryPort + ":" + containerPort);
+            publishArgs.add("published=" + primaryPort + ",target=" + containerPort + ",protocol=tcp,mode=host");
+            if (request != null) {
+                request.setPorts(new ArrayList<>(List.of(new ContainerPortMappingDTO(primaryPort, containerPort, "TCP"))));
+            }
         }
 
-        String network = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_NETWORK, "volur-swarm-network");
+        String rawNetwork = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_NETWORK, "volur-swarm-network");
+        String network = StringUtils.hasText(rawNetwork) ? rawNetwork.trim() : "volur-swarm-network";
         String swarmApiUrl = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_API_URL, "unix:///var/run/docker.sock");
 
         ensureOverlayNetwork(network, swarmApiUrl);
@@ -515,19 +531,6 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
         }
 
         long latency = System.currentTimeMillis() - startTime;
-        if (swarmApiUrl.startsWith("unix://")) {
-            String sockPath = swarmApiUrl.substring(7);
-            if (new java.io.File(sockPath).exists()) {
-                return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
-                        .connected(true)
-                        .clusterVersion("Docker Local Socket")
-                        .nodeCount(1)
-                        .latencyMs(latency)
-                        .message("本地 Docker Socket 文件存在且就绪 (" + sockPath + ")")
-                        .build();
-            }
-        }
-
         return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
                 .connected(false)
                 .latencyMs(latency)
@@ -570,8 +573,13 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
                             .build();
                 }
 
-                // 若服务在 Swarm 中完全不存在（如模拟或开发演示模式创建），无缝回退到沙箱终端模式响应
-                return simulateExecResponse(cmd, workingDir, fallbackFlag, System.currentTimeMillis() - startTime);
+                return com.humolix.volur.container.domain.vo.AdminContainerExecResultVO.builder()
+                        .output("")
+                        .errorOutput("未找到属于该服务的运行中容器任务，服务尚未就绪或已停止")
+                        .exitCode(1)
+                        .workingDir(workingDir)
+                        .executionTimeMs(System.currentTimeMillis() - startTime)
+                        .build();
             }
 
             String actualContainerId = taskInfo.containerId();
@@ -647,67 +655,23 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
                         .build();
             }
         } catch (Exception e) {
-            log.warn("[DockerSwarm] exec 执行异常: {}，将使用沙箱仿真终端模式响应", e.getMessage());
+            log.warn("[DockerSwarm] exec 执行异常: {}", e.getMessage());
+            return com.humolix.volur.container.domain.vo.AdminContainerExecResultVO.builder()
+                    .output("")
+                    .errorOutput("Docker exec 执行异常: " + e.getMessage())
+                    .exitCode(1)
+                    .workingDir(workingDir)
+                    .executionTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
         }
-
-        return simulateExecResponse(cmd, workingDir, fallbackFlag, System.currentTimeMillis() - startTime);
-    }
-
-    private com.humolix.volur.container.domain.vo.AdminContainerExecResultVO simulateExecResponse(
-            String cmd, String workingDir, String fallbackFlag, long elapsed) {
-        String trimmed = cmd.trim();
-        String out = "";
-        String err = "";
-        int code = 0;
-        String newWd = workingDir;
-
-        if (trimmed.equals("pwd")) {
-            out = workingDir + "\n";
-        } else if (trimmed.equals("whoami")) {
-            out = "root\n";
-        } else if (trimmed.equals("id")) {
-            out = "uid=0(root) gid=0(root) groups=0(root)\n";
-        } else if (trimmed.startsWith("cat /flag") || trimmed.startsWith("cat flag")) {
-            out = (StringUtils.hasText(fallbackFlag) ? fallbackFlag.trim() : "volur{ctf_dynamic_sandbox_flag}") + "\n";
-        } else if (trimmed.equals("env")) {
-            out = "FLAG=" + (StringUtils.hasText(fallbackFlag) ? fallbackFlag.trim() : "volur{flag}") + "\n" +
-                  "HOSTNAME=volur-swarm-sandbox\n" +
-                  "HOME=/root\n" +
-                  "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n" +
-                  "PWD=" + workingDir + "\n";
-        } else if (trimmed.equals("uname -a")) {
-            out = "Linux volur-swarm-sandbox 6.6.0-ctf #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux\n";
-        } else if (trimmed.startsWith("ls")) {
-            out = "app.py\nentrypoint.sh\nflag\nrequirements.txt\ntemplates\n";
-        } else if (trimmed.startsWith("ps")) {
-            out = "PID   USER     TIME  COMMAND\n    1 root      0:00 python3 app.py\n   24 root      0:00 /bin/sh\n";
-        } else if (trimmed.startsWith("cd ")) {
-            String dir = trimmed.substring(3).trim();
-            newWd = dir.startsWith("/") ? dir : (workingDir.endsWith("/") ? workingDir + dir : workingDir + "/" + dir);
-        } else if (trimmed.startsWith("echo ")) {
-            out = trimmed.substring(5) + "\n";
-        } else {
-            out = "[sandbox-sh: " + trimmed + " executed successfully]\n";
-        }
-
-        String prompt = "root@sandbox:" + newWd + "#";
 
         return com.humolix.volur.container.domain.vo.AdminContainerExecResultVO.builder()
-                .output(out)
-                .errorOutput(err)
-                .exitCode(code)
-                .workingDir(newWd)
-                .containerShortId("sandbox")
-                .currentUser("root")
-                .prompt(prompt)
-                .executionTimeMs(elapsed)
+                .output("")
+                .errorOutput("命令执行超时或未能获取容器响应")
+                .exitCode(1)
+                .workingDir(workingDir)
+                .executionTimeMs(System.currentTimeMillis() - startTime)
                 .build();
-    }
-
-    private int allocateRandomPort(int start, int end) {
-        int rangeMin = Math.max(1024, start);
-        int rangeMax = Math.min(65535, Math.max(rangeMin + 1, end));
-        return RandomUtil.randomInt(rangeMin, rangeMax);
     }
 
     private String sanitizeServiceName(String name) {

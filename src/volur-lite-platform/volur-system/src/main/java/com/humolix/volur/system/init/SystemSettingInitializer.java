@@ -141,11 +141,15 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_DOCKER_SWARM_API_URL, "unix:///var/run/docker.sock", "CONTAINER", "STRING", false, "Docker Swarm API 管理地址");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_DOCKER_SWARM_NETWORK, "volur-swarm-network", "CONTAINER", "STRING", false, "Docker Swarm 覆盖网络名称");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_DOCKER_SWARM_CERT_PATH, "", "CONTAINER", "STRING", false, "Docker Swarm TLS 客户端证书目录");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_DOCKER_SWARM_OUTBOUND_ENABLED, "false", "CONTAINER", "BOOLEAN", false, "Docker Swarm 容器外网出网访问开关(默认禁止出网以保证安全隔离)");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_MASTER_URL, "https://127.0.0.1:6443", "CONTAINER", "STRING", false, "K3s 集群 API Server 地址");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_NAMESPACE, "volur-challenges", "CONTAINER", "STRING", false, "K3s 靶机命名空间 Namespace");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_KUBECONFIG_PATH, "/etc/rancher/k3s/k3s.yaml", "CONTAINER", "STRING", false, "K3s kubeconfig 配置文件绝对路径");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_TOKEN, "", "CONTAINER", "STRING", false, "K3s 集群注册令牌 (Node Token)");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_RESOURCE_ISOLATION_ENABLED, "true", "CONTAINER", "BOOLEAN", false, "是否开启多节点资源隔离(题目容器仅调度至Worker资源节点)");
-        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_AUTO_MIGRATE_IMAGES_ENABLED, "true", "CONTAINER", "BOOLEAN", false, "扩展集群新增节点时是否自动将主节点题目镜像迁移同步至资源节点");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_REGISTRY_ENABLED, "true", "CONTAINER", "BOOLEAN", false, "是否启用私有镜像仓库Registry中心");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_REGISTRY_INTERNAL_URL, "http://volur-registry:5000", "CONTAINER", "STRING", false, "私有镜像仓库Registry内部网络连接地址");
+        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, "5000", "CONTAINER", "INTEGER", false, "私有镜像仓库Registry宿主机对外暴露端口");
         initDefaultIfAbsent(SystemSettingKeys.STORAGE_TYPE, "LOCAL", "STORAGE", "STRING", false, "文件存储类型(LOCAL/OSS)");
         initDefaultIfAbsent(SystemSettingKeys.STORAGE_LOCAL_UPLOAD_DIR, "uploads/", "STORAGE", "STRING", false, "本地文件上传保存目录");
     }

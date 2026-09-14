@@ -10,7 +10,6 @@ import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.entity.stage.ctf.CtfCompetitionChallenge;
 import com.humolix.volur.competition.domain.entity.stage.ctf.CtfCompetitionSolved;
 import com.humolix.volur.competition.domain.entity.stage.ctf.CtfCompetitionSubmission;
-import com.humolix.volur.competition.domain.enums.CompetitionStage;
 import com.humolix.volur.competition.domain.enums.SubmissionStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeDetailVO;
@@ -32,12 +31,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.humolix.volur.competition.domain.enums.CompetitionType;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@RequiredCompetitionStageRunning(stage = CompetitionStage.CTF)
+@RequiredCompetitionStageRunning(type = CompetitionType.CTF)
 public class CtfStageServiceImpl implements CtfStageService {
 
     private final CompetitionMemberRepository memberRepository;
@@ -55,9 +56,7 @@ public class CtfStageServiceImpl implements CtfStageService {
 
     @Override
     public List<CtfCompetitionChallengeVO> listChallenges(Long competitionId, Long stageId, Long userId) {
-        List<CtfCompetitionChallenge> challenges = stageId != null
-                ? challengeRepository.findByCompetitionIdAndStageIdAndIsVisibleTrueOrderBySortOrderAsc(competitionId, stageId)
-                : challengeRepository.findByCompetitionIdAndIsVisibleTrueOrderBySortOrderAsc(competitionId);
+        List<CtfCompetitionChallenge> challenges = challengeRepository.findByCompetitionIdAndIsVisibleTrueOrderBySortOrderAsc(competitionId);
 
         List<CtfCompetitionChallengeVO> voList = competitionMapper.toCtfChallengeVOList(challenges);
 
@@ -186,7 +185,7 @@ public class CtfStageServiceImpl implements CtfStageService {
         CtfCompetitionChallenge compChallenge = challengeRepository.findByIdWithChallenge(competitionChallengeId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
 
-        Long stageId = compChallenge.getStage() != null ? compChallenge.getStage().getId() : 0L;
+        Long stageId = 0L;
         String teamToken = team.getInviteCode();
 
         return containerInstanceService.startInstance(

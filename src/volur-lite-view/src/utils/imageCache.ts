@@ -96,3 +96,10 @@ export async function preloadAndCacheImage(url: string): Promise<string> {
     return formatted
   }
 }
+
+/**
+ * 格式化通用图片/Banner 地址别名
+ */
+export const formatBannerUrl = formatAvatarUrl
+export const formatImageUrl = formatAvatarUrl
+

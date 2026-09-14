@@ -1,15 +1,17 @@
 package com.humolix.volur.container.strategy;
 
-import cn.hutool.core.util.RandomUtil;
 import com.humolix.volur.challenge.domain.entity.Challenge;
 import com.humolix.volur.challenge.domain.entity.Containerizable;
 import com.humolix.volur.container.domain.dto.*;
 import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
 import com.humolix.volur.container.domain.vo.AdminContainerTerminalInfoVO;
 import com.humolix.volur.container.repository.ClusterNodeRepository;
+import com.humolix.volur.container.util.ContainerPortAllocator;
+import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.api.model.networking.v1.*;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.ConfigBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -17,16 +19,24 @@ import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -37,6 +47,7 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
 
     private final SystemSettingService systemSettingService;
     private final ClusterNodeRepository clusterNodeRepository;
+    private final ContainerPortAllocator containerPortAllocator;
 
     @Value("${volur.k3s.namespace:volur-challenges}")
     private String defaultNamespace;
@@ -47,17 +58,10 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
     @Value("${volur.k3s.kubeconfig-path:/etc/rancher/k3s/k3s.yaml}")
     private String defaultKubeconfigPath;
 
-    @Value("${volur.k3s.master-url:https://127.0.0.1:6443}")
-    private String defaultMasterUrl;
-
     private KubernetesClient k8sClient;
 
     private String resolveNamespace() {
         return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_NAMESPACE, defaultNamespace);
-    }
-
-    private String resolveMasterUrl() {
-        return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_MASTER_URL, defaultMasterUrl);
     }
 
     private String resolveKubeconfigPath() {
@@ -68,46 +72,183 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
         return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, defaultPublicHost);
     }
 
-    private synchronized KubernetesClient getClient() {
+    public synchronized void resetClient() {
+        if (k8sClient != null) {
+            try {
+                k8sClient.close();
+            } catch (Exception ignored) {}
+            k8sClient = null;
+        }
+    }
+
+    public synchronized KubernetesClient getClient() {
         if (k8sClient != null) {
             return k8sClient;
         }
 
-        String masterUrl = resolveMasterUrl();
         String kubeconfigPath = resolveKubeconfigPath();
         String namespace = resolveNamespace();
 
+        File kubeconfigFile = new File(kubeconfigPath);
+        if (!kubeconfigFile.exists() || !kubeconfigFile.isFile()) {
+            log.warn("[K3s] kubeconfig 配置文件不存在: {}，跳过客户端初始化", kubeconfigPath);
+            return null;
+        }
+
         try {
-            Config config = null;
-            File kubeconfigFile = new File(kubeconfigPath);
-            if (kubeconfigFile.exists()) {
-                String kubeconfigContent = Files.readString(Path.of(kubeconfigPath));
-                config = Config.fromKubeconfig(kubeconfigContent);
-            } else {
-                config = new ConfigBuilder()
-                        .withMasterUrl(masterUrl)
-                        .withTrustCerts(true)
-                        .build();
+            String kubeconfigContent = Files.readString(Path.of(kubeconfigPath));
+            Config config = buildEffectiveConfig(kubeconfigContent);
+            if (config == null) {
+                log.warn("[K3s] 未能根据 kubeconfig 解析出可达的 API 端点，跳过客户端初始化");
+                return null;
             }
 
             k8sClient = new KubernetesClientBuilder().withConfig(config).build();
             // Test connection
             k8sClient.namespaces().list();
 
-            // Ensure namespace exists
-            if (k8sClient.namespaces().withName(namespace).get() == null) {
-                k8sClient.namespaces().resource(new NamespaceBuilder()
-                        .withNewMetadata().withName(namespace).endMetadata()
-                        .build()).create();
-            }
+            // Ensure namespace and network isolation policy exist
+            ensureNamespaceAndNetworkPolicy(k8sClient, namespace);
 
-            log.info("Successfully connected to K3s cluster. Namespace: {}", namespace);
+            log.info("[K3s] 成功连接至 K3s 集群. Namespace: {}, MasterUrl: {}", namespace, config.getMasterUrl());
         } catch (Exception e) {
-            log.warn("K3s cluster not available at {}: {}. Will use fallback simulation mode.", masterUrl, e.getMessage());
-            k8sClient = null;
+            log.error("[K3s] K3s 集群连接建立失败: {}", e.getMessage());
+            resetClient();
         }
 
         return k8sClient;
+    }
+
+    /**
+     * 解析 kubeconfig 中的 Server URL 并针对 Docker 容器环境探测宿主机可达地址
+     */
+    private Config buildEffectiveConfig(String kubeconfigContent) {
+        if (!StringUtils.hasText(kubeconfigContent)) {
+            return null;
+        }
+
+        Config baseConfig = Config.fromKubeconfig(kubeconfigContent);
+        String rawMasterUrl = baseConfig.getMasterUrl();
+        if (!StringUtils.hasText(rawMasterUrl)) {
+            log.warn("[K3s] kubeconfig 中未配置集群 Server URL");
+            return null;
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(rawMasterUrl.contains("://") ? rawMasterUrl : ("https://" + rawMasterUrl));
+        } catch (Exception e) {
+            log.error("[K3s] 解析 kubeconfig Server URL 异常: {}", rawMasterUrl, e);
+            return null;
+        }
+
+        String rawHost = uri.getHost() != null ? uri.getHost() : "127.0.0.1";
+        int port = uri.getPort() != -1 ? uri.getPort() : 6443;
+
+        String reachableHost = resolveReachableHost(rawHost, port);
+        if (reachableHost == null) {
+            log.warn("[K3s] 无法通过 TCP 探测到任何可达的 K3s API 端口 ({}:{})", rawHost, port);
+            return null;
+        }
+
+        String effectiveMasterUrl = "https://" + reachableHost + ":" + port;
+        log.info("[K3s] 解析到有效的 K3s API Server 端点: {} (原始端点: {})", effectiveMasterUrl, rawMasterUrl);
+
+        return new ConfigBuilder(baseConfig)
+                .withMasterUrl(effectiveMasterUrl)
+                .withTrustCerts(true)
+                .build();
+    }
+
+    private String resolveReachableHost(String rawHost, int port) {
+        List<String> candidates = new ArrayList<>();
+        boolean isLoopback = "127.0.0.1".equals(rawHost) || "localhost".equalsIgnoreCase(rawHost);
+        if (!isLoopback && StringUtils.hasText(rawHost)) {
+            candidates.add(rawHost.trim());
+        }
+
+        // 尝试原始环回地址（在宿主机直接运行或 host 网络模式下有效）
+        candidates.add("127.0.0.1");
+
+        // 针对 Docker 容器环境：host.docker.internal (通过 docker-compose extra_hosts 注入)
+        candidates.add("host.docker.internal");
+
+        // 针对 Linux Docker 容器：自动解析容器默认路由网关 IP
+        String containerGateway = getContainerDefaultGateway();
+        if (StringUtils.hasText(containerGateway) && !candidates.contains(containerGateway)) {
+            candidates.add(containerGateway);
+        }
+
+        // 尝试平台配置的宿主机/公网 Host
+        String publicHost = resolvePublicHost();
+        if (StringUtils.hasText(publicHost) && !candidates.contains(publicHost) && !"127.0.0.1".equals(publicHost)) {
+            candidates.add(publicHost.trim());
+        }
+
+        for (String candidate : candidates) {
+            if (isPortReachable(candidate, port, 1000)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private boolean isPortReachable(String host, int port, int timeoutMs) {
+        if (!StringUtils.hasText(host)) return false;
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), timeoutMs);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private String getContainerDefaultGateway() {
+        File routeFile = new File("/proc/net/route");
+        if (!routeFile.exists() || !routeFile.canRead()) {
+            return null;
+        }
+        try (BufferedReader reader = Files.newBufferedReader(routeFile.toPath())) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] tokens = line.trim().split("\\s+");
+                if (tokens.length > 2 && "00000000".equals(tokens[1])) {
+                    String hexGateway = tokens[2];
+                    if (hexGateway.length() == 8) {
+                        int b1 = Integer.parseInt(hexGateway.substring(6, 8), 16);
+                        int b2 = Integer.parseInt(hexGateway.substring(4, 6), 16);
+                        int b3 = Integer.parseInt(hexGateway.substring(2, 4), 16);
+                        int b4 = Integer.parseInt(hexGateway.substring(0, 2), 16);
+                        return b1 + "." + b2 + "." + b3 + "." + b4;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private Set<Integer> getExistingK3sNodePorts(KubernetesClient client) {
+        Set<Integer> ports = new HashSet<>();
+        if (client == null) {
+            return ports;
+        }
+        try {
+            ServiceList serviceList = client.services().inAnyNamespace().list();
+            if (serviceList != null && serviceList.getItems() != null) {
+                for (Service s : serviceList.getItems()) {
+                    if (s.getSpec() != null && s.getSpec().getPorts() != null) {
+                        for (ServicePort sp : s.getSpec().getPorts()) {
+                            if (sp.getNodePort() != null && sp.getNodePort() > 0) {
+                                ports.add(sp.getNodePort());
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[K3s] 获取集群已占用 NodePort 列表失败: {}", e.getMessage());
+        }
+        return ports;
     }
 
     @Override
@@ -121,9 +262,14 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
         int portEnd = systemSettingService.getInt(SystemSettingKeys.CONTAINER_PORT_RANGE_END, 30000);
 
         if (client != null && challenge instanceof Containerizable containerizable) {
+            int targetPort = 0;
             try {
+                ensureNamespaceAndNetworkPolicy(client, namespace);
                 String imageName = containerizable.getImageName();
                 int containerPort = containerizable.getContainerPort() != null ? containerizable.getContainerPort() : 80;
+
+                Set<Integer> existingK3sPorts = getExistingK3sNodePorts(client);
+                targetPort = containerPortAllocator.allocateAvailablePort(targetHost, portStart, portEnd, existingK3sPorts);
 
                 // 1. Build Pod
                 ResourceRequirements resources = new ResourceRequirementsBuilder()
@@ -142,9 +288,11 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
 
                 var podSpecBuilder = new PodSpecBuilder()
                         .withRestartPolicy("Never")
+                        .withAutomountServiceAccountToken(false)
                         .addNewContainer()
                         .withName("challenge-container")
                         .withImage(imageName)
+                        .withImagePullPolicy("IfNotPresent")
                         .withEnv(envVars)
                         .withResources(resources)
                         .addNewPort()
@@ -179,6 +327,7 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                         .withName("http")
                         .withPort(containerPort)
                         .withTargetPort(new IntOrString(containerPort))
+                        .withNodePort(targetPort)
                         .endPort()
                         .endSpec()
                         .build();
@@ -190,20 +339,28 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                 }
 
                 if (nodePort == null) {
-                    nodePort = RandomUtil.randomInt(portStart, portEnd);
+                    nodePort = targetPort;
                 }
 
                 String accessUrl = "http://" + targetHost + ":" + nodePort;
                 return new ContainerRunResultDTO(sanitizedName, accessUrl, nodePort, InstanceStartupStatus.RUNNING);
+            } catch (BusinessException be) {
+                throw be;
             } catch (Exception e) {
-                log.error("Failed to schedule K3s Pod/Service {}: {}", sanitizedName, e.getMessage());
+                log.error("[K3s] 调度 K3s Pod/Service {} 失败: {}", sanitizedName, e.getMessage(), e);
+                String msg = e.getMessage() != null ? e.getMessage() : "";
+                if (msg.contains("provided port is not in the valid range") || msg.contains("valid ports is")) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST,
+                            "K3s Service 端口 " + targetPort + " 超出集群 NodePort 允许范围。如需使用自定义范围 [" + portStart + "-" + portEnd + "]，请在 K3s 启动参数中添加: --kube-apiserver-arg=service-node-port-range=" + portStart + "-" + portEnd + "；或在集群设置中调整端口范围");
+                }
+                throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "K3s Pod/Service 调度失败: " + e.getMessage());
             }
         }
 
-        // Fallback simulation mode
-        int fallbackPort = RandomUtil.randomInt(portStart, portEnd);
-        String fallbackUrl = "http://" + targetHost + ":" + fallbackPort;
-        return new ContainerRunResultDTO("mock-" + sanitizedName, fallbackUrl, fallbackPort, InstanceStartupStatus.RUNNING);
+        if (client == null) {
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "K3s 集群未连接或不可用，请确认 /etc/rancher/k3s/k3s.yaml 已正确挂载且集群正常运行");
+        }
+        throw new BusinessException(HttpStatus.BAD_REQUEST, "题目未实现 Containerizable 接口，无法启动动态容器");
     }
 
     @Override
@@ -236,10 +393,13 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                 ? request.getMemoryLimit()
                 : (challenge instanceof com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge c ? c.getMemoryLimit() : 256);
 
-        int primaryPort = RandomUtil.randomInt(portStart, portEnd);
+        int primaryPort = 0;
 
         if (client != null) {
             try {
+                ensureNamespaceAndNetworkPolicy(client, namespace);
+                Set<Integer> existingK3sPorts = getExistingK3sNodePorts(client);
+
                 // 1. 资源配额限制
                 ResourceRequirements resources = new ResourceRequirementsBuilder()
                         .addToLimits("cpu", new Quantity(cpu + ""))
@@ -300,15 +460,26 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                                     .withProtocol(proto)
                                     .build());
 
-                            var spBuilder = new ServicePortBuilder()
+                            int hPort;
+                            if (portCfg.getHostPort() != null && portCfg.getHostPort() > 0) {
+                                containerPortAllocator.verifyPortAvailable(targetHost, portCfg.getHostPort(), existingK3sPorts);
+                                hPort = portCfg.getHostPort();
+                            } else {
+                                hPort = containerPortAllocator.allocateAvailablePort(targetHost, portStart, portEnd, existingK3sPorts);
+                                portCfg.setHostPort(hPort);
+                            }
+
+                            if (portIdx == 0) {
+                                primaryPort = hPort;
+                            }
+
+                            servicePorts.add(new ServicePortBuilder()
                                     .withName("sp-" + portIdx)
                                     .withPort(portCfg.getContainerPort())
                                     .withTargetPort(new IntOrString(portCfg.getContainerPort()))
-                                    .withProtocol(proto);
-                            if (portCfg.getHostPort() != null && portCfg.getHostPort() >= 30000 && portCfg.getHostPort() <= 32767) {
-                                spBuilder.withNodePort(portCfg.getHostPort());
-                            }
-                            servicePorts.add(spBuilder.build());
+                                    .withNodePort(hPort)
+                                    .withProtocol(proto)
+                                    .build());
                             portIdx++;
                         }
                     }
@@ -318,16 +489,23 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                     int cPort = (challenge instanceof Containerizable c && c.getContainerPort() != null)
                             ? c.getContainerPort()
                             : 80;
+                    int hPort = containerPortAllocator.allocateAvailablePort(targetHost, portStart, portEnd, existingK3sPorts);
+                    primaryPort = hPort;
                     containerPorts.add(new ContainerPortBuilder().withName("http").withContainerPort(cPort).build());
-                    servicePorts.add(new ServicePortBuilder().withName("http").withPort(cPort).withTargetPort(new IntOrString(cPort)).build());
+                    servicePorts.add(new ServicePortBuilder().withName("http").withPort(cPort).withTargetPort(new IntOrString(cPort)).withNodePort(hPort).build());
+                    if (request != null) {
+                        request.setPorts(new ArrayList<>(List.of(new ContainerPortMappingDTO(hPort, cPort, "TCP"))));
+                    }
                 }
 
                 // 5. 构建 Pod 规范
                 var podSpecBuilder = new PodSpecBuilder()
                         .withRestartPolicy("Never")
+                        .withAutomountServiceAccountToken(false)
                         .addNewContainer()
                         .withName("manual-container")
                         .withImage(imageName)
+                        .withImagePullPolicy("IfNotPresent")
                         .withEnv(envVars)
                         .withResources(resources)
                         .withPorts(containerPorts)
@@ -373,13 +551,88 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                 String accessUrl = "http://" + targetHost + ":" + primaryPort;
                 log.info("[K3s] 手动自定义容器调度成功: pod={}, url={}", sanitizedName, accessUrl);
                 return new ContainerRunResultDTO(sanitizedName, accessUrl, primaryPort, InstanceStartupStatus.RUNNING);
+            } catch (BusinessException be) {
+                throw be;
             } catch (Exception e) {
-                log.warn("[K3s] 自定义容器调度异常: {}，自动切换至容错仿真模式", e.getMessage());
+                log.error("[K3s] 自定义容器调度异常: {}", e.getMessage(), e);
+                String msg = e.getMessage() != null ? e.getMessage() : "";
+                if (msg.contains("provided port is not in the valid range") || msg.contains("valid ports is")) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST,
+                            "K3s Service 端口超出集群 NodePort 允许范围。如需使用自定义范围 [" + portStart + "-" + portEnd + "]，请在 K3s 启动参数中添加: --kube-apiserver-arg=service-node-port-range=" + portStart + "-" + portEnd + "；或在集群设置中调整端口范围");
+                }
+                throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "K3s 自定义容器启动失败: " + e.getMessage());
             }
         }
 
-        String fallbackUrl = "http://" + targetHost + ":" + primaryPort;
-        return new ContainerRunResultDTO("mock-" + sanitizedName, fallbackUrl, primaryPort, InstanceStartupStatus.RUNNING);
+        throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "K3s 集群未连接或不可用，请确认 /etc/rancher/k3s/k3s.yaml 已正确挂载且集群正常运行");
+    }
+
+    /**
+     * 确保 K3s 靶机命名空间存在并下发网络隔离安全策略 (NetworkPolicy)
+     * 1. Ingress: 允许外部流量通过 NodePort/集群入口访问靶机服务端口
+     * 2. Egress: 允许 DNS 解析 (UDP/TCP 53) 并严格阻断私网探测 (RFC1918、Link-Local、云元数据等)，实现靶机隔离
+     */
+    private void ensureNamespaceAndNetworkPolicy(KubernetesClient client, String namespace) {
+        if (client == null || !StringUtils.hasText(namespace)) {
+            return;
+        }
+        try {
+            // 1. 确保 Namespace 存在
+            if (client.namespaces().withName(namespace).get() == null) {
+                client.namespaces().resource(new NamespaceBuilder()
+                        .withNewMetadata().withName(namespace).endMetadata()
+                        .build()).create();
+                log.info("[K3s] 成功创建靶机命名空间: {}", namespace);
+            }
+
+            // 2. 下发命名空间级别默认安全隔离策略 (NetworkPolicy)
+            String policyName = "volur-challenge-isolation";
+            NetworkPolicy policy = new NetworkPolicyBuilder()
+                    .withNewMetadata()
+                    .withName(policyName)
+                    .withNamespace(namespace)
+                    .endMetadata()
+                    .withNewSpec()
+                    .withNewPodSelector().endPodSelector()
+                    .withPolicyTypes("Ingress", "Egress")
+                    // 允许外部入站流量访问靶机服务端口
+                    .addNewIngress().endIngress()
+                    // 允许 DNS 域名解析 (UDP/TCP 53)
+                    .addNewEgress()
+                        .addNewPort()
+                            .withProtocol("UDP")
+                            .withPort(new IntOrString(53))
+                        .endPort()
+                        .addNewPort()
+                            .withProtocol("TCP")
+                            .withPort(new IntOrString(53))
+                        .endPort()
+                    .endEgress()
+                    // 允许公网出网，但严格排除所有内网/私有网段与云厂商元数据地址，阻断靶机横向移动与 SSRF
+                    .addNewEgress()
+                        .addNewTo()
+                            .withNewIpBlock()
+                                .withCidr("0.0.0.0/0")
+                                .withExcept(
+                                        "10.0.0.0/8",       // 私网 Class A & K3s Pod/Service CIDR
+                                        "172.16.0.0/12",    // 私网 Class B & Docker 默认网络
+                                        "192.168.0.0/16",   // 私网 Class C & 局域网
+                                        "169.254.0.0/16",   // 链路本地地址及云元数据 (AWS/GCP/Aliyun 169.254.169.254)
+                                        "127.0.0.0/8",      // 回环网段
+                                        "100.64.0.0/10",    // 运营商级 NAT (CGNAT)
+                                        "224.0.0.0/4"       // 组播网段
+                                )
+                            .endIpBlock()
+                        .endTo()
+                    .endEgress()
+                    .endSpec()
+                    .build();
+
+            client.network().networkPolicies().inNamespace(namespace).resource(policy).createOrReplace();
+            log.info("[K3s] 成功下发命名空间 [{}] 安全隔离策略 (NetworkPolicy: {})", namespace, policyName);
+        } catch (Exception e) {
+            log.warn("[K3s] 下发 Namespace 或 NetworkPolicy 策略告警: {}", e.getMessage());
+        }
     }
 
     private void applyK3sNodeSelector(PodSpecBuilder podSpecBuilder, String targetNodeIp) {
@@ -423,9 +676,6 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
     public com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO testConnection(
             com.humolix.volur.container.domain.dto.AdminContainerTestConnectionDTO request) {
         long startTime = System.currentTimeMillis();
-        String masterUrl = (request != null && org.springframework.util.StringUtils.hasText(request.getK3sMasterUrl()))
-                ? request.getK3sMasterUrl().trim()
-                : resolveMasterUrl();
         String kubeconfigPath = (request != null && org.springframework.util.StringUtils.hasText(request.getK3sKubeconfigPath()))
                 ? request.getK3sKubeconfigPath().trim()
                 : resolveKubeconfigPath();
@@ -433,40 +683,83 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                 ? request.getK3sNamespace().trim()
                 : resolveNamespace();
 
-        // 1. 快速 TCP Socket 预检，避免在 K3s 离线时 Fabric8 客户端多轮重试阻塞长达 30+ 秒引起前端请求超时
-        try {
-            java.net.URI uri = java.net.URI.create(masterUrl.contains("://") ? masterUrl : ("https://" + masterUrl));
-            String host = uri.getHost() != null ? uri.getHost() : "127.0.0.1";
-            int port = uri.getPort() != -1 ? uri.getPort() : 6443;
-
-            try (java.net.Socket socket = new java.net.Socket()) {
-                socket.connect(new java.net.InetSocketAddress(host, port), 2000);
-            }
-        } catch (Exception socketEx) {
+        // 1. 严格检查 kubeconfig 配置文件是否存在（严禁无 kubeconfig 时降级直连 Master URL）
+        File kubeconfigFile = new File(kubeconfigPath);
+        if (!kubeconfigFile.exists() || !kubeconfigFile.isFile()) {
             long latency = System.currentTimeMillis() - startTime;
-            log.warn("[K3s] 集群端口探测不可达 {}: {}", masterUrl, socketEx.getMessage());
             return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
                     .connected(false)
                     .latencyMs(latency)
-                    .message("未能连接到 K3s 集群 (" + masterUrl + "): " +
-                            (socketEx.getMessage() != null ? socketEx.getMessage() : "连接被拒绝") + "，请确认 K3s API 正在运行")
+                    .message("K3s kubeconfig 配置文件不存在 (" + kubeconfigPath + ")，请确认宿主机 /etc/rancher/k3s/k3s.yaml 是否已正确挂载至容器")
                     .build();
         }
 
+        String kubeconfigContent;
         try {
-            Config config;
-            File kubeconfigFile = new File(kubeconfigPath);
-            if (kubeconfigFile.exists()) {
-                String kubeconfigContent = Files.readString(Path.of(kubeconfigPath));
-                config = Config.fromKubeconfig(kubeconfigContent);
-            } else {
-                config = new ConfigBuilder()
-                        .withMasterUrl(masterUrl)
-                        .withTrustCerts(true)
-                        .withConnectionTimeout(2000)
-                        .withRequestTimeout(3000)
-                        .build();
+            kubeconfigContent = Files.readString(Path.of(kubeconfigPath));
+            if (!StringUtils.hasText(kubeconfigContent)) {
+                throw new IllegalArgumentException("kubeconfig 文件内容为空");
             }
+        } catch (Exception e) {
+            long latency = System.currentTimeMillis() - startTime;
+            return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
+                    .connected(false)
+                    .latencyMs(latency)
+                    .message("读取 K3s kubeconfig 文件失败: " + e.getMessage())
+                    .build();
+        }
+
+        // 2. 快速 TCP Socket 预检（自适应 Docker 容器与宿主机网络，避免 Fabric8 长时重试阻塞）
+        Config baseConfig;
+        try {
+            baseConfig = Config.fromKubeconfig(kubeconfigContent);
+        } catch (Exception e) {
+            long latency = System.currentTimeMillis() - startTime;
+            return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
+                    .connected(false)
+                    .latencyMs(latency)
+                    .message("解析 K3s kubeconfig 配置格式异常: " + e.getMessage())
+                    .build();
+        }
+
+        String rawMasterUrl = baseConfig.getMasterUrl();
+        URI uri;
+        try {
+            uri = URI.create(rawMasterUrl.contains("://") ? rawMasterUrl : ("https://" + rawMasterUrl));
+        } catch (Exception e) {
+            long latency = System.currentTimeMillis() - startTime;
+            return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
+                    .connected(false)
+                    .latencyMs(latency)
+                    .message("kubeconfig 中 Server URL 格式非法: " + rawMasterUrl)
+                    .build();
+        }
+
+        String rawHost = uri.getHost() != null ? uri.getHost() : "127.0.0.1";
+        int port = uri.getPort() != -1 ? uri.getPort() : 6443;
+
+        String reachableHost = resolveReachableHost(rawHost, port);
+        if (reachableHost == null) {
+            long latency = System.currentTimeMillis() - startTime;
+            log.warn("[K3s] 集群端口探测不可达 {}:{}", rawHost, port);
+            return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
+                    .connected(false)
+                    .latencyMs(latency)
+                    .message("未能连接到宿主机 K3s API 端口 (" + port + ")。容器内已尝试探测 " + rawHost +
+                            "、host.docker.internal 及网关地址，连接均被拒绝或超时，请确认宿主机 K3s 正在运行")
+                    .build();
+        }
+
+        String effectiveMasterUrl = "https://" + reachableHost + ":" + port;
+
+        // 3. 异步超时熔断探针（限制在 4000ms 内响应，防止前端阻塞超时）
+        try {
+            Config config = new ConfigBuilder(baseConfig)
+                    .withMasterUrl(effectiveMasterUrl)
+                    .withTrustCerts(true)
+                    .withConnectionTimeout(2500)
+                    .withRequestTimeout(3500)
+                    .build();
 
             CompletableFuture<com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO> probeFuture = CompletableFuture.supplyAsync(() -> {
                 try (KubernetesClient testClient = new KubernetesClientBuilder().withConfig(config).build()) {
@@ -475,29 +768,32 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                     long latency = System.currentTimeMillis() - startTime;
                     String verStr = ver != null ? (ver.getMajor() + "." + ver.getMinor()) : "v1.28";
 
+                    // 重置全局单例 client，确保后续操作能基于生效配置重新握手
+                    resetClient();
+
                     return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
                             .connected(true)
                             .clusterVersion("Kubernetes / K3s " + verStr)
                             .nodeCount(nodes)
                             .latencyMs(latency)
-                            .message("K3s 集群连接成功 (命名空间: " + namespace + ", 节点数: " + nodes + ")")
+                            .message("K3s 集群连接成功 (命名空间: " + namespace + ", 节点数: " + nodes + ", 接入端点: " + effectiveMasterUrl + ")")
                             .build();
                 } catch (Exception ex) {
                     throw new RuntimeException(ex);
                 }
             });
 
-            return probeFuture.get(3500, TimeUnit.MILLISECONDS);
+            return probeFuture.get(4000, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             log.warn("[K3s] 连通性测试异常: {}", e.getMessage());
+            long latency = System.currentTimeMillis() - startTime;
+            String errMsg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+            return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
+                    .connected(false)
+                    .latencyMs(latency)
+                    .message("未能连接到 K3s 集群 (" + effectiveMasterUrl + "): " + errMsg)
+                    .build();
         }
-
-        long latency = System.currentTimeMillis() - startTime;
-        return com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO.builder()
-                .connected(false)
-                .latencyMs(latency)
-                .message("未能连接到 K3s 集群 (" + masterUrl + ")，请确认 K3s API 正在运行且 Kubeconfig/证书配置正确")
-                .build();
     }
 
     @Override
@@ -511,87 +807,47 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
         String sanitizedName = sanitizeResourceName(containerId);
 
         KubernetesClient client = getClient();
+        if (client == null) {
+            return com.humolix.volur.container.domain.vo.AdminContainerExecResultVO.builder()
+                    .output("")
+                    .errorOutput("K3s 集群未连接，无法执行终端命令")
+                    .exitCode(1)
+                    .workingDir(workingDir)
+                    .executionTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
+        }
+
         String namespace = resolveNamespace();
+        try {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
 
-        if (client != null) {
-            try {
-                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-                java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
+            var execWatch = client.pods().inNamespace(namespace).withName(sanitizedName)
+                    .writingOutput(out)
+                    .writingError(err)
+                    .exec("sh", "-c", cmd);
 
-                var execWatch = client.pods().inNamespace(namespace).withName(sanitizedName)
-                        .writingOutput(out)
-                        .writingError(err)
-                        .exec("sh", "-c", cmd);
+            boolean done = execWatch.exitCode().isDone();
+            int exitCode = done ? execWatch.exitCode().get() : 0;
+            long elapsed = System.currentTimeMillis() - startTime;
 
-                boolean done = execWatch.exitCode().isDone();
-                int exitCode = done ? execWatch.exitCode().get() : 0;
-                long elapsed = System.currentTimeMillis() - startTime;
-
-                return com.humolix.volur.container.domain.vo.AdminContainerExecResultVO.builder()
-                        .output(out.toString(java.nio.charset.StandardCharsets.UTF_8))
-                        .errorOutput(err.toString(java.nio.charset.StandardCharsets.UTF_8))
-                        .exitCode(exitCode)
-                        .workingDir(workingDir)
-                        .executionTimeMs(elapsed)
-                        .build();
-            } catch (Exception e) {
-                log.warn("[K3s] Pod exec 执行异常: {}，自动切换至沙箱仿真终端模式", e.getMessage());
-            }
+            return com.humolix.volur.container.domain.vo.AdminContainerExecResultVO.builder()
+                    .output(out.toString(java.nio.charset.StandardCharsets.UTF_8))
+                    .errorOutput(err.toString(java.nio.charset.StandardCharsets.UTF_8))
+                    .exitCode(exitCode)
+                    .workingDir(workingDir)
+                    .executionTimeMs(elapsed)
+                    .build();
+        } catch (Exception e) {
+            log.warn("[K3s] Pod exec 执行异常: {}", e.getMessage());
+            return com.humolix.volur.container.domain.vo.AdminContainerExecResultVO.builder()
+                    .output("")
+                    .errorOutput("K3s Pod 命令执行异常: " + e.getMessage())
+                    .exitCode(1)
+                    .workingDir(workingDir)
+                    .executionTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
         }
-
-        return simulateExecResponse(cmd, workingDir, fallbackFlag, System.currentTimeMillis() - startTime);
-    }
-
-    private com.humolix.volur.container.domain.vo.AdminContainerExecResultVO simulateExecResponse(
-            String cmd, String workingDir, String fallbackFlag, long elapsed) {
-        String trimmed = cmd.trim();
-        String out = "";
-        String err = "";
-        int code = 0;
-        String newWd = workingDir;
-
-        if (trimmed.equals("pwd")) {
-            out = workingDir + "\n";
-        } else if (trimmed.equals("whoami")) {
-            out = "root\n";
-        } else if (trimmed.equals("id")) {
-            out = "uid=0(root) gid=0(root) groups=0(root)\n";
-        } else if (trimmed.startsWith("cat /flag") || trimmed.startsWith("cat flag")) {
-            out = (org.springframework.util.StringUtils.hasText(fallbackFlag) ? fallbackFlag.trim() : "volur{k3s_dynamic_sandbox_flag}") + "\n";
-        } else if (trimmed.equals("env")) {
-            out = "FLAG=" + (org.springframework.util.StringUtils.hasText(fallbackFlag) ? fallbackFlag.trim() : "volur{flag}") + "\n" +
-                  "HOSTNAME=volur-k3s-pod\n" +
-                  "KUBERNETES_PORT=tcp://10.43.0.1:443\n" +
-                  "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n" +
-                  "PWD=" + workingDir + "\n";
-        } else if (trimmed.equals("uname -a")) {
-            out = "Linux volur-k3s-pod 6.6.0-k3s #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux\n";
-        } else if (trimmed.startsWith("ls")) {
-            out = "app.py\nentrypoint.sh\nflag\nrequirements.txt\ntemplates\n";
-        } else if (trimmed.startsWith("ps")) {
-            out = "PID   USER     TIME  COMMAND\n    1 root      0:00 python3 app.py\n   12 root      0:00 sh\n";
-        } else if (trimmed.startsWith("cd ")) {
-            String dir = trimmed.substring(3).trim();
-            newWd = dir.startsWith("/") ? dir : (workingDir.endsWith("/") ? workingDir + dir : workingDir + "/" + dir);
-        } else if (trimmed.startsWith("echo ")) {
-            out = trimmed.substring(5) + "\n";
-        } else {
-            out = "[k3s-pod-sh: " + trimmed + " executed successfully]\n";
-        }
-
-        String shortId = "k3s-pod";
-        String prompt = "root@" + shortId + ":" + newWd + "#";
-
-        return com.humolix.volur.container.domain.vo.AdminContainerExecResultVO.builder()
-                .output(out)
-                .errorOutput(err)
-                .exitCode(code)
-                .workingDir(newWd)
-                .containerShortId(shortId)
-                .currentUser("root")
-                .prompt(prompt)
-                .executionTimeMs(elapsed)
-                .build();
     }
 
     @Override
@@ -641,22 +897,199 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                             .message(isRunning ? "连接就绪" : "Pod 尚未就绪 (Phase: " + pod.getStatus().getPhase() + ")")
                             .build();
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("[K3s] 获取 Pod 终端信息异常: {}", e.getMessage());
+            }
         }
         return AdminContainerTerminalInfoVO.builder()
-                .ready(true)
+                .ready(false)
                 .containerShortId(shortId)
                 .currentUser("root")
                 .workingDir("/app")
-                .prompt("root@" + shortId + ":/app#")
-                .taskState("Running")
-                .message("连接就绪")
+                .taskState("Unknown")
+                .message("Pod 实例尚未就绪或 K3s 集群连接不可用")
                 .build();
     }
 
     private String sanitizeResourceName(String name) {
         if (name == null) return "pod-" + System.currentTimeMillis();
         return name.toLowerCase().replaceAll("[^a-z0-9-]", "-");
+    }
+
+    public record K3sDiscoveredNode(
+            String nodeName,
+            String ipAddress,
+            String role,
+            String status,
+            String osInfo,
+            String containerRuntimeVersion,
+            int cpuCores,
+            long memoryBytes,
+            String uid
+    ) {}
+
+    /**
+     * 扫描 K3s 集群中所有注册节点并提取硬件、角色与存活状态
+     */
+    public List<K3sDiscoveredNode> scanK3sNodes() {
+        KubernetesClient client = getClient();
+        if (client == null) {
+            log.warn("[K3s] 无法建立 K3s 客户端连接，跳过节点扫描");
+            return Collections.emptyList();
+        }
+
+        List<K3sDiscoveredNode> list = new ArrayList<>();
+        try {
+            var k8sNodes = client.nodes().list().getItems();
+            for (Node k8sNode : k8sNodes) {
+                String nodeName = k8sNode.getMetadata() != null ? k8sNode.getMetadata().getName() : "unknown";
+                String uid = k8sNode.getMetadata() != null ? k8sNode.getMetadata().getUid() : "";
+
+                // 提取 IP 地址：优先 InternalIP，其次 ExternalIP
+                String ip = null;
+                if (k8sNode.getStatus() != null && k8sNode.getStatus().getAddresses() != null) {
+                    for (NodeAddress addr : k8sNode.getStatus().getAddresses()) {
+                        if ("InternalIP".equalsIgnoreCase(addr.getType()) && StringUtils.hasText(addr.getAddress())) {
+                            ip = addr.getAddress().trim();
+                            break;
+                        }
+                    }
+                    if (ip == null) {
+                        for (NodeAddress addr : k8sNode.getStatus().getAddresses()) {
+                            if ("ExternalIP".equalsIgnoreCase(addr.getType()) && StringUtils.hasText(addr.getAddress())) {
+                                ip = addr.getAddress().trim();
+                                break;
+                            }
+                        }
+                    }
+                    if (ip == null && !k8sNode.getStatus().getAddresses().isEmpty()) {
+                        ip = k8sNode.getStatus().getAddresses().getFirst().getAddress();
+                    }
+                }
+                if (!StringUtils.hasText(ip)) {
+                    ip = resolvePublicHost();
+                }
+
+                // 角色研判：判断是否为 Control-Plane / Master
+                String role = "WORKER";
+                Map<String, String> labels = k8sNode.getMetadata() != null ? k8sNode.getMetadata().getLabels() : Collections.emptyMap();
+                if (labels != null) {
+                    if (labels.containsKey("node-role.kubernetes.io/control-plane")
+                            || labels.containsKey("node-role.kubernetes.io/master")
+                            || "true".equalsIgnoreCase(labels.get("node-role.kubernetes.io/control-plane"))
+                            || "true".equalsIgnoreCase(labels.get("node-role.kubernetes.io/master"))) {
+                        role = "MASTER";
+                    }
+                }
+
+                // 节点存活性研判
+                String status = "OFFLINE";
+                if (k8sNode.getStatus() != null && k8sNode.getStatus().getConditions() != null) {
+                    for (NodeCondition cond : k8sNode.getStatus().getConditions()) {
+                        if ("Ready".equalsIgnoreCase(cond.getType())) {
+                            status = "True".equalsIgnoreCase(cond.getStatus()) ? "READY" : "OFFLINE";
+                            break;
+                        }
+                    }
+                }
+
+                // 节点系统与运行时信息
+                String osInfo = "Linux";
+                String runtimeVersion = "containerd";
+                if (k8sNode.getStatus() != null && k8sNode.getStatus().getNodeInfo() != null) {
+                    NodeSystemInfo ni = k8sNode.getStatus().getNodeInfo();
+                    String osImage = StringUtils.hasText(ni.getOsImage()) ? ni.getOsImage().trim() : "Linux";
+                    String arch = StringUtils.hasText(ni.getArchitecture()) ? ni.getArchitecture().trim() : "x86_64";
+                    String kernel = StringUtils.hasText(ni.getKernelVersion()) ? ni.getKernelVersion().trim() : "";
+                    osInfo = StringUtils.hasText(kernel) ? (osImage + " (" + arch + ", " + kernel + ")") : (osImage + " (" + arch + ")");
+                    if (osInfo.length() > 125) {
+                        osInfo = osInfo.substring(0, 122) + "...";
+                    }
+                    if (StringUtils.hasText(ni.getContainerRuntimeVersion())) {
+                        runtimeVersion = ni.getContainerRuntimeVersion().trim();
+                    }
+                }
+
+                // 计算资源容量 (CPU / 内存)
+                int cpuCores = 1;
+                long memoryBytes = 1073741824L;
+                if (k8sNode.getStatus() != null && k8sNode.getStatus().getCapacity() != null) {
+                    Map<String, Quantity> cap = k8sNode.getStatus().getCapacity();
+                    if (cap.containsKey("cpu") && cap.get("cpu") != null) {
+                        cpuCores = parseCpuCores(cap.get("cpu").getAmount());
+                    }
+                    if (cap.containsKey("memory") && cap.get("memory") != null) {
+                        memoryBytes = parseMemoryBytes(cap.get("memory").getAmount());
+                    }
+                }
+
+                list.add(new K3sDiscoveredNode(nodeName, ip, role, status, osInfo, runtimeVersion, cpuCores, memoryBytes, uid));
+            }
+        } catch (Exception e) {
+            log.error("[K3s] 扫描 K3s 集群节点列表异常: {}", e.getMessage(), e);
+        }
+
+        return list;
+    }
+
+    public static int parseCpuCores(String amount) {
+        if (!StringUtils.hasText(amount)) return 1;
+        amount = amount.trim();
+        try {
+            if (amount.endsWith("m")) {
+                int millis = Integer.parseInt(amount.substring(0, amount.length() - 1));
+                return Math.max(1, millis / 1000);
+            }
+            return Math.max(1, Integer.parseInt(amount));
+        } catch (Exception e) {
+            return 1;
+        }
+    }
+
+    public static long parseMemoryBytes(String amount) {
+        if (!StringUtils.hasText(amount)) return 1073741824L;
+        amount = amount.trim();
+        try {
+            if (amount.endsWith("Ki")) {
+                return Long.parseLong(amount.substring(0, amount.length() - 2)) * 1024L;
+            } else if (amount.endsWith("Mi")) {
+                return Long.parseLong(amount.substring(0, amount.length() - 2)) * 1024L * 1024L;
+            } else if (amount.endsWith("Gi")) {
+                return Long.parseLong(amount.substring(0, amount.length() - 2)) * 1024L * 1024L * 1024L;
+            } else if (amount.endsWith("Ti")) {
+                return Long.parseLong(amount.substring(0, amount.length() - 2)) * 1024L * 1024L * 1024L * 1024L;
+            } else if (amount.endsWith("K") || amount.endsWith("k")) {
+                return Long.parseLong(amount.substring(0, amount.length() - 1)) * 1000L;
+            } else if (amount.endsWith("M") || amount.endsWith("m")) {
+                return Long.parseLong(amount.substring(0, amount.length() - 1)) * 1000L * 1000L;
+            } else if (amount.endsWith("G") || amount.endsWith("g")) {
+                return Long.parseLong(amount.substring(0, amount.length() - 1)) * 1000L * 1000L * 1000L;
+            } else {
+                return Long.parseLong(amount);
+            }
+        } catch (Exception e) {
+            return 1073741824L;
+        }
+    }
+
+    /**
+     * 探测解析 K3s Node Token
+     */
+    public String resolveK3sToken() {
+        String token = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_TOKEN, "");
+        if (StringUtils.hasText(token)) {
+            return token.trim();
+        }
+        try {
+            Path p = Path.of("/var/lib/rancher/k3s/server/node-token");
+            if (Files.exists(p) && Files.isReadable(p)) {
+                String fileToken = Files.readString(p).trim();
+                if (StringUtils.hasText(fileToken)) {
+                    return fileToken;
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
 }

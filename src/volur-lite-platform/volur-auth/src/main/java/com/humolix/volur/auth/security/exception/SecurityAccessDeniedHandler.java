@@ -1,26 +1,24 @@
 package com.humolix.volur.auth.security.exception;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
 @Component
+@RequiredArgsConstructor
 public class SecurityAccessDeniedHandler implements AccessDeniedHandler {
 
     private final ObjectMapper objectMapper;
-
-    public SecurityAccessDeniedHandler(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public void handle(@NonNull HttpServletRequest request, HttpServletResponse response,

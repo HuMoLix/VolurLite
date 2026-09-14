@@ -1,6 +1,7 @@
 package com.humolix.volur.competition.domain.entity;
 
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
 import com.humolix.volur.user.domain.entity.User;
 import jakarta.persistence.*;
@@ -43,6 +44,11 @@ public class Competition implements Serializable {
     private String bannerUrl;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false, columnDefinition = "VARCHAR(32)")
+    @Builder.Default
+    private CompetitionType type = CompetitionType.CTF;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, columnDefinition = "VARCHAR(32)")
     @Builder.Default
     private CompetitionStatus status = CompetitionStatus.DRAFT;
@@ -67,18 +73,6 @@ public class Competition implements Serializable {
     @ToString.Exclude
     private CompetitionConfig config;
 
-    @OneToMany(mappedBy = "competition", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("stageOrder ASC")
-    @ToString.Exclude
-    @Builder.Default
-    private List<CompetitionStageConfig> stageConfigs = new ArrayList<>();
-
-    @OneToMany(mappedBy = "competition", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("sortOrder ASC")
-    @ToString.Exclude
-    @Builder.Default
-    private List<CompetitionFieldSchema> fieldSchemas = new ArrayList<>();
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Instant createdAt;
@@ -86,5 +80,28 @@ public class Competition implements Serializable {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
     private Instant updatedAt;
+
+    public CompetitionStatus resolveStatusByTime() {
+        if (this.status == null || this.status == CompetitionStatus.DRAFT || this.status == CompetitionStatus.ARCHIVED) {
+            return this.status != null ? this.status : CompetitionStatus.DRAFT;
+        }
+        Instant now = Instant.now();
+        if (this.endTime != null && now.isAfter(this.endTime)) {
+            return CompetitionStatus.ENDED;
+        }
+        if (this.startTime != null && now.isAfter(this.startTime)) {
+            return CompetitionStatus.RUNNING;
+        }
+        return CompetitionStatus.PUBLISHED;
+    }
+
+    public boolean refreshStatus() {
+        CompetitionStatus resolved = resolveStatusByTime();
+        if (resolved != null && resolved != this.status) {
+            this.status = resolved;
+            return true;
+        }
+        return false;
+    }
 
 }

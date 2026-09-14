@@ -15,6 +15,7 @@ import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
 import com.humolix.volur.container.domain.vo.AdminClusterNodeVO;
 import com.humolix.volur.container.domain.vo.AdminClusterSettingsVO;
 import com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO;
+import com.humolix.volur.container.client.DockerRegistryClient;
 import com.humolix.volur.container.mapper.ClusterNodeMapper;
 import com.humolix.volur.container.repository.ClusterImageRepository;
 import com.humolix.volur.container.repository.ClusterNodeRepository;
@@ -26,6 +27,10 @@ import com.humolix.volur.container.strategy.K3sRuntimeStrategy;
 import com.humolix.volur.container.util.DockerTlsUtil;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.constant.SystemSettingKeys;
+import io.fabric8.kubernetes.api.model.Node;
+import io.fabric8.kubernetes.api.model.NodeAddress;
+import io.fabric8.kubernetes.api.model.NodeCondition;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
@@ -66,6 +71,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -83,6 +89,7 @@ public class AdminClusterServiceImpl implements AdminClusterService {
     private final ClusterNodeMapper clusterNodeMapper;
     private final DockerSwarmRuntimeStrategy swarmStrategy;
     private final K3sRuntimeStrategy k3sStrategy;
+    private final DockerRegistryClient dockerRegistryClient;
     @Lazy
     private final AdminImageService adminImageService;
 
@@ -96,13 +103,19 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         String swarmApiUrl = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_API_URL, "unix:///var/run/docker.sock");
         String swarmNetwork = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_NETWORK, "volur-swarm-network");
         String swarmCertPath = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_CERT_PATH, "");
+        boolean swarmOutbound = systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_DOCKER_SWARM_OUTBOUND_ENABLED, false);
 
         String k3sMasterUrl = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_MASTER_URL, "https://127.0.0.1:6443");
         String k3sNamespace = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_NAMESPACE, "volur-challenges");
         String k3sKubeconfigPath = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_KUBECONFIG_PATH, "/etc/rancher/k3s/k3s.yaml");
+        String k3sToken = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_TOKEN, "");
 
         boolean resourceIsolation = systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_RESOURCE_ISOLATION_ENABLED, true);
-        boolean autoMigrate = systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_AUTO_MIGRATE_IMAGES_ENABLED, true);
+
+        boolean registryEnabled = systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_REGISTRY_ENABLED, true);
+        String registryInternalUrl = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_REGISTRY_INTERNAL_URL, "http://volur-registry:5000");
+        int registryPublicPort = systemSettingService.getInt(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, 5000);
+        boolean registryOnline = dockerRegistryClient.isAvailable();
 
         long totalNodes = clusterNodeRepository.count();
         long masterNodes = clusterNodeRepository.countByRole("MASTER");
@@ -117,11 +130,16 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                 .dockerSwarmApiUrl(swarmApiUrl)
                 .dockerSwarmNetwork(swarmNetwork)
                 .dockerSwarmCertPath(swarmCertPath)
+                .dockerSwarmOutboundEnabled(swarmOutbound)
                 .k3sMasterUrl(k3sMasterUrl)
                 .k3sNamespace(k3sNamespace)
                 .k3sKubeconfigPath(k3sKubeconfigPath)
+                .k3sToken(k3sToken)
                 .resourceIsolationEnabled(resourceIsolation)
-                .autoMigrateImagesEnabled(autoMigrate)
+                .registryEnabled(registryEnabled)
+                .registryInternalUrl(registryInternalUrl)
+                .registryPublicPort(registryPublicPort)
+                .registryOnline(registryOnline)
                 .totalNodes((int) totalNodes)
                 .masterNodes((int) masterNodes)
                 .workerNodes((int) workerNodes)
@@ -139,8 +157,16 @@ public class AdminClusterServiceImpl implements AdminClusterService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "端口范围起始端口必须小于结束端口");
         }
 
+        String oldPublicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        String oldContainerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
+
+        boolean containerTypeChanged = false;
         if (StringUtils.hasText(request.getContainerType())) {
-            setSetting(SystemSettingKeys.CONTAINER_TYPE, request.getContainerType().trim());
+            String newType = request.getContainerType().trim().toUpperCase(Locale.ROOT);
+            if (!newType.equalsIgnoreCase(oldContainerType)) {
+                containerTypeChanged = true;
+            }
+            setSetting(SystemSettingKeys.CONTAINER_TYPE, newType);
         }
         if (request.getPortRangeStart() != null) {
             setSetting(SystemSettingKeys.CONTAINER_PORT_RANGE_START, String.valueOf(request.getPortRangeStart()));
@@ -148,8 +174,53 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         if (request.getPortRangeEnd() != null) {
             setSetting(SystemSettingKeys.CONTAINER_PORT_RANGE_END, String.valueOf(request.getPortRangeEnd()));
         }
+
+        // 同步与校正 Master 节点 IP、镜像拓扑及实例引用
         if (StringUtils.hasText(request.getPublicHost())) {
-            setSetting(SystemSettingKeys.CONTAINER_PUBLIC_HOST, request.getPublicHost().trim());
+            String newPublicHost = request.getPublicHost().trim();
+            setSetting(SystemSettingKeys.CONTAINER_PUBLIC_HOST, newPublicHost);
+
+            if (!newPublicHost.equalsIgnoreCase(oldPublicHost)) {
+                log.info("[AdminClusterService] 检测到靶机公网 Host 变更: {} -> {}，开始级联同步 Master 节点、镜像拓扑与容器实例...", oldPublicHost, newPublicHost);
+
+                // 1. 同步更新 Master 节点 IP
+                List<ClusterNode> masterNodes = clusterNodeRepository.findByRole("MASTER");
+                if (masterNodes.isEmpty()) {
+                    initDefaultMasterNode();
+                } else {
+                    for (ClusterNode master : masterNodes) {
+                        master.setIpAddress(newPublicHost);
+                        clusterNodeRepository.save(master);
+                    }
+                }
+
+                // 2. 级联同步运行中实例 IP 与 accessUrl
+                List<CtfChallengeInstance> instances = ctfChallengeInstanceRepository.findByNodeIp(oldPublicHost);
+                for (CtfChallengeInstance inst : instances) {
+                    inst.setNodeIp(newPublicHost);
+                    if (StringUtils.hasText(inst.getAccessUrl()) && inst.getAccessUrl().contains(oldPublicHost)) {
+                        inst.setAccessUrl(inst.getAccessUrl().replace(oldPublicHost, newPublicHost));
+                    }
+                    ctfChallengeInstanceRepository.save(inst);
+                }
+                if (!"127.0.0.1".equalsIgnoreCase(oldPublicHost)) {
+                    List<CtfChallengeInstance> localInstances = ctfChallengeInstanceRepository.findByNodeIp("127.0.0.1");
+                    for (CtfChallengeInstance inst : localInstances) {
+                        inst.setNodeIp(newPublicHost);
+                        if (StringUtils.hasText(inst.getAccessUrl()) && inst.getAccessUrl().contains("127.0.0.1")) {
+                            inst.setAccessUrl(inst.getAccessUrl().replace("127.0.0.1", newPublicHost));
+                        }
+                        ctfChallengeInstanceRepository.save(inst);
+                    }
+                }
+
+                // 4. 刷新节点镜像计数
+                try {
+                    adminImageService.updateNodeImageCounts();
+                } catch (Exception e) {
+                    log.warn("[AdminClusterService] 更新节点镜像计数异常: {}", e.getMessage());
+                }
+            }
         }
 
         if (request.getDockerSwarmApiUrl() != null) {
@@ -161,6 +232,9 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         if (request.getDockerSwarmCertPath() != null) {
             setSetting(SystemSettingKeys.CONTAINER_DOCKER_SWARM_CERT_PATH, request.getDockerSwarmCertPath().trim());
         }
+        if (request.getDockerSwarmOutboundEnabled() != null) {
+            setSetting(SystemSettingKeys.CONTAINER_DOCKER_SWARM_OUTBOUND_ENABLED, String.valueOf(request.getDockerSwarmOutboundEnabled()));
+        }
 
         if (request.getK3sMasterUrl() != null) {
             setSetting(SystemSettingKeys.CONTAINER_K3S_MASTER_URL, request.getK3sMasterUrl().trim());
@@ -171,13 +245,35 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         if (request.getK3sKubeconfigPath() != null) {
             setSetting(SystemSettingKeys.CONTAINER_K3S_KUBECONFIG_PATH, request.getK3sKubeconfigPath().trim());
         }
+        if (request.getK3sToken() != null) {
+            setSetting(SystemSettingKeys.CONTAINER_K3S_TOKEN, request.getK3sToken().trim());
+        }
+        if (request.getK3sKubeconfigPath() != null || request.getK3sNamespace() != null || request.getK3sMasterUrl() != null || containerTypeChanged) {
+            k3sStrategy.resetClient();
+        }
 
         if (request.getResourceIsolationEnabled() != null) {
             setSetting(SystemSettingKeys.CONTAINER_RESOURCE_ISOLATION_ENABLED, String.valueOf(request.getResourceIsolationEnabled()));
             applyResourceIsolation(request.getResourceIsolationEnabled());
         }
-        if (request.getAutoMigrateImagesEnabled() != null) {
-            setSetting(SystemSettingKeys.CONTAINER_AUTO_MIGRATE_IMAGES_ENABLED, String.valueOf(request.getAutoMigrateImagesEnabled()));
+
+        if (request.getRegistryEnabled() != null) {
+            setSetting(SystemSettingKeys.CONTAINER_REGISTRY_ENABLED, String.valueOf(request.getRegistryEnabled()));
+        }
+        if (request.getRegistryInternalUrl() != null) {
+            setSetting(SystemSettingKeys.CONTAINER_REGISTRY_INTERNAL_URL, request.getRegistryInternalUrl().trim());
+        }
+        if (request.getRegistryPublicPort() != null) {
+            setSetting(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, String.valueOf(request.getRegistryPublicPort()));
+        }
+
+        String effectiveContainerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
+        if ("K3S".equalsIgnoreCase(effectiveContainerType) && (containerTypeChanged || request.getK3sKubeconfigPath() != null || request.getK3sMasterUrl() != null)) {
+            try {
+                syncK3sClusterNodes();
+            } catch (Exception e) {
+                log.warn("[AdminClusterService] 切换至 K3s 模式后自动扫描机器提示: {}", e.getMessage());
+            }
         }
 
         log.info("[AdminClusterService] 集群参数设置已全量更新保存成功");
@@ -250,24 +346,46 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         log.info("[AdminClusterService] 正在验证目标节点 SSH 连接与身份认证: host={}:{}, user={}", ip, sshPort, sshUser);
         verifySshConnectivity(ip, sshPort, sshUser, sshPassword, sshKey);
 
-        // 3. 检查 Docker 运行时是否已就绪 (若不存在直接报错，取消自动安装)
-        SshExecResult whichDocker = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "which docker || command -v docker", 6);
-        if (!whichDocker.isSuccess() || !StringUtils.hasText(whichDocker.stdout().trim())) {
-            log.warn("[AdminClusterService] 目标节点 [{}] 未检测到 Docker 运行时", ip);
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "目标节点未检测到 Docker 运行时，请先在目标主机上安装并启动 Docker 服务后再添加至集群");
+        // 2.1 针对非 root 用户进行特权提权能力探测 (SSH 密码即为 sudo 密码)
+        SshPrivilegeMode privMode = detectPrivilegeMode(ip, sshPort, sshUser, sshPassword, sshKey);
+        if (privMode == SshPrivilegeMode.UNPRIVILEGED) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "SSH 用户 [" + sshUser + "] 在目标节点未具备 sudo 提权权限或密码不匹配，请确保该账号已配置 sudoer 权限（免密 NOPASSWD 或正确密码）");
         }
 
-        // 4. 采集 Docker 引擎真实版本
-        SshExecResult verRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "docker --version", 6);
-        if (!verRes.isSuccess() || !StringUtils.hasText(verRes.stdout().trim())) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "目标节点 Docker 无法响应版本查询指令，请确认 Docker 服务已正常启动");
+        // 3. 检查容器运行时是否已就绪
+        String dockerVersion = "containerd";
+        if ("DOCKER_SWARM".equalsIgnoreCase(request.getClusterType())) {
+            SshExecResult whichDocker = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "which docker || command -v docker", 6, privMode);
+            if (!whichDocker.isSuccess() || !StringUtils.hasText(whichDocker.stdout().trim())) {
+                log.warn("[AdminClusterService] 目标节点 [{}] 未检测到 Docker 运行时", ip);
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "目标节点未检测到 Docker 运行时，请先在目标主机上安装并启动 Docker 服务后再添加至 Swarm 集群");
+            }
+
+            // 4. 采集 Docker 引擎真实版本
+            SshExecResult verRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "docker --version", 6, privMode);
+            if (!verRes.isSuccess() || !StringUtils.hasText(verRes.stdout().trim())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "目标节点 Docker 无法响应版本查询指令，请确认 Docker 服务已正常启动");
+            }
+            dockerVersion = verRes.stdout().trim();
+        } else {
+            // K3s 模式
+            SshExecResult whichK3s = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "which k3s || which containerd || which docker || which curl || which wget", 6, privMode);
+            if (!whichK3s.isSuccess() || !StringUtils.hasText(whichK3s.stdout().trim())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "目标节点缺少 k3s、containerd、docker 或 curl 工具，无法完成 K3s 节点自动化入网");
+            }
+            SshExecResult verRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "k3s --version 2>/dev/null || containerd --version 2>/dev/null || docker --version 2>/dev/null", 6, privMode);
+            if (verRes.isSuccess() && StringUtils.hasText(verRes.stdout().trim())) {
+                dockerVersion = verRes.stdout().trim().split("\n")[0];
+            } else {
+                dockerVersion = "K3s Agent (containerd)";
+            }
         }
-        String dockerVersion = verRes.stdout().trim();
 
         // 5. 动态收集硬件与内核信息 (杜绝预设假数据)
         String kernelRelease = "";
         String arch = "x86_64";
-        SshExecResult unameRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "uname -r && uname -m", 6);
+        SshExecResult unameRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "uname -r && uname -m", 6, privMode);
         if (unameRes.isSuccess() && StringUtils.hasText(unameRes.stdout())) {
             String[] unameLines = unameRes.stdout().trim().split("\n");
             if (unameLines.length > 0 && StringUtils.hasText(unameLines[0])) {
@@ -286,7 +404,7 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                 "elif [ -f /etc/issue ]; then " +
                 "head -n 1 /etc/issue | tr -d '\\r\\n'; " +
                 "else uname -s; fi";
-        SshExecResult osDistroRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, osDistroCmd, 6);
+        SshExecResult osDistroRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, osDistroCmd, 6, privMode);
         if (osDistroRes.isSuccess() && StringUtils.hasText(osDistroRes.stdout())) {
             osDistro = osDistroRes.stdout().trim();
         }
@@ -302,7 +420,7 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         }
 
         int cpuCores = 1;
-        SshExecResult cpuRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "nproc", 5);
+        SshExecResult cpuRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "nproc", 5, privMode);
         if (cpuRes.isSuccess() && StringUtils.hasText(cpuRes.stdout().trim())) {
             try {
                 cpuCores = Math.max(1, Integer.parseInt(cpuRes.stdout().trim()));
@@ -310,7 +428,7 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         }
 
         long memoryBytes = 1073741824L;
-        SshExecResult memRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "grep MemTotal /proc/meminfo | awk '{print $2}'", 5);
+        SshExecResult memRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "grep MemTotal /proc/meminfo | awk '{print $2}'", 5, privMode);
         if (memRes.isSuccess() && StringUtils.hasText(memRes.stdout().trim())) {
             try {
                 long memKb = Long.parseLong(memRes.stdout().trim());
@@ -341,10 +459,15 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                 .lastHeartbeat(Instant.now())
                 .build();
 
-        // 6. 配置 2376+TLS 双向证书与并严密核验 Docker 正常运行
-        setupDockerTlsAndValidate(ip, sshPort, sshUser, sshPassword, sshKey, node);
+        // 6. 配置 2376+TLS 双向证书与并严密核验 Docker 正常运行（仅在 Docker Swarm 模式下需要）
+        if ("DOCKER_SWARM".equalsIgnoreCase(request.getClusterType())) {
+            setupDockerTlsAndValidate(ip, sshPort, sshUser, sshPassword, sshKey, node, privMode);
+        } else {
+            node.setTlsEnabled(false);
+            node.setDockerPort(0);
+        }
 
-        // 7. 若为 Docker Swarm 架构，自动将节点加入 Swarm 集群并严格校验
+        // 7. 集群入网下发与自动化注册验证
         if ("DOCKER_SWARM".equalsIgnoreCase(request.getClusterType())) {
             String masterIp = resolveMasterIpForWorker(ip, sshPort);
             if (StringUtils.hasText(masterIp) && !"127.0.0.1".equals(masterIp) && !"localhost".equalsIgnoreCase(masterIp)) {
@@ -353,14 +476,14 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                     log.info("[AdminClusterService] 正在将目标节点加入 Swarm 集群: token={}..., master={}",
                             workerToken.substring(0, Math.min(10, workerToken.length())), masterIp);
                     String swarmJoinCmd = "docker swarm leave --force 2>/dev/null; docker swarm join --token " + workerToken + " " + masterIp + ":2377";
-                    SshExecResult joinRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, swarmJoinCmd, 20);
+                    SshExecResult joinRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, swarmJoinCmd, 20, privMode);
                     log.info("[AdminClusterService] 目标节点加入 Swarm 结果: exit={}, out={}, err={}", joinRes.exitCode(), joinRes.stdout(), joinRes.stderr());
 
                     try {
                         Thread.sleep(2000);
                     } catch (InterruptedException ignored) {}
 
-                    String workerNodeId = checkWorkerSwarmNodeId(ip, sshPort, sshUser, sshPassword, sshKey);
+                    String workerNodeId = checkWorkerSwarmNodeId(ip, sshPort, sshUser, sshPassword, sshKey, privMode);
                     Map<String, SwarmNodeInfo> swarmNodes = querySwarmNodesFromManager();
                     boolean joinedAndReady = (workerNodeId != null) && swarmNodes.containsKey(workerNodeId)
                             && "Ready".equalsIgnoreCase(swarmNodes.get(workerNodeId).status());
@@ -390,6 +513,69 @@ public class AdminClusterServiceImpl implements AdminClusterService {
             } else {
                 log.info("[AdminClusterService] Master 节点未配置公网/局域网通信 IP (当前为 127.0.0.1)，跳过 Swarm 跨节点自动加入");
             }
+        } else if ("K3S".equalsIgnoreCase(request.getClusterType())) {
+            // 若为 K3s 架构，自动将节点作为 K3s Agent 加入集群
+            String masterIp = resolveMasterIpForWorker(ip, sshPort);
+            if (StringUtils.hasText(masterIp) && !"127.0.0.1".equals(masterIp) && !"localhost".equalsIgnoreCase(masterIp)) {
+                String k3sToken = resolveK3sNodeToken(masterIp);
+                if (StringUtils.hasText(k3sToken)) {
+                    String k3sServerUrl = "https://" + masterIp + ":6443";
+                    log.info("[AdminClusterService] 正在将目标节点 [{}] 加入 K3s 集群 (server={})...", ip, k3sServerUrl);
+                    String k3sJoinCmd = String.format(Locale.ROOT,
+                            "if command -v k3s >/dev/null 2>&1; then " +
+                            "  systemctl stop k3s-agent 2>/dev/null; " +
+                            "  mkdir -p /etc/rancher/k3s && " +
+                            "  printf 'server: %s\\ntoken: %s\\n' '%s' '%s' > /etc/rancher/k3s/config.yaml && " +
+                            "  (systemctl restart k3s-agent 2>/dev/null || (k3s agent --server %s --token %s >/dev/null 2>&1 &)); " +
+                            "else " +
+                            "  curl -sfL https://get.k3s.io | K3S_URL=%s K3S_TOKEN=%s sh - ; " +
+                            "fi",
+                            k3sServerUrl, k3sToken, k3sServerUrl, k3sToken, k3sServerUrl, k3sToken, k3sServerUrl, k3sToken);
+
+                    SshExecResult joinRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, k3sJoinCmd, 40, privMode);
+                    log.info("[AdminClusterService] 目标节点执行 K3s agent 加入结果: exit={}, out={}, err={}",
+                            joinRes.exitCode(), joinRes.stdout(), joinRes.stderr());
+
+                    boolean joined = false;
+                    for (int i = 0; i < 8; i++) {
+                        try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                        KubernetesClient client = k3sStrategy.getClient();
+                        if (client != null) {
+                            try {
+                                for (Node n : client.nodes().list().getItems()) {
+                                    if (n.getStatus() != null && n.getStatus().getAddresses() != null) {
+                                        for (NodeAddress a : n.getStatus().getAddresses()) {
+                                            if (ip.equalsIgnoreCase(a.getAddress())) {
+                                                node.setInCluster(true);
+                                                if (n.getMetadata() != null) {
+                                                    node.setClusterNodeId(n.getMetadata().getUid());
+                                                }
+                                                node.setStatus("READY");
+                                                joined = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (joined) break;
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                        if (joined) break;
+                    }
+
+                    if (!joined) {
+                        log.warn("[AdminClusterService] 目标节点 [{}] 已下发 K3s 加入指令，但未在 16 秒内于 API 观测到 Ready 状态，置为 JOINING 状态", ip);
+                        node.setInCluster(false);
+                        node.setStatus("JOINING");
+                    }
+                } else {
+                    log.warn("[AdminClusterService] 未能获取到 K3s Node Token，置为 JOINING 状态");
+                    node.setInCluster(false);
+                    node.setStatus("JOINING");
+                }
+            } else {
+                log.info("[AdminClusterService] Master 节点未配置可通信的外部 IP (当前为 127.0.0.1)，跳过 K3s 自动跨机入网");
+            }
         }
 
         ClusterNode savedNode = clusterNodeRepository.save(node);
@@ -405,16 +591,6 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                     log.info("[AdminClusterService] 检测到集群已具备 Worker 资源节点，Master 节点自动切换为纯控制面: ip={}", master.getIpAddress());
                 }
             });
-        }
-
-        // 自动将主节点的题目资源镜像转移/同步到新增的资源节点
-        boolean autoMigrate = systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_AUTO_MIGRATE_IMAGES_ENABLED, true);
-        if (autoMigrate && isResource) {
-            try {
-                adminImageService.migrateMasterImagesToWorker(savedNode);
-            } catch (Exception e) {
-                log.warn("[AdminClusterService] 自动迁移主节点题目镜像至新节点异常: {}", e.getMessage());
-            }
         }
 
         return clusterNodeMapper.toVO(savedNode);
@@ -606,16 +782,6 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         });
 
         if (ipChanged) {
-            // 若新节点为题目资源节点且开启了自动迁移，自动向新节点同步迁移主节点题目镜像
-            boolean autoMigrate = systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_AUTO_MIGRATE_IMAGES_ENABLED, true);
-            if (autoMigrate && Boolean.TRUE.equals(saved.getIsResourceNode())) {
-                try {
-                    adminImageService.migrateMasterImagesToWorker(saved);
-                    log.info("[AdminClusterService] 节点 IP 变更后，已向新节点 [{}] 触发赛题镜像同步迁移", saved.getIpAddress());
-                } catch (Exception e) {
-                    log.warn("[AdminClusterService] 新节点赛题镜像自动同步异常: {}", e.getMessage());
-                }
-            }
             try {
                 adminImageService.loadAndSyncClusterImages();
             } catch (Exception e) {
@@ -677,20 +843,29 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                     .build();
         }
 
-        // 3. 探测节点 Docker 引擎活跃度与版本
+        // 3. 探测节点容器引擎活跃度与版本
         long latency = System.currentTimeMillis() - startTime;
-        String dockerVer = "Docker Engine 就绪";
-        SshExecResult verRes = executeSshCommand(host, port, user, password, privateKey, "docker --version", 5);
-        if (verRes.isSuccess() && StringUtils.hasText(verRes.stdout())) {
-            dockerVer = verRes.stdout().trim();
+        String runtimeVer = "容器运行时就绪";
+        if ("K3S".equalsIgnoreCase(node.getClusterType())) {
+            SshExecResult k3sRes = executeSshCommand(host, port, user, password, privateKey, "k3s --version 2>/dev/null || containerd --version 2>/dev/null || docker --version 2>/dev/null", 5);
+            if (k3sRes.isSuccess() && StringUtils.hasText(k3sRes.stdout())) {
+                runtimeVer = k3sRes.stdout().trim().split("\n")[0];
+            } else {
+                runtimeVer = "K3s Agent 运行中";
+            }
+        } else {
+            SshExecResult verRes = executeSshCommand(host, port, user, password, privateKey, "docker --version", 5);
+            if (verRes.isSuccess() && StringUtils.hasText(verRes.stdout())) {
+                runtimeVer = verRes.stdout().trim();
+            }
         }
 
         return AdminContainerTestConnectionVO.builder()
                 .connected(true)
                 .latencyMs(latency)
-                .clusterVersion(dockerVer)
+                .clusterVersion(runtimeVer)
                 .nodeCount(1)
-                .message("节点存活测试成功，响应延迟 " + latency + "ms (" + dockerVer + ")")
+                .message("节点存活测试成功，响应延迟 " + latency + "ms (" + runtimeVer + ")")
                 .build();
     }
 
@@ -783,6 +958,15 @@ public class AdminClusterServiceImpl implements AdminClusterService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public List<AdminClusterNodeVO> checkAllNodesHealth() {
+        String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
+        if ("K3S".equalsIgnoreCase(containerType)) {
+            try {
+                syncK3sClusterNodes();
+            } catch (Exception e) {
+                log.warn("[AdminClusterService] 全量健康检测同步 K3s 节点提示: {}", e.getMessage());
+            }
+        }
+
         List<ClusterNode> nodes = clusterNodeRepository.findAll();
         for (ClusterNode node : nodes) {
             performHealthCheck(node);
@@ -821,6 +1005,75 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         boolean hasAuth = StringUtils.hasText(sshPassword) || StringUtils.hasText(sshKey);
         if (!hasAuth) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "节点未配置 SSH 登录凭据，无法自动化下发集群入网指令");
+        }
+
+        if ("K3S".equalsIgnoreCase(node.getClusterType())) {
+            String masterIp = resolveMasterIpForWorker(ip, sshPort);
+            if (!StringUtils.hasText(masterIp) || "127.0.0.1".equals(masterIp) || "localhost".equalsIgnoreCase(masterIp)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "平台主节点未配置可供子节点访问的外部 IP (当前为 127.0.0.1)，请在集群设置中配置靶机公网 Host");
+            }
+
+            String k3sToken = resolveK3sNodeToken(masterIp);
+            if (!StringUtils.hasText(k3sToken)) {
+                throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "无法获取 K3s 注册令牌 (Node Token)，请确认控制面 K3s 已正常安装且可访问 /var/lib/rancher/k3s/server/node-token");
+            }
+
+            String k3sServerUrl = "https://" + masterIp + ":6443";
+            log.info("[AdminClusterService] 正在为工作节点 [{}] 重新执行 K3s agent 入网指令: server={}", ip, k3sServerUrl);
+            String k3sJoinCmd = String.format(Locale.ROOT,
+                    "if command -v k3s >/dev/null 2>&1; then " +
+                    "  systemctl stop k3s-agent 2>/dev/null; " +
+                    "  mkdir -p /etc/rancher/k3s && " +
+                    "  printf 'server: %s\\ntoken: %s\\n' '%s' '%s' > /etc/rancher/k3s/config.yaml && " +
+                    "  (systemctl restart k3s-agent 2>/dev/null || (k3s agent --server %s --token %s >/dev/null 2>&1 &)); " +
+                    "else " +
+                    "  curl -sfL https://get.k3s.io | K3S_URL=%s K3S_TOKEN=%s sh - ; " +
+                    "fi",
+                    k3sServerUrl, k3sToken, k3sServerUrl, k3sToken, k3sServerUrl, k3sToken, k3sServerUrl, k3sToken);
+
+            SshExecResult joinRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, k3sJoinCmd, 45);
+            log.info("[AdminClusterService] 目标节点重新执行 K3s agent 加入结果: exit={}, out={}, err={}",
+                    joinRes.exitCode(), joinRes.stdout(), joinRes.stderr());
+
+            boolean joined = false;
+            String clusterNodeId = null;
+            for (int i = 0; i < 8; i++) {
+                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                KubernetesClient client = k3sStrategy.getClient();
+                if (client != null) {
+                    try {
+                        for (Node n : client.nodes().list().getItems()) {
+                            if (n.getStatus() != null && n.getStatus().getAddresses() != null) {
+                                for (NodeAddress a : n.getStatus().getAddresses()) {
+                                    if (ip.equalsIgnoreCase(a.getAddress())) {
+                                        joined = true;
+                                        if (n.getMetadata() != null) {
+                                            clusterNodeId = n.getMetadata().getUid();
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            if (joined) break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (joined) break;
+            }
+
+            if (!joined) {
+                node.setInCluster(false);
+                node.setStatus("ERROR");
+                clusterNodeRepository.save(node);
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "工作节点加入 K3s 集群超时或失败，请检查网络 6443 端口连通性及 K3s Token");
+            }
+
+            node.setInCluster(true);
+            node.setClusterNodeId(clusterNodeId);
+            node.setStatus("READY");
+            node.setLastHeartbeat(Instant.now());
+            ClusterNode saved = clusterNodeRepository.save(node);
+            return clusterNodeMapper.toVO(saved);
         }
 
         String masterIp = resolveMasterIpForWorker(ip, sshPort);
@@ -873,6 +1126,12 @@ public class AdminClusterServiceImpl implements AdminClusterService {
     }
 
     private void performHealthCheck(ClusterNode node) {
+        String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
+        if ("K3S".equalsIgnoreCase(containerType) || "K3S".equalsIgnoreCase(node.getClusterType())) {
+            performK3sHealthCheck(node);
+            return;
+        }
+
         String ip = node.getIpAddress().trim();
         String masterHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
         boolean isMaster = "MASTER".equalsIgnoreCase(node.getRole()) || ip.equalsIgnoreCase(masterHost) || "127.0.0.1".equalsIgnoreCase(ip);
@@ -991,35 +1250,6 @@ public class AdminClusterServiceImpl implements AdminClusterService {
             if (imgResp.statusCode() == 200 && StringUtils.hasText(imgResp.body())) {
                 JSONArray arr = JSONUtil.parseArray(imgResp.body());
                 node.setImageCount(arr.size());
-
-                for (int i = 0; i < arr.size(); i++) {
-                    JSONObject obj = arr.getJSONObject(i);
-                    JSONArray repoTags = obj.getJSONArray("RepoTags");
-                    if (repoTags != null) {
-                        for (int t = 0; t < repoTags.size(); t++) {
-                            String tagStr = repoTags.getStr(t);
-                            if (StringUtils.hasText(tagStr) && !tagStr.contains("<none>")) {
-                                String[] parts = tagStr.split(":");
-                                String repo = parts[0];
-                                String tag = parts.length > 1 ? parts[1] : "latest";
-                                clusterImageRepository.findByRepositoryAndTag(repo, tag).ifPresent(img -> {
-                                    Set<String> ips = new LinkedHashSet<>();
-                                    if (StringUtils.hasText(img.getNodeIps())) {
-                                        Arrays.stream(img.getNodeIps().split(","))
-                                                .map(String::trim)
-                                                .filter(StringUtils::hasText)
-                                                .forEach(ips::add);
-                                    }
-                                    if (!ips.contains(ip)) {
-                                        ips.add(ip);
-                                        img.setNodeIps(String.join(",", ips));
-                                        clusterImageRepository.save(img);
-                                    }
-                                });
-                            }
-                        }
-                    }
-                }
             }
 
             HttpRequest cntReq = HttpRequest.newBuilder()
@@ -1124,11 +1354,15 @@ public class AdminClusterServiceImpl implements AdminClusterService {
     }
 
     private void setupDockerTlsAndValidate(String ip, int sshPort, String sshUser, String sshPassword, String sshKey, ClusterNode node) {
+        setupDockerTlsAndValidate(ip, sshPort, sshUser, sshPassword, sshKey, node, null);
+    }
+
+    private void setupDockerTlsAndValidate(String ip, int sshPort, String sshUser, String sshPassword, String sshKey, ClusterNode node, SshPrivilegeMode privMode) {
         log.info("[AdminClusterService] 开始为节点 [{}] 生成 2376+TLS 双向安全证书...", ip);
 
         // 1. 确保远程节点具备 openssl 命令行工具
         String checkOpenssl = "which openssl || (command -v openssl) || (apt-get update && apt-get install -y openssl) || (yum install -y openssl)";
-        SshExecResult opensslRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, checkOpenssl, 30);
+        SshExecResult opensslRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, checkOpenssl, 30, privMode);
         if (!opensslRes.isSuccess() && !StringUtils.hasText(opensslRes.stdout())) {
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "目标节点缺少 openssl 工具且自动化安装失败，无法生成 TLS 证书");
         }
@@ -1152,17 +1386,17 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                 "rm -f server.csr client.csr extfile.cnf extfile-client.cnf",
                 ip, ip);
 
-        SshExecResult genRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, script, 35);
+        SshExecResult genRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, script, 35, privMode);
         if (!genRes.isSuccess()) {
             log.error("[AdminClusterService] 目标节点 [{}] 生成 TLS 证书脚本执行失败: exit={}, err={}", ip, genRes.exitCode(), genRes.stderr());
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "在目标节点生成 Docker TLS 证书失败: " + genRes.stderr());
         }
 
         // 3. 读取证书内容到平台
-        SshExecResult caRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "cat /etc/docker/certs/ca.pem", 10);
-        SshExecResult certRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "cat /etc/docker/certs/cert.pem", 10);
-        SshExecResult keyRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "cat /etc/docker/certs/key.pem", 10);
-        SshExecResult pkcs8Res = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "cat /etc/docker/certs/key-pkcs8.pem", 10);
+        SshExecResult caRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "cat /etc/docker/certs/ca.pem", 10, privMode);
+        SshExecResult certRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "cat /etc/docker/certs/cert.pem", 10, privMode);
+        SshExecResult keyRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "cat /etc/docker/certs/key.pem", 10, privMode);
+        SshExecResult pkcs8Res = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "cat /etc/docker/certs/key-pkcs8.pem", 10, privMode);
 
         if (!caRes.isSuccess() || !certRes.isSuccess() || !keyRes.isSuccess() ||
                 !StringUtils.hasText(caRes.stdout()) || !StringUtils.hasText(certRes.stdout()) || !StringUtils.hasText(keyRes.stdout())) {
@@ -1205,7 +1439,7 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                 "printf '[Service]\\nExecStart=\\nExecStart=%s -H fd:// -H tcp://0.0.0.0:2376 --tlsverify --tlscacert=/etc/docker/certs/ca.pem --tlscert=/etc/docker/certs/server-cert.pem --tlskey=/etc/docker/certs/server-key.pem\\n' \"$DOCKERD_BIN\" > /etc/systemd/system/docker.service.d/override.conf && " +
                 "systemctl daemon-reload && systemctl restart docker";
 
-        SshExecResult configRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, config2376Cmd, 30);
+        SshExecResult configRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, config2376Cmd, 30, privMode);
         if (!configRes.isSuccess()) {
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "在目标节点配置 2376+TLS override.conf 失败: " + configRes.stderr());
         }
@@ -1216,7 +1450,7 @@ public class AdminClusterServiceImpl implements AdminClusterService {
             try {
                 Thread.sleep(800);
             } catch (InterruptedException ignored) {}
-            SshExecResult actRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "systemctl is-active docker", 5);
+            SshExecResult actRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "systemctl is-active docker", 5, privMode);
             if (actRes.isSuccess() && "active".equalsIgnoreCase(actRes.stdout().trim())) {
                 active = true;
                 break;
@@ -1224,13 +1458,13 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         }
 
         if (!active) {
-            SshExecResult logRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "journalctl -u docker -n 25 --no-pager", 6);
+            SshExecResult logRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, "journalctl -u docker -n 25 --no-pager", 6, privMode);
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "Docker 守护进程配置 2376 TLS 后未能正常运行: " + logRes.stdout());
         }
 
         // 本地 TLS 握手测试
         String testCmd = "docker --tlsverify --tlscacert=/etc/docker/certs/ca.pem --tlscert=/etc/docker/certs/cert.pem --tlskey=/etc/docker/certs/key.pem -H=127.0.0.1:2376 info --format '{{.ServerVersion}}'";
-        SshExecResult testRes = executeSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, testCmd, 10);
+        SshExecResult testRes = executePrivilegedSshCommand(ip, sshPort, sshUser, sshPassword, sshKey, testCmd, 10, privMode);
         if (!testRes.isSuccess()) {
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "Docker 2376 TLS 双向证书本地握手验证失败: " + testRes.stderr());
         }
@@ -1273,7 +1507,69 @@ public class AdminClusterServiceImpl implements AdminClusterService {
         }
     }
 
+    private enum SshPrivilegeMode {
+        ROOT,
+        SUDO_NOPASSWD,
+        SUDO_PASSWORD,
+        UNPRIVILEGED
+    }
+
+    private SshPrivilegeMode detectPrivilegeMode(String host, int port, String user, String password, String privateKey) {
+        if (!StringUtils.hasText(user) || "root".equalsIgnoreCase(user.trim())) {
+            return SshPrivilegeMode.ROOT;
+        }
+
+        // 1. 尝试免密 sudo 探测: sudo -n true
+        SshExecResult noPassRes = executeSshCommandInternal(host, port, user, password, privateKey, "sudo -n true", 5, null);
+        if (noPassRes.isSuccess()) {
+            log.info("[AdminClusterService] 目标节点 [{}] 用户 [{}] 具备免密 sudo 特权 (NOPASSWD)", host, user);
+            return SshPrivilegeMode.SUDO_NOPASSWD;
+        }
+
+        // 2. 若未通过免密，但提供了密码（ssh 密码即为 sudo 密码），尝试密码提权: sudo -S -p '' true
+        if (StringUtils.hasText(password)) {
+            SshExecResult passRes = executeSshCommandInternal(host, port, user, password, privateKey, "sudo -S -p '' true", 5, password);
+            if (passRes.isSuccess()) {
+                log.info("[AdminClusterService] 目标节点 [{}] 用户 [{}] 验证 sudo 密码提权成功", host, user);
+                return SshPrivilegeMode.SUDO_PASSWORD;
+            }
+            log.warn("[AdminClusterService] 目标节点 [{}] 用户 [{}] sudo 密码提权失败: exit={}, err={}",
+                    host, user, passRes.exitCode(), passRes.stderr());
+        }
+
+        log.warn("[AdminClusterService] 目标节点 [{}] 用户 [{}] 既非免密 sudo 亦无法通过密码提权: err={}",
+                host, user, noPassRes.stderr());
+        return SshPrivilegeMode.UNPRIVILEGED;
+    }
+
     private SshExecResult executeSshCommand(String host, int port, String user, String password, String privateKey, String command, int timeoutSeconds) {
+        return executePrivilegedSshCommand(host, port, user, password, privateKey, command, timeoutSeconds, null);
+    }
+
+    private SshExecResult executePrivilegedSshCommand(String host, int port, String user, String password, String privateKey, String command, int timeoutSeconds) {
+        return executePrivilegedSshCommand(host, port, user, password, privateKey, command, timeoutSeconds, null);
+    }
+
+    private SshExecResult executePrivilegedSshCommand(String host, int port, String user, String password, String privateKey, String command, int timeoutSeconds, SshPrivilegeMode privMode) {
+        if (!StringUtils.hasText(user) || "root".equalsIgnoreCase(user.trim())) {
+            return executeSshCommandInternal(host, port, user, password, privateKey, command, timeoutSeconds, null);
+        }
+
+        if (privMode == null) {
+            privMode = StringUtils.hasText(password) ? SshPrivilegeMode.SUDO_PASSWORD : SshPrivilegeMode.SUDO_NOPASSWD;
+        }
+
+        String escaped = command.replace("'", "'\\''");
+        if (privMode == SshPrivilegeMode.SUDO_PASSWORD && StringUtils.hasText(password)) {
+            String wrapped = "sudo -S -p '' -- sh -c '" + escaped + "'";
+            return executeSshCommandInternal(host, port, user, password, privateKey, wrapped, timeoutSeconds, password);
+        } else {
+            String wrapped = "sudo -n -- sh -c '" + escaped + "'";
+            return executeSshCommandInternal(host, port, user, password, privateKey, wrapped, timeoutSeconds, null);
+        }
+    }
+
+    private SshExecResult executeSshCommandInternal(String host, int port, String user, String password, String privateKey, String command, int timeoutSeconds, String stdinInput) {
         JSch jsch = new JSch();
         Session session = null;
         ChannelExec channel = null;
@@ -1294,7 +1590,14 @@ public class AdminClusterServiceImpl implements AdminClusterService {
 
             channel = (ChannelExec) session.openChannel("exec");
             channel.setCommand(command);
-            channel.setInputStream(null);
+
+            if (StringUtils.hasText(stdinInput)) {
+                ByteArrayInputStream bin = new ByteArrayInputStream((stdinInput.stripTrailing() + "\n").getBytes(StandardCharsets.UTF_8));
+                channel.setInputStream(bin);
+            } else {
+                channel.setInputStream(null);
+            }
+
             ByteArrayOutputStream stdout = new ByteArrayOutputStream();
             ByteArrayOutputStream stderr = new ByteArrayOutputStream();
             channel.setOutputStream(stdout);
@@ -1493,12 +1796,16 @@ public class AdminClusterServiceImpl implements AdminClusterService {
     }
 
     private String checkWorkerSwarmNodeId(String host, int port, String user, String password, String privateKey) {
+        return checkWorkerSwarmNodeId(host, port, user, password, privateKey, null);
+    }
+
+    private String checkWorkerSwarmNodeId(String host, int port, String user, String password, String privateKey, SshPrivilegeMode privMode) {
         boolean hasAuth = StringUtils.hasText(password) || StringUtils.hasText(privateKey);
         if (!hasAuth) {
             return null;
         }
-        SshExecResult res = executeSshCommand(host, port, user, password, privateKey,
-                "docker info --format '{{.Swarm.LocalNodeState}}\t{{.Swarm.NodeID}}'", 6);
+        SshExecResult res = executePrivilegedSshCommand(host, port, user, password, privateKey,
+                "docker info --format '{{.Swarm.LocalNodeState}}\t{{.Swarm.NodeID}}'", 6, privMode);
         if (res.isSuccess() && StringUtils.hasText(res.stdout())) {
             String out = res.stdout().trim();
             String[] parts = out.split("\t");
@@ -1540,6 +1847,159 @@ public class AdminClusterServiceImpl implements AdminClusterService {
 
     private void setSetting(String key, String value) {
         systemSettingService.updateSetting(new com.humolix.volur.system.domain.dto.SystemSettingUpdateDTO(key, value));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<AdminClusterNodeVO> syncK3sClusterNodes() {
+        List<K3sRuntimeStrategy.K3sDiscoveredNode> discovered = k3sStrategy.scanK3sNodes();
+        if (discovered.isEmpty()) {
+            log.warn("[AdminClusterService] K3s 集群未扫描到任何在线节点，跳过同步");
+            return listNodes();
+        }
+
+        String configuredMasterHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        boolean hasDiscoveredWorker = discovered.stream().anyMatch(d -> "WORKER".equalsIgnoreCase(d.role()));
+
+        for (K3sRuntimeStrategy.K3sDiscoveredNode d : discovered) {
+            Optional<ClusterNode> existingOpt = clusterNodeRepository.findByNodeName(d.nodeName());
+            if (existingOpt.isEmpty()) {
+                existingOpt = clusterNodeRepository.findByIpAddress(d.ipAddress());
+            }
+
+            ClusterNode node;
+            if (existingOpt.isPresent()) {
+                node = existingOpt.get();
+                node.setNodeName(d.nodeName());
+                node.setIpAddress(d.ipAddress());
+                node.setClusterType("K3S");
+                node.setRole(d.role());
+                node.setStatus(d.status());
+                node.setInCluster(true);
+                node.setClusterNodeId(d.uid());
+                node.setOsInfo(d.osInfo());
+                node.setDockerVersion(d.containerRuntimeVersion());
+                node.setCpuCores(d.cpuCores());
+                node.setMemoryBytes(d.memoryBytes());
+                node.setLastHeartbeat(Instant.now());
+                if ("WORKER".equalsIgnoreCase(d.role())) {
+                    node.setIsResourceNode(true);
+                } else if ("MASTER".equalsIgnoreCase(d.role())) {
+                    node.setIsResourceNode(!hasDiscoveredWorker);
+                }
+            } else {
+                boolean isResource = "WORKER".equalsIgnoreCase(d.role()) || !hasDiscoveredWorker;
+                node = ClusterNode.builder()
+                        .nodeName(d.nodeName())
+                        .ipAddress(d.ipAddress())
+                        .sshPort(22)
+                        .sshUser("root")
+                        .clusterType("K3S")
+                        .role(d.role())
+                        .isResourceNode(isResource)
+                        .status(d.status())
+                        .osInfo(d.osInfo())
+                        .dockerVersion(d.containerRuntimeVersion())
+                        .cpuCores(d.cpuCores())
+                        .memoryBytes(d.memoryBytes())
+                        .containerCount(0)
+                        .imageCount(0)
+                        .inCluster(true)
+                        .clusterNodeId(d.uid())
+                        .joinTime(Instant.now())
+                        .lastHeartbeat(Instant.now())
+                        .build();
+            }
+
+            clusterNodeRepository.save(node);
+            log.info("[AdminClusterService] 已同步 K3s 集群节点: name={}, ip={}, role={}, status={}",
+                    node.getNodeName(), node.getIpAddress(), node.getRole(), node.getStatus());
+        }
+
+        // 若 Master 节点拥有具体物理 IP 且当前系统 publicHost 仍为 127.0.0.1，自动对齐
+        discovered.stream().filter(d -> "MASTER".equalsIgnoreCase(d.role())).findFirst().ifPresent(master -> {
+            if (!"127.0.0.1".equals(master.ipAddress()) && "127.0.0.1".equals(configuredMasterHost)) {
+                setSetting(SystemSettingKeys.CONTAINER_PUBLIC_HOST, master.ipAddress());
+                log.info("[AdminClusterService] 根据 K3s Master 节点自动校正 CONTAINER_PUBLIC_HOST: {}", master.ipAddress());
+            }
+        });
+
+        return listNodes();
+    }
+
+    private void performK3sHealthCheck(ClusterNode node) {
+        KubernetesClient client = k3sStrategy.getClient();
+        if (client == null) {
+            node.setStatus("OFFLINE");
+            node.setInCluster(false);
+            return;
+        }
+
+        try {
+            Node k8sNode = null;
+            if (StringUtils.hasText(node.getNodeName())) {
+                try {
+                    k8sNode = client.nodes().withName(node.getNodeName().trim()).get();
+                } catch (Exception ignored) {}
+            }
+            if (k8sNode == null && StringUtils.hasText(node.getIpAddress())) {
+                for (Node n : client.nodes().list().getItems()) {
+                    if (n.getStatus() != null && n.getStatus().getAddresses() != null) {
+                        for (NodeAddress a : n.getStatus().getAddresses()) {
+                            if (node.getIpAddress().trim().equalsIgnoreCase(a.getAddress())) {
+                                k8sNode = n;
+                                break;
+                            }
+                        }
+                    }
+                    if (k8sNode != null) break;
+                }
+            }
+
+            if (k8sNode != null) {
+                boolean ready = false;
+                if (k8sNode.getStatus() != null && k8sNode.getStatus().getConditions() != null) {
+                    for (NodeCondition cond : k8sNode.getStatus().getConditions()) {
+                        if ("Ready".equalsIgnoreCase(cond.getType())) {
+                            ready = "True".equalsIgnoreCase(cond.getStatus());
+                            break;
+                        }
+                    }
+                }
+                node.setStatus(ready ? "READY" : "OFFLINE");
+                node.setInCluster(true);
+                node.setLastHeartbeat(Instant.now());
+                if (k8sNode.getMetadata() != null && StringUtils.hasText(k8sNode.getMetadata().getUid())) {
+                    node.setClusterNodeId(k8sNode.getMetadata().getUid());
+                }
+            } else {
+                node.setStatus("OFFLINE");
+                node.setInCluster(false);
+            }
+        } catch (Exception e) {
+            log.warn("[AdminClusterService] K3s 节点 [{}] 存活检测异常: {}", node.getNodeName(), e.getMessage());
+            node.setStatus("OFFLINE");
+        }
+    }
+
+    private String resolveK3sNodeToken(String masterIp) {
+        String token = k3sStrategy.resolveK3sToken();
+        if (StringUtils.hasText(token)) {
+            return token.trim();
+        }
+        List<ClusterNode> masters = clusterNodeRepository.findByRole("MASTER");
+        for (ClusterNode master : masters) {
+            if (StringUtils.hasText(master.getSshPassword()) || StringUtils.hasText(master.getSshKey())) {
+                SshExecResult res = executeSshCommand(master.getIpAddress(),
+                        master.getSshPort() != null ? master.getSshPort() : 22,
+                        master.getSshUser(), master.getSshPassword(), master.getSshKey(),
+                        "cat /var/lib/rancher/k3s/server/node-token 2>/dev/null", 5);
+                if (res.isSuccess() && StringUtils.hasText(res.stdout().trim())) {
+                    return res.stdout().trim();
+                }
+            }
+        }
+        return null;
     }
 
 }

@@ -3,11 +3,15 @@ package com.humolix.volur.container.service.admin.impl;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.humolix.volur.container.client.DockerRegistryClient;
 import com.humolix.volur.container.domain.dto.*;
 import com.humolix.volur.container.domain.entity.ClusterImage;
 import com.humolix.volur.container.domain.entity.ClusterNode;
 import com.humolix.volur.container.domain.entity.CtfChallengeInstance;
 import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
+import com.humolix.volur.container.domain.record.DiscoveredDockerImage;
+import com.humolix.volur.container.domain.record.DockerContainerBriefInfo;
+import com.humolix.volur.container.domain.record.DockerSwarmServiceBriefInfo;
 import com.humolix.volur.container.domain.vo.AdminClusterImageDetailVO;
 import com.humolix.volur.container.domain.vo.AdminClusterImageStatisticsVO;
 import com.humolix.volur.container.domain.vo.AdminClusterImageVO;
@@ -21,7 +25,10 @@ import com.humolix.volur.container.util.DockerTlsUtil;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.system.domain.enums.AsyncTaskType;
+import com.humolix.volur.system.domain.vo.AdminAsyncTaskSubmitVO;
 import com.humolix.volur.system.service.SystemSettingService;
+import com.humolix.volur.system.service.admin.AdminAsyncTaskService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -36,15 +43,19 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.net.UnixDomainSocketAddress;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -63,64 +74,25 @@ public class AdminImageServiceImpl implements AdminImageService {
     private final ClusterImageMapper clusterImageMapper;
     private final SystemSettingService systemSettingService;
     private final CtfChallengeInstanceRepository ctfChallengeInstanceRepository;
-    private final com.humolix.volur.system.service.admin.AdminAsyncTaskService adminAsyncTaskService;
-
-    private record DiscoveredDockerImage(
-            String repository,
-            String tag,
-            String imageId,
-            long sizeBytes
-    ) {}
-
-    private record DockerContainerBriefInfo(
-            String id,
-            String name,
-            String status,
-            String state,
-            String image
-    ) {}
-
-    private record DockerSwarmServiceBriefInfo(
-            String id,
-            String name,
-            String image,
-            String replicas
-    ) {}
+    private final AdminAsyncTaskService adminAsyncTaskService;
+    private final DockerRegistryClient dockerRegistryClient;
 
     @Override
     public AdminClusterImageStatisticsVO getStatistics() {
-        long totalImages = clusterImageRepository.count();
-        long challengeImages = clusterImageRepository.countByImageType("CHALLENGE");
-        long baseImages = Math.max(0, totalImages - challengeImages);
+        boolean registryOnline = dockerRegistryClient.isAvailable();
 
-        List<ClusterImage> allImages = clusterImageRepository.findAll();
-        long totalSizeBytes = allImages.stream()
+        List<ClusterImage> registryImages = clusterImageRepository.findByInRegistryTrue();
+        long totalImages = registryImages.size();
+        long totalSizeBytes = registryImages.stream()
                 .mapToLong(img -> img.getSizeBytes() != null ? img.getSizeBytes() : 0L)
                 .sum();
 
-        Set<String> uniqueNodes = new HashSet<>();
-        long syncingCount = 0;
-        for (ClusterImage img : allImages) {
-            if ("PULLING".equalsIgnoreCase(img.getStatus()) || "MIGRATING".equalsIgnoreCase(img.getStatus())) {
-                syncingCount++;
-            }
-            if (StringUtils.hasText(img.getNodeIps())) {
-                Arrays.stream(img.getNodeIps().split(","))
-                        .map(String::trim)
-                        .filter(StringUtils::hasText)
-                        .forEach(uniqueNodes::add);
-            }
-        }
-
-        return AdminClusterImageStatisticsVO.builder()
-                .totalImages(totalImages)
-                .challengeImages(challengeImages)
-                .baseImages(baseImages)
-                .totalSizeBytes(totalSizeBytes)
-                .totalSizeFormatted(formatBytes(totalSizeBytes))
-                .totalNodesCovered(uniqueNodes.size())
-                .syncingImages(syncingCount)
-                .build();
+        return clusterImageMapper.toStatisticsVO(
+                totalImages,
+                totalSizeBytes,
+                registryOnline,
+                totalImages
+        );
     }
 
     @Override
@@ -129,6 +101,8 @@ public class AdminImageServiceImpl implements AdminImageService {
 
         Specification<ClusterImage> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+            // 严禁展示宿主机或非托管环境的杂项镜像，仅展示托管在私有 Registry 中的镜像
+            predicates.add(cb.isTrue(root.get("inRegistry")));
 
             if (StringUtils.hasText(request.getKeyword())) {
                 String kw = "%" + request.getKeyword().trim().toLowerCase() + "%";
@@ -137,51 +111,11 @@ public class AdminImageServiceImpl implements AdminImageService {
                 predicates.add(cb.or(repoPred, tagPred));
             }
 
-            if (StringUtils.hasText(request.getImageType())) {
-                predicates.add(cb.equal(root.get("imageType"), request.getImageType().trim().toUpperCase()));
-            }
-
-            if (StringUtils.hasText(request.getNodeIp())) {
-                predicates.add(cb.like(root.get("nodeIps"), "%" + request.getNodeIp().trim() + "%"));
-            }
-
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
         Page<ClusterImage> page = clusterImageRepository.findAll(spec, pageable);
         List<AdminClusterImageVO> voList = clusterImageMapper.toVOList(page.getContent());
-
-        // 结合集群各节点当前存活状态，实时研判属于子节点的镜像在线/离线可用性
-        Set<String> readyNodeIps = clusterNodeRepository.findByStatus("READY").stream()
-                .map(ClusterNode::getIpAddress)
-                .collect(Collectors.toSet());
-        String masterHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
-        if (readyNodeIps.contains(masterHost)) {
-            readyNodeIps.add("127.0.0.1");
-        }
-        if (readyNodeIps.contains("127.0.0.1")) {
-            readyNodeIps.add(masterHost);
-        }
-
-        for (AdminClusterImageVO vo : voList) {
-            List<String> ips = vo.getNodeIps() != null ? vo.getNodeIps() : Collections.emptyList();
-            List<String> onlineIps = new ArrayList<>();
-            List<String> offlineIps = new ArrayList<>();
-            for (String ip : ips) {
-                if (readyNodeIps.contains(ip)) {
-                    onlineIps.add(ip);
-                } else {
-                    offlineIps.add(ip);
-                }
-            }
-            vo.setOnlineNodeIps(onlineIps);
-            vo.setOfflineNodeIps(offlineIps);
-            boolean isAllOffline = !ips.isEmpty() && onlineIps.isEmpty();
-            vo.setIsOffline(isAllOffline);
-            if (isAllOffline) {
-                vo.setStatus("OFFLINE");
-            }
-        }
 
         return new PageResponse<>(voList, page.getTotalElements(), page.getTotalPages(), page.getNumber() + 1);
     }
@@ -192,23 +126,28 @@ public class AdminImageServiceImpl implements AdminImageService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "镜像记录不存在"));
 
         String fullImageName = buildFullImageName(image);
-        String targetInspectId = StringUtils.hasText(image.getImageId()) ? image.getImageId() : fullImageName;
         String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        String chosenNode = StringUtils.hasText(publicHost) ? publicHost.trim() : "127.0.0.1";
 
-        // 挑选可以执行 inspect 与 history 的目标节点
-        Set<String> nodeIps = parseNodeIps(image.getNodeIps());
-        String chosenNode = null;
-        if (nodeIps.contains(publicHost) || nodeIps.contains("127.0.0.1") || nodeIps.isEmpty()) {
-            chosenNode = publicHost;
-        } else {
-            chosenNode = nodeIps.iterator().next();
+        // 1. 查询 Docker Inspect 深度配置 (优先本地缓存/直接全名/digest)
+        JSONObject inspectJson = queryDockerInspect(chosenNode, fullImageName);
+        if (inspectJson == null && StringUtils.hasText(image.getImageId())) {
+            inspectJson = queryDockerInspect(chosenNode, image.getImageId());
+        }
+        if (inspectJson == null) {
+            String regTag = dockerRegistryClient.getPublicRegistryHost() + "/" + fullImageName;
+            inspectJson = queryDockerInspect(chosenNode, regTag);
         }
 
-        // 1. 查询 Docker Inspect 深度配置
-        JSONObject inspectJson = queryDockerInspect(chosenNode, targetInspectId);
-
         // 2. 查询 Docker History / Layer 分层信息
-        List<DockerImageLayerVO> layers = queryDockerHistory(chosenNode, targetInspectId);
+        List<DockerImageLayerVO> layers = queryDockerHistory(chosenNode, fullImageName);
+        if (layers.isEmpty() && StringUtils.hasText(image.getImageId())) {
+            layers = queryDockerHistory(chosenNode, image.getImageId());
+        }
+        if (layers.isEmpty()) {
+            String regTag = dockerRegistryClient.getPublicRegistryHost() + "/" + fullImageName;
+            layers = queryDockerHistory(chosenNode, regTag);
+        }
 
         // 组装 VO 深度属性
         String os = "linux";
@@ -263,81 +202,27 @@ public class AdminImageServiceImpl implements AdminImageService {
             }
         }
 
-        Set<String> readyNodeIps = clusterNodeRepository.findByStatus("READY").stream()
-                .map(ClusterNode::getIpAddress)
-                .collect(Collectors.toSet());
-        if (readyNodeIps.contains(publicHost)) {
-            readyNodeIps.add("127.0.0.1");
-        }
-        if (readyNodeIps.contains("127.0.0.1")) {
-            readyNodeIps.add(publicHost);
-        }
-
-        List<String> onlineIps = new ArrayList<>();
-        List<String> offlineIps = new ArrayList<>();
-        for (String ip : nodeIps) {
-            if (readyNodeIps.contains(ip)) {
-                onlineIps.add(ip);
-            } else {
-                offlineIps.add(ip);
-            }
-        }
-        boolean isAllOffline = !nodeIps.isEmpty() && onlineIps.isEmpty();
-        String resolvedStatus = isAllOffline ? "OFFLINE" : image.getStatus();
-
-        return AdminClusterImageDetailVO.builder()
-                .id(image.getId())
-                .repository(image.getRepository())
-                .tag(image.getTag())
-                .fullImageName(fullImageName)
-                .imageId(image.getImageId())
-                .sizeBytes(image.getSizeBytes())
-                .sizeFormatted(formatBytes(image.getSizeBytes()))
-                .imageType(image.getImageType())
-                .nodeIps(new ArrayList<>(nodeIps))
-                .onlineNodeIps(onlineIps)
-                .offlineNodeIps(offlineIps)
-                .isOffline(isAllOffline)
-                .status(resolvedStatus)
-                .os(os)
-                .architecture(architecture)
-                .dockerVersion(dockerVersion)
-                .author(author)
-                .workingDir(workingDir)
-                .user(user)
-                .entrypoint(entrypoint)
-                .cmd(cmd)
-                .env(env)
-                .exposedPorts(exposedPorts)
-                .labels(labels)
-                .layers(layers)
-                .createdAt(image.getCreatedAt())
-                .updatedAt(image.getUpdatedAt())
-                .build();
+        return clusterImageMapper.toDetailVO(
+                image,
+                fullImageName,
+                os,
+                architecture,
+                dockerVersion,
+                author,
+                workingDir,
+                user,
+                entrypoint,
+                cmd,
+                env,
+                exposedPorts,
+                labels,
+                layers
+        );
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateImageType(Long id, AdminImageTypeUpdateDTO request) {
-        if (request == null || !StringUtils.hasText(request.getImageType())) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "镜像类别不能为空");
-        }
-
-        ClusterImage image = clusterImageRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "镜像记录不存在"));
-
-        String newType = request.getImageType().trim().toUpperCase(Locale.ROOT);
-        image.setImageType(newType);
-        image.setUpdatedAt(Instant.now());
-        clusterImageRepository.save(image);
-
-        log.info("[AdminImageService] 已更新镜像类别: id={}, fullImage={}, newType={}",
-                id, buildFullImageName(image), newType);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void pullImage(AdminImagePullRequestDTO request) {
+    public AdminAsyncTaskSubmitVO pullImage(AdminImagePullRequestDTO request) {
         if (request == null || !StringUtils.hasText(request.getImage())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "镜像名称不能为空");
         }
@@ -354,74 +239,103 @@ public class AdminImageServiceImpl implements AdminImageService {
             tag = "latest";
         }
 
-        List<ClusterNode> allNodes = clusterNodeRepository.findAll();
-        if (allNodes.isEmpty()) {
-            initDefaultMasterNode();
-            allNodes = clusterNodeRepository.findAll();
-        }
+        String masterIp = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
 
-        boolean multiNode = allNodes.size() > 1;
-        String targetIp = request.getTargetNodeIp().trim();
-
-        if (multiNode) {
-            boolean isMaster = allNodes.stream()
-                    .anyMatch(n -> "MASTER".equalsIgnoreCase(n.getRole()) && n.getIpAddress().equalsIgnoreCase(targetIp));
-            if (isMaster) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST,
-                        "集群存在多个节点，主节点保留为平台控制面，禁止将题目与容器镜像下载至主节点！请选择资源节点或广播至所有资源节点。");
-            }
-        }
-
-        List<String> targetIps = new ArrayList<>();
-        if ("ALL_RESOURCE_NODES".equalsIgnoreCase(targetIp)) {
-            if (multiNode) {
-                allNodes.stream()
-                        .filter(n -> "WORKER".equalsIgnoreCase(n.getRole()) || Boolean.TRUE.equals(n.getIsResourceNode()))
-                        .map(ClusterNode::getIpAddress)
-                        .forEach(targetIps::add);
-            } else {
-                allNodes.stream().map(ClusterNode::getIpAddress).forEach(targetIps::add);
-            }
-        } else {
-            targetIps.add(targetIp);
-        }
-
-        if (targetIps.isEmpty()) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "未找到有效的目标资源节点");
-        }
-
-        log.info("[AdminImageService] 正在拉取 Docker 镜像: {}:{} 至目标节点: {}", repository, tag, targetIps);
-
-        for (String nodeIp : targetIps) {
-            triggerDockerPullOnNode(nodeIp, rawImage);
-        }
-
+        // 预先创建或更新数据库状态为 PULLING，便于管理员前端列表即时看到拉取中状态
         Optional<ClusterImage> existingOpt = clusterImageRepository.findByRepositoryAndTag(repository, tag);
         ClusterImage image;
         if (existingOpt.isPresent()) {
             image = existingOpt.get();
-            Set<String> ipSet = parseNodeIps(image.getNodeIps());
-            ipSet.addAll(targetIps);
-            image.setNodeIps(String.join(",", ipSet));
-            image.setStatus("PULLED");
+            image.setStatus("PULLING");
             image.setUpdatedAt(Instant.now());
         } else {
             image = ClusterImage.builder()
                     .repository(repository)
                     .tag(tag)
-                    .imageId("")
+                    .status("PULLING")
+                    .inRegistry(false)
                     .sizeBytes(0L)
-                    .imageType(StringUtils.hasText(request.getImageType()) ? request.getImageType().trim().toUpperCase() : "CHALLENGE")
-                    .nodeIps(String.join(",", targetIps))
-                    .status("PULLED")
                     .createdAt(Instant.now())
                     .updatedAt(Instant.now())
                     .build();
         }
+        ClusterImage savedImage = clusterImageRepository.save(image);
+        Long imageId = savedImage.getId();
 
-        clusterImageRepository.save(image);
-        updateNodeImageCounts();
-        log.info("[AdminImageService] 镜像拉取任务已完成并同步元数据: {}:{}", repository, tag);
+        String taskName = String.format("镜像拉取入库: %s:%s", repository, tag);
+        log.info("[AdminImageService] 正在提交镜像拉取入库异步任务: {}:{}", repository, tag);
+
+        return adminAsyncTaskService.submitTask(
+                AsyncTaskType.IMAGE_PULL,
+                taskName,
+                null,
+                "ADMIN",
+                request,
+                context -> {
+                    try {
+                        context.updateProgress(10, "正在连接主控节点并准备拉取源镜像: " + rawImage + "...");
+                        if (context.isCancelled()) return;
+
+                        // 1. 本地/主控节点拉取源镜像
+                        context.updateProgress(30, "正在主控节点执行 Docker Pull 拉取源镜像: " + rawImage + "...");
+                        triggerDockerPullOnNode(masterIp, rawImage);
+                        if (context.isCancelled()) return;
+
+                        // 2. 将镜像打标并推送至中心私有 Registry
+                        long sizeBytes = 0L;
+                        String digest = "";
+                        if (dockerRegistryClient.isAvailable()) {
+                            context.updateProgress(60, "源镜像拉取成功，正在打标并推送到中心私有 Registry...");
+                            String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+                            String registryTag = publicRegistryHost + "/" + repository + ":" + tag;
+                            log.info("[AdminImageService] 正在将镜像打标并推送到中心私有 Registry: {}...", registryTag);
+                            tagDockerImageOnNode(masterIp, rawImage, registryTag);
+                            boolean pushed = triggerDockerPushOnNode(masterIp, registryTag);
+                            if (!pushed) {
+                                log.warn("[AdminImageService] 推送镜像至中心私有 Registry 失败: {}", registryTag);
+                            }
+
+                            context.updateProgress(80, "正在获取 Registry Manifest 与镜像分层元数据...");
+                            DockerRegistryClient.RegistryManifestInfo manifest = dockerRegistryClient.getManifest(repository, tag);
+                            if (manifest != null) {
+                                sizeBytes = manifest.sizeBytes();
+                                digest = manifest.digest();
+                            }
+                        }
+
+                        if (context.isCancelled()) return;
+
+                        // 3. 同步至数据库记录 (标记 inRegistry = true, status = READY)
+                        context.updateProgress(90, "正在同步更新数据库镜像元数据与集群拓扑...");
+                        ClusterImage latest = clusterImageRepository.findById(imageId).orElse(null);
+                        if (latest != null) {
+                            latest.setInRegistry(true);
+                            latest.setStatus("READY");
+                            if (sizeBytes > 0) {
+                                latest.setSizeBytes(sizeBytes);
+                            }
+                            if (StringUtils.hasText(digest)) {
+                                latest.setImageId(digest);
+                            }
+                            latest.setUpdatedAt(Instant.now());
+                            clusterImageRepository.save(latest);
+                        }
+
+                        updateNodeImageCounts();
+                        context.updateProgress(100, "镜像拉取与中心入库已顺利完成: " + repository + ":" + tag);
+                        log.info("[AdminImageService] 异步镜像拉取与中心仓库推送任务已完成: {}:{}", repository, tag);
+                    } catch (Exception ex) {
+                        log.error("[AdminImageService] 异步拉取镜像入库失败: {}", ex.getMessage(), ex);
+                        ClusterImage latest = clusterImageRepository.findById(imageId).orElse(null);
+                        if (latest != null) {
+                            latest.setStatus("FAILED");
+                            latest.setUpdatedAt(Instant.now());
+                            clusterImageRepository.save(latest);
+                        }
+                        throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "镜像拉取入库失败: " + ex.getMessage());
+                    }
+                }
+        );
     }
 
     @Override
@@ -435,79 +349,28 @@ public class AdminImageServiceImpl implements AdminImageService {
             fullImageName = image.getImageId();
         }
 
-        String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        // 阶段 1：平台实例依赖校验 (若有赛题或正在运行的容器关联则拒绝删除)
+        checkPlatformContainerDependencies(image, null);
 
-        Set<String> imageNodeIps = parseNodeIps(image.getNodeIps());
-        if (imageNodeIps.isEmpty()) {
-            imageNodeIps.add(publicHost);
-        }
-
-        // 解析需要删除的目标节点集合
-        Set<String> targetIpsToDelete = new LinkedHashSet<>();
-        boolean isFullDelete = !StringUtils.hasText(targetNodeIp) || "ALL".equalsIgnoreCase(targetNodeIp.trim());
-
-        if (isFullDelete) {
-            targetIpsToDelete.addAll(imageNodeIps);
-        } else {
-            Arrays.stream(targetNodeIp.split(","))
-                    .map(String::trim)
-                    .filter(StringUtils::hasText)
-                    .forEach(targetIpsToDelete::add);
-        }
-
-        if (targetIpsToDelete.isEmpty()) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "未指定任何有效的待删除节点");
-        }
-
-        // 校验请求的目标节点是否确实包含该镜像
-        for (String nodeIp : targetIpsToDelete) {
-            boolean isLocal = isLocalNode(nodeIp, publicHost);
-            boolean exists = imageNodeIps.stream().anyMatch(ip ->
-                    ip.equalsIgnoreCase(nodeIp) || (isLocal && isLocalNode(ip, publicHost)));
-            if (!exists) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "节点 [" + nodeIp + "] 上未记录该镜像");
+        // 阶段 2：从中心私有 Registry 物理删除 Manifest
+        if (Boolean.TRUE.equals(image.getInRegistry())) {
+            try {
+                if (dockerRegistryClient.isAvailable()) {
+                    dockerRegistryClient.deleteManifestByTag(image.getRepository(), image.getTag());
+                    log.info("[AdminImageService] 镜像已从中心 Registry 物理删除: {}:{}", image.getRepository(), image.getTag());
+                }
+            } catch (Exception e) {
+                log.warn("[AdminImageService] 从中心 Registry 删除镜像版本异常: {}", e.getMessage());
             }
         }
 
-        // 阶段 1：平台实例依赖校验
-        // 如果是全量删除，校验平台上所有运行中或关联的历史容器；
-        // 如果是指定节点删除，仅校验属于指定节点上的容器实例。
-        if (isFullDelete) {
-            checkPlatformContainerDependencies(image, null);
-        } else {
-            for (String nodeIp : targetIpsToDelete) {
-                checkPlatformContainerDependencies(image, nodeIp);
-            }
-        }
+        // 阶段 3：清理本地 Docker 引擎缓存标签
+        tryExecuteDockerRmiQuietly("127.0.0.1", fullImageName);
+        tryExecuteDockerRmiQuietly("127.0.0.1", dockerRegistryClient.getPublicRegistryHost() + "/" + fullImageName);
 
-        // 阶段 2：在目标节点的底层 Docker 中查询是否有依赖该镜像的容器（运行中或已停止）或 Swarm 服务
-        for (String nodeIp : targetIpsToDelete) {
-            checkDockerContainerDependencies(nodeIp, image);
-        }
-
-        // 阶段 3：在确保无任何依赖容器后，物理调用 Docker 执行删除，并严格确认 Docker 镜像确实已被清除
-        for (String nodeIp : targetIpsToDelete) {
-            removeDockerImageAndConfirm(nodeIp, fullImageName, image.getImageId());
-        }
-
-        // 阶段 4：在确认底层 Docker 镜像已删除之后，变更或删除数据库记录
-        Set<String> remainingIps = new LinkedHashSet<>(imageNodeIps);
-        for (String nodeIp : targetIpsToDelete) {
-            boolean isLocal = isLocalNode(nodeIp, publicHost);
-            remainingIps.removeIf(ip ->
-                    ip.equalsIgnoreCase(nodeIp) || (isLocal && isLocalNode(ip, publicHost)));
-        }
-
-        if (remainingIps.isEmpty() || isFullDelete) {
-            clusterImageRepository.delete(image);
-            log.info("[AdminImageService] 镜像已从所有目标节点物理清除，全量删除数据库元数据: {}", fullImageName);
-        } else {
-            image.setNodeIps(String.join(",", remainingIps));
-            image.setUpdatedAt(Instant.now());
-            clusterImageRepository.save(image);
-            log.info("[AdminImageService] 已从节点 {} 物理移除镜像并更新数据库记录，剩余节点: {}: {}",
-                    targetIpsToDelete, remainingIps, fullImageName);
-        }
+        // 阶段 4：从数据库彻底清除元数据
+        clusterImageRepository.delete(image);
+        log.info("[AdminImageService] 镜像已物理清除，删除数据库元数据: {}", fullImageName);
 
         updateNodeImageCounts();
     }
@@ -534,28 +397,21 @@ public class AdminImageServiceImpl implements AdminImageService {
         }
 
         String targetIp = workerNode.getIpAddress().trim();
-        List<ClusterImage> challengeImages = clusterImageRepository.findByImageType("CHALLENGE");
-        if (challengeImages.isEmpty()) {
+        List<ClusterImage> registryImages = clusterImageRepository.findByInRegistryTrue();
+        if (registryImages.isEmpty()) {
             return;
         }
 
         int migrated = 0;
-        for (ClusterImage img : challengeImages) {
-            Set<String> ipSet = parseNodeIps(img.getNodeIps());
-            if (ipSet.add(targetIp)) {
-                triggerDockerPullOnNode(targetIp, buildFullImageName(img));
-                img.setNodeIps(String.join(",", ipSet));
-                img.setStatus("PULLED");
-                img.setUpdatedAt(Instant.now());
-                clusterImageRepository.save(img);
-                migrated++;
-            }
+        for (ClusterImage img : registryImages) {
+            triggerDockerPullOnNode(targetIp, buildFullImageName(img));
+            migrated++;
         }
 
-        workerNode.setImageCount(challengeImages.size());
+        workerNode.setImageCount(registryImages.size());
         clusterNodeRepository.save(workerNode);
 
-        log.info("[AdminImageService] 自动镜像迁移完成: 已将主节点的 {} 个资源镜像成功同步至节点: {} ({})",
+        log.info("[AdminImageService] 自动镜像迁移完成: 已将中心托管的 {} 个资源镜像成功同步至节点: {} ({})",
                 migrated, workerNode.getNodeName(), targetIp);
     }
 
@@ -566,140 +422,93 @@ public class AdminImageServiceImpl implements AdminImageService {
             return;
         }
         String cleanIp = nodeIp.trim();
-        List<ClusterImage> allImages = clusterImageRepository.findAll();
-        int affectedCount = 0;
-
-        for (ClusterImage image : allImages) {
-            if (onlyChallenge && !"CHALLENGE".equalsIgnoreCase(image.getImageType())) {
-                continue;
-            }
-            if (!StringUtils.hasText(image.getNodeIps())) {
-                continue;
-            }
-
-            Set<String> ipSet = parseNodeIps(image.getNodeIps());
-            if (ipSet.remove(cleanIp)) {
-                affectedCount++;
-                image.setNodeIps(String.join(",", ipSet));
-                image.setUpdatedAt(Instant.now());
-                clusterImageRepository.save(image);
-            }
-        }
-
         updateNodeImageCounts();
-        log.info("[AdminImageService] 已成功从镜像管理中剔除节点 [{}] 的镜像拓扑关联，共更新 {} 个镜像记录 (onlyChallenge={})",
-                cleanIp, affectedCount, onlyChallenge);
+        log.info("[AdminImageService] 已成功从镜像管理中剔除节点 [{}] 的镜像拓扑关联 (onlyChallenge={})",
+                cleanIp, onlyChallenge);
     }
 
     /**
      * 程序启动与主动触发时：
-     * 1. 首先通过 Docker API 加载本地主机镜像；
-     * 2. 然后巡检检查集群子节点（Worker）中的镜像；
-     * 3. 核心校验：核验 MySQL 中的所有镜像记录与各节点实际存在的镜像，彻底清理已不存在的记录，避免假记录残留。
+     * 1. 扫描中心私有镜像仓库 (Docker Registry V2) 的 Repositories 与 Tags；
+     * 2. 查询各镜像 Manifest，提取 Digest 与体积，保存/更新为 Registry 托管镜像；
+     * 3. 核心校验对账：彻底清理 MySQL 中未在 Registry 中托管或已在仓库中删除的历史与宿主机孤儿镜像。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void loadAndSyncClusterImages() {
-        log.info("[AdminImageService] 开始执行 Docker 集群镜像动态加载、探测与孤儿记录核验...");
+        log.info("[AdminImageService] 开始执行 Docker 中心私有 Registry 镜像动态加载与元数据核验...");
 
-        List<ClusterNode> allNodes = clusterNodeRepository.findAll();
-        if (allNodes.isEmpty()) {
-            initDefaultMasterNode();
-            allNodes = clusterNodeRepository.findAll();
+        boolean registryReachable = dockerRegistryClient.isAvailable();
+        if (!registryReachable) {
+            log.warn("[AdminImageService] 中心私有镜像仓库未就绪或无法连通，跳过镜像扫描与清理以保护已有镜像记录");
+            return;
         }
 
-        String masterIp = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        Set<String> registryDiscoveredKeys = new HashSet<>();
+        log.info("[AdminImageService] 正在通过 Registry API 扫描中心私有镜像仓库 catalog...");
+        try {
+            List<String> repos = dockerRegistryClient.listRepositories();
+            for (String repo : repos) {
+                List<String> tags = dockerRegistryClient.listTags(repo);
+                for (String tag : tags) {
+                    String key = repo + ":" + tag;
+                    registryDiscoveredKeys.add(key);
 
-        // 记录各节点探测成功标记及其拥有的镜像标识集合 (包括 fullImageName, imageId, 12位短ID)
-        Set<String> localDiscoveredImages = new HashSet<>();
-        Map<String, Set<String>> workerDiscoveredImages = new HashMap<>();
-        Set<String> successfullyInspectedNodes = new HashSet<>();
+                    DockerRegistryClient.RegistryManifestInfo manifest = dockerRegistryClient.getManifest(repo, tag);
+                    long sizeBytes = manifest != null ? manifest.sizeBytes() : 0L;
+                    String digest = manifest != null ? manifest.digest() : "";
 
-        // 步骤 1：先通过 Docker API 加载本地主节点的镜像
-        log.info("[AdminImageService] 正在通过 Docker API 加载本地主节点 ({}) 的镜像列表...", masterIp);
-        List<DiscoveredDockerImage> localImages = fetchLocalDockerImages();
-        successfullyInspectedNodes.add(masterIp);
-        successfullyInspectedNodes.add("127.0.0.1");
-        log.info("[AdminImageService] 本地 Docker API 探测成功，共获取到 {} 个本地可用镜像", localImages.size());
-
-        for (DiscoveredDockerImage img : localImages) {
-            recordImageIdentifiers(img, localDiscoveredImages);
-            syncDiscoveredImageToRepository(img, masterIp);
-        }
-
-        // 步骤 2：检查集群中各子节点（Worker）中的镜像
-        List<ClusterNode> workerNodes = allNodes.stream()
-                .filter(n -> "WORKER".equalsIgnoreCase(n.getRole()) || !n.getIpAddress().equalsIgnoreCase(masterIp))
-                .toList();
-
-        for (ClusterNode worker : workerNodes) {
-            String workerIp = worker.getIpAddress();
-            List<DiscoveredDockerImage> workerImages = fetchRemoteDockerImages(worker);
-            if (!workerImages.isEmpty() || isRemoteDockerReachable(worker)) {
-                successfullyInspectedNodes.add(workerIp);
-                Set<String> workerSet = new HashSet<>();
-                for (DiscoveredDockerImage img : workerImages) {
-                    recordImageIdentifiers(img, workerSet);
-                    syncDiscoveredImageToRepository(img, workerIp);
+                    Optional<ClusterImage> existingOpt = clusterImageRepository.findByRepositoryAndTag(repo, tag);
+                    if (existingOpt.isPresent()) {
+                        ClusterImage img = existingOpt.get();
+                        img.setInRegistry(true);
+                        img.setStatus("READY");
+                        if (sizeBytes > 0) {
+                            img.setSizeBytes(sizeBytes);
+                        }
+                        if (StringUtils.hasText(digest)) {
+                            img.setImageId(digest);
+                        }
+                        img.setUpdatedAt(Instant.now());
+                        clusterImageRepository.save(img);
+                    } else {
+                        ClusterImage img = ClusterImage.builder()
+                                .repository(repo)
+                                .tag(tag)
+                                .imageId(digest)
+                                .sizeBytes(sizeBytes)
+                                .inRegistry(true)
+                                .status("READY")
+                                .createdAt(Instant.now())
+                                .updatedAt(Instant.now())
+                                .build();
+                        clusterImageRepository.save(img);
+                    }
                 }
-                workerDiscoveredImages.put(workerIp, workerSet);
-                worker.setImageCount(workerImages.size());
-                worker.setLastHeartbeat(Instant.now());
-                clusterNodeRepository.save(worker);
-                log.info("[AdminImageService] 子节点 [{}] 探测到 {} 个 Docker 镜像", workerIp, workerImages.size());
-            } else {
-                log.info("[AdminImageService] 子节点 [{}] 暂未响应远程 Docker API 或离线，跳过该节点清理核验", workerIp);
             }
+            log.info("[AdminImageService] 中心 Registry 扫描完成，共索引到 {} 个镜像版本", registryDiscoveredKeys.size());
+        } catch (Exception e) {
+            log.warn("[AdminImageService] 扫描中心 Registry 出现异常: {}", e.getMessage());
         }
 
-        // 步骤 3：核心校验与清理 —— 对比 MySQL 中的所有镜像记录，剔除在所有受检节点中均已不复存在的孤儿镜像
-        log.info("[AdminImageService] 正在比对核验 MySQL 镜像记录与节点实际镜像现状...");
+        // 核心校验与清理：核验 MySQL 中的所有镜像记录，彻底清理未在 Registry 中托管或已不存在的孤儿镜像
+        log.info("[AdminImageService] 正在比对核验 MySQL 镜像记录与中心 Registry 现状...");
         List<ClusterImage> allDbImages = clusterImageRepository.findAll();
         int deletedCount = 0;
-        int adjustedNodesCount = 0;
 
         for (ClusterImage dbImg : allDbImages) {
-            String fullImageName = buildFullImageName(dbImg);
-            String imageId = dbImg.getImageId();
-            Set<String> currentNodes = parseNodeIps(dbImg.getNodeIps());
-            Set<String> retainedNodes = new LinkedHashSet<>();
-
-            for (String nodeIp : currentNodes) {
-                if (successfullyInspectedNodes.contains(nodeIp)) {
-                    boolean existsOnNode = false;
-                    if (masterIp.equalsIgnoreCase(nodeIp) || "127.0.0.1".equalsIgnoreCase(nodeIp)) {
-                        existsOnNode = isImagePresentInSet(fullImageName, imageId, localDiscoveredImages);
-                    } else if (workerDiscoveredImages.containsKey(nodeIp)) {
-                        existsOnNode = isImagePresentInSet(fullImageName, imageId, workerDiscoveredImages.get(nodeIp));
-                    }
-
-                    if (existsOnNode) {
-                        retainedNodes.add(nodeIp);
-                    } else {
-                        adjustedNodesCount++;
-                        log.info("[AdminImageService] 校验发现节点 [{}] 上已无物理镜像: {}，已从该节点移除", nodeIp, fullImageName);
-                    }
-                } else {
-                    // 对于本次未连通或离线的节点，予以保留以防误删离线节点数据
-                    retainedNodes.add(nodeIp);
-                }
-            }
-
-            if (retainedNodes.isEmpty()) {
+            String key = dbImg.getRepository() + ":" + dbImg.getTag();
+            boolean inRegistry = registryDiscoveredKeys.contains(key);
+            if (!inRegistry || !Boolean.TRUE.equals(dbImg.getInRegistry())) {
                 clusterImageRepository.delete(dbImg);
                 deletedCount++;
-                log.info("[AdminImageService] 校验发现镜像在所有节点中均不存在，已从 MySQL 中彻底删除无效记录: {}", fullImageName);
-            } else if (!retainedNodes.equals(currentNodes)) {
-                dbImg.setNodeIps(String.join(",", retainedNodes));
-                dbImg.setUpdatedAt(Instant.now());
-                clusterImageRepository.save(dbImg);
+                log.info("[AdminImageService] 清除历史宿主机/非 Registry 孤儿镜像记录: {}", key);
             }
         }
 
-        log.info("[AdminImageService] 镜像对账校验完成: 彻底清理无效孤儿镜像 {} 个，校正节点关联 {} 处", deletedCount, adjustedNodesCount);
-
+        log.info("[AdminImageService] 镜像对账校验完成: 彻底清理无效宿主机/孤儿镜像 {} 个", deletedCount);
         updateNodeImageCounts();
-        log.info("[AdminImageService] Docker 集群本地与子节点镜像同步与元数据核验已完成");
+        log.info("[AdminImageService] 中心 Registry 镜像元数据对账核验已完成");
     }
 
     @Override
@@ -719,23 +528,23 @@ public class AdminImageServiceImpl implements AdminImageService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "源节点与目标节点不能相同");
         }
 
-        Set<String> currentIps = parseNodeIps(image.getNodeIps());
-        if (!currentIps.contains(sourceIp)) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "该镜像当前未部署在源节点: " + sourceIp);
+        List<ClusterNode> allNodes = clusterNodeRepository.findAll();
+        boolean sourceExists = allNodes.stream().anyMatch(n -> n.getIpAddress().equalsIgnoreCase(sourceIp));
+        if (!sourceExists) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "源节点 " + sourceIp + " 不存在于集群中");
         }
 
-        List<ClusterNode> allNodes = clusterNodeRepository.findAll();
         boolean targetExists = allNodes.stream().anyMatch(n -> n.getIpAddress().equalsIgnoreCase(targetIp));
         if (!targetExists) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "目标节点 " + targetIp + " 不存在于集群中");
         }
 
-        if (allNodes.size() > 1 && "CHALLENGE".equalsIgnoreCase(image.getImageType())) {
+        if (allNodes.size() > 1) {
             boolean targetIsMaster = allNodes.stream()
                     .anyMatch(n -> "MASTER".equalsIgnoreCase(n.getRole()) && n.getIpAddress().equalsIgnoreCase(targetIp));
             if (targetIsMaster) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST,
-                        "集群存在多个节点，主节点保留为平台控制面，禁止将赛题运行镜像转移至主节点！");
+                        "集群存在多个节点，主节点保留为平台控制面，禁止将运行镜像转移至主节点！");
             }
         }
 
@@ -763,13 +572,9 @@ public class AdminImageServiceImpl implements AdminImageService {
                         triggerDockerPullOnNode(targetIp, fullImageName);
                         if (context.isCancelled()) return;
 
-                        context.updateProgress(75, "目标节点镜像拉取完成，正在更新集群镜像节点拓扑...");
+                        context.updateProgress(75, "目标节点镜像拉取完成，正在更新集群镜像状态...");
                         ClusterImage latest = clusterImageRepository.findById(imageId).orElse(null);
                         if (latest != null) {
-                            Set<String> ips = parseNodeIps(latest.getNodeIps());
-                            ips.remove(sourceIp);
-                            ips.add(targetIp);
-                            latest.setNodeIps(String.join(",", ips));
                             latest.setStatus("PULLED");
                             latest.setUpdatedAt(Instant.now());
                             clusterImageRepository.save(latest);
@@ -819,11 +624,6 @@ public class AdminImageServiceImpl implements AdminImageService {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "目标备份节点 " + finalTargetIp + " 不存在");
             }
 
-            Set<String> ipSet = parseNodeIps(image.getNodeIps());
-            if (ipSet.contains(finalTargetIp)) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "目标节点已部署该镜像副本，无需重复备份");
-            }
-
             Long imageId = image.getId();
             String taskName = String.format("镜像副本备份: %s (复制至节点 %s)", fullImageName, finalTargetIp);
             log.info("[AdminImageService] 正在提交镜像容灾副本备份异步任务: {} -> {}", fullImageName, finalTargetIp);
@@ -843,12 +643,9 @@ public class AdminImageServiceImpl implements AdminImageService {
                             triggerDockerPullOnNode(finalTargetIp, fullImageName);
                             if (context.isCancelled()) return;
 
-                            context.updateProgress(80, "目标节点镜像拉取完成，正在更新集群镜像拓扑...");
+                            context.updateProgress(80, "目标节点镜像拉取完成，正在更新集群镜像状态...");
                             ClusterImage latest = clusterImageRepository.findById(imageId).orElse(null);
                             if (latest != null) {
-                                Set<String> currentIps = parseNodeIps(latest.getNodeIps());
-                                currentIps.add(finalTargetIp);
-                                latest.setNodeIps(String.join(",", currentIps));
                                 latest.setUpdatedAt(Instant.now());
                                 clusterImageRepository.save(latest);
                             }
@@ -881,15 +678,7 @@ public class AdminImageServiceImpl implements AdminImageService {
 
         String fullImageName = buildFullImageName(image);
         String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
-
-        // 挑选可以读取该镜像的目标节点
-        Set<String> nodeIps = parseNodeIps(image.getNodeIps());
-        String chosenNode = null;
-        if (nodeIps.contains(publicHost) || nodeIps.contains("127.0.0.1") || nodeIps.isEmpty()) {
-            chosenNode = publicHost;
-        } else {
-            chosenNode = nodeIps.iterator().next();
-        }
+        String chosenNode = StringUtils.hasText(publicHost) ? publicHost.trim() : "127.0.0.1";
 
         List<String> command = buildDockerBaseCommand(chosenNode);
         command.add("save");
@@ -962,6 +751,71 @@ public class AdminImageServiceImpl implements AdminImageService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void pushImageToRegistry(Long id) {
+        if (id == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "镜像 ID 不能为空");
+        }
+        ClusterImage image = clusterImageRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "镜像记录不存在"));
+
+        if (!dockerRegistryClient.isAvailable()) {
+            throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "中心私有镜像仓库未就绪或未启动，无法推送镜像");
+        }
+
+        String fullImageName = buildFullImageName(image);
+        if (!StringUtils.hasText(fullImageName)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "无法解析镜像仓库与标签");
+        }
+
+        // 挑选一个拥有此镜像物理副本的源节点
+        String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        String canonicalMaster = StringUtils.hasText(publicHost) ? publicHost.trim() : "127.0.0.1";
+
+        String chosenNode = null;
+        if (queryDockerInspect(canonicalMaster, fullImageName) != null) {
+            chosenNode = canonicalMaster;
+        } else if (!"127.0.0.1".equalsIgnoreCase(canonicalMaster) && queryDockerInspect("127.0.0.1", fullImageName) != null) {
+            chosenNode = "127.0.0.1";
+        } else {
+            List<ClusterNode> allNodes = clusterNodeRepository.findAll();
+            for (ClusterNode node : allNodes) {
+                String ip = node.getIpAddress();
+                if (StringUtils.hasText(ip) && queryDockerInspect(ip.trim(), fullImageName) != null) {
+                    chosenNode = ip.trim();
+                    break;
+                }
+            }
+        }
+
+        if (chosenNode == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "集群内所有在线节点均未找到镜像物理文件 [" + fullImageName + "]，请先确保至少有一个节点包含此镜像");
+        }
+
+        String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+        String targetRegistryTag = publicRegistryHost + "/" + fullImageName;
+
+        log.info("[AdminImageService] 正在将镜像 [{}] 从节点 [{}] 推送至中心 Registry: {}...",
+                fullImageName, chosenNode, targetRegistryTag);
+
+        // 1. 打标
+        tagDockerImageOnNode(chosenNode, fullImageName, targetRegistryTag);
+
+        // 2. 推送
+        boolean pushSuccess = triggerDockerPushOnNode(chosenNode, targetRegistryTag);
+        if (!pushSuccess) {
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "推送镜像至中心 Registry 失败，请检查节点 Docker 与 Registry 网络连通性");
+        }
+
+        // 3. 标记元数据
+        image.setInRegistry(true);
+        image.setUpdatedAt(Instant.now());
+        clusterImageRepository.save(image);
+
+        log.info("[AdminImageService] 镜像 [{}] 已成功推送至中心私有镜像仓库并完成元数据同步", fullImageName);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void ensureImageOnNode(String targetNodeIp, String fullImageName) {
         if (!StringUtils.hasText(targetNodeIp) || !StringUtils.hasText(fullImageName)) {
             return;
@@ -985,59 +839,50 @@ public class AdminImageServiceImpl implements AdminImageService {
         JSONObject inspectTarget = queryDockerInspect(targetIp, imageName);
         if (inspectTarget != null) {
             log.info("[AdminImageService] 目标节点 [{}] Docker 引擎已实际存在镜像 [{}]，校验通过", targetIp, imageName);
-            if (imageOpt.isPresent()) {
-                ClusterImage img = imageOpt.get();
-                Set<String> nodeIps = parseNodeIps(img.getNodeIps());
-                if (!nodeIps.contains(targetIp)) {
-                    nodeIps.add(targetIp);
-                    img.setNodeIps(String.join(",", nodeIps));
-                    img.setUpdatedAt(Instant.now());
-                    clusterImageRepository.save(img);
-                    updateNodeImageCounts();
-                }
-            }
             return;
         }
 
-        // 3. 目标节点物理缺失该镜像：若数据库之前误记录了包含该节点，则纠正元数据
-        if (imageOpt.isPresent()) {
-            ClusterImage img = imageOpt.get();
-            Set<String> nodeIps = parseNodeIps(img.getNodeIps());
-            if (nodeIps.remove(targetIp)) {
-                img.setNodeIps(String.join(",", nodeIps));
-                img.setUpdatedAt(Instant.now());
-                clusterImageRepository.save(img);
-                updateNodeImageCounts();
+        // 3. 若镜像已存在于中心 Registry，优先从 Registry 快速拉取并重新打标
+        boolean pulledFromRegistry = false;
+        if (dockerRegistryClient.isAvailable() && imageOpt.isPresent() && Boolean.TRUE.equals(imageOpt.get().getInRegistry())) {
+            String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+            String registryImageTag = publicRegistryHost + "/" + imageName;
+            log.info("[AdminImageService] 镜像 [{}] 已索引于中心 Registry，尝试通过 Registry 快速下发至节点 [{}] (源: {})...",
+                    imageName, targetIp, registryImageTag);
+            try {
+                triggerDockerPullOnNode(targetIp, registryImageTag);
+                if (queryDockerInspect(targetIp, registryImageTag) != null) {
+                    tagDockerImageOnNode(targetIp, registryImageTag, imageName);
+                    pulledFromRegistry = true;
+                    log.info("[AdminImageService] 节点 [{}] 成功从中心 Registry 下发并打标镜像 [{}]", targetIp, imageName);
+                }
+            } catch (Exception e) {
+                log.warn("[AdminImageService] 节点 [{}] 从中心 Registry 拉取镜像失败: {}，准备回退至节点流式复制", targetIp, e.getMessage());
             }
+        }
+
+        if (pulledFromRegistry) {
+            updateNodeImageCounts();
+            return;
         }
 
         // 4. 寻找持有该镜像的可用源节点
         String sourceNodeIp = null;
-        if (imageOpt.isPresent()) {
-            Set<String> nodeIps = parseNodeIps(imageOpt.get().getNodeIps());
-            List<String> readyNodeIps = clusterNodeRepository.findByStatus("READY").stream()
-                    .map(ClusterNode::getIpAddress)
-                    .toList();
-            String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        List<ClusterNode> readyNodes = clusterNodeRepository.findByStatus("READY");
+        String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
 
-            for (String ip : nodeIps) {
-                if (!ip.equalsIgnoreCase(targetIp) && (readyNodeIps.contains(ip) || "127.0.0.1".equals(ip) || publicHost.equalsIgnoreCase(ip))) {
-                    if (queryDockerInspect(ip, imageName) != null) {
-                        sourceNodeIp = ip;
+        if (!targetIp.equalsIgnoreCase(publicHost) && queryDockerInspect(publicHost, imageName) != null) {
+            sourceNodeIp = publicHost;
+        } else if (!targetIp.equals("127.0.0.1") && queryDockerInspect("127.0.0.1", imageName) != null) {
+            sourceNodeIp = "127.0.0.1";
+        } else {
+            for (ClusterNode node : readyNodes) {
+                String ip = node.getIpAddress();
+                if (StringUtils.hasText(ip) && !ip.equalsIgnoreCase(targetIp)) {
+                    if (queryDockerInspect(ip.trim(), imageName) != null) {
+                        sourceNodeIp = ip.trim();
                         break;
                     }
-                }
-            }
-        }
-
-        // 如果数据库中未找到其它有效节点，尝试检查主节点 Docker
-        if (sourceNodeIp == null) {
-            if (!targetIp.equals("127.0.0.1") && queryDockerInspect("127.0.0.1", imageName) != null) {
-                sourceNodeIp = "127.0.0.1";
-            } else {
-                String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
-                if (!targetIp.equalsIgnoreCase(publicHost) && queryDockerInspect(publicHost, imageName) != null) {
-                    sourceNodeIp = publicHost;
                 }
             }
         }
@@ -1054,12 +899,9 @@ public class AdminImageServiceImpl implements AdminImageService {
                 targetIp, imageName, sourceNodeIp);
         replicateImageToNode(sourceNodeIp, targetIp, imageName);
 
-        // 6. 更新数据库镜像分布元数据
+        // 6. 更新数据库镜像分布与节点计数
         if (imageOpt.isPresent()) {
             ClusterImage img = imageOpt.get();
-            Set<String> nodeIps = parseNodeIps(img.getNodeIps());
-            nodeIps.add(targetIp);
-            img.setNodeIps(String.join(",", nodeIps));
             img.setUpdatedAt(Instant.now());
             clusterImageRepository.save(img);
             updateNodeImageCounts();
@@ -1208,16 +1050,15 @@ public class AdminImageServiceImpl implements AdminImageService {
                         long sizeBytes = parseSizeToBytes(sizeStr);
                         String instruction = extractInstruction(rawCreatedBy);
 
-                        DockerImageLayerVO layerVO = DockerImageLayerVO.builder()
-                                .layerIndex(totalLayers - i)
-                                .layerId(layerId)
-                                .instruction(instruction)
-                                .createdBy(rawCreatedBy)
-                                .sizeBytes(sizeBytes)
-                                .sizeFormatted(formatBytes(sizeBytes))
-                                .createdAt(createdAt)
-                                .comment("")
-                                .build();
+                        DockerImageLayerVO layerVO = clusterImageMapper.toLayerVO(
+                                totalLayers - i,
+                                layerId,
+                                instruction,
+                                rawCreatedBy,
+                                sizeBytes,
+                                createdAt,
+                                ""
+                        );
                         layers.add(layerVO);
                     }
                 }
@@ -1248,6 +1089,12 @@ public class AdminImageServiceImpl implements AdminImageService {
         if (StringUtils.hasText(swarmApiUrl) && (swarmApiUrl.startsWith("tcp://") || swarmApiUrl.startsWith("http://"))) {
             String httpUrl = swarmApiUrl.replace("tcp://", "http://");
             list = queryDockerHttpApi(httpUrl);
+        } else {
+            // 优先通过 Unix Domain Socket 原生通信直连 Docker 守护进程 API
+            String socketPath = (StringUtils.hasText(swarmApiUrl) && swarmApiUrl.startsWith("unix://"))
+                    ? swarmApiUrl.substring(7)
+                    : (StringUtils.hasText(swarmApiUrl) ? swarmApiUrl : "/var/run/docker.sock");
+            list = queryDockerUnixSocket(socketPath);
         }
 
         if (list.isEmpty()) {
@@ -1329,6 +1176,100 @@ public class AdminImageServiceImpl implements AdminImageService {
         return list;
     }
 
+    private List<DiscoveredDockerImage> queryDockerUnixSocket(String socketPath) {
+        File socketFile = new File(socketPath);
+        if (!socketFile.exists()) {
+            return Collections.emptyList();
+        }
+        List<DiscoveredDockerImage> list = new ArrayList<>();
+        try {
+            UnixDomainSocketAddress address = UnixDomainSocketAddress.of(socketFile.toPath());
+            try (SocketChannel channel = SocketChannel.open(address)) {
+                channel.configureBlocking(true);
+                String request = "GET /images/json HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+                channel.write(ByteBuffer.wrap(request.getBytes(StandardCharsets.US_ASCII)));
+
+                ByteBuffer buffer = ByteBuffer.allocate(64 * 1024);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                while (channel.read(buffer) > 0) {
+                    buffer.flip();
+                    byte[] data = new byte[buffer.remaining()];
+                    buffer.get(data);
+                    baos.write(data);
+                    buffer.clear();
+                }
+
+                String responseStr = baos.toString(StandardCharsets.UTF_8);
+                int firstBracket = responseStr.indexOf('[');
+                int lastBracket = responseStr.lastIndexOf(']');
+                if (firstBracket >= 0 && lastBracket > firstBracket) {
+                    String jsonArrayStr = responseStr.substring(firstBracket, lastBracket + 1);
+                    JSONArray array = JSONUtil.parseArray(jsonArrayStr);
+                    for (int i = 0; i < array.size(); i++) {
+                        JSONObject obj = array.getJSONObject(i);
+                        String id = obj.getStr("Id", "");
+                        Long size = obj.getLong("Size", 0L);
+                        JSONArray repoTags = obj.getJSONArray("RepoTags");
+                        if (repoTags != null) {
+                            for (int j = 0; j < repoTags.size(); j++) {
+                                String repoTag = repoTags.getStr(j);
+                                if (!StringUtils.hasText(repoTag) || "<none>:<none>".equals(repoTag)) continue;
+                                String repo = repoTag;
+                                String tag = "latest";
+                                int idx = repoTag.lastIndexOf(':');
+                                if (idx > 0 && !repoTag.substring(idx + 1).contains("/")) {
+                                    repo = repoTag.substring(0, idx);
+                                    tag = repoTag.substring(idx + 1);
+                                }
+                                list.add(new DiscoveredDockerImage(repo, tag, id, size != null ? size : 0L));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("[AdminImageService] Unix Domain Socket 直连 Docker 镜像查询提示: {}", e.getMessage());
+        }
+        return list;
+    }
+
+    private boolean isLocalDockerReachable() {
+        String swarmApiUrl = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_DOCKER_SWARM_API_URL, "unix:///var/run/docker.sock");
+        if (StringUtils.hasText(swarmApiUrl) && (swarmApiUrl.startsWith("tcp://") || swarmApiUrl.startsWith("http://"))) {
+            String httpUrl = swarmApiUrl.replace("tcp://", "http://");
+            try {
+                HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
+                HttpRequest req = HttpRequest.newBuilder().uri(URI.create(httpUrl + "/_ping")).timeout(Duration.ofSeconds(2)).GET().build();
+                HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+                return resp.statusCode() == 200;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        String socketPath = (StringUtils.hasText(swarmApiUrl) && swarmApiUrl.startsWith("unix://"))
+                ? swarmApiUrl.substring(7)
+                : (StringUtils.hasText(swarmApiUrl) ? swarmApiUrl : "/var/run/docker.sock");
+        File socketFile = new File(socketPath);
+        if (socketFile.exists()) {
+            try {
+                UnixDomainSocketAddress address = UnixDomainSocketAddress.of(socketFile.toPath());
+                try (SocketChannel channel = SocketChannel.open(address)) {
+                    return channel.isConnected();
+                }
+            } catch (Exception e) {
+                // fall through
+            }
+        }
+
+        try {
+            Process p = new ProcessBuilder("docker", "version").start();
+            return p.waitFor(3, TimeUnit.SECONDS) && p.exitValue() == 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private List<DiscoveredDockerImage> queryDockerCli(String targetHost) {
         List<DiscoveredDockerImage> list = new ArrayList<>();
         try {
@@ -1366,7 +1307,7 @@ public class AdminImageServiceImpl implements AdminImageService {
                 }
             }
         } catch (Exception e) {
-            log.debug("[AdminImageService] 调度 Docker CLI 获取镜像列表提示: {}", e.getMessage());
+            log.warn("[AdminImageService] 调度 Docker CLI 获取镜像列表异常 (请确认容器内已安装 docker-cli 且已挂载 docker.sock): {}", e.getMessage());
         }
         return list;
     }
@@ -1415,28 +1356,10 @@ public class AdminImageServiceImpl implements AdminImageService {
             if (img.sizeBytes() > 0) {
                 image.setSizeBytes(img.sizeBytes());
             }
-            Set<String> ipSet = parseNodeIps(image.getNodeIps());
-            ipSet.add(nodeIp);
-            image.setNodeIps(String.join(",", ipSet));
             image.setStatus("PULLED");
             image.setUpdatedAt(Instant.now());
         } else {
-            String imageType = "BASE";
-            String lowerRepo = img.repository().toLowerCase(Locale.ROOT);
-            if (lowerRepo.contains("ctf") || lowerRepo.contains("challenge") || lowerRepo.contains("pwn") || lowerRepo.contains("web")) {
-                imageType = "CHALLENGE";
-            }
-            image = ClusterImage.builder()
-                    .repository(img.repository())
-                    .tag(img.tag())
-                    .imageId(img.imageId())
-                    .sizeBytes(img.sizeBytes())
-                    .imageType(imageType)
-                    .nodeIps(nodeIp)
-                    .status("PULLED")
-                    .createdAt(Instant.now())
-                    .updatedAt(Instant.now())
-                    .build();
+            image = clusterImageMapper.toEntity(img);
         }
         clusterImageRepository.save(image);
     }
@@ -1457,6 +1380,48 @@ public class AdminImageServiceImpl implements AdminImageService {
             }
         } catch (Exception e) {
             log.warn("[AdminImageService] 调度节点 [{}] docker pull 提示: {}，已记录镜像元数据", nodeIp, e.getMessage());
+        }
+    }
+
+    private void tagDockerImageOnNode(String nodeIp, String sourceImage, String targetImage) {
+        try {
+            List<String> command = buildDockerBaseCommand(nodeIp);
+            command.add("tag");
+            command.add(sourceImage);
+            command.add(targetImage);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            Process process = pb.start();
+            boolean finished = process.waitFor(15, TimeUnit.SECONDS);
+            if (finished && process.exitValue() == 0) {
+                log.info("[AdminImageService] 节点 [{}] Docker tag 成功: {} -> {}", nodeIp, sourceImage, targetImage);
+            } else {
+                log.warn("[AdminImageService] 节点 [{}] Docker tag 异常: exitCode={}", nodeIp, finished ? process.exitValue() : "TIMEOUT");
+            }
+        } catch (Exception e) {
+            log.warn("[AdminImageService] 节点 [{}] Docker tag 发生异常: {}", nodeIp, e.getMessage());
+        }
+    }
+
+    private boolean triggerDockerPushOnNode(String nodeIp, String registryImageName) {
+        try {
+            List<String> command = buildDockerBaseCommand(nodeIp);
+            command.add("push");
+            command.add(registryImageName);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            Process process = pb.start();
+            boolean finished = process.waitFor(300, TimeUnit.SECONDS);
+            if (finished && process.exitValue() == 0) {
+                log.info("[AdminImageService] 节点 [{}] Docker push 成功: {}", nodeIp, registryImageName);
+                return true;
+            } else {
+                log.error("[AdminImageService] 节点 [{}] Docker push 失败: exitCode={}", nodeIp, finished ? process.exitValue() : "TIMEOUT");
+                return false;
+            }
+        } catch (Exception e) {
+            log.error("[AdminImageService] 节点 [{}] Docker push 发生异常: {}", nodeIp, e.getMessage());
+            return false;
         }
     }
 
@@ -1986,40 +1951,17 @@ public class AdminImageServiceImpl implements AdminImageService {
                 || (StringUtils.hasText(publicHost) && publicHost.equalsIgnoreCase(clean));
     }
 
-    private Set<String> parseNodeIps(String nodeIps) {
-        Set<String> set = new LinkedHashSet<>();
-        if (StringUtils.hasText(nodeIps)) {
-            Arrays.stream(nodeIps.split(","))
-                    .map(String::trim)
-                    .filter(StringUtils::hasText)
-                    .forEach(set::add);
-        }
-        return set;
-    }
-
     private String buildFullImageName(ClusterImage image) {
         if (!StringUtils.hasText(image.getRepository())) return "";
         return StringUtils.hasText(image.getTag()) ? image.getRepository() + ":" + image.getTag() : image.getRepository() + ":latest";
     }
 
-    private void updateNodeImageCounts() {
-        List<ClusterImage> allImages = clusterImageRepository.findAll();
+    @Override
+    public void updateNodeImageCounts() {
+        long inRegistryCount = clusterImageRepository.countByInRegistryTrue();
         List<ClusterNode> allNodes = clusterNodeRepository.findAll();
-        String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
-
         for (ClusterNode node : allNodes) {
-            String ip = node.getIpAddress();
-            boolean isLocal = isLocalNode(ip, publicHost);
-            long count = allImages.stream()
-                    .filter(img -> {
-                        if (!StringUtils.hasText(img.getNodeIps())) {
-                            return isLocal;
-                        }
-                        Set<String> ips = parseNodeIps(img.getNodeIps());
-                        return ips.contains(ip) || (isLocal && (ips.contains("127.0.0.1") || ips.contains(publicHost)));
-                    })
-                    .count();
-            node.setImageCount((int) count);
+            node.setImageCount((int) inRegistryCount);
             clusterNodeRepository.save(node);
         }
     }
@@ -2047,14 +1989,6 @@ public class AdminImageServiceImpl implements AdminImageService {
                 .build();
 
         clusterNodeRepository.save(masterNode);
-    }
-
-    private String formatBytes(long bytes) {
-        if (bytes <= 0) return "0 B";
-        final String[] units = new String[]{"B", "KB", "MB", "GB", "TB"};
-        int digitGroups = (int) (Math.log10(bytes) / Math.log10(1024));
-        digitGroups = Math.min(digitGroups, units.length - 1);
-        return String.format(Locale.ROOT, "%.1f %s", bytes / Math.pow(1024, digitGroups), units[digitGroups]);
     }
 
 }

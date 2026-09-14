@@ -20,9 +20,6 @@ public class TeamUpdateRequestDTO {
     private String avatarUrl;
 
     @Valid
-    private List<TeamMemberInputDTO> leaders = new ArrayList<>();
-
-    @Valid
-    private List<TeamMemberInputDTO> members = new ArrayList<>();
+    private List<TeamMemberSignupDTO> members = new ArrayList<>();
 
 }

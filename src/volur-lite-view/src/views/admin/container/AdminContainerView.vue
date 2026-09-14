@@ -86,86 +86,83 @@
     </div>
 
     <!-- Main Table Card -->
-    <n-card class="table-card" :bordered="false">
-      <!-- Filter & Action Controls -->
-      <div class="filter-header">
-        <div class="filter-left">
-          <n-input
-            v-model:value="searchKeyword"
-            :placeholder="t('admin.containers.search.placeholder')"
-            clearable
-            style="width: 280px;"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <n-icon :component="SearchOutline" />
-            </template>
-          </n-input>
+    <AppTableCard
+      :bordered="true"
+      :table-bordered="true"
+      :scroll-x="1650"
+      remote
+      :columns="columns"
+      :data="containerList"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="(row: AdminContainerInstanceVO) => String(row.id)"
+      v-model:checked-row-keys="selectedRowKeys"
+      table-class="container-data-table"
+      @update:sorter="handleSorterChange"
+      @update:page="handlePageChange"
+      @update:page-size="handlePageSizeChange"
+    >
+      <template #filter-left>
+        <n-input
+          v-model:value="searchKeyword"
+          :placeholder="t('admin.containers.search.placeholder')"
+          clearable
+          style="width: 280px;"
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <n-icon :component="SearchOutline" />
+          </template>
+        </n-input>
 
-          <n-select
-            v-model:value="filterStatus"
-            :placeholder="t('admin.containers.search.statusAll')"
-            clearable
-            :options="statusOptions"
-            style="width: 180px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterStatus"
+          :placeholder="t('admin.containers.search.statusAll')"
+          clearable
+          :options="statusOptions"
+          style="width: 180px;"
+          @update:value="handleSearch"
+        />
 
-          <n-button type="primary" class="theme-primary-btn" @click="handleSearch">
-            <template #icon>
-              <n-icon :component="SearchOutline" />
-            </template>
-            {{ t('admin.containers.search.refresh') }}
-          </n-button>
+        <n-button type="primary" class="theme-primary-btn" @click="handleSearch">
+          <template #icon>
+            <n-icon :component="SearchOutline" />
+          </template>
+          {{ t('admin.containers.search.refresh') }}
+        </n-button>
 
-          <n-button quaternary @click="handleReset">
-            <template #icon>
-              <n-icon :component="RefreshOutline" />
-            </template>
-            {{ t('admin.containers.search.reset') }}
-          </n-button>
-        </div>
+        <n-button quaternary @click="handleReset">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          {{ t('admin.containers.search.reset') }}
+        </n-button>
+      </template>
 
-        <div class="filter-right">
-          <n-button type="primary" class="theme-primary-btn" @click="openManualStartModal">
-            <template #icon>
-              <n-icon :component="AddOutline" />
-            </template>
-            {{ t('admin.containers.search.manualStart') }}
-          </n-button>
+      <template #filter-right>
+        <n-button type="primary" class="theme-primary-btn" @click="openManualStartModal">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
+          {{ t('admin.containers.search.manualStart') }}
+        </n-button>
 
-          <n-popconfirm
-            v-if="selectedRowKeys.length > 0"
-            @positive-click="handleBatchStop"
-          >
-            <template #trigger>
-              <n-button type="error" ghost>
-                <template #icon>
-                  <n-icon :component="TrashOutline" />
-                </template>
-                {{ t('admin.containers.search.batchStop') }} ({{ selectedRowKeys.length }})
-              </n-button>
-            </template>
-            {{ t('admin.containers.search.batchStopConfirmContent', { count: selectedRowKeys.length }) }}
-          </n-popconfirm>
-        </div>
-      </div>
-
-      <!-- Data Table -->
-      <n-data-table
-        remote
-        :columns="columns"
-        :data="containerList"
-        :loading="loading"
-        :pagination="pagination"
-        :row-key="(row: AdminContainerInstanceVO) => String(row.id)"
-        v-model:checked-row-keys="selectedRowKeys"
-        @update:sorter="handleSorterChange"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-        class="container-data-table"
-      />
-    </n-card>
+        <n-popconfirm
+          v-if="selectedRowKeys.length > 0"
+          @positive-click="handleBatchStop"
+        >
+          <template #trigger>
+            <n-button type="error" ghost>
+              <template #icon>
+                <n-icon :component="TrashOutline" />
+              </template>
+              {{ t('admin.containers.search.batchStop') }} ({{ selectedRowKeys.length }})
+            </n-button>
+          </template>
+          {{ t('admin.containers.search.batchStopConfirmContent', { count: selectedRowKeys.length }) }}
+        </n-popconfirm>
+      </template>
+    </AppTableCard>
 
     <!-- Renew Duration Modal -->
     <n-modal
@@ -269,6 +266,15 @@
                   :loading="candidateNodesLoading"
                   :placeholder="t('admin.containers.actions.targetNodePlaceholder')"
                 />
+              </n-form-item>
+            </n-grid-item>
+
+            <n-grid-item :span="12">
+              <n-form-item :label="t('admin.containers.actions.outboundLabel') || '出网权限 (访问外网)'">
+                <n-switch v-model:value="manualStartForm.outboundEnabled" style="margin-top: 4px;">
+                  <template #checked>{{ t('admin.containers.actions.outboundAllowed') || '允许出网 (外部互联)' }}</template>
+                  <template #unchecked>{{ t('admin.containers.actions.outboundBlocked') || '禁止出网 (网络隔离)' }}</template>
+                </n-switch>
               </n-form-item>
             </n-grid-item>
           </n-grid>
@@ -637,13 +643,11 @@
 <script setup lang="ts">
 import { h, ref, reactive, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import {
-  NCard,
   NIcon,
   NInput,
   NInputNumber,
   NSelect,
   NButton,
-  NDataTable,
   NModal,
   NForm,
   NFormItem,
@@ -659,6 +663,7 @@ import {
   type DataTableColumns,
   type SelectOption
 } from 'naive-ui'
+import AppTableCard from '@/components/common/AppTableCard.vue'
 import {
   CubeOutline,
   PlayCircleOutline,
@@ -698,6 +703,7 @@ import type {
 } from '@/types/container'
 import type { AdminClusterImageVO } from '@/types/image'
 import type { AdminClusterNodeVO } from '@/types/cluster'
+import { formatBytes } from '@/utils/parser'
 
 const { t } = useI18n()
 const message = useMessage()
@@ -785,6 +791,7 @@ const manualStartForm = reactive({
   cpuLimit: 1,
   memoryLimit: 256,
   customFlag: '',
+  outboundEnabled: true,
   ports: [] as PortRow[],
   volumes: [] as VolumeRow[],
   environments: [] as EnvRow[]
@@ -812,7 +819,7 @@ const candidateNodeOptions = computed<SelectOption[]>(() => {
 
 const imageOptions = computed<SelectOption[]>(() => {
   const list: SelectOption[] = clusterImages.value.map(img => ({
-    label: `${img.fullImageName} (${img.sizeFormatted || 'Cluster Image'})`,
+    label: `${img.fullImageName} (${formatBytes(img.sizeBytes) || 'Cluster Image'})`,
     value: img.fullImageName
   }))
   if (manualStartForm.imageName && !list.some(i => i.value === manualStartForm.imageName)) {
@@ -899,7 +906,7 @@ const columns: DataTableColumns<AdminContainerInstanceVO> = [
   {
     title: () => t('admin.containers.table.id'),
     key: 'id',
-    width: 170,
+    width: 180,
     render(row) {
       return h(
         'span',
@@ -1409,6 +1416,7 @@ function openManualStartModal() {
   manualStartForm.cpuLimit = 1
   manualStartForm.memoryLimit = 256
   manualStartForm.customFlag = ''
+  manualStartForm.outboundEnabled = true
   manualStartForm.ports = [
     { hostPort: null, containerPort: 80, protocol: 'TCP' }
   ]
@@ -1460,6 +1468,7 @@ async function handleConfirmManualStart() {
       cpuLimit: manualStartForm.cpuLimit || 1,
       memoryLimit: manualStartForm.memoryLimit || 256,
       customFlag: manualStartForm.customFlag && manualStartForm.customFlag.trim() ? manualStartForm.customFlag.trim() : undefined,
+      outboundEnabled: manualStartForm.outboundEnabled,
       ports: validPorts.length > 0 ? validPorts : undefined,
       volumes: validVolumes.length > 0 ? validVolumes : undefined,
       environments: validEnvs.length > 0 ? validEnvs : undefined
@@ -1776,45 +1785,6 @@ onUnmounted(() => {
       font-weight: 500;
       white-space: nowrap;
     }
-  }
-}
-
-.table-card {
-  border-radius: 10px;
-  background-color: var(--n-color, #ffffff);
-
-  .filter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 16px;
-
-    .filter-left {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .filter-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-  }
-}
-
-.theme-primary-btn {
-  background-color: #000000 !important;
-  color: #ffffff !important;
-  font-weight: 500;
-  border-radius: 6px;
-  border: none !important;
-
-  &:hover {
-    background-color: #222222 !important;
   }
 }
 

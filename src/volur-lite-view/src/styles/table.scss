@@ -1,0 +1,137 @@
+/**
+ * Volur Lite 通用列表与数据表格标准样式体系 (Common Table & List Styles)
+ * 收敛后台管理系统与前台列表中高频复用的卡片、工具栏、按钮与单元格样式类
+ */
+
+// 1. 数据表格包装卡片与列表表格体系
+.table-card,
+.app-table-card {
+  border-radius: 10px;
+  background-color: var(--n-color, var(--v-bg-card, #ffffff));
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+
+  // 列表外层边框与圆角启用，同时消除内部实线划分
+  .n-data-table {
+    .n-data-table-wrapper {
+      border: 1px solid var(--n-border-color, var(--n-merged-border-color, #e0e0e6)) !important;
+      border-radius: 8px !important;
+      overflow: hidden !important;
+      box-shadow: none !important;
+    }
+
+    .n-data-table-table {
+      &::after,
+      &::before {
+        border: none !important;
+        display: none !important;
+      }
+    }
+
+    .n-data-table-th {
+      border: none !important;
+      border-bottom: none !important;
+      border-right: none !important;
+    }
+
+    .n-data-table-td {
+      border: none !important;
+      border-bottom: none !important;
+      border-right: none !important;
+
+      &::after,
+      &::before {
+        border: none !important;
+        display: none !important;
+      }
+    }
+  }
+}
+
+// 2. 顶部查询过滤与操作工具栏
+.filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  .filter-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .filter-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+// 3. Volur 标准主要操作按钮 (亮色纯黑 / 暗色自适应)
+.theme-primary-btn {
+  background-color: var(--v-btn-primary-bg, #000000) !important;
+  color: var(--v-btn-primary-text, #ffffff) !important;
+  font-weight: 500;
+  border-radius: 6px;
+  border: none !important;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+
+  &:hover {
+    background-color: var(--v-btn-primary-hover, #222222) !important;
+  }
+
+  &:active {
+    background-color: var(--v-btn-primary-active, #333333) !important;
+  }
+
+  &:disabled,
+  &.n-button--disabled {
+    opacity: 0.5;
+    background-color: var(--v-btn-primary-bg, #000000) !important;
+  }
+}
+
+// 4. 等宽排版与标识文本
+.mono-text,
+.id-text {
+  font-family: var(--v-font-mono, 'Fira Code', monospace);
+  font-size: 12.5px;
+  color: var(--v-text-desc, #444444);
+  white-space: nowrap;
+}
+
+// 5. 单行防溢出截断
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 6. 次级说明文本与时间
+.time-text {
+  font-size: 12px;
+  color: var(--v-text-desc, #444444);
+}
+
+.text-muted {
+  color: var(--v-text-disabled, #999999);
+}
+
+// 7. 表格操作列按钮容器
+.table-action-btns,
+.action-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// 8. 独立外部分页条对齐容器
+.pagination-bar,
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}

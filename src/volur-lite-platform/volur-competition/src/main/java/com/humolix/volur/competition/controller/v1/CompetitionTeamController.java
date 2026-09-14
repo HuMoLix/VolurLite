@@ -5,6 +5,7 @@ import com.humolix.volur.competition.domain.dto.TeamSignupRequestDTO;
 import com.humolix.volur.competition.domain.dto.TeamUpdateRequestDTO;
 import com.humolix.volur.competition.domain.vo.CompetitionTeamVO;
 import com.humolix.volur.competition.domain.vo.MyTeamInfoVO;
+import com.humolix.volur.competition.domain.vo.TeamInvitationVO;
 import com.humolix.volur.competition.service.CompetitionTeamService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
@@ -28,8 +29,10 @@ public class CompetitionTeamController {
 
     @Operation(summary = "获取当前竞赛所有参赛队伍列表")
     @GetMapping
-    public ApiResponse<List<CompetitionTeamVO>> listTeams(@PathVariable Long competitionId) {
-        return ApiResponseEntity.ok("获取参赛队伍列表成功", teamService.listTeams(competitionId));
+    public ApiResponse<List<CompetitionTeamVO>> listTeams(
+            @PathVariable Long competitionId,
+            @CurrentUserId Long userId) {
+        return ApiResponseEntity.ok("获取参赛队伍列表成功", teamService.listTeams(competitionId, userId));
     }
 
     @Operation(summary = "创建队伍并完成报名")
@@ -59,6 +62,24 @@ public class CompetitionTeamController {
             @Valid @RequestBody TeamUpdateRequestDTO request) {
         teamService.updateTeam(competitionId, userId, request);
         return ApiResponseEntity.success("修改队伍信息成功");
+    }
+
+    @Operation(summary = "解散我的战队（队长权限）")
+    @Syslog(module = "COMPETITION", value = "解散参赛队伍", recordParams = true)
+    @DeleteMapping("/me")
+    public ApiResponse<Void> deleteMyTeam(
+            @PathVariable Long competitionId,
+            @CurrentUserId Long userId) {
+        teamService.deleteMyTeam(competitionId, userId);
+        return ApiResponseEntity.success("解散队伍成功");
+    }
+
+    @Operation(summary = "获取当前用户收到的本场竞赛战队邀请列表")
+    @GetMapping("/invitations/me")
+    public ApiResponse<List<TeamInvitationVO>> getMyInvitations(
+            @PathVariable Long competitionId,
+            @CurrentUserId Long userId) {
+        return ApiResponseEntity.ok("获取队伍邀请列表成功", teamService.getMyInvitations(competitionId, userId));
     }
 
     @Operation(summary = "受邀队员确认接受组队邀请")

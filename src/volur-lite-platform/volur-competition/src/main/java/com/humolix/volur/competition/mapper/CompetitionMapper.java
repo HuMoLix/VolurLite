@@ -20,14 +20,14 @@ public interface CompetitionMapper {
 
     List<CompetitionSummaryVO> toSummaryVOList(List<Competition> competitions);
 
+    @Mapping(source = "competition.config.maxLeaders", target = "maxLeaders")
     @Mapping(source = "competition.config.maxTeamMembers", target = "maxTeamMembers")
     @Mapping(source = "competition.config.minTeamMembers", target = "minTeamMembers")
     @Mapping(source = "competition.config.requireTeamAudit", target = "requireTeamAudit")
     @Mapping(source = "competition.config.allowWriteupSubmission", target = "allowWriteupSubmission")
-    @Mapping(source = "competition.stageConfigs", target = "stages")
-    @Mapping(source = "competition.fieldSchemas", target = "registrationFields")
     CompetitionDetailVO toDetailVO(Competition competition);
 
+    @Mapping(source = "competition.config.maxLeaders", target = "maxLeaders")
     @Mapping(source = "competition.config.maxTeamMembers", target = "maxTeamMembers")
     @Mapping(source = "competition.config.minTeamMembers", target = "minTeamMembers")
     @Mapping(source = "competition.config.maxTeams", target = "maxTeams")
@@ -35,8 +35,11 @@ public interface CompetitionMapper {
     @Mapping(source = "competition.config.freezeScoreboardMinutes", target = "freezeScoreboardMinutes")
     @Mapping(source = "competition.config.isScoreboardFrozen", target = "isScoreboardFrozen")
     @Mapping(source = "competition.config.allowWriteupSubmission", target = "allowWriteupSubmission")
-    @Mapping(source = "competition.stageConfigs", target = "stages")
-    @Mapping(source = "competition.fieldSchemas", target = "fieldSchemas")
+    @Mapping(source = "competition.config.maxContainersPerTeam", target = "maxContainersPerTeam")
+    @Mapping(source = "competition.config.writeupTemplateUrl", target = "writeupTemplateUrl")
+    @Mapping(source = "competition.config.writeupTemplateName", target = "writeupTemplateName")
+    @Mapping(source = "competition.config.writeupStartTime", target = "writeupStartTime")
+    @Mapping(source = "competition.config.writeupEndTime", target = "writeupEndTime")
     @Mapping(source = "competition.createdBy.id", target = "createdById")
     @Mapping(source = "competition.createdBy.username", target = "createdByName")
     AdminCompetitionDetailVO toAdminDetailVO(Competition competition);
@@ -45,29 +48,25 @@ public interface CompetitionMapper {
 
     List<AdminCompetitionListVO> toAdminListVOList(List<Competition> competitions);
 
-    CompetitionStageVO toStageVO(CompetitionStageConfig stageConfig);
-
-    List<CompetitionStageVO> toStageVOList(List<CompetitionStageConfig> stageConfigs);
-
-    CompetitionFieldSchemaVO toFieldSchemaVO(CompetitionFieldSchema fieldSchema);
-
-    List<CompetitionFieldSchemaVO> toFieldSchemaVOList(List<CompetitionFieldSchema> fieldSchemas);
-
     @Mapping(source = "competition.config.maxLeaders", target = "maxLeaders")
     @Mapping(source = "competition.config.maxTeamMembers", target = "maxTeamMembers")
     @Mapping(source = "competition.config.minTeamMembers", target = "minTeamMembers")
     @Mapping(source = "competition.config.maxTeams", target = "maxTeams")
     @Mapping(source = "competition.config.requireTeamAudit", target = "requireTeamAudit")
-    @Mapping(source = "competition.stageConfigs", target = "stages")
-    @Mapping(source = "competition.fieldSchemas", target = "registrationFields")
     CompetitionAboutVO toAboutVO(Competition competition);
 
     @Mapping(source = "member.user.id", target = "userId")
     @Mapping(source = "member.user.username", target = "username")
     @Mapping(source = "member.user.userProfile.avatarUrl", target = "avatarUrl")
-    @Mapping(source = "member.user.userProfile.org", target = "org")
-    @Mapping(source = "member.user.phone", target = "phone")
-    @Mapping(source = "member.user.email", target = "email")
+    @Mapping(source = "member.realName", target = "realName")
+    @Mapping(source = "member.gender", target = "gender")
+    @Mapping(source = "member.idCard", target = "idCard")
+    @Mapping(source = "member.email", target = "email")
+    @Mapping(source = "member.phone", target = "phone")
+    @Mapping(source = "member.organization", target = "organization")
+    @Mapping(source = "member.organization", target = "org")
+    @Mapping(source = "member.department", target = "department")
+    @Mapping(source = "member.position", target = "position")
     CompetitionMemberVO toMemberVO(CompetitionMember member);
 
     List<CompetitionMemberVO> toMemberVOList(List<CompetitionMember> members);
@@ -93,8 +92,6 @@ public interface CompetitionMapper {
     @Mapping(source = "c.challenge.category.name", target = "categoryName")
     @Mapping(source = "c.challenge.type", target = "type")
     @Mapping(source = "c.challenge.difficulty", target = "difficulty")
-    @Mapping(source = "c.stage.id", target = "stageId")
-    @Mapping(source = "c.stage.stageName", target = "stageName")
     CtfCompetitionChallengeVO toCtfChallengeVO(CtfCompetitionChallenge c);
 
     List<CtfCompetitionChallengeVO> toCtfChallengeVOList(List<CtfCompetitionChallenge> challenges);
@@ -109,8 +106,6 @@ public interface CompetitionMapper {
     @Mapping(source = "c.challenge.difficulty", target = "difficulty")
     @Mapping(source = "c.challenge.attachmentUrl", target = "attachmentUrl")
     @Mapping(source = "c.challenge.attachmentName", target = "attachmentName")
-    @Mapping(source = "c.stage.id", target = "stageId")
-    @Mapping(source = "c.stage.stageName", target = "stageName")
     CtfCompetitionChallengeDetailVO toCtfChallengeDetailVO(CtfCompetitionChallenge c);
 
     @Mapping(source = "p.id", target = "paperId")

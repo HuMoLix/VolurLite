@@ -15,6 +15,8 @@ public interface CompetitionMemberRepository extends JpaRepository<CompetitionMe
 
     Optional<CompetitionMember> findByCompetitionIdAndUserId(Long competitionId, Long userId);
 
+    List<CompetitionMember> findAllByCompetitionIdAndUserId(Long competitionId, Long userId);
+
     Optional<CompetitionMember> findByCompetitionIdAndTeamIdAndUserId(Long competitionId, Long teamId, Long userId);
 
     boolean existsByCompetitionIdAndUserId(Long competitionId, Long userId);
@@ -33,6 +35,20 @@ public interface CompetitionMemberRepository extends JpaRepository<CompetitionMe
             "JOIN FETCH m.team t " +
             "WHERE m.competition.id = :competitionId AND m.user.id = :userId")
     Optional<CompetitionMember> findMemberWithTeam(@Param("competitionId") Long competitionId, @Param("userId") Long userId);
+
+    @Query("SELECT m FROM CompetitionMember m " +
+            "JOIN FETCH m.team t " +
+            "WHERE m.competition.id = :competitionId AND m.user.id = :userId")
+    List<CompetitionMember> findMembersWithTeam(@Param("competitionId") Long competitionId, @Param("userId") Long userId);
+
+    @Query("SELECT m FROM CompetitionMember m " +
+            "JOIN FETCH m.team t " +
+            "JOIN FETCH t.captain c " +
+            "WHERE m.competition.id = :competitionId AND m.user.id = :userId AND m.status = :status")
+    List<CompetitionMember> findUserInvitations(
+            @Param("competitionId") Long competitionId,
+            @Param("userId") Long userId,
+            @Param("status") MemberStatus status);
 
     void deleteByTeamId(Long teamId);
 

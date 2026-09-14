@@ -5,13 +5,7 @@ export interface AdminClusterImageVO {
   fullImageName: string
   imageId?: string
   sizeBytes: number
-  sizeFormatted: string
-  imageType: 'CHALLENGE' | 'BASE' | 'SYSTEM' | string
-  nodeIps: string[]
-  onlineNodeIps?: string[]
-  offlineNodeIps?: string[]
-  isOffline?: boolean
-  status: 'PULLED' | 'PULLING' | 'FAILED' | 'MIGRATING' | 'OFFLINE' | string
+  inRegistry?: boolean
   createdAt: string
   updatedAt?: string
 }
@@ -22,7 +16,6 @@ export interface DockerImageLayerVO {
   instruction: string
   createdBy: string
   sizeBytes: number
-  sizeFormatted: string
   createdAt: string
   comment?: string
 }
@@ -34,13 +27,7 @@ export interface AdminClusterImageDetailVO {
   fullImageName: string
   imageId?: string
   sizeBytes: number
-  sizeFormatted: string
-  imageType: string
-  nodeIps: string[]
-  onlineNodeIps?: string[]
-  offlineNodeIps?: string[]
-  isOffline?: boolean
-  status: string
+  inRegistry?: boolean
   os?: string
   architecture?: string
   dockerVersion?: string
@@ -59,12 +46,9 @@ export interface AdminClusterImageDetailVO {
 
 export interface AdminClusterImageStatisticsVO {
   totalImages: number
-  challengeImages: number
-  baseImages: number
   totalSizeBytes: number
-  totalSizeFormatted: string
-  totalNodesCovered: number
-  syncingImages: number
+  registryOnline?: boolean
+  registryImagesCount?: number
 }
 
 export interface AdminImagePageRequestDTO {
@@ -73,14 +57,10 @@ export interface AdminImagePageRequestDTO {
   sortField?: string
   sortOrder?: string
   keyword?: string
-  imageType?: string
-  nodeIp?: string
 }
 
 export interface AdminImagePullRequestDTO {
   image: string
-  targetNodeIp: string
-  imageType?: string
 }
 
 export interface AdminImageTransferDTO {
@@ -93,8 +73,4 @@ export interface AdminImageBackupDTO {
   imageId: number | string
   backupType: 'NODE' | 'ARCHIVE'
   targetNodeIp?: string
-}
-
-export interface AdminImageTypeUpdateDTO {
-  imageType: string
 }

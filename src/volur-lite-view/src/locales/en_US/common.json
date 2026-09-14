@@ -34,5 +34,10 @@
   "switch_to_english": "Switch to English",
   "switch_to_chinese": "Switch to Chinese",
   "switch_dark_mode": "Switch to Dark Mode",
-  "switch_light_mode": "Switch to Light Mode"
+  "switch_light_mode": "Switch to Light Mode",
+  "markdown_edit": "Edit",
+  "markdown_preview": "Preview",
+  "markdown_tip": "Supports Markdown syntax",
+  "markdown_empty_preview": "No content yet. Switch to Edit mode to write Markdown.",
+  "markdown_placeholder": "Enter content, supports Markdown syntax (headings, bold, lists, tables, code blocks)..."
 }

@@ -9,7 +9,7 @@ import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.entity.stage.awd.AwdCompetitionChallenge;
 import com.humolix.volur.competition.domain.entity.stage.awd.AwdCompetitionLog;
 import com.humolix.volur.competition.domain.entity.stage.awd.AwdCompetitionRound;
-import com.humolix.volur.competition.domain.enums.CompetitionStage;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.enums.StageStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.stage.awd.AwdCurrentRoundVO;
@@ -34,7 +34,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@RequiredCompetitionStageRunning(stage = CompetitionStage.AWD)
+@RequiredCompetitionStageRunning(type = CompetitionType.AWD)
 public class AwdStageServiceImpl implements AwdStageService {
 
     private final CompetitionTeamRepository teamRepository;

@@ -190,43 +190,9 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
             return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
         }
 
-        // 优先随机分配已有该镜像的 Worker 节点
-        if (StringUtils.hasText(imageName)) {
-            List<ClusterNode> nodesWithImage = candidatePool.stream()
-                    .filter(n -> isImagePresentOnNode(n.getIpAddress(), imageName))
-                    .toList();
-
-            if (!nodesWithImage.isEmpty()) {
-                int randomIndex = ThreadLocalRandom.current().nextInt(nodesWithImage.size());
-                return nodesWithImage.get(randomIndex).getIpAddress();
-            }
-        }
-
-        // 若候选节点均无该镜像，则随机选择一个候选节点（后续调用 ensureImageOnNode 自动跨节点复制镜像）
+        // 随机选择一个就绪候选节点（后续启动容器时若节点本地缺失镜像，将由集群基础设施自动拉取）
         int randomIndex = ThreadLocalRandom.current().nextInt(candidatePool.size());
         return candidatePool.get(randomIndex).getIpAddress();
-    }
-
-    private boolean isImagePresentOnNode(String nodeIp, String imageName) {
-        if (!StringUtils.hasText(nodeIp) || !StringUtils.hasText(imageName)) {
-            return false;
-        }
-        String repo = imageName.trim();
-        String tag = "latest";
-        int colonIdx = repo.lastIndexOf(':');
-        if (colonIdx > 0 && !repo.substring(colonIdx + 1).contains("/")) {
-            tag = repo.substring(colonIdx + 1);
-            repo = repo.substring(0, colonIdx);
-        }
-        Optional<ClusterImage> imgOpt = clusterImageRepository.findByRepositoryAndTag(repo, tag);
-        if (imgOpt.isPresent()) {
-            String nodeIps = imgOpt.get().getNodeIps();
-            if (nodeIps != null) {
-                List<String> list = Arrays.asList(nodeIps.split(","));
-                return list.contains(nodeIp.trim());
-            }
-        }
-        return false;
     }
 
     @Override

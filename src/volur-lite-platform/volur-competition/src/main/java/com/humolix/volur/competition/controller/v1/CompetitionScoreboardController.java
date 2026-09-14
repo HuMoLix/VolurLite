@@ -18,10 +18,10 @@ public class CompetitionScoreboardController {
 
     private final CompetitionScoreboardService scoreboardService;
 
-    @Operation(summary = "获取竞赛综合总分排行榜")
-    @GetMapping("/composite")
+    @Operation(summary = "获取竞赛天梯排行榜")
+    @GetMapping({"", "/composite"})
     public ApiResponse<CompositeScoreboardVO> getCompositeScoreboard(@PathVariable Long competitionId) {
-        return ApiResponseEntity.ok("获取综合天梯榜成功", scoreboardService.getCompositeScoreboard(competitionId));
+        return ApiResponseEntity.ok("获取竞赛天梯榜成功", scoreboardService.getCompositeScoreboard(competitionId));
     }
 
     @Operation(summary = "获取 CTF 解题赛分项排行榜")

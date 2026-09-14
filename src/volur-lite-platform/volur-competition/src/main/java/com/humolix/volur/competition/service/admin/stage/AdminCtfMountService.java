@@ -14,6 +14,8 @@ public interface AdminCtfMountService {
 
     void batchMountChallenges(Long competitionId, CtfChallengeBatchMountRequestDTO request);
 
+    void updateMountedChallenge(Long competitionId, Long competitionChallengeId, CtfChallengeMountRequestDTO request);
+
     void unmountChallenge(Long competitionId, Long competitionChallengeId);
 
 }

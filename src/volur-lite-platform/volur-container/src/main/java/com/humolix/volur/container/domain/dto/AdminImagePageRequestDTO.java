@@ -17,10 +17,4 @@ public class AdminImagePageRequestDTO extends PageRequestDTO {
     @Schema(description = "搜索关键词 (镜像名/Tag/关联题目)")
     private String keyword;
 
-    @Schema(description = "镜像类别筛选 (CHALLENGE / BASE / SYSTEM)")
-    private String imageType;
-
-    @Schema(description = "所在节点 IP 筛选")
-    private String nodeIp;
-
 }

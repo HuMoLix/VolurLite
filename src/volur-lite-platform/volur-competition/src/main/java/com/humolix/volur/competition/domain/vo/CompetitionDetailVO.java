@@ -1,6 +1,7 @@
 package com.humolix.volur.competition.domain.vo;
 
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,17 +22,17 @@ public class CompetitionDetailVO implements Serializable {
     private String slug;
     private String description;
     private String bannerUrl;
+    private CompetitionType type;
     private CompetitionStatus status;
     private Instant regStartTime;
     private Instant regEndTime;
     private Instant startTime;
     private Instant endTime;
+    private Integer maxLeaders;
     private Integer maxTeamMembers;
     private Integer minTeamMembers;
     private Boolean requireTeamAudit;
     private Boolean allowWriteupSubmission;
-    private List<CompetitionStageVO> stages;
-    private List<CompetitionFieldSchemaVO> registrationFields;
     private Long teamCount;
     private Instant createdAt;
 

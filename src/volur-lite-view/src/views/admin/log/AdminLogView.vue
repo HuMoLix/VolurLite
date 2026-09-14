@@ -52,90 +52,87 @@
     </div>
 
     <!-- Bottom section: Log Table Card -->
-    <n-card class="table-card" :bordered="false">
-      <!-- Search & Filter Controls -->
-      <div class="filter-header">
-        <div class="filter-left">
-          <n-input
-            v-model:value="searchKeyword"
-            :placeholder="t('admin.logs.search_placeholder')"
-            clearable
-            style="width: 240px;"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <n-icon :component="SearchOutline" />
-            </template>
-          </n-input>
+    <AppTableCard
+      :bordered="true"
+      :table-bordered="true"
+      :scroll-x="1140"
+      remote
+      :columns="columns"
+      :data="logList"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="rowKey"
+      table-class="log-data-table"
+      @update:sorter="handleSorterChange"
+      @update:page="handlePageChange"
+      @update:page-size="handlePageSizeChange"
+    >
+      <template #filter-left>
+        <n-input
+          v-model:value="searchKeyword"
+          :placeholder="t('admin.logs.search_placeholder')"
+          clearable
+          style="width: 240px;"
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <n-icon :component="SearchOutline" />
+          </template>
+        </n-input>
 
-          <n-select
-            v-model:value="filterLevel"
-            :placeholder="t('admin.logs.filter_level')"
-            clearable
-            :options="levelSelectOptions"
-            style="width: 130px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterLevel"
+          :placeholder="t('admin.logs.filter_level')"
+          clearable
+          :options="levelSelectOptions"
+          style="width: 130px;"
+          @update:value="handleSearch"
+        />
 
-          <n-select
-            v-model:value="filterModule"
-            :placeholder="t('admin.logs.filter_module')"
-            clearable
-            :options="moduleSelectOptions"
-            style="width: 140px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterModule"
+          :placeholder="t('admin.logs.filter_module')"
+          clearable
+          :options="moduleSelectOptions"
+          style="width: 140px;"
+          @update:value="handleSearch"
+        />
 
-          <n-select
-            v-model:value="filterStatus"
-            :placeholder="t('admin.logs.filter_status')"
-            clearable
-            :options="statusSelectOptions"
-            style="width: 130px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterStatus"
+          :placeholder="t('admin.logs.filter_status')"
+          clearable
+          :options="statusSelectOptions"
+          style="width: 130px;"
+          @update:value="handleSearch"
+        />
 
-          <n-date-picker
-            v-model:value="dateRange"
-            type="datetimerange"
-            clearable
-            format="yyyy-MM-dd HH:mm"
-            :start-placeholder="t('admin.logs.start_time')"
-            :end-placeholder="t('admin.logs.end_time')"
-            style="width: 320px;"
-            @update:value="handleSearch"
-          />
+        <n-date-picker
+          v-model:value="dateRange"
+          type="datetimerange"
+          clearable
+          format="yyyy-MM-dd HH:mm"
+          :start-placeholder="t('admin.logs.start_time')"
+          :end-placeholder="t('admin.logs.end_time')"
+          style="width: 320px;"
+          @update:value="handleSearch"
+        />
 
-          <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-            <template #icon>
-              <n-icon :component="SearchOutline" />
-            </template>
-            {{ t('admin.logs.query_btn') }}
-          </n-button>
+        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+          <template #icon>
+            <n-icon :component="SearchOutline" />
+          </template>
+          {{ t('admin.logs.query_btn') }}
+        </n-button>
 
-          <n-button quaternary @click="handleReset">
-            <template #icon>
-              <n-icon :component="RefreshOutline" />
-            </template>
-            {{ t('admin.logs.reset_btn') }}
-          </n-button>
-        </div>
-      </div>
-
-      <!-- Data Table -->
-      <n-data-table
-        remote
-        :columns="columns"
-        :data="logList"
-        :loading="loading"
-        :pagination="pagination"
-        :row-key="(row: AdminLogVO) => String(row.id)"
-        @update:sorter="handleSorterChange"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-        class="log-data-table"
-      />
-    </n-card>
+        <n-button quaternary @click="handleReset">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          {{ t('admin.logs.reset_btn') }}
+        </n-button>
+      </template>
+    </AppTableCard>
 
     <!-- Log Detail Drawer -->
     <n-drawer v-model:show="showDetailDrawer" :width="560" placement="right">
@@ -207,13 +204,11 @@
 import { ref, reactive, computed, h, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  NCard,
   NIcon,
   NInput,
   NSelect,
   NDatePicker,
   NButton,
-  NDataTable,
   NDrawer,
   NDrawerContent,
   NDescriptions,
@@ -222,6 +217,7 @@ import {
   type DataTableColumns,
   type SelectOption
 } from 'naive-ui'
+import AppTableCard from '@/components/common/AppTableCard.vue'
 import {
   ReaderOutline,
   KeyOutline,
@@ -280,13 +276,14 @@ const statusSelectOptions = computed<SelectOption[]>(() => [
 // Table & Pagination State
 const loading = ref(false)
 const logList = ref<AdminLogVO[]>([])
+const rowKey = (row: AdminLogVO) => String(row.id)
 const pagination = reactive({
   page: 1,
   pageSize: 10,
   itemCount: 0,
   showSizePicker: true,
   pageSizes: [10, 20, 50],
-  prefix: (info: { itemCount?: number }) => t('admin.logs.total_prefix', { count: info.itemCount || 0 })
+  prefix: (info: { itemCount?: number }) => t('admin.logs.total_prefix', { count: Number(info.itemCount) || 0 })
 })
 
 // Drawer State
@@ -328,7 +325,7 @@ const columns = computed<DataTableColumns<AdminLogVO>>(() => [
   {
     title: t('admin.logs.columns.id'),
     key: 'id',
-    width: 140,
+    width: 180,
     render(row) {
       return h('span', { class: 'id-text' }, String(row.id))
     }
@@ -502,7 +499,10 @@ async function fetchLogStats() {
   }
 }
 
+let currentFetchRequestId = 0
+
 async function fetchLogList() {
+  const requestId = ++currentFetchRequestId
   loading.value = true
   try {
     const params: AdminLogQueryDTO = {
@@ -522,14 +522,21 @@ async function fetchLogList() {
     }
 
     const res = await getAdminLogListApi(params)
+    if (requestId !== currentFetchRequestId) return
     if (res.data) {
       logList.value = res.data.list || []
-      pagination.itemCount = res.data.total || 0
+      pagination.itemCount = Number(res.data.total) || 0
+      if (res.data.currentPage !== undefined && res.data.currentPage !== null) {
+        pagination.page = Number(res.data.currentPage) || pagination.page
+      }
     }
   } catch (error) {
+    if (requestId !== currentFetchRequestId) return
     console.error('Failed to fetch log list:', error)
   } finally {
-    loading.value = false
+    if (requestId === currentFetchRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -670,44 +677,6 @@ onMounted(() => {
       font-weight: 500;
     }
   }
-}
-
-.table-card {
-  border-radius: 8px;
-  background-color: var(--n-color, #ffffff);
-
-  .filter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 16px;
-
-    .filter-left {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-  }
-}
-
-.theme-primary-btn {
-  background-color: #000000;
-  color: #ffffff;
-  font-weight: 500;
-  border-radius: 6px;
-
-  &:hover {
-    background-color: #222222;
-  }
-}
-
-.id-text {
-  font-family: 'Fira Code', monospace;
-  font-size: 12px;
-  color: #666666;
 }
 
 .action-text {

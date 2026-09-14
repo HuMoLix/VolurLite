@@ -129,4 +129,10 @@ public class AdminClusterController {
         return ApiResponseEntity.ok("工作节点集群入网探测与注册完成", adminClusterService.joinCluster(id));
     }
 
+    @Operation(summary = "扫描并同步 K3s 集群现有节点")
+    @Syslog(module = "CLUSTER", value = "扫描同步 K3s 集群节点", recordParams = false)
+    @PostMapping("/nodes/sync-k3s")
+    public ApiResponse<List<AdminClusterNodeVO>> syncK3sClusterNodes() {
+        return ApiResponseEntity.ok("K3s 集群节点扫描与对账同步完成", adminClusterService.syncK3sClusterNodes());
+    }
 }

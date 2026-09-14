@@ -3,7 +3,6 @@ package com.humolix.volur.competition.service.admin.impl;
 import com.humolix.volur.competition.domain.dto.TeamAuditRequestDTO;
 import com.humolix.volur.competition.domain.entity.CompetitionConfig;
 import com.humolix.volur.competition.domain.entity.CompetitionMember;
-import com.humolix.volur.competition.domain.entity.CompetitionRegistrationData;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
@@ -12,7 +11,6 @@ import com.humolix.volur.competition.domain.vo.AdminTeamListVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.CompetitionConfigRepository;
 import com.humolix.volur.competition.repository.CompetitionMemberRepository;
-import com.humolix.volur.competition.repository.CompetitionRegistrationDataRepository;
 import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.service.admin.AdminTeamService;
 import com.humolix.volur.framework.common.api.PageResponse;
@@ -22,6 +20,7 @@ import com.humolix.volur.notification.domain.bo.SendNotificationBO;
 import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
 import com.humolix.volur.notification.domain.enums.NotificationType;
 import com.humolix.volur.notification.service.NotificationService;
+import com.alibaba.fastjson2.JSON;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +43,6 @@ public class AdminTeamServiceImpl implements AdminTeamService {
 
     private final CompetitionTeamRepository teamRepository;
     private final CompetitionMemberRepository memberRepository;
-    private final CompetitionRegistrationDataRepository registrationDataRepository;
     private final CompetitionConfigRepository configRepository;
     private final CompetitionMapper competitionMapper;
     private final NotificationService notificationService;
@@ -81,15 +79,6 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "队伍不存在"));
 
         List<CompetitionMember> members = memberRepository.findByTeamId(teamId);
-        List<CompetitionRegistrationData> regData = registrationDataRepository.findByCompetitionIdAndTeamId(team.getCompetition().getId(), teamId);
-
-        Map<Long, Map<String, String>> memberDataMap = new HashMap<>();
-        for (CompetitionRegistrationData d : regData) {
-            if (d.getUser() != null) {
-                Long uid = d.getUser().getId();
-                memberDataMap.computeIfAbsent(uid, k -> new HashMap<>()).put(d.getFieldKey(), d.getFieldValue());
-            }
-        }
 
         return AdminTeamDetailVO.builder()
                 .id(team.getId())
@@ -104,7 +93,6 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                 .status(team.getStatus())
                 .auditReason(team.getAuditReason())
                 .members(competitionMapper.toMemberVOList(members))
-                .memberRegistrationData(memberDataMap)
                 .createdAt(team.getCreatedAt())
                 .build();
     }
@@ -142,17 +130,30 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             team.setAuditReason(null);
             teamRepository.save(team);
 
-            // 向队长推送审核通过站内信
-            if (team.getCaptain() != null) {
-                notificationService.sendNotification(SendNotificationBO.builder()
-                        .senderId(null)
-                        .receiverId(team.getCaptain().getId())
-                        .title("【队伍审核通过】战队「" + team.getTeamName() + "」已通过审核")
-                        .content(String.format("恭喜！您的战队「%s」已成功通过竞赛「%s」的参赛资格审核。",
-                                team.getTeamName(), team.getCompetition().getTitle()))
-                        .type(NotificationType.ACCOUNT_CHANGE)
-                        .actionStatus(NotificationActionStatus.NONE)
-                        .build());
+            // 向全队成员（队长、队员、领队）推送审核通过站内信
+            Map<String, Object> passActionContext = new HashMap<>();
+            passActionContext.put("competitionId", team.getCompetition().getId());
+            if (team.getCompetition().getSlug() != null) {
+                passActionContext.put("slug", team.getCompetition().getSlug());
+            }
+            passActionContext.put("teamId", team.getId());
+            passActionContext.put("teamName", team.getTeamName());
+            String passActionData = JSON.toJSONString(passActionContext);
+
+            List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
+            for (CompetitionMember m : allMembers) {
+                if (m.getUser() != null) {
+                    notificationService.sendNotification(SendNotificationBO.builder()
+                            .senderId(null)
+                            .receiverId(m.getUser().getId())
+                            .title("【队伍审核通过】战队「" + team.getTeamName() + "」已通过审核")
+                            .content(String.format("恭喜！您所在的战队「%s」已成功通过竞赛「%s」的参赛资格审核。",
+                                    team.getTeamName(), team.getCompetition().getTitle()))
+                            .type(NotificationType.COMPETITION_INVITE)
+                            .actionStatus(NotificationActionStatus.NONE)
+                            .actionData(passActionData)
+                            .build());
+                }
             }
 
         } else if (request.getStatus() == TeamStatus.AUDIT_REJECTED) {
@@ -160,18 +161,31 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             team.setAuditReason(request.getAuditReason());
             teamRepository.save(team);
 
-            // 向队长推送驳回站内信
-            if (team.getCaptain() != null) {
-                notificationService.sendNotification(SendNotificationBO.builder()
-                        .senderId(null)
-                        .receiverId(team.getCaptain().getId())
-                        .title("【队伍审核未通过】战队「" + team.getTeamName() + "」审核被驳回")
-                        .content(String.format("很遗憾，您的战队「%s」未能通过竞赛「%s」的审核。审核意见: %s",
-                                team.getTeamName(), team.getCompetition().getTitle(),
-                                StringUtils.hasText(request.getAuditReason()) ? request.getAuditReason() : "无"))
-                        .type(NotificationType.SECURITY_ALERT)
-                        .actionStatus(NotificationActionStatus.NONE)
-                        .build());
+            // 向全队成员（队长、队员、领队）推送驳回站内信
+            Map<String, Object> rejectActionContext = new HashMap<>();
+            rejectActionContext.put("competitionId", team.getCompetition().getId());
+            if (team.getCompetition().getSlug() != null) {
+                rejectActionContext.put("slug", team.getCompetition().getSlug());
+            }
+            rejectActionContext.put("teamId", team.getId());
+            rejectActionContext.put("teamName", team.getTeamName());
+            String rejectActionData = JSON.toJSONString(rejectActionContext);
+
+            List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
+            for (CompetitionMember m : allMembers) {
+                if (m.getUser() != null) {
+                    notificationService.sendNotification(SendNotificationBO.builder()
+                            .senderId(null)
+                            .receiverId(m.getUser().getId())
+                            .title("【队伍审核未通过】战队「" + team.getTeamName() + "」审核被驳回")
+                            .content(String.format("很遗憾，您所在的战队「%s」未能通过竞赛「%s」的审核。审核意见: %s",
+                                    team.getTeamName(), team.getCompetition().getTitle(),
+                                    StringUtils.hasText(request.getAuditReason()) ? request.getAuditReason() : "无"))
+                            .type(NotificationType.SECURITY_ALERT)
+                            .actionStatus(NotificationActionStatus.NONE)
+                            .actionData(rejectActionData)
+                            .build());
+                }
             }
         } else {
             team.setStatus(request.getStatus());
@@ -183,7 +197,6 @@ public class AdminTeamServiceImpl implements AdminTeamService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteTeam(Long teamId) {
-        registrationDataRepository.deleteByTeamId(teamId);
         memberRepository.deleteByTeamId(teamId);
         teamRepository.deleteById(teamId);
     }

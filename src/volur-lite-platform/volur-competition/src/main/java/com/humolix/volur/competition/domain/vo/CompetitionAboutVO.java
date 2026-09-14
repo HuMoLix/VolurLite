@@ -1,6 +1,7 @@
 package com.humolix.volur.competition.domain.vo;
 
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,6 +26,8 @@ public class CompetitionAboutVO {
 
     private String bannerUrl;
 
+    private CompetitionType type;
+
     private CompetitionStatus status;
 
     private Instant regStartTime;
@@ -47,9 +50,5 @@ public class CompetitionAboutVO {
     private Integer maxTeams;
 
     private Boolean requireTeamAudit;
-
-    private List<CompetitionStageVO> stages;
-
-    private List<CompetitionFieldSchemaVO> registrationFields;
 
 }

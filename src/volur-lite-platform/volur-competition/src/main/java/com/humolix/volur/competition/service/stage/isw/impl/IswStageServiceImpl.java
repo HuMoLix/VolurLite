@@ -6,7 +6,7 @@ import com.humolix.volur.competition.domain.dto.stage.isw.IswFlagSubmitRequestDT
 import com.humolix.volur.competition.domain.entity.CompetitionMember;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.entity.stage.isw.IswCompetitionChallenge;
-import com.humolix.volur.competition.domain.enums.CompetitionStage;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.stage.isw.IswCompetitionTopologyVO;
 import com.humolix.volur.competition.repository.CompetitionMemberRepository;
@@ -23,7 +23,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@RequiredCompetitionStageRunning(stage = CompetitionStage.ISW)
+@RequiredCompetitionStageRunning(type = CompetitionType.ISW)
 public class IswStageServiceImpl implements IswStageService {
 
     private final CompetitionMemberRepository memberRepository;

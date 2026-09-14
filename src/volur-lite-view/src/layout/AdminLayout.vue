@@ -1,98 +1,17 @@
 <template>
   <n-layout class="admin-layout" has-sider>
-    <n-layout-sider
-      bordered
-      collapse-mode="width"
-      :collapsed-width="64"
-      :width="230"
-      :collapsed="appStore.isSidebarCollapsed"
-      show-trigger
-      @collapse="appStore.isSidebarCollapsed = true"
-      @expand="appStore.isSidebarCollapsed = false"
-      content-style="display: flex; flex-direction: column; height: 100%; justify-content: space-between;"
-      class="admin-sider"
-    >
-      <div class="sidebar-top">
-        <div class="logo-container" @click="router.push('/admin/dashboard')">
-          <transition name="logo-fade" mode="out-in">
-            <div
-              v-if="!appStore.isSidebarCollapsed"
-              :key="`expanded-${appStore.theme}`"
-              class="logo-expanded-wrapper"
-            >
-              <img
-                :src="appStore.theme === 'dark' ? '/long-logo-dark.svg' : '/long-logo.svg'"
-                alt="Volur Lite"
-                class="logo-img-expanded"
-              />
-              <n-tag size="small" :bordered="false" type="warning" class="admin-badge">
-                ADMIN
-              </n-tag>
-            </div>
-            <img
-              v-else
-              :key="`collapsed-${appStore.theme}`"
-              :src="appStore.theme === 'dark' ? '/favicon-dark.svg' : '/favicon.svg'"
-              alt="Volur Lite"
-              class="logo-img-collapsed"
-            />
-          </transition>
-        </div>
-
-        <n-menu
-          :collapsed="appStore.isSidebarCollapsed"
-          :collapsed-width="64"
-          :collapsed-icon-size="22"
-          :options="menuOptions"
-          :value="activeKey"
-          @update:value="handleMenuSelect"
-          class="admin-menu"
-        />
-      </div>
-
-      <!-- Bottom return to platform entrance -->
-      <div class="sidebar-bottom-return">
-        <transition name="btn-fade" mode="out-in">
-          <div v-if="appStore.isSidebarCollapsed" key="collapsed" class="return-wrapper-collapsed">
-            <n-tooltip placement="right" trigger="hover">
-              <template #trigger>
-                <n-button
-                  quaternary
-                  circle
-                  size="large"
-                  class="return-btn-collapsed"
-                  @click="router.push('/competitions')"
-                >
-                  <template #icon>
-                    <n-icon size="20">
-                      <ArrowBackOutline />
-                    </n-icon>
-                  </template>
-                </n-button>
-              </template>
-              {{ t('layout.return_to_platform') }}
-            </n-tooltip>
-          </div>
-
-          <div v-else key="expanded" class="return-wrapper-expanded">
-            <n-button
-              quaternary
-              block
-              size="medium"
-              class="return-btn-expanded"
-              @click="router.push('/competitions')"
-            >
-              <template #icon>
-                <n-icon size="18">
-                  <ArrowBackOutline />
-                </n-icon>
-              </template>
-              {{ t('layout.return_to_competitions') }}
-            </n-button>
-          </div>
-        </transition>
-      </div>
-    </n-layout-sider>
+    <volur-sidebar
+      v-model:collapsed="appStore.isSidebarCollapsed"
+      :menu-options="menuOptions"
+      :value="activeKey"
+      logo-route="/admin/dashboard"
+      show-bottom-action
+      :bottom-action-text="t('layout.return_to_competitions')"
+      :bottom-action-collapsed-text="t('layout.return_to_platform')"
+      :bottom-action-icon="ArrowBackOutline"
+      bottom-action-route="/competitions"
+      @select="handleMenuSelect"
+    />
 
     <n-layout>
       <n-layout-header bordered class="admin-header">
@@ -145,7 +64,7 @@
 
       <n-layout-content content-style="padding: 24px;" class="admin-content">
         <router-view v-slot="{ Component, route: currentRoute }">
-          <transition name="fade-fast">
+          <transition name="fade-fast" mode="out-in">
             <component :is="Component" :key="currentRoute.fullPath" />
           </transition>
         </router-view>
@@ -170,27 +89,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, onMounted, onUnmounted } from 'vue'
+import { computed, h, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   NLayout,
-  NLayoutSider,
   NLayoutHeader,
   NLayoutContent,
   NLayoutFooter,
-  NMenu,
   NBreadcrumb,
   NBreadcrumbItem,
   NButton,
   NDropdown,
   NIcon,
-  NTooltip,
-  NTag,
-  NBadge,
   useNotification,
   type MenuOption,
   type DropdownOption
 } from 'naive-ui'
+import VolurSidebar from '@/public/layout/components/VolurSidebar.vue'
 import {
   SpeedometerOutline,
   PeopleOutline,
@@ -219,7 +134,6 @@ import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { useSystemStore } from '@/store/modules/system'
 import { useI18n } from 'vue-i18n'
-import { getAdminTaskStatisticsApi } from '@/api/task'
 import { SseClient } from '@/utils/sse'
 import type { AdminAsyncTaskVO } from '@/types/task'
 
@@ -336,15 +250,7 @@ const menuOptions = computed<MenuOption[]>(() => [
   {
     label: () => t('layout.menu.tasks'),
     key: 'AdminTasks',
-    icon: () => h(NIcon, null, { default: () => h(TimeOutline) }),
-    extra: () =>
-      runningTaskCount.value > 0
-        ? h(NBadge, {
-            value: runningTaskCount.value,
-            max: 99,
-            type: 'info'
-          })
-        : null
+    icon: () => h(NIcon, null, { default: () => h(TimeOutline) })
   },
   {
     label: () => t('layout.menu.emails'),
@@ -370,36 +276,21 @@ function handleMenuSelect(key: string) {
 
 async function handleUserDropdown(key: string) {
   if (key === 'frontend') {
-    router.push('/competitions')
+    await router.push('/competitions')
   } else if (key === 'logout') {
     await userStore.logout()
-    router.push('/auth/login')
+    await router.push('/auth/login')
   }
 }
 
 const notification = useNotification()
-const runningTaskCount = ref(0)
 let adminSseClient: SseClient | null = null
 
-async function updateTaskBadge() {
-  try {
-    const res = await getAdminTaskStatisticsApi()
-    if (res.data) {
-      runningTaskCount.value = (res.data.runningCount || 0) + (res.data.pendingCount || 0)
-    }
-  } catch {
-    // handled
-  }
-}
-
 onMounted(() => {
-  updateTaskBadge()
-
   try {
     adminSseClient = new SseClient('/api/v1/realtime/stream')
     adminSseClient.on('task_event', (data: AdminAsyncTaskVO) => {
       if (!data) return
-      updateTaskBadge()
 
       if (data.status === 'SUCCESS') {
         const durationText = data.executionDurationMs
@@ -437,82 +328,6 @@ onUnmounted(() => {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-}
-
-.admin-sider {
-  background-color: var(--n-color, #ffffff);
-  z-index: 10;
-
-  .sidebar-top {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .logo-container {
-    height: 64px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 16px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--v-border-base, #efeff5);
-
-    .logo-expanded-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-
-      .logo-img-expanded {
-        height: 28px;
-        object-fit: contain;
-      }
-
-      .admin-badge {
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        font-size: 10px;
-        padding: 0 4px;
-      }
-    }
-
-    .logo-img-collapsed {
-      width: 28px;
-      height: 28px;
-    }
-  }
-
-  .sidebar-bottom-return {
-    padding: 16px;
-    border-top: 1px solid var(--v-border-base, #efeff5);
-
-    .return-wrapper-collapsed {
-      display: flex;
-      justify-content: center;
-
-      .return-btn-collapsed {
-        color: #444444;
-
-        &:hover {
-          color: #000000;
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-      }
-    }
-
-    .return-wrapper-expanded {
-      .return-btn-expanded {
-        font-size: 13px;
-        font-weight: 500;
-        color: #444444;
-        border-radius: 6px;
-
-        &:hover {
-          color: #000000;
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-      }
-    }
-  }
 }
 
 .admin-header {

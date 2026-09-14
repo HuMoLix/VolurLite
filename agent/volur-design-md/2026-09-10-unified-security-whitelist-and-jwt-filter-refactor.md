@@ -51,5 +51,8 @@
 
 - **影响模块**：`volur-auth`
 - **兼容性**：完全向下兼容。前端 Axios 的 JWT 鉴权与 Refresh Token 刷新协议无需变动。
+- **配置属性类规范保障 (Spring Boot ConfigurationProperties Record Binding)**：
+  - 在将 `SecurityWhitelistProperties` 设计为 Java Record 时，必须保证其为**唯一紧凑型构造器 (Single Compact Constructor)** 模式，只保留 `paths` 与 `additionalPaths` 作为属性组件。避免由于声明多个重载构造器而导致 Spring Boot 无法推断构造函数绑定进而回退至 JavaBean 无参构造（引发 `NoSuchMethodException: <init>()`）的问题。
 - **构建测试验证**：
-  - 执行 `mvn clean test-compile`：全平台 12 个模块（`volur-framework`, `volur-logging`, `volur-system`, `volur-user`, `volur-verification`, `volur-notification`, `volur-auth`, `volur-challenge`, `volur-container`, `volur-competition`, `volur-server`）全部编译通过，0 错误，0 告警（`BUILD SUCCESS`）。
+  - 新增 [`SecurityWhitelistMatcherTest.java`](file:///Users/humolix/Documents/Dev/Volur-Lite/src/volur-lite-platform/volur-auth/src/test/java/com/humolix/volur/auth/security/SecurityWhitelistMatcherTest.java) 自动化测试，覆盖配置属性 Binder 绑定、白名单与通配符匹配及受限路径校验，测试 100% 通过。
+  - 执行 `mvn clean test-compile`：全平台 12 个模块全部编译通过，0 错误，0 告警（`BUILD SUCCESS`）。

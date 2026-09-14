@@ -13,8 +13,10 @@ public interface ClusterImageRepository extends JpaRepository<ClusterImage, Long
 
     Optional<ClusterImage> findByRepositoryAndTag(String repository, String tag);
 
-    List<ClusterImage> findByImageType(String imageType);
+    long countByInRegistry(Boolean inRegistry);
 
-    long countByImageType(String imageType);
+    long countByInRegistryTrue();
+
+    List<ClusterImage> findByInRegistryTrue();
 
 }

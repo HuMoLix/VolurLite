@@ -70,90 +70,86 @@
     </div>
 
     <!-- Main Table Card -->
-    <n-card class="table-card" :bordered="false">
-      <!-- Search & Filters Header -->
-      <div class="filter-header">
-        <div class="filter-left">
-          <n-input
-            v-model:value="searchKeyword"
-            :placeholder="t('admin.tasks.search_placeholder')"
-            clearable
-            style="width: 300px;"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <n-icon :component="SearchOutline" />
-            </template>
-          </n-input>
+    <AppTableCard
+      :bordered="true"
+      :table-bordered="true"
+      :scroll-x="1260"
+      remote
+      :columns="columns"
+      :data="taskList"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="(row: AdminAsyncTaskVO) => String(row.id)"
+      table-class="task-table"
+      @update:page="handlePageChange"
+      @update:page-size="handlePageSizeChange"
+    >
+      <template #filter-left>
+        <n-input
+          v-model:value="searchKeyword"
+          :placeholder="t('admin.tasks.search_placeholder')"
+          clearable
+          style="width: 300px;"
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <n-icon :component="SearchOutline" />
+          </template>
+        </n-input>
 
-          <n-select
-            v-model:value="filterType"
-            :placeholder="t('admin.tasks.filter_type')"
-            clearable
-            :options="taskTypeOptions"
-            style="width: 180px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterType"
+          :placeholder="t('admin.tasks.filter_type')"
+          clearable
+          :options="taskTypeOptions"
+          style="width: 180px;"
+          @update:value="handleSearch"
+        />
 
-          <n-select
-            v-model:value="filterStatus"
-            :placeholder="t('admin.tasks.filter_status')"
-            clearable
-            :options="statusOptions"
-            style="width: 150px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterStatus"
+          :placeholder="t('admin.tasks.filter_status')"
+          clearable
+          :options="statusOptions"
+          style="width: 150px;"
+          @update:value="handleSearch"
+        />
 
-          <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-            <template #icon>
-              <n-icon :component="SearchOutline" />
-            </template>
-            {{ t('admin.tasks.query_btn') }}
-          </n-button>
+        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+          <template #icon>
+            <n-icon :component="SearchOutline" />
+          </template>
+          {{ t('admin.tasks.query_btn') }}
+        </n-button>
 
-          <n-button quaternary @click="handleReset">
-            <template #icon>
-              <n-icon :component="RefreshOutline" />
-            </template>
-            {{ t('admin.tasks.reset_btn') }}
-          </n-button>
-        </div>
+        <n-button quaternary @click="handleReset">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          {{ t('admin.tasks.reset_btn') }}
+        </n-button>
+      </template>
 
-        <div class="filter-right">
-          <n-popconfirm @positive-click="handleClearHistory">
-            <template #trigger>
-              <n-button quaternary type="warning" size="medium">
-                <template #icon>
-                  <n-icon :component="TrashOutline" />
-                </template>
-                {{ t('admin.tasks.clear_history_btn') }}
-              </n-button>
-            </template>
-            {{ t('admin.tasks.clear_history_confirm') }}
-          </n-popconfirm>
+      <template #filter-right>
+        <n-popconfirm @positive-click="handleClearHistory">
+          <template #trigger>
+            <n-button quaternary type="warning" size="medium">
+              <template #icon>
+                <n-icon :component="TrashOutline" />
+              </template>
+              {{ t('admin.tasks.clear_history_btn') }}
+            </n-button>
+          </template>
+          {{ t('admin.tasks.clear_history_confirm') }}
+        </n-popconfirm>
 
-          <n-button quaternary circle size="medium" @click="fetchData" :loading="loading">
-            <template #icon>
-              <n-icon :component="RefreshOutline" />
-            </template>
-          </n-button>
-        </div>
-      </div>
-
-      <!-- Tasks Data Table -->
-      <n-data-table
-        :columns="columns"
-        :data="taskList"
-        :loading="loading"
-        :pagination="pagination"
-        :bordered="false"
-        :row-key="(row: AdminAsyncTaskVO) => String(row.id)"
-        class="task-table"
-        remote
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-      />
-    </n-card>
+        <n-button quaternary circle size="medium" @click="fetchData" :loading="loading">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+        </n-button>
+      </template>
+    </AppTableCard>
 
     <!-- Task Detail Drawer (Styled like AdminLogView.vue) -->
     <n-drawer v-model:show="showDrawer" :width="620" placement="right">
@@ -264,8 +260,6 @@
 import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  NCard,
-  NDataTable,
   NInput,
   NSelect,
   NButton,
@@ -284,6 +278,7 @@ import {
   useMessage,
   type DataTableColumns
 } from 'naive-ui'
+import AppTableCard from '@/components/common/AppTableCard.vue'
 import {
   SearchOutline,
   RefreshOutline,
@@ -454,12 +449,12 @@ const columns = computed<DataTableColumns<AdminAsyncTaskVO>>(() => [
   {
     title: t('admin.tasks.col_id'),
     key: 'id',
-    width: 140,
+    width: 180,
     render(row) {
       return h(
         'span',
-        { class: 'task-id-text font-mono' },
-        String(row.id).slice(-8)
+        { class: 'id-text' },
+        String(row.id || '-')
       )
     }
   },
@@ -899,86 +894,58 @@ onUnmounted(() => {
   }
 }
 
-/* Main Table Card (Aligned with AdminImageView.vue) */
-.table-card {
-  border-radius: 10px;
-  background-color: var(--n-color, #ffffff);
+.task-table {
+  .task-id-text {
+    color: #666;
+    font-size: 12px;
+    font-family: 'Fira Code', monospace;
+  }
 
-  .filter-header {
+  .task-name-cell {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 8px;
 
-    .filter-left {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
+    .task-type-icon {
+      color: #444;
+      flex-shrink: 0;
     }
 
-    .filter-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .task-name-text {
+      font-weight: 600;
+      color: #333;
     }
   }
 
-  .task-table {
-    .task-id-text {
+  .table-progress-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .status-msg-truncated {
+      font-size: 11px;
       color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 170px;
+    }
+  }
+
+  .time-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .created-time {
       font-size: 12px;
+      color: #444;
+    }
+
+    .duration-time {
+      font-size: 11px;
+      color: #888;
       font-family: 'Fira Code', monospace;
-    }
-
-    .task-name-cell {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-
-      .task-type-icon {
-        color: #444;
-        flex-shrink: 0;
-      }
-
-      .task-name-text {
-        font-weight: 600;
-        color: #333;
-      }
-    }
-
-    .table-progress-cell {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-
-      .status-msg-truncated {
-        font-size: 11px;
-        color: #666;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 170px;
-      }
-    }
-
-    .time-cell {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-
-      .created-time {
-        font-size: 12px;
-        color: #444;
-      }
-
-      .duration-time {
-        font-size: 11px;
-        color: #888;
-        font-family: 'Fira Code', monospace;
-      }
     }
   }
 }
@@ -1062,19 +1029,6 @@ onUnmounted(() => {
         border: 1px solid rgba(239, 68, 68, 0.2);
       }
     }
-  }
-}
-
-/* Primary Button Rule (Volur View Rule) */
-.theme-primary-btn {
-  background-color: #000000 !important;
-  color: #ffffff !important;
-  font-weight: 500;
-  border-radius: 6px;
-  border: none !important;
-
-  &:hover {
-    background-color: #222222 !important;
   }
 }
 

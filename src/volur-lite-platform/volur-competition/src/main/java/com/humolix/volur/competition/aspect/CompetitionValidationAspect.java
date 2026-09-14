@@ -3,12 +3,9 @@ package com.humolix.volur.competition.aspect;
 import com.humolix.volur.competition.annotation.RequiredCompetitionRunning;
 import com.humolix.volur.competition.annotation.RequiredCompetitionStageRunning;
 import com.humolix.volur.competition.domain.entity.Competition;
-import com.humolix.volur.competition.domain.entity.CompetitionStageConfig;
-import com.humolix.volur.competition.domain.enums.CompetitionStage;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
-import com.humolix.volur.competition.domain.enums.StageStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.repository.CompetitionRepository;
-import com.humolix.volur.competition.repository.CompetitionStageConfigRepository;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +25,6 @@ import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
-import java.util.List;
 
 @Slf4j
 @Aspect
@@ -37,7 +33,6 @@ import java.util.List;
 public class CompetitionValidationAspect {
 
     private final CompetitionRepository competitionRepository;
-    private final CompetitionStageConfigRepository stageConfigRepository;
 
     private final ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
     private final ExpressionParser expressionParser = new SpelExpressionParser();
@@ -63,7 +58,8 @@ public class CompetitionValidationAspect {
 
         if (stageAnnotation != null) {
             Long competitionId = extractCompetitionId(joinPoint, stageAnnotation.key());
-            validateCompetitionStage(competitionId, stageAnnotation.stage());
+            CompetitionType requiredType = stageAnnotation.type() != null ? stageAnnotation.type() : stageAnnotation.value();
+            validateCompetitionType(competitionId, requiredType);
         } else if (runningAnnotation != null) {
             Long competitionId = extractCompetitionId(joinPoint, runningAnnotation.key());
             validateCompetition(competitionId);
@@ -95,33 +91,11 @@ public class CompetitionValidationAspect {
         return comp;
     }
 
-    public void validateCompetitionStage(Long competitionId, CompetitionStage stage) {
-        validateCompetition(competitionId);
+    public void validateCompetitionType(Long competitionId, CompetitionType requiredType) {
+        Competition comp = validateCompetition(competitionId);
 
-        if (stage == null) {
-            return;
-        }
-
-        List<CompetitionStageConfig> stageConfigs = stageConfigRepository.findByCompetitionIdAndStageOrderByStageOrderAsc(competitionId, stage);
-        if (!stageConfigs.isEmpty()) {
-            Instant now = Instant.now();
-            boolean hasRunningStage = stageConfigs.stream().anyMatch(s ->
-                    s.getStatus() != StageStatus.PENDING &&
-                    s.getStatus() != StageStatus.ENDED &&
-                    (s.getStartTime() == null || !now.isBefore(s.getStartTime())) &&
-                    (s.getEndTime() == null || !now.isAfter(s.getEndTime()))
-            );
-            if (!hasRunningStage) {
-                boolean allPending = stageConfigs.stream().allMatch(s -> s.getStatus() == StageStatus.PENDING || (s.getStartTime() != null && now.isBefore(s.getStartTime())));
-                if (allPending) {
-                    throw new BusinessException(HttpStatus.FORBIDDEN, "该赛段尚未开放");
-                }
-                boolean allEnded = stageConfigs.stream().allMatch(s -> s.getStatus() == StageStatus.ENDED || (s.getEndTime() != null && now.isAfter(s.getEndTime())));
-                if (allEnded) {
-                    throw new BusinessException(HttpStatus.FORBIDDEN, "该赛段已结束");
-                }
-                throw new BusinessException(HttpStatus.FORBIDDEN, "当前没有正在运行的该类型赛段");
-            }
+        if (requiredType != null && comp.getType() != requiredType) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "该竞赛非 " + requiredType.name() + " 模式竞赛");
         }
     }
 

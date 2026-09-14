@@ -29,10 +29,6 @@ public class AdminTeamDetailVO implements Serializable {
     private TeamStatus status;
     private String auditReason;
     private List<CompetitionMemberVO> members;
-    /**
-     * 所有队员填写的报名表单数据: userId -> (fieldKey -> fieldValue)
-     */
-    private Map<Long, Map<String, String>> memberRegistrationData;
     private Instant createdAt;
 
 }

@@ -8,10 +8,8 @@ import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.stage.ctf.CtfCompetitionChallenge;
 import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
-import com.humolix.volur.competition.domain.entity.CompetitionStageConfig;
-import com.humolix.volur.competition.domain.enums.CompetitionStage;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.repository.CompetitionRepository;
-import com.humolix.volur.competition.repository.CompetitionStageConfigRepository;
 import com.humolix.volur.competition.repository.stage.ctf.CtfCompetitionChallengeRepository;
 import com.humolix.volur.competition.service.admin.stage.AdminCtfMountService;
 import com.humolix.volur.framework.common.exception.BusinessException;
@@ -27,7 +25,6 @@ import java.util.List;
 public class AdminCtfMountServiceImpl implements AdminCtfMountService {
 
     private final CompetitionRepository competitionRepository;
-    private final CompetitionStageConfigRepository stageConfigRepository;
     private final CtfChallengeRepository rawChallengeRepository;
     private final CtfCompetitionChallengeRepository compChallengeRepository;
     private final CompetitionMapper competitionMapper;
@@ -44,24 +41,12 @@ public class AdminCtfMountServiceImpl implements AdminCtfMountService {
         Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
 
-        CompetitionStageConfig stage = null;
-        if (request.getStageId() != null) {
-            stage = stageConfigRepository.findById(request.getStageId())
-                    .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "指定的赛段不存在"));
-            if (!stage.getCompetition().getId().equals(competitionId)) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "该赛段不属于此竞赛");
-            }
-            if (compChallengeRepository.existsByCompetitionIdAndStageIdAndChallengeId(competitionId, request.getStageId(), request.getChallengeId())) {
-                throw new BusinessException(HttpStatus.CONFLICT, "该赛题已挂载至该赛段");
-            }
-        } else {
-            List<CompetitionStageConfig> ctfStages = stageConfigRepository.findByCompetitionIdAndStageOrderByStageOrderAsc(competitionId, CompetitionStage.CTF);
-            if (!ctfStages.isEmpty()) {
-                stage = ctfStages.getFirst();
-            }
-            if (compChallengeRepository.existsByCompetitionIdAndChallengeId(competitionId, request.getChallengeId())) {
-                throw new BusinessException(HttpStatus.CONFLICT, "该赛题已挂载至本场竞赛");
-            }
+        if (competition.getType() != CompetitionType.CTF) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "该竞赛类型不是CTF赛制，无法挂载CTF赛题");
+        }
+
+        if (compChallengeRepository.existsByCompetitionIdAndChallengeId(competitionId, request.getChallengeId())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该赛题已挂载至本场竞赛");
         }
 
         CtfChallenge challenge = rawChallengeRepository.findById(request.getChallengeId())
@@ -73,7 +58,6 @@ public class AdminCtfMountServiceImpl implements AdminCtfMountService {
 
         CtfCompetitionChallenge compChal = CtfCompetitionChallenge.builder()
                 .competition(competition)
-                .stage(stage)
                 .challenge(challenge)
                 .initialPoints(initial)
                 .minPoints(min)
@@ -96,6 +80,24 @@ public class AdminCtfMountServiceImpl implements AdminCtfMountService {
         for (CtfChallengeMountRequestDTO item : request.getItems()) {
             mountChallenge(competitionId, item);
         }
+    }
+
+    @Override
+    @Transactional
+    public void updateMountedChallenge(Long competitionId, Long competitionChallengeId, CtfChallengeMountRequestDTO request) {
+        CtfCompetitionChallenge compChal = compChallengeRepository.findById(competitionChallengeId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
+        if (request.getInitialPoints() != null) {
+            compChal.setInitialPoints(request.getInitialPoints());
+            if (compChal.getSolvesCount() == null || compChal.getSolvesCount() == 0) {
+                compChal.setCurrentPoints(request.getInitialPoints());
+            }
+        }
+        if (request.getMinPoints() != null) compChal.setMinPoints(request.getMinPoints());
+        if (request.getDecayCount() != null) compChal.setDecayCount(request.getDecayCount());
+        if (request.getSortOrder() != null) compChal.setSortOrder(request.getSortOrder());
+        if (request.getIsVisible() != null) compChal.setIsVisible(request.getIsVisible());
+        compChallengeRepository.save(compChal);
     }
 
     @Override

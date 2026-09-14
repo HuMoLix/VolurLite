@@ -1,8 +1,8 @@
 package com.humolix.volur.auth.security.exception;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;

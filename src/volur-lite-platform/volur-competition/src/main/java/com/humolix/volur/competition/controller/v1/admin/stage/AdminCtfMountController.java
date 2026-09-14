@@ -49,6 +49,17 @@ public class AdminCtfMountController {
         return ApiResponseEntity.success("批量挂载赛题成功");
     }
 
+    @Operation(summary = "更新已挂载赛题配置")
+    @Syslog(module = "COMPETITION", value = "更新已挂载赛题配置", recordParams = true)
+    @PutMapping("/{competitionChallengeId}")
+    public ApiResponse<Void> updateMountedChallenge(
+            @PathVariable Long competitionId,
+            @PathVariable Long competitionChallengeId,
+            @RequestBody CtfChallengeMountRequestDTO request) {
+        mountService.updateMountedChallenge(competitionId, competitionChallengeId, request);
+        return ApiResponseEntity.success("更新赛题配置成功");
+    }
+
     @Operation(summary = "从竞赛中卸载赛题")
     @Syslog(module = "COMPETITION", value = "从竞赛卸载赛题", recordParams = true)
     @DeleteMapping("/{competitionChallengeId}")

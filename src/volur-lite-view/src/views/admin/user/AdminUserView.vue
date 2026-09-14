@@ -52,90 +52,87 @@
     </div>
 
     <!-- Bottom section: User Management Table Card -->
-    <n-card class="table-card" :bordered="false">
-      <!-- Search & Filter Controls -->
-      <div class="filter-header">
-        <div class="filter-left">
-          <n-input
-            v-model:value="searchKeyword"
-            placeholder="搜索用户名 / 邮箱 / 组织"
-            clearable
-            style="width: 240px;"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <n-icon :component="SearchOutline" />
-            </template>
-          </n-input>
+    <AppTableCard
+      :bordered="true"
+      :table-bordered="true"
+      :scroll-x="1170"
+      remote
+      :columns="columns"
+      :data="userList"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="(row: AdminUserDetailsVO) => String(row.id)"
+      table-class="user-data-table"
+      @update:sorter="handleSorterChange"
+      @update:page="handlePageChange"
+      @update:page-size="handlePageSizeChange"
+    >
+      <template #filter-left>
+        <n-input
+          v-model:value="searchKeyword"
+          placeholder="搜索用户名 / 邮箱 / 组织"
+          clearable
+          style="width: 240px;"
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <n-icon :component="SearchOutline" />
+          </template>
+        </n-input>
 
-          <n-select
-            v-model:value="filterRole"
-            placeholder="用户角色"
-            clearable
-            :options="roleSelectOptions"
-            style="width: 140px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterRole"
+          placeholder="用户角色"
+          clearable
+          :options="roleSelectOptions"
+          style="width: 140px;"
+          @update:value="handleSearch"
+        />
 
-          <n-select
-            v-model:value="filterStatus"
-            placeholder="账号状态"
-            clearable
-            :options="statusSelectOptions"
-            style="width: 130px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterStatus"
+          placeholder="账号状态"
+          clearable
+          :options="statusSelectOptions"
+          style="width: 130px;"
+          @update:value="handleSearch"
+        />
 
-          <n-date-picker
-            v-model:value="dateRange"
-            type="datetimerange"
-            clearable
-            format="yyyy-MM-dd HH:mm"
-            start-placeholder="注册起始时间"
-            end-placeholder="注册截止时间"
-            style="width: 320px;"
-            @update:value="handleSearch"
-          />
+        <n-date-picker
+          v-model:value="dateRange"
+          type="datetimerange"
+          clearable
+          format="yyyy-MM-dd HH:mm"
+          start-placeholder="注册起始时间"
+          end-placeholder="注册截止时间"
+          style="width: 320px;"
+          @update:value="handleSearch"
+        />
 
-          <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-            <template #icon>
-              <n-icon :component="SearchOutline" />
-            </template>
-            查询
-          </n-button>
+        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+          <template #icon>
+            <n-icon :component="SearchOutline" />
+          </template>
+          查询
+        </n-button>
 
-          <n-button quaternary @click="handleReset">
-            <template #icon>
-              <n-icon :component="RefreshOutline" />
-            </template>
-            重置
-          </n-button>
-        </div>
+        <n-button quaternary @click="handleReset">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          重置
+        </n-button>
+      </template>
 
-        <div class="filter-right">
-          <n-button type="primary" class="theme-primary-btn" @click="openCreateModal">
-            <template #icon>
-              <n-icon :component="AddOutline" />
-            </template>
-            新增用户
-          </n-button>
-        </div>
-      </div>
-
-      <!-- Data Table -->
-      <n-data-table
-        remote
-        :columns="columns"
-        :data="userList"
-        :loading="loading"
-        :pagination="pagination"
-        :row-key="(row: AdminUserDetailsVO) => String(row.id)"
-        @update:sorter="handleSorterChange"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-        class="user-data-table"
-      />
-    </n-card>
+      <template #filter-right>
+        <n-button type="primary" class="theme-primary-btn" @click="openCreateModal">
+          <template #icon>
+            <n-icon :component="AddOutline" />
+          </template>
+          新增用户
+        </n-button>
+      </template>
+    </AppTableCard>
 
     <!-- Create / Edit User Modal -->
     <n-modal
@@ -236,19 +233,16 @@
 <script setup lang="ts">
 import { ref, reactive, h, onMounted } from 'vue'
 import {
-  NCard,
   NIcon,
   NInput,
   NSelect,
   NDatePicker,
   NButton,
-  NDataTable,
   NModal,
   NForm,
   NFormItem,
   NSwitch,
   NTag,
-  NAvatar,
   NPopconfirm,
   NSpace,
   useMessage,
@@ -257,6 +251,8 @@ import {
   type FormRules,
   type SelectOption
 } from 'naive-ui'
+import AppAvatar from '@/components/common/AppAvatar.vue'
+import AppTableCard from '@/components/common/AppTableCard.vue'
 import {
   PeopleOutline,
   ShieldCheckmarkOutline,
@@ -283,7 +279,6 @@ import type {
   AdminUserCreateDTO,
   AdminUserUpdateDTO
 } from '@/types/user'
-import { formatAvatarUrl } from '@/utils/auth'
 
 const message = useMessage()
 
@@ -350,7 +345,6 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
     minWidth: 260,
     sorter: true,
     render(row) {
-      const initial = row.username ? row.username.charAt(0).toUpperCase() : 'U'
       return h(
         'div',
         {
@@ -363,18 +357,12 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
           }
         },
         [
-          h(
-            NAvatar,
-            {
-              round: true,
-              size: 34,
-              src: formatAvatarUrl(row.avatarUrl),
-              style: {
-                flexShrink: '0'
-              }
-            },
-            row.avatarUrl ? undefined : { default: () => initial }
-          ),
+          h(AppAvatar, {
+            round: true,
+            size: 34,
+            src: row.avatarUrl,
+            name: row.username
+          }),
           h(
             'div',
             {
@@ -874,50 +862,6 @@ onMounted(() => {
       white-space: nowrap;
     }
   }
-}
-
-.table-card {
-  border-radius: 10px;
-  background-color: var(--n-color, #ffffff);
-
-  .filter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 20px;
-
-    .filter-left {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .filter-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-  }
-}
-
-.theme-primary-btn {
-  background-color: #000000;
-  color: #ffffff;
-  font-weight: 500;
-  border-radius: 6px;
-
-  &:hover {
-    background-color: #222222;
-  }
-}
-
-.id-text {
-  font-family: 'Fira Code', monospace;
-  font-size: 13px;
-  color: #666666;
 }
 
 :deep(.user-cell) {

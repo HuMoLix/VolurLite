@@ -5,6 +5,7 @@ import com.humolix.volur.competition.domain.enums.MemberRole;
 import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.Gender;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -57,6 +58,31 @@ public class CompetitionMember implements Serializable {
     @Column(name = "status", nullable = false, length = 32, columnDefinition = "VARCHAR(32)")
     @Builder.Default
     private MemberStatus status = MemberStatus.INVITED;
+
+    @Column(name = "real_name", length = 64, columnDefinition = "VARCHAR(64)")
+    private String realName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender", length = 16, columnDefinition = "VARCHAR(16)")
+    private Gender gender;
+
+    @Column(name = "id_card", length = 32, columnDefinition = "VARCHAR(32)")
+    private String idCard;
+
+    @Column(name = "email", length = 128, columnDefinition = "VARCHAR(128)")
+    private String email;
+
+    @Column(name = "phone", length = 32, columnDefinition = "VARCHAR(32)")
+    private String phone;
+
+    @Column(name = "organization", length = 128, columnDefinition = "VARCHAR(128)")
+    private String organization;
+
+    @Column(name = "department", length = 128, columnDefinition = "VARCHAR(128)")
+    private String department;
+
+    @Column(name = "position", length = 128, columnDefinition = "VARCHAR(128)")
+    private String position;
 
     @CreationTimestamp
     @Column(name = "joined_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")

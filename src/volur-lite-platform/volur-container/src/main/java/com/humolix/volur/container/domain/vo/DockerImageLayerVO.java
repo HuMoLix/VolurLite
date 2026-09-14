@@ -28,9 +28,6 @@ public class DockerImageLayerVO {
     @Schema(description = "该层体积(字节)")
     private Long sizeBytes;
 
-    @Schema(description = "格式化体积 (如 12.5 MB 或 0 B)")
-    private String sizeFormatted;
-
     @Schema(description = "创建时间或相对时间")
     private String createdAt;
 

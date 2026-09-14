@@ -63,6 +63,22 @@ public class CompetitionConfig implements Serializable {
     @Builder.Default
     private Boolean allowWriteupSubmission = true;
 
+    @Column(name = "max_containers_per_team", columnDefinition = "INT DEFAULT 2")
+    @Builder.Default
+    private Integer maxContainersPerTeam = 2;
+
+    @Column(name = "writeup_template_url", length = 512, columnDefinition = "VARCHAR(512)")
+    private String writeupTemplateUrl;
+
+    @Column(name = "writeup_template_name", length = 255, columnDefinition = "VARCHAR(255)")
+    private String writeupTemplateName;
+
+    @Column(name = "writeup_start_time", columnDefinition = "DATETIME(6)")
+    private Instant writeupStartTime;
+
+    @Column(name = "writeup_end_time", columnDefinition = "DATETIME(6)")
+    private Instant writeupEndTime;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Instant createdAt;

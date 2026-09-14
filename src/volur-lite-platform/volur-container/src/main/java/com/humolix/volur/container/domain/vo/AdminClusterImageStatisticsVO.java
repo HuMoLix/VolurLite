@@ -18,27 +18,15 @@ public class AdminClusterImageStatisticsVO {
     private Long totalImages = 0L;
 
     @Builder.Default
-    @Schema(description = "赛题镜像数")
-    private Long challengeImages = 0L;
-
-    @Builder.Default
-    @Schema(description = "基础与系统镜像数")
-    private Long baseImages = 0L;
-
-    @Builder.Default
     @Schema(description = "总存储占用(字节)")
     private Long totalSizeBytes = 0L;
 
     @Builder.Default
-    @Schema(description = "格式化总存储占用")
-    private String totalSizeFormatted = "0 B";
+    @Schema(description = "私有镜像仓库是否在线可用")
+    private Boolean registryOnline = false;
 
     @Builder.Default
-    @Schema(description = "已覆盖节点数")
-    private Integer totalNodesCovered = 0;
-
-    @Builder.Default
-    @Schema(description = "同步或拉取中的镜像数")
-    private Long syncingImages = 0L;
+    @Schema(description = "私有镜像仓库中托管的镜像总数")
+    private Long registryImagesCount = 0L;
 
 }

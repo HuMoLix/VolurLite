@@ -25,11 +25,16 @@ export interface AdminClusterSettingsVO {
   dockerSwarmApiUrl: string
   dockerSwarmNetwork: string
   dockerSwarmCertPath: string
+  dockerSwarmOutboundEnabled?: boolean
   k3sMasterUrl: string
   k3sNamespace: string
   k3sKubeconfigPath: string
+  k3sToken?: string
   resourceIsolationEnabled: boolean
-  autoMigrateImagesEnabled: boolean
+  registryEnabled?: boolean
+  registryInternalUrl?: string
+  registryPublicPort?: number
+  registryOnline?: boolean
   totalNodes: number
   masterNodes: number
   workerNodes: number
@@ -44,11 +49,15 @@ export interface AdminClusterSettingsDTO {
   dockerSwarmApiUrl?: string
   dockerSwarmNetwork?: string
   dockerSwarmCertPath?: string
+  dockerSwarmOutboundEnabled?: boolean
   k3sMasterUrl?: string
   k3sNamespace?: string
   k3sKubeconfigPath?: string
+  k3sToken?: string
   resourceIsolationEnabled?: boolean
-  autoMigrateImagesEnabled?: boolean
+  registryEnabled?: boolean
+  registryInternalUrl?: string
+  registryPublicPort?: number
 }
 
 export interface AdminClusterNodeVO {

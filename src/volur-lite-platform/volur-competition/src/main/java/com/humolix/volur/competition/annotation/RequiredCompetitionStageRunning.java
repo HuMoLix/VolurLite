@@ -1,6 +1,6 @@
 package com.humolix.volur.competition.annotation;
 
-import com.humolix.volur.competition.domain.enums.CompetitionStage;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 
 import java.lang.annotation.*;
 
@@ -9,7 +9,9 @@ import java.lang.annotation.*;
 @Documented
 public @interface RequiredCompetitionStageRunning {
 
-    CompetitionStage stage() default CompetitionStage.CTF;
+    CompetitionType value() default CompetitionType.CTF;
+
+    CompetitionType type() default CompetitionType.CTF;
 
     String key() default "";
 

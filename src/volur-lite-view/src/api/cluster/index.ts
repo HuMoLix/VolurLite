@@ -129,3 +129,12 @@ export function checkAllAdminClusterNodesHealthApi(): Promise<ApiResponse<AdminC
 export function joinAdminClusterNodeApi(id: string | number): Promise<ApiResponse<AdminClusterNodeVO>> {
   return request.post<AdminClusterNodeVO>(`/admin/clusters/nodes/${id}/join-cluster`, undefined, { timeout: 45000 })
 }
+
+/**
+ * 扫描并同步 K3s 集群现有节点
+ * 对应后端: POST /api/v1/admin/clusters/nodes/sync-k3s
+ */
+export function syncK3sClusterNodesApi(): Promise<ApiResponse<AdminClusterNodeVO[]>> {
+  return request.post<AdminClusterNodeVO[]>('/admin/clusters/nodes/sync-k3s', undefined, { timeout: 45000 })
+}
+

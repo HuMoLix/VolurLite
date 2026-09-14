@@ -1,8 +1,8 @@
 package com.humolix.volur.auth.security.jwt;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.security.entity.UserDetails;
+import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.auth.security.jwt.exception.InvalidTokenException;
 import com.humolix.volur.auth.security.jwt.exception.MissingTokenException;
 import com.humolix.volur.auth.security.service.UserDetailsService;

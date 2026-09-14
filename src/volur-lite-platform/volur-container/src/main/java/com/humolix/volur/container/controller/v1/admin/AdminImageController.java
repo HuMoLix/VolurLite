@@ -4,7 +4,6 @@ import com.humolix.volur.container.domain.dto.AdminImageBackupDTO;
 import com.humolix.volur.container.domain.dto.AdminImagePageRequestDTO;
 import com.humolix.volur.container.domain.dto.AdminImagePullRequestDTO;
 import com.humolix.volur.container.domain.dto.AdminImageTransferDTO;
-import com.humolix.volur.container.domain.dto.AdminImageTypeUpdateDTO;
 import com.humolix.volur.container.domain.vo.AdminClusterImageDetailVO;
 import com.humolix.volur.container.domain.vo.AdminClusterImageStatisticsVO;
 import com.humolix.volur.container.domain.vo.AdminClusterImageVO;
@@ -49,16 +48,6 @@ public class AdminImageController {
         return ApiResponseEntity.ok("获取镜像分层详情成功", adminImageService.getImageDetail(id));
     }
 
-    @Operation(summary = "修改 Docker 镜像所属类别")
-    @Syslog(module = "IMAGE", value = "修改镜像类别", recordParams = true)
-    @PutMapping("/{id}/type")
-    public ApiResponse<Void> updateImageType(
-            @PathVariable Long id,
-            @Valid @RequestBody AdminImageTypeUpdateDTO request) {
-        adminImageService.updateImageType(id, request);
-        return ApiResponseEntity.success("镜像类别修改成功");
-    }
-
     @Operation(summary = "重新扫描并同步加载本地及集群子节点 Docker 镜像")
     @Syslog(module = "IMAGE", value = "重新扫描加载集群镜像", recordParams = true)
     @PostMapping("/scan")
@@ -70,9 +59,9 @@ public class AdminImageController {
     @Operation(summary = "拉取/下载 Docker 镜像至指定节点")
     @Syslog(module = "IMAGE", value = "拉取 Docker 镜像", recordParams = true)
     @PostMapping("/pull")
-    public ApiResponse<Void> pullImage(@Valid @RequestBody AdminImagePullRequestDTO request) {
-        adminImageService.pullImage(request);
-        return ApiResponseEntity.success("镜像拉取任务已提交并就绪");
+    public ApiResponse<com.humolix.volur.system.domain.vo.AdminAsyncTaskSubmitVO> pullImage(@Valid @RequestBody AdminImagePullRequestDTO request) {
+        com.humolix.volur.system.domain.vo.AdminAsyncTaskSubmitVO result = adminImageService.pullImage(request);
+        return ApiResponseEntity.ok("镜像拉取与中心入库任务已提交后台执行", result);
     }
 
     @Operation(summary = "镜像跨节点转移")
@@ -96,6 +85,14 @@ public class AdminImageController {
     @GetMapping("/{id}/export")
     public void exportImage(@PathVariable Long id, HttpServletResponse response) {
         adminImageService.exportImage(id, response);
+    }
+
+    @Operation(summary = "将镜像推送至中心私有镜像仓库 (Registry)")
+    @Syslog(module = "IMAGE", value = "推送镜像至中心镜像仓库", recordParams = true)
+    @PostMapping("/{id}/push-registry")
+    public ApiResponse<Void> pushImageToRegistry(@PathVariable Long id) {
+        adminImageService.pushImageToRegistry(id);
+        return ApiResponseEntity.success("镜像已成功推送至中心镜像仓库");
     }
 
     @Operation(summary = "从指定节点删除镜像或全量删除",

@@ -42,40 +42,69 @@ public class CompetitionServiceImpl implements CompetitionService {
             predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.DRAFT));
 
             if (StringUtils.hasText(keyword)) {
-                predicates.add(cb.like(root.get("title"), "%" + keyword.trim() + "%"));
+                String kw = "%" + keyword.trim() + "%";
+                predicates.add(cb.or(
+                        cb.like(root.get("title"), kw),
+                        cb.like(root.get("slug"), kw)
+                ));
             }
             query.orderBy(cb.desc(root.get("startTime")), cb.desc(root.get("id")));
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        Page<CompetitionSummaryVO> pageResult = competitionRepository.findAll(spec, pageable).map(comp -> {
-            CompetitionSummaryVO vo = competitionMapper.toSummaryVO(comp);
-            long teamCount = teamRepository.countByCompetitionIdAndStatus(comp.getId(), TeamStatus.AUDIT_PASSED);
-            vo.setTeamCount(teamCount);
-            return vo;
-        });
+        Page<CompetitionSummaryVO> pageResult = competitionRepository.findAll(spec, pageable)
+                .map(comp -> {
+                    if (comp.refreshStatus()) {
+                        competitionRepository.save(comp);
+                    }
+                    return competitionMapper.toSummaryVO(comp);
+                });
 
         return PageResponse.of(pageResult);
     }
 
     @Override
     public CompetitionDetailVO getCompetitionBySlug(String slug) {
-        Competition competition = competitionRepository.findBySlugWithDetails(slug)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
+        Competition competition = competitionRepository.findBySlugWithDetails(slug).orElse(null);
+        if (competition == null) {
+            return null;
+        }
+        if (competition.refreshStatus()) {
+            competitionRepository.save(competition);
+        }
+        if (competition.getStatus() == CompetitionStatus.DRAFT) {
+            return null;
+        }
         return buildDetailVO(competition);
     }
 
     @Override
     public CompetitionDetailVO getCompetitionById(Long id) {
-        Competition competition = competitionRepository.findByIdWithDetails(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
+        Competition competition = competitionRepository.findByIdWithDetails(id).orElse(null);
+        if (competition == null) {
+            return null;
+        }
+        if (competition.refreshStatus()) {
+            competitionRepository.save(competition);
+        }
+        if (competition.getStatus() == CompetitionStatus.DRAFT) {
+            return null;
+        }
         return buildDetailVO(competition);
     }
 
     @Override
     public CompetitionAboutVO getCompetitionAbout(Long id) {
-        Competition competition = competitionRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
+        Competition competition = competitionRepository.findById(id).orElse(null);
+        if (competition == null) {
+            return null;
+        }
+        if (competition.refreshStatus()) {
+            competitionRepository.save(competition);
+        }
+        if (competition.getStatus() == CompetitionStatus.DRAFT) {
+            return null;
+        }
         return competitionMapper.toAboutVO(competition);
     }
 

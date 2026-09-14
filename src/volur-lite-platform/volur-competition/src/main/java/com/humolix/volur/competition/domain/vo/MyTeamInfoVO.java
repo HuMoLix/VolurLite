@@ -28,6 +28,7 @@ public class MyTeamInfoVO implements Serializable {
     private TeamStatus status;
     private String auditReason;
     private MemberRole myRole;
+    private Boolean isCaptain;
     private List<CompetitionMemberVO> members;
     private Map<String, String> myRegistrationData;
     private Instant createdAt;

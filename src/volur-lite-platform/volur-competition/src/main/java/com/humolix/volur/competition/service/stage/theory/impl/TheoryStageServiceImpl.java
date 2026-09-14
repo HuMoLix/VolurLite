@@ -9,7 +9,7 @@ import com.humolix.volur.competition.domain.entity.CompetitionMember;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.entity.stage.theory.TheoryCompetitionAnswer;
 import com.humolix.volur.competition.domain.entity.stage.theory.TheoryCompetitionPaper;
-import com.humolix.volur.competition.domain.enums.CompetitionStage;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.stage.theory.TheoryPaperExamVO;
 import com.humolix.volur.competition.domain.vo.stage.theory.TheoryPaperQuestionVO;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@RequiredCompetitionStageRunning(stage = CompetitionStage.THEORY)
+@RequiredCompetitionStageRunning(type = CompetitionType.THEORY)
 public class TheoryStageServiceImpl implements TheoryStageService {
 
     private final CompetitionMemberRepository memberRepository;

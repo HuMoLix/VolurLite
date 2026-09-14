@@ -29,7 +29,5 @@ public class CtfCompetitionChallengeDetailVO implements Serializable {
     private String attachmentName;
     private Boolean isContainer;
     private Boolean isSolvedByMyTeam;
-    private Long stageId;
-    private String stageName;
 
 }

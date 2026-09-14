@@ -47,7 +47,6 @@ class CompetitionControllerTest {
                 .id(1L)
                 .title("Volur 2026 迎新赛")
                 .slug("volur-2026-welcome")
-                .teamCount(5L)
                 .build();
 
         PageResponse<CompetitionSummaryVO> pageResponse = PageResponse.of(List.of(summaryVO), 1L, 1, 10);

@@ -19,8 +19,6 @@ public class CtfChallengeMountRequestDTO {
 
     private Integer decayCount;
 
-    private Long stageId;
-
     private Integer sortOrder;
 
     private Boolean isVisible;

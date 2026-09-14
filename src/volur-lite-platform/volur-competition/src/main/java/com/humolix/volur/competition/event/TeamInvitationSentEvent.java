@@ -10,6 +10,7 @@ import java.time.Instant;
 public class TeamInvitationSentEvent extends ApplicationEvent {
 
     private final Long competitionId;
+    private final String competitionSlug;
     private final String competitionTitle;
     private final Long teamId;
     private final String teamName;
@@ -20,11 +21,12 @@ public class TeamInvitationSentEvent extends ApplicationEvent {
     private final String remark;
     private final Instant expireTime;
 
-    public TeamInvitationSentEvent(Object source, Long competitionId, String competitionTitle,
+    public TeamInvitationSentEvent(Object source, Long competitionId, String competitionSlug, String competitionTitle,
                                    Long teamId, String teamName, Long inviterId, String inviterName,
                                    Long inviteeId, MemberRole memberRole, String remark, Instant expireTime) {
         super(source);
         this.competitionId = competitionId;
+        this.competitionSlug = competitionSlug;
         this.competitionTitle = competitionTitle;
         this.teamId = teamId;
         this.teamName = teamName;

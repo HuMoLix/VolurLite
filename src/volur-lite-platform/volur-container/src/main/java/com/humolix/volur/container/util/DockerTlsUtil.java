@@ -28,18 +28,12 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
-/**
- * Docker 节点 TLS 双向认证通信工具类
- */
 @Slf4j
 public final class DockerTlsUtil {
 
     private DockerTlsUtil() {
     }
 
-    /**
-     * 根据 CA 证书、客户端公钥证书与 PKCS#8 格式私钥构建双向认证 SSLContext
-     */
     public static SSLContext createDockerSslContext(String caPem, String certPem, String keyPkcs8Pem) {
         try {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");

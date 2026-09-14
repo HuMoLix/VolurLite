@@ -1,9 +1,10 @@
 package com.humolix.volur.logging.aspect;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.logging.service.SyslogPersistenceService;
 import com.humolix.volur.logging.util.IpUtils;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -187,7 +188,7 @@ public class SyslogAspect {
         }
         try {
             byte[] decoded = java.util.Base64.getUrlDecoder().decode(parts[1]);
-            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(decoded);
+            JsonNode node = objectMapper.readTree(decoded);
             if (node.has("sub")) {
                 String sub = node.get("sub").asText();
                 if (StringUtils.hasText(sub)) {

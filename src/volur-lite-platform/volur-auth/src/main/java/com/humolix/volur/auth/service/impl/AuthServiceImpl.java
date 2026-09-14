@@ -51,6 +51,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -397,11 +398,14 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "原密码错误，请重新输入");
         }
 
-        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+        CompletableFuture<Boolean> samePasswordFuture = passwordEncoder.matchesAsync(request.getNewPassword(), user.getPassword());
+        CompletableFuture<String> encodedNewPasswordFuture = passwordEncoder.encodeAsync(request.getNewPassword());
+
+        if (Boolean.TRUE.equals(samePasswordFuture.join())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "新密码不能与原密码相同");
         }
 
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPassword(encodedNewPasswordFuture.join());
         userRepository.save(user);
         redisTemplate.delete(redisKey);
         tokenService.forceLogoutUser(user.getId());

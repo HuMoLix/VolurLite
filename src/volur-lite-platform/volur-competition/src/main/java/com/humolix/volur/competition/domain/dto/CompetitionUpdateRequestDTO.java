@@ -1,6 +1,7 @@
 package com.humolix.volur.competition.domain.dto;
 
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,6 +18,8 @@ public class CompetitionUpdateRequestDTO {
 
     private String slug;
 
+    private CompetitionType type;
+
     private String description;
 
     private String bannerUrl;
@@ -32,9 +35,5 @@ public class CompetitionUpdateRequestDTO {
     private Instant endTime;
 
     private CompetitionConfigDTO config;
-
-    private List<CompetitionStageConfigDTO> stageConfigs;
-
-    private List<CompetitionFieldSchemaDTO> fieldSchemas;
 
 }

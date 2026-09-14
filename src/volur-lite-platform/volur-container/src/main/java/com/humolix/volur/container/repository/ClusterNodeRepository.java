@@ -13,6 +13,8 @@ public interface ClusterNodeRepository extends JpaRepository<ClusterNode, Long>,
 
     Optional<ClusterNode> findByIpAddress(String ipAddress);
 
+    Optional<ClusterNode> findByNodeName(String nodeName);
+
     List<ClusterNode> findByRole(String role);
 
     long countByRole(String role);

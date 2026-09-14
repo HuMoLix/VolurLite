@@ -1,6 +1,7 @@
 package com.humolix.volur.competition.domain.dto;
 
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,9 @@ public class CompetitionCreateRequestDTO {
     @NotBlank(message = "竞赛短链接不能为空")
     private String slug;
 
+    @NotNull(message = "竞赛类型不能为空")
+    private CompetitionType type;
+
     private String description;
 
     private String bannerUrl;
@@ -38,9 +42,5 @@ public class CompetitionCreateRequestDTO {
     private Instant endTime;
 
     private CompetitionConfigDTO config;
-
-    private List<CompetitionStageConfigDTO> stageConfigs;
-
-    private List<CompetitionFieldSchemaDTO> fieldSchemas;
 
 }

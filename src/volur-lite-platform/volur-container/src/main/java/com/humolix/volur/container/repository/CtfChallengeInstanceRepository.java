@@ -26,6 +26,8 @@ public interface CtfChallengeInstanceRepository extends JpaRepository<CtfChallen
 
     long countByStatusIn(Collection<InstanceStartupStatus> statuses);
 
+    List<CtfChallengeInstance> findByStatusIn(Collection<InstanceStartupStatus> statuses);
+
     long countByCreatedAtAfter(Instant after);
 
     long countByNodeIpAndStatusIn(String nodeIp, Collection<InstanceStartupStatus> statuses);

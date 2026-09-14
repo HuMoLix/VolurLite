@@ -16,11 +16,4 @@ public class AdminImagePullRequestDTO {
     @Schema(description = "Docker 镜像名称 (含Tag)")
     private String image;
 
-    @NotBlank(message = "目标节点IP不能为空")
-    @Schema(description = "目标节点IP或 ALL_RESOURCE_NODES")
-    private String targetNodeIp;
-
-    @Schema(description = "镜像类别 (CHALLENGE / BASE / SYSTEM)")
-    private String imageType = "CHALLENGE";
-
 }

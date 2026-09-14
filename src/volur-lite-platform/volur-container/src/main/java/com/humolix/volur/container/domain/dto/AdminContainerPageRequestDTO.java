@@ -27,4 +27,7 @@ public class AdminContainerPageRequestDTO extends PageRequestDTO {
     @Schema(description = "目标用户 ID")
     private Long userId;
 
+    @Schema(description = "赛事/阶段 ID (0 为练习赛，大于0为指定赛事)")
+    private Long stageId;
+
 }

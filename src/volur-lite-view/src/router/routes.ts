@@ -19,6 +19,32 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: '竞赛演练', titleKey: 'competition.page_title', requiresAuth: false }
       },
       {
+        path: 'competitions/:slug',
+        name: 'CompetitionDetailBySlug',
+        component: () => import('@/views/competition/CompetitionDetailView.vue'),
+        meta: {
+          title: '竞赛详情',
+          titleKey: 'competition.detail_title',
+          parentTitle: '竞赛演练',
+          parentTitleKey: 'competition.page_title',
+          parentPath: '/competitions',
+          requiresAuth: false
+        }
+      },
+      {
+        path: 'c/:slug',
+        name: 'CompetitionShortLink',
+        component: () => import('@/views/competition/CompetitionDetailView.vue'),
+        meta: {
+          title: '竞赛短链直达',
+          titleKey: 'competition.detail_title',
+          parentTitle: '竞赛演练',
+          parentTitleKey: 'competition.page_title',
+          parentPath: '/competitions',
+          requiresAuth: false
+        }
+      },
+      {
         path: 'announcements',
         name: 'Announcements',
         component: () => import('@/views/announcement/AnnouncementListView.vue'),
@@ -29,6 +55,19 @@ export const routes: RouteRecordRaw[] = [
         name: 'Profile',
         component: () => import('@/views/profile/ProfileView.vue'),
         meta: { title: '个人中心', titleKey: 'layout.profile', requiresAuth: true }
+      }
+    ]
+  },
+  {
+    path: '/arena/:slug',
+    component: () => import('@/layout/CompetitionLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'CompetitionArena',
+        component: () => import('@/views/competition/CompetitionArenaView.vue'),
+        meta: { title: '竞赛竞技场', titleKey: 'competition.arena_title', requiresAuth: true }
       }
     ]
   },
@@ -120,8 +159,46 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'competitions',
         name: 'AdminCompetitions',
-        component: () => import('@/views/admin/competition/AdminCompetitionView.vue'),
+        component: () => import('@/views/admin/competition/AdminCompetitionListView.vue'),
         meta: { title: '竞赛管理', titleKey: 'admin.competitions.title' }
+      },
+      {
+        path: 'competitions/create',
+        name: 'AdminCompetitionCreate',
+        component: () => import('@/views/admin/competition/AdminCompetitionEditView.vue'),
+        meta: {
+          title: '创建竞赛',
+          titleKey: 'admin.competitions.modal_create_title',
+          parentTitle: '竞赛管理',
+          parentTitleKey: 'admin.competitions.title'
+        }
+      },
+      {
+        path: 'competitions/:id/edit',
+        name: 'AdminCompetitionEdit',
+        component: () => import('@/views/admin/competition/AdminCompetitionEditView.vue'),
+        meta: {
+          title: '比赛管理',
+          titleKey: 'admin.competitions.manage_title',
+          parentTitle: '竞赛管理',
+          parentTitleKey: 'admin.competitions.title'
+        }
+      },
+      {
+        path: 'competitions/:id/preview',
+        name: 'AdminCompetitionPreview',
+        component: () => import('@/views/competition/CompetitionDetailView.vue'),
+        meta: {
+          title: '前台预览',
+          titleKey: 'admin.competitions.preview_title',
+          parentTitle: '竞赛管理',
+          parentTitleKey: 'admin.competitions.title',
+          parentPath: '/admin/competitions'
+        }
+      },
+      {
+        path: 'competitions/edit/:id',
+        redirect: to => `/admin/competitions/${to.params.id}/edit`
       },
       {
         path: 'broadcasts',
@@ -245,9 +322,14 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: '全站维护中', requiresAuth: false }
   },
   {
-    path: '/:pathMatch(.*)*',
+    path: '/404',
     name: 'NotFound',
     component: () => import('@/views/error/NotFoundView.vue'),
     meta: { title: '404 - 页面未找到', titleKey: 'error.not_found_title' }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'CatchAll',
+    redirect: '/404'
   }
 ]

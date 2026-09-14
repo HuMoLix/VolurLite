@@ -43,3 +43,6 @@ uploads/**
 
 # Runtime data & certificates
 data/
+
+# Delivery artifacts
+dist_delivery/

@@ -20,4 +20,8 @@ public interface AdminCompetitionService {
 
     void setScoreboardFrozen(Long id, boolean frozen);
 
+    void archiveCompetition(Long id);
+
+    void unarchiveCompetition(Long id);
+
 }

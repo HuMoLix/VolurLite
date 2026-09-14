@@ -2,13 +2,13 @@ package com.humolix.volur.competition.domain.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -22,12 +22,8 @@ public class TeamSignupRequestDTO {
 
     private String avatarUrl;
 
-    private Map<String, String> captainData;
-
+    @NotEmpty(message = "参赛成员名册不能为空")
     @Valid
-    private List<TeamMemberInputDTO> leaders = new ArrayList<>();
-
-    @Valid
-    private List<TeamMemberInputDTO> members = new ArrayList<>();
+    private List<TeamMemberSignupDTO> members = new ArrayList<>();
 
 }

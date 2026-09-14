@@ -36,6 +36,7 @@ export interface AdminContainerPageRequestDTO {
   keyword?: string
   status?: InstanceStartupStatus
   challengeId?: number | string
+  stageId?: number | string
   userId?: number | string
 }
 
@@ -83,6 +84,7 @@ export interface AdminContainerManualStartDTO {
   userId?: number | string
   durationMinutes?: number
   customFlag?: string
+  outboundEnabled?: boolean
 }
 
 /** 管理端容器内执行命令 DTO */

@@ -1,5 +1,6 @@
 package com.humolix.volur.competition.controller.v1;
 
+import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.vo.CompetitionAboutVO;
 import com.humolix.volur.competition.domain.vo.CompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.CompetitionSummaryVO;
@@ -32,19 +33,31 @@ public class CompetitionController {
     @Operation(summary = "根据 Slug 获取竞赛主页详情")
     @GetMapping("/by-slug/{slug}")
     public ApiResponse<CompetitionDetailVO> getCompetitionBySlug(@PathVariable String slug) {
-        return ApiResponseEntity.ok("获取竞赛详情成功", competitionService.getCompetitionBySlug(slug));
+        CompetitionDetailVO detail = competitionService.getCompetitionBySlug(slug);
+        if (detail == null || detail.getStatus() == CompetitionStatus.DRAFT) {
+            return ApiResponseEntity.ok(null);
+        }
+        return ApiResponseEntity.ok("获取竞赛详情成功", detail);
     }
 
     @Operation(summary = "根据 ID 获取竞赛主页详情")
     @GetMapping("/{id}")
     public ApiResponse<CompetitionDetailVO> getCompetitionById(@PathVariable Long id) {
-        return ApiResponseEntity.ok("获取竞赛详情成功", competitionService.getCompetitionById(id));
+        CompetitionDetailVO detail = competitionService.getCompetitionById(id);
+        if (detail == null || detail.getStatus() == CompetitionStatus.DRAFT) {
+            return ApiResponseEntity.ok(null);
+        }
+        return ApiResponseEntity.ok("获取竞赛详情成功", detail);
     }
 
     @Operation(summary = "获取竞赛关于与规则介绍")
     @GetMapping("/{id}/about")
     public ApiResponse<CompetitionAboutVO> getCompetitionAbout(@PathVariable Long id) {
-        return ApiResponseEntity.ok("获取竞赛介绍成功", competitionService.getCompetitionAbout(id));
+        CompetitionAboutVO about = competitionService.getCompetitionAbout(id);
+        if (about == null || about.getStatus() == CompetitionStatus.DRAFT) {
+            return ApiResponseEntity.ok(null);
+        }
+        return ApiResponseEntity.ok("获取竞赛介绍成功", about);
     }
 
 }

@@ -76,4 +76,20 @@ public class AdminCompetitionController {
         return ApiResponseEntity.success(frozen ? "封榜成功" : "解封榜单成功");
     }
 
+    @Operation(summary = "归档指定竞赛")
+    @Syslog(module = "COMPETITION", value = "归档竞赛", recordParams = true)
+    @PostMapping("/{id}/archive")
+    public ApiResponse<Void> archiveCompetition(@PathVariable Long id) {
+        competitionService.archiveCompetition(id);
+        return ApiResponseEntity.success("归档竞赛成功");
+    }
+
+    @Operation(summary = "取消归档指定竞赛")
+    @Syslog(module = "COMPETITION", value = "取消归档竞赛", recordParams = true)
+    @PostMapping("/{id}/unarchive")
+    public ApiResponse<Void> unarchiveCompetition(@PathVariable Long id) {
+        competitionService.unarchiveCompetition(id);
+        return ApiResponseEntity.success("取消归档成功");
+    }
+
 }

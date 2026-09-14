@@ -34,5 +34,10 @@
   "switch_to_english": "切换到英文",
   "switch_to_chinese": "切换到中文",
   "switch_dark_mode": "切换暗色模式",
-  "switch_light_mode": "切换亮色模式"
+  "switch_light_mode": "切换亮色模式",
+  "markdown_edit": "编辑",
+  "markdown_preview": "预览",
+  "markdown_tip": "支持 Markdown 语法排版",
+  "markdown_empty_preview": "暂无内容，请在编辑模式下输入 Markdown 文本",
+  "markdown_placeholder": "请输入内容，支持 Markdown 语法（标题、加粗、列表、表格、代码块等）..."
 }

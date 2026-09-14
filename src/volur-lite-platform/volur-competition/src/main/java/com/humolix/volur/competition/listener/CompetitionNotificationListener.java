@@ -31,13 +31,15 @@ public class CompetitionNotificationListener {
         log.info("[Competition-Notification] 监听到组队邀请 -> 竞赛: {}, 队伍: {}, 邀请人: {}, 被邀请人: {}",
                 event.getCompetitionTitle(), event.getTeamName(), event.getInviterName(), event.getInviteeId());
 
-        Map<String, Object> actionContext = Map.of(
-                "competitionId", event.getCompetitionId(),
-                "teamId", event.getTeamId(),
-                "teamName", event.getTeamName(),
-                "inviterName", event.getInviterName(),
-                "memberRole", event.getMemberRole().name()
-        );
+        Map<String, Object> actionContext = new java.util.HashMap<>();
+        actionContext.put("competitionId", event.getCompetitionId());
+        if (event.getCompetitionSlug() != null) {
+            actionContext.put("slug", event.getCompetitionSlug());
+        }
+        actionContext.put("teamId", event.getTeamId());
+        actionContext.put("teamName", event.getTeamName());
+        actionContext.put("inviterName", event.getInviterName());
+        actionContext.put("memberRole", event.getMemberRole().name());
 
         String roleName = event.getMemberRole() == MemberRole.LEADER ? "领队" : "队员";
         String remarkText = event.getRemark() != null ? "，附言: 「" + event.getRemark() + "」" : "";

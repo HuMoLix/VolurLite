@@ -52,90 +52,87 @@
     </div>
 
     <!-- Bottom section: Email Table Card -->
-    <n-card class="table-card" :bordered="false">
-      <!-- Search & Filter Controls -->
-      <div class="filter-header">
-        <div class="filter-left">
-          <n-input
-            v-model:value="searchKeyword"
-            :placeholder="t('admin.emails.search_placeholder')"
-            clearable
-            style="width: 260px;"
-            @keyup.enter="handleSearch"
-          >
-            <template #prefix>
-              <n-icon :component="SearchOutline" />
-            </template>
-          </n-input>
+    <AppTableCard
+      :bordered="true"
+      :table-bordered="true"
+      :scroll-x="1250"
+      remote
+      :columns="columns"
+      :data="emailList"
+      :loading="loading"
+      :pagination="pagination"
+      :row-key="(row: EmailLogVO) => String(row.id)"
+      table-class="email-data-table"
+      @update:sorter="handleSorterChange"
+      @update:page="handlePageChange"
+      @update:page-size="handlePageSizeChange"
+    >
+      <template #filter-left>
+        <n-input
+          v-model:value="searchKeyword"
+          :placeholder="t('admin.emails.search_placeholder')"
+          clearable
+          style="width: 260px;"
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <n-icon :component="SearchOutline" />
+          </template>
+        </n-input>
 
-          <n-select
-            v-model:value="filterType"
-            :placeholder="t('admin.emails.filter_type')"
-            clearable
-            :options="typeSelectOptions"
-            style="width: 170px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterType"
+          :placeholder="t('admin.emails.filter_type')"
+          clearable
+          :options="typeSelectOptions"
+          style="width: 170px;"
+          @update:value="handleSearch"
+        />
 
-          <n-select
-            v-model:value="filterStatus"
-            :placeholder="t('admin.emails.filter_status')"
-            clearable
-            :options="statusSelectOptions"
-            style="width: 140px;"
-            @update:value="handleSearch"
-          />
+        <n-select
+          v-model:value="filterStatus"
+          :placeholder="t('admin.emails.filter_status')"
+          clearable
+          :options="statusSelectOptions"
+          style="width: 140px;"
+          @update:value="handleSearch"
+        />
 
-          <n-date-picker
-            v-model:value="dateRange"
-            type="datetimerange"
-            clearable
-            format="yyyy-MM-dd HH:mm"
-            :start-placeholder="t('admin.emails.start_time')"
-            :end-placeholder="t('admin.emails.end_time')"
-            style="width: 320px;"
-            @update:value="handleSearch"
-          />
+        <n-date-picker
+          v-model:value="dateRange"
+          type="datetimerange"
+          clearable
+          format="yyyy-MM-dd HH:mm"
+          :start-placeholder="t('admin.emails.start_time')"
+          :end-placeholder="t('admin.emails.end_time')"
+          style="width: 320px;"
+          @update:value="handleSearch"
+        />
 
-          <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-            <template #icon>
-              <n-icon :component="SearchOutline" />
-            </template>
-            {{ t('admin.emails.query_btn') }}
-          </n-button>
+        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+          <template #icon>
+            <n-icon :component="SearchOutline" />
+          </template>
+          {{ t('admin.emails.query_btn') }}
+        </n-button>
 
-          <n-button quaternary @click="handleReset">
-            <template #icon>
-              <n-icon :component="RefreshOutline" />
-            </template>
-            {{ t('admin.emails.reset_btn') }}
-          </n-button>
-        </div>
+        <n-button quaternary @click="handleReset">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          {{ t('admin.emails.reset_btn') }}
+        </n-button>
+      </template>
 
-        <div class="filter-right">
-          <n-button type="primary" class="theme-primary-btn" @click="openSendModal">
-            <template #icon>
-              <n-icon :component="PaperPlaneOutline" />
-            </template>
-            {{ t('admin.emails.send_btn') }}
-          </n-button>
-        </div>
-      </div>
-
-      <!-- Data Table -->
-      <n-data-table
-        remote
-        :columns="columns"
-        :data="emailList"
-        :loading="loading"
-        :pagination="pagination"
-        :row-key="(row: EmailLogVO) => String(row.id)"
-        @update:sorter="handleSorterChange"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-        class="email-data-table"
-      />
-    </n-card>
+      <template #filter-right>
+        <n-button type="primary" class="theme-primary-btn" @click="openSendModal">
+          <template #icon>
+            <n-icon :component="PaperPlaneOutline" />
+          </template>
+          {{ t('admin.emails.send_btn') }}
+        </n-button>
+      </template>
+    </AppTableCard>
 
     <!-- Email Detail Drawer -->
     <n-drawer v-model:show="showDetailDrawer" :width="680" placement="right">
@@ -322,13 +319,11 @@
 import { ref, reactive, computed, h, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  NCard,
   NIcon,
   NInput,
   NSelect,
   NDatePicker,
   NButton,
-  NDataTable,
   NDrawer,
   NDrawerContent,
   NDescriptions,
@@ -347,6 +342,7 @@ import {
   type FormInst,
   type FormRules
 } from 'naive-ui'
+import AppTableCard from '@/components/common/AppTableCard.vue'
 import {
   MailOutline,
   TimeOutline,
@@ -508,7 +504,7 @@ const columns = computed<DataTableColumns<EmailLogVO>>(() => [
   {
     title: t('admin.emails.columns.id'),
     key: 'id',
-    width: 140,
+    width: 180,
     render(row) {
       return h('span', { class: 'id-text' }, String(row.id))
     }
@@ -896,46 +892,6 @@ onMounted(() => {
       color: #444444;
       font-weight: 500;
     }
-  }
-}
-
-/* Table Card */
-.table-card {
-  border-radius: 8px;
-  background-color: var(--n-color, #ffffff);
-
-  .filter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 16px;
-
-    .filter-left {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .filter-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-  }
-}
-
-/* Volur Primary Button */
-.theme-primary-btn {
-  background-color: #000000;
-  color: #ffffff;
-  font-weight: 500;
-  border-radius: 6px;
-
-  &:hover {
-    background-color: #222222;
   }
 }
 

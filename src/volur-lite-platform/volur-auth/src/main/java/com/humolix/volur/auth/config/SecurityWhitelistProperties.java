@@ -9,9 +9,8 @@ import java.util.Set;
 
 @ConfigurationProperties(prefix = "volur.security.whitelist")
 public record SecurityWhitelistProperties(
-        List<String> paths,
-        List<String> additionalPaths,
-        List<String> allPaths
+        @DefaultValue List<String> paths,
+        @DefaultValue List<String> additionalPaths
 ) {
     public static final List<String> WHITE_LIST_PATHS = List.of(
 
@@ -32,6 +31,7 @@ public record SecurityWhitelistProperties(
             // Public Resources
             "/api/v1/rank/**",
             "/api/v1/broadcasts/**",
+            "/api/v1/competitions",
             "/api/v1/competitions/**",
 
             // Stream and WebSocket
@@ -57,32 +57,27 @@ public record SecurityWhitelistProperties(
             "/webjars/**"
     );
 
-    public SecurityWhitelistProperties(
-            @DefaultValue List<String> paths,
-            @DefaultValue List<String> additionalPaths
-    ) {
-        this(
-                paths == null || paths.isEmpty() ? WHITE_LIST_PATHS : List.copyOf(paths),
-                additionalPaths == null ? List.of() : List.copyOf(additionalPaths),
-                computeAllPaths(paths, additionalPaths)
-        );
+    public SecurityWhitelistProperties {
+        if (paths == null || paths.isEmpty()) {
+            paths = WHITE_LIST_PATHS;
+        } else {
+            paths = List.copyOf(paths);
+        }
+
+        if (additionalPaths == null) {
+            additionalPaths = List.of();
+        } else {
+            additionalPaths = List.copyOf(additionalPaths);
+        }
     }
 
-    private static List<String> computeAllPaths(List<String> paths, List<String> additionalPaths) {
-        Set<String> uniquePaths = new LinkedHashSet<>();
-        if (paths == null || paths.isEmpty()) {
-            uniquePaths.addAll(WHITE_LIST_PATHS);
-        } else {
-            uniquePaths.addAll(paths);
-        }
-
-        if (additionalPaths != null) {
-            uniquePaths.addAll(additionalPaths);
-        }
+    public List<String> allPaths() {
+        Set<String> uniquePaths = new LinkedHashSet<>(paths);
+        uniquePaths.addAll(additionalPaths);
         return List.copyOf(uniquePaths);
     }
 
     public String[] asArray() {
-        return allPaths.toArray(String[]::new);
+        return allPaths().toArray(String[]::new);
     }
 }

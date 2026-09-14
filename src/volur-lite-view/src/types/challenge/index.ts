@@ -18,16 +18,22 @@ export interface TagVO {
   color?: string
 }
 
-/** CTF 题目列表 VO */
+/** CTF 题目列表 VO (对应 com.humolix.volur.challenge.domain.vo.stage.ctf.CtfChallengeListVO) */
 export interface CtfChallengeListVO {
   id: number | string
-  title: string
-  category: string
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'INSANE'
-  points: number
-  solvedCount: number
-  tags: TagVO[]
+  name: string
+  title?: string
+  categoryId?: number | string
+  categoryName?: string
+  category?: string
+  type?: string
+  difficulty?: number | string
+  points?: number
+  solvedCount?: number
+  authorName?: string
+  tags?: TagVO[]
   isSolved?: boolean
+  createdAt?: string
 }
 
 /** CTF 题目详情 VO */
