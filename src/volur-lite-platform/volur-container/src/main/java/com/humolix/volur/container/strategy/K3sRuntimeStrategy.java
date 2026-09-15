@@ -388,10 +388,10 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
 
         Integer cpu = (request != null && request.getCpuLimit() != null && request.getCpuLimit() > 0)
                 ? request.getCpuLimit()
-                : (challenge instanceof com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge c ? c.getCpuLimit() : 1);
+                : (challenge instanceof com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge c ? c.getCpuLimit() : 1);
         Integer mem = (request != null && request.getMemoryLimit() != null && request.getMemoryLimit() > 0)
                 ? request.getMemoryLimit()
-                : (challenge instanceof com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge c ? c.getMemoryLimit() : 256);
+                : (challenge instanceof com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge c ? c.getMemoryLimit() : 256);
 
         int primaryPort = 0;
 

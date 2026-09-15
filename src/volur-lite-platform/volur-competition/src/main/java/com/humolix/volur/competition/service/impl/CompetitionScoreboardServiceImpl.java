@@ -1,21 +1,22 @@
 package com.humolix.volur.competition.service.impl;
 
-import com.humolix.volur.competition.annotation.RequiredCompetitionRunning;
+import com.humolix.volur.competition.annotation.RequiredCompetitionStatus;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionConfig;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
-import com.humolix.volur.competition.domain.entity.stage.awd.AwdCompetitionLog;
-import com.humolix.volur.competition.domain.entity.stage.ctf.CtfCompetitionSolved;
-import com.humolix.volur.competition.domain.entity.stage.theory.TheoryCompetitionAnswer;
+import com.humolix.volur.competition.domain.entity.awd.AwdCompetitionLog;
+import com.humolix.volur.competition.domain.entity.ctf.CtfCompetitionSolved;
+import com.humolix.volur.competition.domain.entity.theory.TheoryCompetitionAnswer;
+import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.scoreboard.*;
 import com.humolix.volur.competition.repository.CompetitionConfigRepository;
 import com.humolix.volur.competition.repository.CompetitionRepository;
 import com.humolix.volur.competition.repository.CompetitionTeamRepository;
-import com.humolix.volur.competition.repository.stage.awd.AwdCompetitionLogRepository;
-import com.humolix.volur.competition.repository.stage.ctf.CtfCompetitionSolvedRepository;
-import com.humolix.volur.competition.repository.stage.theory.TheoryCompetitionAnswerRepository;
+import com.humolix.volur.competition.repository.awd.AwdCompetitionLogRepository;
+import com.humolix.volur.competition.repository.ctf.CtfCompetitionSolvedRepository;
+import com.humolix.volur.competition.repository.theory.TheoryCompetitionAnswerRepository;
 import com.humolix.volur.competition.service.CompetitionScoreboardService;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,7 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
-@RequiredCompetitionRunning
+@RequiredCompetitionStatus(allowed = {CompetitionStatus.RUNNING})
 public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardService {
 
     private final CompetitionRepository competitionRepository;
@@ -38,7 +39,7 @@ public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardSe
     private final AwdCompetitionLogRepository awdLogRepository;
 
     @Override
-    public CtfStageScoreboardVO getCtfStageScoreboard(Long competitionId) {
+    public CtfScoreboardVO getCtfScoreboard(Long competitionId) {
         Competition comp = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
 
@@ -88,7 +89,7 @@ public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardSe
             rankList.get(i).setRank(i + 1);
         }
 
-        return CtfStageScoreboardVO.builder()
+        return CtfScoreboardVO.builder()
                 .competitionId(competitionId)
                 .isFrozen(isFrozen)
                 .rankings(rankList)
@@ -145,10 +146,10 @@ public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardSe
             double raw = teamScores.getOrDefault(team.getId(), 0.0);
             double rounded = Math.round(raw * 100.0) / 100.0;
 
-            List<StageScoreDetailVO> stageDetails = List.of(
-                    StageScoreDetailVO.builder()
-                            .stage(type)
-                            .stageName(type.getDescription())
+            List<CompetitionScoreDetailVO> stageDetails = List.of(
+                    CompetitionScoreDetailVO.builder()
+                            .type(type)
+                            .typeName(type.getDescription())
                             .rawScore(rounded)
                             .weightPercent(100.0)
                             .weightedScore(rounded)

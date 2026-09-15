@@ -1,12 +1,12 @@
 package com.humolix.volur.competition.mapper;
 
 import com.humolix.volur.competition.domain.entity.*;
-import com.humolix.volur.competition.domain.entity.stage.ctf.CtfCompetitionChallenge;
-import com.humolix.volur.competition.domain.entity.stage.theory.TheoryCompetitionPaper;
+import com.humolix.volur.competition.domain.entity.ctf.CtfCompetitionChallenge;
+import com.humolix.volur.competition.domain.entity.theory.TheoryCompetitionPaper;
 import com.humolix.volur.competition.domain.vo.*;
-import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeDetailVO;
-import com.humolix.volur.competition.domain.vo.stage.ctf.CtfCompetitionChallengeVO;
-import com.humolix.volur.competition.domain.vo.stage.theory.TheoryPaperQuestionVO;
+import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeDetailVO;
+import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeVO;
+import com.humolix.volur.competition.domain.vo.theory.TheoryPaperQuestionVO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;

@@ -440,11 +440,12 @@ export interface CtfTeamRankVO {
 }
 
 /** CTF 专项解题排行榜 VO */
-export interface CtfStageScoreboardVO {
+export interface CtfScoreboardVO {
   competitionId: number | string
   isFrozen: boolean
   rankings: CtfTeamRankVO[]
 }
+export type CtfStageScoreboardVO = CtfScoreboardVO
 
 /** 比赛内部专属公告 DTO & VO */
 export interface CompetitionAnnouncementDTO {

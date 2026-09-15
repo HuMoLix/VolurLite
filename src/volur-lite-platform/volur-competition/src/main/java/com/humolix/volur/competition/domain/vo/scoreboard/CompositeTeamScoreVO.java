@@ -19,6 +19,6 @@ public class CompositeTeamScoreVO implements Serializable {
     private String teamName;
     private String avatarUrl;
     private Double totalFinalScore;
-    private List<StageScoreDetailVO> stageScores;
+    private List<CompetitionScoreDetailVO> stageScores;
 
 }

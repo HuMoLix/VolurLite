@@ -23,7 +23,7 @@ import type {
   CtfCompetitionChallengeDetailVO,
   CtfFlagSubmitRequestDTO,
   CompositeScoreboardVO,
-  CtfStageScoreboardVO,
+  CtfScoreboardVO,
   CompetitionAnnouncementDTO,
   CompetitionAnnouncementVO,
   CompetitionWriteupVO,
@@ -85,14 +85,15 @@ export function getCompetitionScoreboardApi(
 }
 
 /**
- * 获取 CTF 专项解题排行榜
+ * 获取 CTF 赛制专属天梯榜单
  * 对应后端: GET /api/v1/competitions/{competitionId}/scoreboard/ctf
  */
-export function getCtfStageScoreboardApi(
+export function getCtfScoreboardApi(
   competitionId: number | string
-): Promise<ApiResponse<CtfStageScoreboardVO>> {
-  return request.get<CtfStageScoreboardVO>(`/competitions/${competitionId}/scoreboard/ctf`)
+): Promise<ApiResponse<CtfScoreboardVO>> {
+  return request.get<CtfScoreboardVO>(`/competitions/${competitionId}/scoreboard/ctf`)
 }
+export const getCtfStageScoreboardApi = getCtfScoreboardApi
 
 // ==========================================
 // 3. 竞赛战队与报名 API (CompetitionTeamController)
@@ -198,35 +199,35 @@ export function cancelInvitationApi(
 }
 
 // ==========================================
-// 4. CTF 赛段答题与环境 API (CtfStageController)
+// 4. CTF 赛制答题与环境 API (CtfCompetitionController)
 // ==========================================
 
 /**
  * 获取竞赛 CTF 题目列表
- * 对应后端: GET /api/v1/competitions/{competitionId}/stage/ctf/challenges
+ * 对应后端: GET /api/v1/competitions/{competitionId}/ctf/challenges
  */
 export function listCtfChallengesApi(
   competitionId: number | string
 ): Promise<ApiResponse<CtfCompetitionChallengeVO[]>> {
-  return request.get<CtfCompetitionChallengeVO[]>(`/competitions/${competitionId}/stage/ctf/challenges`)
+  return request.get<CtfCompetitionChallengeVO[]>(`/competitions/${competitionId}/ctf/challenges`)
 }
 
 /**
  * 获取竞赛 CTF 题目详情
- * 对应后端: GET /api/v1/competitions/{competitionId}/stage/ctf/challenges/{challengeId}
+ * 对应后端: GET /api/v1/competitions/{competitionId}/ctf/challenges/{challengeId}
  */
 export function getCtfChallengeDetailApi(
   competitionId: number | string,
   challengeId: number | string
 ): Promise<ApiResponse<CtfCompetitionChallengeDetailVO>> {
   return request.get<CtfCompetitionChallengeDetailVO>(
-    `/competitions/${competitionId}/stage/ctf/challenges/${challengeId}`
+    `/competitions/${competitionId}/ctf/challenges/${challengeId}`
   )
 }
 
 /**
  * 提交 CTF 赛题 Flag
- * 对应后端: POST /api/v1/competitions/{competitionId}/stage/ctf/challenges/{challengeId}/submit
+ * 对应后端: POST /api/v1/competitions/{competitionId}/ctf/challenges/{challengeId}/submit
  */
 export function submitCtfFlagApi(
   competitionId: number | string,
@@ -234,47 +235,47 @@ export function submitCtfFlagApi(
   data: CtfFlagSubmitRequestDTO
 ): Promise<ApiResponse<boolean>> {
   return request.post<boolean>(
-    `/competitions/${competitionId}/stage/ctf/challenges/${challengeId}/submit`,
+    `/competitions/${competitionId}/ctf/challenges/${challengeId}/submit`,
     data
   )
 }
 
 /**
  * 启动 CTF 赛题独立靶机容器
- * 对应后端: POST /api/v1/competitions/{competitionId}/stage/ctf/challenges/{challengeId}/instance/start
+ * 对应后端: POST /api/v1/competitions/{competitionId}/ctf/challenges/{challengeId}/instance/start
  */
 export function startCtfInstanceApi(
   competitionId: number | string,
   challengeId: number | string
 ): Promise<ApiResponse<any>> {
   return request.post<any>(
-    `/competitions/${competitionId}/stage/ctf/challenges/${challengeId}/instance/start`
+    `/competitions/${competitionId}/ctf/challenges/${challengeId}/instance/start`
   )
 }
 
 /**
  * 销毁 CTF 赛题独立靶机容器
- * 对应后端: POST /api/v1/competitions/{competitionId}/stage/ctf/challenges/{challengeId}/instance/stop
+ * 对应后端: POST /api/v1/competitions/{competitionId}/ctf/challenges/{challengeId}/instance/stop
  */
 export function stopCtfInstanceApi(
   competitionId: number | string,
   challengeId: number | string
 ): Promise<ApiResponse<void>> {
   return request.post<void>(
-    `/competitions/${competitionId}/stage/ctf/challenges/${challengeId}/instance/stop`
+    `/competitions/${competitionId}/ctf/challenges/${challengeId}/instance/stop`
   )
 }
 
 /**
  * 延长 CTF 靶机容器租期
- * 对应后端: POST /api/v1/competitions/{competitionId}/stage/ctf/challenges/{challengeId}/instance/extend
+ * 对应后端: POST /api/v1/competitions/{competitionId}/ctf/challenges/{challengeId}/instance/extend
  */
 export function extendCtfInstanceApi(
   competitionId: number | string,
   challengeId: number | string
 ): Promise<ApiResponse<any>> {
   return request.post<any>(
-    `/competitions/${competitionId}/stage/ctf/challenges/${challengeId}/instance/extend`
+    `/competitions/${competitionId}/ctf/challenges/${challengeId}/instance/extend`
   )
 }
 
@@ -427,41 +428,41 @@ export function deleteAdminTeamApi(
 
 /**
  * 获取比赛已挂载的 CTF 赛题列表
- * 对应后端: GET /api/v1/admin/competitions/{competitionId}/stage/ctf/mount
+ * 对应后端: GET /api/v1/admin/competitions/{competitionId}/ctf/mount
  */
 export function listMountedCtfChallengesApi(
   competitionId: number | string
 ): Promise<ApiResponse<CtfCompetitionChallengeVO[]>> {
   return request.get<CtfCompetitionChallengeVO[]>(
-    `/admin/competitions/${competitionId}/stage/ctf/mount`
+    `/admin/competitions/${competitionId}/ctf/mount`
   )
 }
 
 /**
  * 单个挂载题库题目到竞赛
- * 对应后端: POST /api/v1/admin/competitions/{competitionId}/stage/ctf/mount
+ * 对应后端: POST /api/v1/admin/competitions/{competitionId}/ctf/mount
  */
 export function mountCtfChallengeApi(
   competitionId: number | string,
   data: CtfChallengeMountRequestDTO
 ): Promise<ApiResponse<void>> {
-  return request.post<void>(`/admin/competitions/${competitionId}/stage/ctf/mount`, data)
+  return request.post<void>(`/admin/competitions/${competitionId}/ctf/mount`, data)
 }
 
 /**
  * 批量挂载题库题目到竞赛
- * 对应后端: POST /api/v1/admin/competitions/{competitionId}/stage/ctf/mount/batch
+ * 对应后端: POST /api/v1/admin/competitions/{competitionId}/ctf/mount/batch
  */
 export function batchMountCtfChallengesApi(
   competitionId: number | string,
   data: CtfChallengeBatchMountRequestDTO
 ): Promise<ApiResponse<void>> {
-  return request.post<void>(`/admin/competitions/${competitionId}/stage/ctf/mount/batch`, data)
+  return request.post<void>(`/admin/competitions/${competitionId}/ctf/mount/batch`, data)
 }
 
 /**
  * 更新已挂载赛题配置
- * 对应后端: PUT /api/v1/admin/competitions/{competitionId}/stage/ctf/mount/{competitionChallengeId}
+ * 对应后端: PUT /api/v1/admin/competitions/{competitionId}/ctf/mount/{competitionChallengeId}
  */
 export function updateMountedCtfChallengeApi(
   competitionId: number | string,
@@ -469,21 +470,21 @@ export function updateMountedCtfChallengeApi(
   data: CtfChallengeMountRequestDTO
 ): Promise<ApiResponse<void>> {
   return request.put<void>(
-    `/admin/competitions/${competitionId}/stage/ctf/mount/${competitionChallengeId}`,
+    `/admin/competitions/${competitionId}/ctf/mount/${competitionChallengeId}`,
     data
   )
 }
 
 /**
  * 从竞赛中卸载赛题
- * 对应后端: DELETE /api/v1/admin/competitions/{competitionId}/stage/ctf/mount/{competitionChallengeId}
+ * 对应后端: DELETE /api/v1/admin/competitions/{competitionId}/ctf/mount/{competitionChallengeId}
  */
 export function unmountCtfChallengeApi(
   competitionId: number | string,
   competitionChallengeId: number | string
 ): Promise<ApiResponse<void>> {
   return request.delete<void>(
-    `/admin/competitions/${competitionId}/stage/ctf/mount/${competitionChallengeId}`
+    `/admin/competitions/${competitionId}/ctf/mount/${competitionChallengeId}`
   )
 }
 

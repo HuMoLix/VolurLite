@@ -1,7 +1,7 @@
 package com.humolix.volur.container.service.impl;
 
-import com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge;
-import com.humolix.volur.challenge.repository.stage.ctf.CtfChallengeRepository;
+import com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge;
+import com.humolix.volur.challenge.repository.ctf.CtfChallengeRepository;
 import com.humolix.volur.container.domain.dto.ContainerRunResultDTO;
 import com.humolix.volur.container.domain.entity.CtfChallengeInstance;
 import com.humolix.volur.container.domain.enums.InstanceStartupStatus;

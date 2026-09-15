@@ -1,7 +1,7 @@
 package com.humolix.volur.competition.controller.v1;
 
 import com.humolix.volur.competition.domain.vo.scoreboard.CompositeScoreboardVO;
-import com.humolix.volur.competition.domain.vo.scoreboard.CtfStageScoreboardVO;
+import com.humolix.volur.competition.domain.vo.scoreboard.CtfScoreboardVO;
 import com.humolix.volur.competition.service.CompetitionScoreboardService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
@@ -26,8 +26,8 @@ public class CompetitionScoreboardController {
 
     @Operation(summary = "获取 CTF 解题赛分项排行榜")
     @GetMapping("/ctf")
-    public ApiResponse<CtfStageScoreboardVO> getCtfStageScoreboard(@PathVariable Long competitionId) {
-        return ApiResponseEntity.ok("获取 CTF 解题赛榜单成功", scoreboardService.getCtfStageScoreboard(competitionId));
+    public ApiResponse<CtfScoreboardVO> getCtfScoreboard(@PathVariable Long competitionId) {
+        return ApiResponseEntity.ok("获取 CTF 解题赛榜单成功", scoreboardService.getCtfScoreboard(competitionId));
     }
 
 }

@@ -1,8 +1,8 @@
 package com.humolix.volur.container.service.admin.impl;
 
 import com.humolix.volur.auth.security.util.SecurityUtils;
-import com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge;
-import com.humolix.volur.challenge.repository.stage.ctf.CtfChallengeRepository;
+import com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge;
+import com.humolix.volur.challenge.repository.ctf.CtfChallengeRepository;
 import com.humolix.volur.container.domain.dto.*;
 import com.humolix.volur.container.domain.vo.*;
 import com.humolix.volur.container.domain.entity.CtfChallengeInstance;

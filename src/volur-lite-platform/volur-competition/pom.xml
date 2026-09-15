@@ -13,7 +13,7 @@
     <artifactId>volur-competition</artifactId>
     <packaging>jar</packaging>
     <name>volur-competition</name>
-    <description>Volur Lite Multi-Stage Competition and Dynamic Registration Module</description>
+    <description>Volur Lite Single-Mode Competition and Dynamic Registration Module</description>
 
     <dependencies>
         <!-- Internal Modules -->

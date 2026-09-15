@@ -280,10 +280,10 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
             // CPU 与 内存限制
             Integer cpu = (request != null && request.getCpuLimit() != null && request.getCpuLimit() > 0)
                     ? request.getCpuLimit()
-                    : (challenge instanceof com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge c ? c.getCpuLimit() : 1);
+                    : (challenge instanceof com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge c ? c.getCpuLimit() : 1);
             Integer mem = (request != null && request.getMemoryLimit() != null && request.getMemoryLimit() > 0)
                     ? request.getMemoryLimit()
-                    : (challenge instanceof com.humolix.volur.challenge.domain.entity.stage.ctf.CtfChallenge c ? c.getMemoryLimit() : 256);
+                    : (challenge instanceof com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge c ? c.getMemoryLimit() : 256);
 
             if (cpu != null && cpu > 0) {
                 command.add("--limit-cpu");

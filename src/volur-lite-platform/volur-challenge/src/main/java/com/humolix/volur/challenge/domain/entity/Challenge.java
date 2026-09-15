@@ -1,6 +1,6 @@
 package com.humolix.volur.challenge.domain.entity;
 
-import com.humolix.volur.challenge.domain.enums.ChallengeStageType;
+import com.humolix.volur.challenge.domain.enums.ChallengeMode;
 
 public interface Challenge {
 
@@ -12,6 +12,6 @@ public interface Challenge {
 
     String getCategoryName();
 
-    ChallengeStageType getStageType();
+    ChallengeMode getMode();
 
 }
