@@ -1,5 +1,7 @@
 package com.humolix.volur.competition.service.impl;
 
+import com.alibaba.fastjson2.JSON;
+import com.humolix.volur.competition.annotation.RequiredCompetitionStatus;
 import com.humolix.volur.competition.domain.dto.TeamInviteAcceptDTO;
 import com.humolix.volur.competition.domain.dto.TeamMemberSignupDTO;
 import com.humolix.volur.competition.domain.dto.TeamSignupRequestDTO;
@@ -13,13 +15,15 @@ import com.humolix.volur.competition.domain.vo.CompetitionMemberVO;
 import com.humolix.volur.competition.domain.vo.CompetitionTeamVO;
 import com.humolix.volur.competition.domain.vo.MyTeamInfoVO;
 import com.humolix.volur.competition.domain.vo.TeamInvitationVO;
-import com.humolix.volur.competition.event.TeamInvitationHandledEvent;
-import com.humolix.volur.competition.event.TeamInvitationSentEvent;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.*;
 import com.humolix.volur.competition.service.CompetitionTeamService;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.DesensitizationUtil;
+import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
+import com.humolix.volur.notification.domain.enums.NotificationType;
+import com.humolix.volur.notification.event.SendNotificationEvent;
+import com.humolix.volur.notification.service.NotificationService;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.enums.Gender;
 import com.humolix.volur.user.repository.UserRepository;
@@ -50,16 +54,16 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
     private final UserRepository userRepository;
     private final CompetitionMapper competitionMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @RequiredCompetitionStatus(allowed = {CompetitionStatus.REGISTRATION})
     public Long signupTeam(Long competitionId, Long captainUserId, TeamSignupRequestDTO request) {
+
         Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
 
-        validateRegistrationPeriod(competition);
-
-        // 1. 队长资格与队伍名称检查
         List<CompetitionMember> existingMembers = memberRepository.findAllByCompetitionIdAndUserId(competitionId, captainUserId);
         boolean alreadyInTeam = existingMembers.stream().anyMatch(m -> m.getStatus() == MemberStatus.INVITED_ACCEPTED);
         if (alreadyInTeam) {
@@ -110,13 +114,13 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         if (captainRows.size() != 1) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "队伍必须且只能包含 1 名队长");
         }
-        TeamMemberSignupDTO captainRow = captainRows.get(0);
+        TeamMemberSignupDTO captainRow = captainRows.getFirst();
 
         if (leaderRows.size() > maxLeaders) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "领队人数超过上限 (最多 " + maxLeaders + " 人)");
         }
 
-        int totalTeamMembers = 1 + normalMemberRows.size(); // 队长 + 队员
+        int totalTeamMembers = 1 + normalMemberRows.size();
         if (totalTeamMembers > maxMembers) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "参赛队员人数超过上限 (" + maxMembers + "人，含队长)");
         }
@@ -124,7 +128,6 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "队伍总人数未达到最低要求 (" + minMembers + "人，含队长)");
         }
 
-        // 3. 队长核验与查重（邮箱、手机号、身份证）
         User captain = userRepository.findById(captainUserId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 
@@ -161,11 +164,9 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             }
         }
 
-        // 4. 非队长成员存活性与冲突校验（基于邮箱查询已注册账号）
         Map<String, User> verifiedLeaderUsers = validateAndResolveRegisteredUsers(competitionId, captain, leaderRows, "领队", null);
         Map<String, User> verifiedMemberUsers = validateAndResolveRegisteredUsers(competitionId, captain, normalMemberRows, "队员", null);
 
-        // 5. 创建队伍持久化
         boolean requireAudit = config != null && Boolean.TRUE.equals(config.getRequireTeamAudit());
         CompetitionTeam team = CompetitionTeam.builder()
                 .competition(competition)
@@ -178,7 +179,6 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
         CompetitionTeam savedTeam = teamRepository.save(team);
 
-        // 6. 保存队长成员记录 (INVITED_ACCEPTED)
         CompetitionMember captainMember = CompetitionMember.builder()
                 .competition(competition)
                 .team(savedTeam)
@@ -196,7 +196,6 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .build();
         memberRepository.save(captainMember);
 
-        // 7. 保存领队与普通队员成员记录 (INVITED) 并发送站内信邀请
         Instant expireTime = Instant.now().plus(24, ChronoUnit.HOURS);
         for (TeamMemberSignupDTO l : leaderRows) {
             User leaderUser = verifiedLeaderUsers.get(l.getEmail().trim().toLowerCase());
@@ -213,11 +212,10 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @RequiredCompetitionStatus(allowed = {CompetitionStatus.REGISTRATION})
     public void updateTeam(Long competitionId, Long captainUserId, TeamUpdateRequestDTO request) {
         Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
-
-        validateRegistrationPeriod(competition);
 
         CompetitionTeam team = teamRepository.findByCompetitionIdAndCaptain_Id(competitionId, captainUserId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "您不是本场竞赛中任何队伍的队长，无权修改队伍信息"));
@@ -380,14 +378,35 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @RequiredCompetitionStatus(allowed = {CompetitionStatus.REGISTRATION})
     public void deleteMyTeam(Long competitionId, Long captainUserId) {
         Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
 
-        validateRegistrationPeriod(competition);
-
         CompetitionTeam team = teamRepository.findByCompetitionIdAndCaptain_Id(competitionId, captainUserId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "您不是该队伍的队长，无权解散队伍"));
+
+        List<CompetitionMember> members = memberRepository.findByTeamId(team.getId());
+        for (CompetitionMember m : members) {
+            if (m.getUser() != null && !Objects.equals(m.getUser().getId(), captainUserId)) {
+                notificationService.updateActionStatus(
+                        m.getUser().getId(),
+                        NotificationType.COMPETITION_INVITE,
+                        "\"teamId\":" + team.getId(),
+                        NotificationActionStatus.CANCELLED
+                );
+
+                eventPublisher.publishEvent(SendNotificationEvent.of(
+                        this,
+                        captainUserId,
+                        m.getUser().getId(),
+                        NotificationType.COMPETITION_INVITE,
+                        "【队伍解散通知】战队「" + team.getTeamName() + "」已被解散",
+                        String.format("队长已解散战队「%s」（竞赛: 「%s」），相关参赛关系已解除。",
+                                team.getTeamName(), competition.getTitle())
+                ));
+            }
+        }
 
         memberRepository.deleteByTeamId(team.getId());
         teamRepository.delete(team);
@@ -396,11 +415,10 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @RequiredCompetitionStatus(allowed = {CompetitionStatus.REGISTRATION})
     public void acceptInvitation(Long competitionId, Long teamId, Long userId, TeamInviteAcceptDTO request) {
         Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
-
-        validateRegistrationPeriod(competition);
 
         CompetitionTeam team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "队伍不存在"));
@@ -460,16 +478,23 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         member.setStatus(MemberStatus.INVITED_ACCEPTED);
         memberRepository.save(member);
 
-        eventPublisher.publishEvent(new TeamInvitationHandledEvent(
+        // 1. 同步将原邀请卡片状态更新为已接受 (ACCEPTED)
+        notificationService.updateActionStatus(
+                userId,
+                NotificationType.COMPETITION_INVITE,
+                "\"teamId\":" + teamId,
+                NotificationActionStatus.ACCEPTED
+        );
+
+        // 2. 向队长发送入队确认反馈通知
+        eventPublisher.publishEvent(SendNotificationEvent.of(
                 this,
-                competitionId,
-                competition.getTitle(),
-                team.getId(),
-                team.getTeamName(),
+                userId,
                 team.getCaptain().getId(),
-                user.getId(),
-                user.getUsername(),
-                MemberStatus.INVITED_ACCEPTED
+                NotificationType.COMPETITION_INVITE,
+                "【组队通知】" + user.getUsername() + " 已同意加入战队",
+                String.format("用户 %s 已同意邀请，成功加入战队「%s」（竞赛: 「%s」）。",
+                        user.getUsername(), team.getTeamName(), competition.getTitle())
         ));
     }
 
@@ -492,16 +517,23 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         member.setStatus(MemberStatus.NOT_PARTICIPATE);
         memberRepository.save(member);
 
-        eventPublisher.publishEvent(new TeamInvitationHandledEvent(
+        // 1. 同步将原邀请卡片状态更新为已拒绝 (REJECTED)
+        notificationService.updateActionStatus(
+                userId,
+                NotificationType.COMPETITION_INVITE,
+                "\"teamId\":" + teamId,
+                NotificationActionStatus.REJECTED
+        );
+
+        // 2. 向队长发送拒绝入队反馈通知
+        eventPublisher.publishEvent(SendNotificationEvent.of(
                 this,
-                competitionId,
-                competition.getTitle(),
-                team.getId(),
-                team.getTeamName(),
+                userId,
                 team.getCaptain().getId(),
-                member.getUser().getId(),
-                member.getUser().getUsername(),
-                MemberStatus.NOT_PARTICIPATE
+                NotificationType.COMPETITION_INVITE,
+                "【组队通知】" + member.getUser().getUsername() + " 拒绝了入队邀请",
+                String.format("用户 %s 拒绝了加入战队「%s」（竞赛: 「%s」）的邀请。",
+                        member.getUser().getUsername(), team.getTeamName(), competition.getTitle())
         ));
     }
 
@@ -524,16 +556,23 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
         memberRepository.delete(member);
 
-        eventPublisher.publishEvent(new TeamInvitationHandledEvent(
+        // 1. 同步将原邀请卡片状态更新为已撤销 (CANCELLED)
+        notificationService.updateActionStatus(
+                targetUserId,
+                NotificationType.COMPETITION_INVITE,
+                "\"teamId\":" + teamId,
+                NotificationActionStatus.CANCELLED
+        );
+
+        // 2. 向被邀请人发送邀请撤回通知
+        eventPublisher.publishEvent(SendNotificationEvent.of(
                 this,
-                competitionId,
-                team.getCompetition().getTitle(),
-                team.getId(),
-                team.getTeamName(),
                 captainUserId,
                 targetUserId,
-                member.getUser().getUsername(),
-                MemberStatus.NOT_PARTICIPATE
+                NotificationType.COMPETITION_INVITE,
+                "【组队通知】战队邀请已撤回",
+                String.format("队长 %s 撤回了战队「%s」（竞赛: 「%s」）的入队邀请。",
+                        team.getCaptain().getUsername(), team.getTeamName(), team.getCompetition().getTitle())
         ));
     }
 
@@ -708,27 +747,6 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         vo.setPosition(null);
     }
 
-    private void validateRegistrationPeriod(Competition comp) {
-        if (comp.getStatus() == CompetitionStatus.DRAFT) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "竞赛尚未发布，暂不开放报名");
-        }
-        if (comp.getStatus() == CompetitionStatus.ARCHIVED || comp.getStatus() == CompetitionStatus.ENDED) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "竞赛已结束或已归档，报名通道已关闭");
-        }
-
-        Instant now = Instant.now();
-        if (comp.getStartTime() != null && !now.isBefore(comp.getStartTime())) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "比赛已开始，报名通道已关闭");
-        }
-
-        if (comp.getRegStartTime() != null && now.isBefore(comp.getRegStartTime())) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "报名尚未开启");
-        }
-        if (comp.getRegEndTime() != null && now.isAfter(comp.getRegEndTime())) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "报名已截止");
-        }
-    }
-
     private Map<String, User> validateAndResolveRegisteredUsers(
             Long competitionId, User captain, List<TeamMemberSignupDTO> memberInputs, String roleLabel, Long currentTeamId) {
         Map<String, User> resultMap = new HashMap<>();
@@ -804,20 +822,31 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .build();
         memberRepository.save(member);
 
-        eventPublisher.publishEvent(new TeamInvitationSentEvent(
-                this,
-                competition.getId(),
-                competition.getSlug(),
-                competition.getTitle(),
-                team.getId(),
-                team.getTeamName(),
-                captain.getId(),
-                captain.getUsername(),
-                invitee.getId(),
-                input.getRole(),
-                null,
-                expireTime
-        ));
+        Map<String, Object> actionContext = new HashMap<>();
+        actionContext.put("competitionId", competition.getId());
+        if (competition.getSlug() != null) {
+            actionContext.put("slug", competition.getSlug());
+        }
+        actionContext.put("teamId", team.getId());
+        actionContext.put("teamName", team.getTeamName());
+        actionContext.put("inviterName", captain.getUsername());
+        actionContext.put("memberRole", input.getRole().name());
+
+        String roleName = input.getRole() == MemberRole.LEADER ? "领队" : "队员";
+        String content = String.format("用户 %s 邀请您作为【%s】加入战队「%s」共同参加竞赛「%s」，请及时确认是否参赛。",
+                captain.getUsername(), roleName, team.getTeamName(), competition.getTitle());
+
+        eventPublisher.publishEvent(SendNotificationEvent.builder()
+                .source(this)
+                .senderId(captain.getId())
+                .receiverId(invitee.getId())
+                .type(NotificationType.COMPETITION_INVITE)
+                .title("【竞赛邀请】" + captain.getUsername() + " 邀请您加入战队「" + team.getTeamName() + "」")
+                .content(content)
+                .actionStatus(NotificationActionStatus.PENDING)
+                .actionData(JSON.toJSONString(actionContext))
+                .expireTime(expireTime)
+                .build());
     }
 
 }

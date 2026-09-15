@@ -14,13 +14,20 @@ import com.humolix.volur.competition.repository.CompetitionRepository;
 import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.service.impl.CompetitionTeamServiceImpl;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.competition.domain.dto.TeamInviteAcceptDTO;
+import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
+import com.humolix.volur.notification.domain.enums.NotificationType;
+import com.humolix.volur.notification.event.SendNotificationEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
@@ -29,10 +36,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class CompetitionTeamServiceImplTest {
 
     @Mock
     private CompetitionRepository competitionRepository;
+
+    @Mock
+    private com.humolix.volur.competition.repository.CompetitionConfigRepository configRepository;
 
     @Mock
     private CompetitionTeamRepository teamRepository;
@@ -42,6 +53,12 @@ class CompetitionTeamServiceImplTest {
 
     @Mock
     private CompetitionMapper competitionMapper;
+
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private com.humolix.volur.notification.service.NotificationService notificationService;
 
     @InjectMocks
     private CompetitionTeamServiceImpl teamService;
@@ -200,6 +217,122 @@ class CompetitionTeamServiceImplTest {
             assertNotNull(vo.getUsername());
             assertNotNull(vo.getRole());
         }
+    }
+
+    @Test
+    @DisplayName("接受邀请：更新邀请卡片状态为 ACCEPTED 并向队长发布 SendNotificationEvent 反馈")
+    void testAcceptInvitation_updatesActionStatusAndPublishesFeedback() {
+        Competition competition = Competition.builder().id(competitionId).title("测试网络安全竞赛").build();
+        CompetitionMember invitedMember = CompetitionMember.builder()
+                .id(99L)
+                .competition(competition)
+                .team(team)
+                .user(User.builder().id(memberUserId).username("member").build())
+                .role(MemberRole.MEMBER)
+                .status(MemberStatus.INVITED)
+                .build();
+
+        when(competitionRepository.findById(competitionId)).thenReturn(java.util.Optional.of(competition));
+        when(teamRepository.findById(teamId)).thenReturn(java.util.Optional.of(team));
+        when(memberRepository.findByCompetitionIdAndTeamIdAndUserId(competitionId, teamId, memberUserId))
+                .thenReturn(java.util.Optional.of(invitedMember));
+        when(memberRepository.findAllByCompetitionIdAndUserId(competitionId, memberUserId))
+                .thenReturn(List.of());
+        when(teamRepository.existsByCompetitionIdAndCaptain_Id(competitionId, memberUserId)).thenReturn(false);
+        when(configRepository.findByCompetitionId(competitionId)).thenReturn(java.util.Optional.empty());
+        when(memberRepository.findByTeamIdAndStatus(teamId, MemberStatus.INVITED_ACCEPTED)).thenReturn(List.of(captainMember));
+
+        teamService.acceptInvitation(competitionId, teamId, memberUserId, new TeamInviteAcceptDTO());
+
+        assertEquals(MemberStatus.INVITED_ACCEPTED, invitedMember.getStatus());
+        verify(memberRepository).save(invitedMember);
+
+        verify(notificationService).updateActionStatus(
+                eq(memberUserId),
+                eq(NotificationType.COMPETITION_INVITE),
+                eq("\"teamId\":" + teamId),
+                eq(NotificationActionStatus.ACCEPTED)
+        );
+
+        ArgumentCaptor<SendNotificationEvent> eventCaptor = ArgumentCaptor.forClass(SendNotificationEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        SendNotificationEvent event = eventCaptor.getValue();
+        assertEquals(memberUserId, event.getSenderId());
+        assertEquals(captainUserId, event.getReceiverId());
+        assertEquals(NotificationType.COMPETITION_INVITE, event.getType());
+        assertTrue(event.getTitle().contains("已同意加入战队"));
+    }
+
+    @Test
+    @DisplayName("拒绝邀请：更新邀请卡片状态为 REJECTED 并向队长发布 SendNotificationEvent 反馈")
+    void testRejectInvitation_updatesActionStatusAndPublishesFeedback() {
+        Competition competition = Competition.builder().id(competitionId).title("测试网络安全竞赛").build();
+        CompetitionMember invitedMember = CompetitionMember.builder()
+                .id(99L)
+                .competition(competition)
+                .team(team)
+                .user(User.builder().id(memberUserId).username("member").build())
+                .role(MemberRole.MEMBER)
+                .status(MemberStatus.INVITED)
+                .build();
+
+        when(competitionRepository.findById(competitionId)).thenReturn(java.util.Optional.of(competition));
+        when(teamRepository.findById(teamId)).thenReturn(java.util.Optional.of(team));
+        when(memberRepository.findByCompetitionIdAndTeamIdAndUserId(competitionId, teamId, memberUserId))
+                .thenReturn(java.util.Optional.of(invitedMember));
+
+        teamService.rejectInvitation(competitionId, teamId, memberUserId);
+
+        assertEquals(MemberStatus.NOT_PARTICIPATE, invitedMember.getStatus());
+        verify(memberRepository).save(invitedMember);
+
+        verify(notificationService).updateActionStatus(
+                eq(memberUserId),
+                eq(NotificationType.COMPETITION_INVITE),
+                eq("\"teamId\":" + teamId),
+                eq(NotificationActionStatus.REJECTED)
+        );
+
+        ArgumentCaptor<SendNotificationEvent> eventCaptor = ArgumentCaptor.forClass(SendNotificationEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        SendNotificationEvent event = eventCaptor.getValue();
+        assertEquals(memberUserId, event.getSenderId());
+        assertEquals(captainUserId, event.getReceiverId());
+        assertEquals(NotificationType.COMPETITION_INVITE, event.getType());
+        assertTrue(event.getTitle().contains("拒绝了入队邀请"));
+    }
+
+    @Test
+    @DisplayName("解散队伍：取消队员邀请卡片并向所有队员发布解散通知 SendNotificationEvent")
+    void testDeleteMyTeam_cancelsActionStatusAndNotifiesMembers() {
+        Competition competition = Competition.builder().id(competitionId).title("测试网络安全竞赛").build();
+
+        when(competitionRepository.findById(competitionId)).thenReturn(java.util.Optional.of(competition));
+        when(teamRepository.findByCompetitionIdAndCaptain_Id(competitionId, captainUserId)).thenReturn(java.util.Optional.of(team));
+        when(memberRepository.findByTeamId(teamId)).thenReturn(List.of(captainMember, regularMember));
+
+        teamService.deleteMyTeam(competitionId, captainUserId);
+
+        verify(notificationService).updateActionStatus(
+                eq(memberUserId),
+                eq(NotificationType.COMPETITION_INVITE),
+                eq("\"teamId\":" + teamId),
+                eq(NotificationActionStatus.CANCELLED)
+        );
+
+        ArgumentCaptor<SendNotificationEvent> eventCaptor = ArgumentCaptor.forClass(SendNotificationEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        SendNotificationEvent event = eventCaptor.getValue();
+        assertEquals(captainUserId, event.getSenderId());
+        assertEquals(memberUserId, event.getReceiverId());
+        assertEquals(NotificationType.COMPETITION_INVITE, event.getType());
+        assertTrue(event.getTitle().contains("已被解散"));
+
+        verify(memberRepository).deleteByTeamId(teamId);
+        verify(teamRepository).delete(team);
     }
 
 }

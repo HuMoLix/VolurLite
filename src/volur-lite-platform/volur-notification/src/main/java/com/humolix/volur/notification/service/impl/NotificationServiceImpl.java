@@ -9,6 +9,7 @@ import com.humolix.volur.notification.domain.dto.NotificationQueryDTO;
 import com.humolix.volur.notification.domain.entity.Notification;
 import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
 import com.humolix.volur.notification.domain.enums.NotificationStatus;
+import com.humolix.volur.notification.domain.enums.NotificationType;
 import com.humolix.volur.notification.domain.vo.NotificationVO;
 import com.humolix.volur.notification.mapper.NotificationMapper;
 import com.humolix.volur.notification.repository.NotificationRepository;
@@ -189,6 +190,41 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void sendNotification(Long senderId, Long receiverId, NotificationType type, String content) {
+        String defaultTitle = "【" + (type != null ? type.getDescription() : "系统通知") + "】";
+        sendNotification(senderId, receiverId, type, defaultTitle, content);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void sendNotification(Long senderId, Long receiverId, NotificationType type, String title, String content) {
+        sendNotification(senderId, receiverId, type, title, content, NotificationActionStatus.NONE, null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void sendNotification(Long senderId, Long receiverId, NotificationType type, String title, String content, String actionData, Instant expireTime) {
+        sendNotification(senderId, receiverId, type, title, content, NotificationActionStatus.NONE, actionData, expireTime);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void sendNotification(Long senderId, Long receiverId, NotificationType type, String title, String content, NotificationActionStatus actionStatus, String actionData, Instant expireTime) {
+        SendNotificationBO bo = SendNotificationBO.builder()
+                .senderId(senderId)
+                .receiverId(receiverId)
+                .type(type)
+                .title(title)
+                .content(content)
+                .actionStatus(actionStatus != null ? actionStatus : NotificationActionStatus.NONE)
+                .actionData(actionData)
+                .expireTime(expireTime)
+                .build();
+        sendNotification(bo);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateActionStatus(UpdateNotificationActionBO updateBO) {
         if (updateBO.getReceiverId() == null || updateBO.getType() == null || !StringUtils.hasText(updateBO.getActionDataPattern())) {
             return;
@@ -204,6 +240,18 @@ public class NotificationServiceImpl implements NotificationService {
             n.setActionStatus(updateBO.getNewActionStatus());
         }
         notificationRepository.saveAll(notifications);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateActionStatus(Long receiverId, NotificationType type, String actionDataPattern, NotificationActionStatus newActionStatus) {
+        UpdateNotificationActionBO bo = UpdateNotificationActionBO.builder()
+                .receiverId(receiverId)
+                .type(type)
+                .actionDataPattern(actionDataPattern)
+                .newActionStatus(newActionStatus)
+                .build();
+        updateActionStatus(bo);
     }
 
     private Map<Long, String> resolveSenderUsernames(List<Notification> notifications) {

@@ -16,14 +16,14 @@ import com.humolix.volur.competition.service.admin.AdminTeamService;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.SortUtils;
-import com.humolix.volur.notification.domain.bo.SendNotificationBO;
 import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
 import com.humolix.volur.notification.domain.enums.NotificationType;
-import com.humolix.volur.notification.service.NotificationService;
+import com.humolix.volur.notification.event.SendNotificationEvent;
 import com.alibaba.fastjson2.JSON;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -45,7 +45,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
     private final CompetitionMemberRepository memberRepository;
     private final CompetitionConfigRepository configRepository;
     private final CompetitionMapper competitionMapper;
-    private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public PageResponse<AdminTeamListVO> listTeams(Long competitionId, Integer page, Integer size, TeamStatus status, String keyword) {
@@ -143,13 +143,14 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
             for (CompetitionMember m : allMembers) {
                 if (m.getUser() != null) {
-                    notificationService.sendNotification(SendNotificationBO.builder()
+                    eventPublisher.publishEvent(SendNotificationEvent.builder()
+                            .source(this)
                             .senderId(null)
                             .receiverId(m.getUser().getId())
+                            .type(NotificationType.COMPETITION_AUDIT)
                             .title("【队伍审核通过】战队「" + team.getTeamName() + "」已通过审核")
                             .content(String.format("恭喜！您所在的战队「%s」已成功通过竞赛「%s」的参赛资格审核。",
                                     team.getTeamName(), team.getCompetition().getTitle()))
-                            .type(NotificationType.COMPETITION_INVITE)
                             .actionStatus(NotificationActionStatus.NONE)
                             .actionData(passActionData)
                             .build());
@@ -174,14 +175,15 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
             for (CompetitionMember m : allMembers) {
                 if (m.getUser() != null) {
-                    notificationService.sendNotification(SendNotificationBO.builder()
+                    eventPublisher.publishEvent(SendNotificationEvent.builder()
+                            .source(this)
                             .senderId(null)
                             .receiverId(m.getUser().getId())
+                            .type(NotificationType.COMPETITION_AUDIT)
                             .title("【队伍审核未通过】战队「" + team.getTeamName() + "」审核被驳回")
                             .content(String.format("很遗憾，您所在的战队「%s」未能通过竞赛「%s」的审核。审核意见: %s",
                                     team.getTeamName(), team.getCompetition().getTitle(),
                                     StringUtils.hasText(request.getAuditReason()) ? request.getAuditReason() : "无"))
-                            .type(NotificationType.SECURITY_ALERT)
                             .actionStatus(NotificationActionStatus.NONE)
                             .actionData(rejectActionData)
                             .build());
