@@ -89,8 +89,17 @@ public class Competition implements Serializable {
         if (this.endTime != null && now.isAfter(this.endTime)) {
             return CompetitionStatus.ENDED;
         }
-        if (this.startTime != null && now.isAfter(this.startTime)) {
+        if (this.startTime != null && !now.isBefore(this.startTime)) {
             return CompetitionStatus.RUNNING;
+        }
+
+        boolean hasRegStart = this.regStartTime != null;
+        boolean hasRegEnd = this.regEndTime != null;
+        boolean afterRegStart = !hasRegStart || !now.isBefore(this.regStartTime);
+        boolean beforeRegEnd = !hasRegEnd || !now.isAfter(this.regEndTime);
+
+        if (afterRegStart && beforeRegEnd) {
+            return CompetitionStatus.REGISTRATION;
         }
         return CompetitionStatus.PUBLISHED;
     }

@@ -145,7 +145,9 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
         Instant newEnd = request.getEndTime() != null ? request.getEndTime() : comp.getEndTime();
         Instant newRegStart = request.getRegStartTime() != null ? request.getRegStartTime() : comp.getRegStartTime();
         Instant newRegEnd = request.getRegEndTime() != null ? request.getRegEndTime() : comp.getRegEndTime();
-        boolean isNotStarted = (comp.getStatus() == CompetitionStatus.DRAFT || comp.getStatus() == CompetitionStatus.PUBLISHED);
+        boolean isNotStarted = (comp.getStatus() == CompetitionStatus.DRAFT 
+                || comp.getStatus() == CompetitionStatus.PUBLISHED 
+                || comp.getStatus() == CompetitionStatus.REGISTRATION);
         validateCompetitionSchedule(newStart, newEnd, newRegStart, newRegEnd, isNotStarted);
 
         if (request.getTitle() != null) comp.setTitle(request.getTitle().trim());

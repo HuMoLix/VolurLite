@@ -1,7 +1,6 @@
 package com.humolix.volur.competition.aspect;
 
-import com.humolix.volur.competition.annotation.RequiredCompetitionRunning;
-import com.humolix.volur.competition.annotation.RequiredCompetitionStageRunning;
+import com.humolix.volur.competition.annotation.RequiredCompetitionStatus;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.enums.CompetitionType;
@@ -25,50 +24,41 @@ import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 
 @Slf4j
 @Aspect
 @Component
 @RequiredArgsConstructor
-public class CompetitionValidationAspect {
+public class CompetitionStatusValidAspect {
 
     private final CompetitionRepository competitionRepository;
 
     private final ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
     private final ExpressionParser expressionParser = new SpelExpressionParser();
 
-    @Around("@annotation(com.humolix.volur.competition.annotation.RequiredCompetitionRunning) || " +
-            "@annotation(com.humolix.volur.competition.annotation.RequiredCompetitionStageRunning) || " +
-            "@within(com.humolix.volur.competition.annotation.RequiredCompetitionRunning) || " +
-            "@within(com.humolix.volur.competition.annotation.RequiredCompetitionStageRunning)")
+    @Around("@annotation(com.humolix.volur.competition.annotation.RequiredCompetitionStatus) || " +
+            "@within(com.humolix.volur.competition.annotation.RequiredCompetitionStatus)")
     public Object validateCompetitionAspect(ProceedingJoinPoint joinPoint) throws Throwable {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         Class<?> targetClass = joinPoint.getTarget().getClass();
 
-        RequiredCompetitionStageRunning stageAnnotation = method.getAnnotation(RequiredCompetitionStageRunning.class);
-        if (stageAnnotation == null) {
-            stageAnnotation = targetClass.getAnnotation(RequiredCompetitionStageRunning.class);
+        RequiredCompetitionStatus statusAnnotation = method.getAnnotation(RequiredCompetitionStatus.class);
+        if (statusAnnotation == null) {
+            statusAnnotation = targetClass.getAnnotation(RequiredCompetitionStatus.class);
         }
 
-        RequiredCompetitionRunning runningAnnotation = method.getAnnotation(RequiredCompetitionRunning.class);
-        if (runningAnnotation == null) {
-            runningAnnotation = targetClass.getAnnotation(RequiredCompetitionRunning.class);
-        }
-
-        if (stageAnnotation != null) {
-            Long competitionId = extractCompetitionId(joinPoint, stageAnnotation.key());
-            CompetitionType requiredType = stageAnnotation.type() != null ? stageAnnotation.type() : stageAnnotation.value();
-            validateCompetitionType(competitionId, requiredType);
-        } else if (runningAnnotation != null) {
-            Long competitionId = extractCompetitionId(joinPoint, runningAnnotation.key());
-            validateCompetition(competitionId);
+        if (statusAnnotation != null) {
+            Long competitionId = extractCompetitionId(joinPoint, statusAnnotation.key());
+            validateCompetitionStatus(competitionId, statusAnnotation.allowed(), statusAnnotation.types());
         }
 
         return joinPoint.proceed();
     }
 
-    public Competition validateCompetition(Long competitionId) {
+    public Competition validateCompetitionStatus(Long competitionId, CompetitionStatus[] allowedStatuses, CompetitionType[] allowedTypes) {
         if (competitionId == null) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "竞赛标识不能为空");
         }
@@ -76,27 +66,56 @@ public class CompetitionValidationAspect {
         Competition comp = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
 
-        if (comp.getStatus() == CompetitionStatus.DRAFT || comp.getStatus() == CompetitionStatus.ARCHIVED) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "竞赛未开放或已归档");
+        comp.refreshStatus();
+
+        // 1. 状态匹配校验
+        if (allowedStatuses != null && allowedStatuses.length > 0) {
+            List<CompetitionStatus> allowedList = Arrays.asList(allowedStatuses);
+            if (!allowedList.contains(comp.getStatus())) {
+                // 特殊友好提示：如果要求处于“报名中”，但当前状态不符
+                if (allowedList.contains(CompetitionStatus.REGISTRATION)) {
+                    if (comp.getStatus() == CompetitionStatus.DRAFT) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST, "竞赛尚未发布，暂不开放报名");
+                    } else if (comp.getStatus() == CompetitionStatus.ARCHIVED || comp.getStatus() == CompetitionStatus.ENDED) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST, "竞赛已结束或已归档，报名通道已关闭");
+                    } else if (comp.getStatus() == CompetitionStatus.RUNNING) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST, "比赛已开始，报名通道已关闭");
+                    } else if (comp.getRegStartTime() != null && Instant.now().isBefore(comp.getRegStartTime())) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST, "报名尚未开启");
+                    } else if (comp.getRegEndTime() != null && Instant.now().isAfter(comp.getRegEndTime())) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST, "报名已截止");
+                    }
+                }
+                // 特殊友好提示：如果要求处于“进行中”，但当前状态不符
+                if (allowedList.contains(CompetitionStatus.RUNNING)) {
+                    if (comp.getStatus() == CompetitionStatus.DRAFT || comp.getStatus() == CompetitionStatus.ARCHIVED) {
+                        throw new BusinessException(HttpStatus.FORBIDDEN, "竞赛未开放或已归档");
+                    } else if (comp.getStartTime() != null && Instant.now().isBefore(comp.getStartTime())) {
+                        throw new BusinessException(HttpStatus.FORBIDDEN, "竞赛尚未开始");
+                    } else if (comp.getEndTime() != null && Instant.now().isAfter(comp.getEndTime())) {
+                        throw new BusinessException(HttpStatus.FORBIDDEN, "竞赛已结束");
+                    }
+                }
+                throw new BusinessException(HttpStatus.BAD_REQUEST,
+                        "当前竞赛状态不允许执行该操作 (当前状态: " + comp.getStatus().getDescription() + ")");
+            }
         }
 
-        Instant now = Instant.now();
-        if (comp.getStartTime() != null && now.isBefore(comp.getStartTime())) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "竞赛尚未开始");
-        }
-        if (comp.getEndTime() != null && now.isAfter(comp.getEndTime())) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "竞赛已结束");
+        // 2. 赛制模式匹配校验
+        if (allowedTypes != null && allowedTypes.length > 0) {
+            boolean typeMatched = false;
+            for (CompetitionType t : allowedTypes) {
+                if (comp.getType() == t) {
+                    typeMatched = true;
+                    break;
+                }
+            }
+            if (!typeMatched) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "该竞赛模式不满足要求");
+            }
         }
 
         return comp;
-    }
-
-    public void validateCompetitionType(Long competitionId, CompetitionType requiredType) {
-        Competition comp = validateCompetition(competitionId);
-
-        if (requiredType != null && comp.getType() != requiredType) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "该竞赛非 " + requiredType.name() + " 模式竞赛");
-        }
     }
 
     private Long extractCompetitionId(ProceedingJoinPoint joinPoint, String keyExpression) {
