@@ -29,6 +29,7 @@
   "form_status": "Status",
   "form_banner": "Banner URL",
   "form_desc": "Description",
+  "form_desc_placeholder": "Enter detailed competition description, rules, and notes (Markdown supported)...",
   "form_desc_edit": "Edit",
   "form_desc_preview": "Preview",
   "form_desc_tip": "Supports Markdown syntax",

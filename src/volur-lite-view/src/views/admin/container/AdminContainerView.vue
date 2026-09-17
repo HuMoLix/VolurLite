@@ -103,64 +103,70 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          :placeholder="t('admin.containers.search.placeholder')"
-          clearable
-          style="width: 280px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
+        <div class="container-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            :placeholder="t('admin.containers.search.placeholder')"
+            clearable
+            class="filter-search-input"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
 
-        <n-select
-          v-model:value="filterStatus"
-          :placeholder="t('admin.containers.search.statusAll')"
-          clearable
-          :options="statusOptions"
-          style="width: 180px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterStatus"
+            :placeholder="t('admin.containers.search.statusAll')"
+            clearable
+            :options="statusOptions"
+            class="filter-status-select"
+            @update:value="handleSearch"
+          />
 
-        <n-button type="primary" class="theme-primary-btn" @click="handleSearch">
-          <template #icon>
-            <n-icon :component="SearchOutline" />
-          </template>
-          {{ t('admin.containers.search.refresh') }}
-        </n-button>
+          <div class="filter-actions-group">
+            <n-button type="primary" class="theme-primary-btn" @click="handleSearch">
+              <template #icon>
+                <n-icon :component="SearchOutline" />
+              </template>
+              {{ t('admin.containers.search.refresh') }}
+            </n-button>
 
-        <n-button quaternary @click="handleReset">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          {{ t('admin.containers.search.reset') }}
-        </n-button>
+            <n-button quaternary @click="handleReset">
+              <template #icon>
+                <n-icon :component="RefreshOutline" />
+              </template>
+              {{ t('admin.containers.search.reset') }}
+            </n-button>
+          </div>
+        </div>
       </template>
 
       <template #filter-right>
-        <n-button type="primary" class="theme-primary-btn" @click="openManualStartModal">
-          <template #icon>
-            <n-icon :component="AddOutline" />
-          </template>
-          {{ t('admin.containers.search.manualStart') }}
-        </n-button>
+        <div class="container-filter-right">
+          <n-button type="primary" class="theme-primary-btn action-start-btn" @click="openManualStartModal">
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
+            {{ t('admin.containers.search.manualStart') }}
+          </n-button>
 
-        <n-popconfirm
-          v-if="selectedRowKeys.length > 0"
-          @positive-click="handleBatchStop"
-        >
-          <template #trigger>
-            <n-button type="error" ghost>
-              <template #icon>
-                <n-icon :component="TrashOutline" />
-              </template>
-              {{ t('admin.containers.search.batchStop') }} ({{ selectedRowKeys.length }})
-            </n-button>
-          </template>
-          {{ t('admin.containers.search.batchStopConfirmContent', { count: selectedRowKeys.length }) }}
-        </n-popconfirm>
+          <n-popconfirm
+            v-if="selectedRowKeys.length > 0"
+            @positive-click="handleBatchStop"
+          >
+            <template #trigger>
+              <n-button type="error" ghost class="action-batch-btn">
+                <template #icon>
+                  <n-icon :component="TrashOutline" />
+                </template>
+                {{ t('admin.containers.search.batchStop') }} ({{ selectedRowKeys.length }})
+              </n-button>
+            </template>
+            {{ t('admin.containers.search.batchStopConfirmContent', { count: selectedRowKeys.length }) }}
+          </n-popconfirm>
+        </div>
       </template>
     </AppTableCard>
 
@@ -271,10 +277,12 @@
 
             <n-grid-item :span="12">
               <n-form-item :label="t('admin.containers.actions.outboundLabel') || '出网权限 (访问外网)'">
-                <n-switch v-model:value="manualStartForm.outboundEnabled" style="margin-top: 4px;">
-                  <template #checked>{{ t('admin.containers.actions.outboundAllowed') || '允许出网 (外部互联)' }}</template>
-                  <template #unchecked>{{ t('admin.containers.actions.outboundBlocked') || '禁止出网 (网络隔离)' }}</template>
-                </n-switch>
+                <div class="switch-row">
+                  <n-switch v-model:value="manualStartForm.outboundEnabled" />
+                  <span class="field-hint">
+                    {{ manualStartForm.outboundEnabled ? (t('admin.containers.actions.outboundAllowed') || '允许出网 (外部互联)') : (t('admin.containers.actions.outboundBlocked') || '禁止出网 (网络隔离)') }}
+                  </span>
+                </div>
               </n-form-item>
             </n-grid-item>
           </n-grid>
@@ -2277,6 +2285,88 @@ onUnmounted(() => {
     color: #444444;
     font-weight: 500;
     margin-top: 2px;
+  }
+}
+
+.container-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-search-input {
+    width: 240px;
+  }
+
+  .filter-status-select {
+    width: 150px;
+  }
+
+  .filter-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.container-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .container-filter-left {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+
+    .filter-search-input,
+    .filter-status-select {
+      width: 100% !important;
+    }
+
+    .filter-actions-group {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+
+      .n-button {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  }
+
+  .container-filter-right {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+    margin-top: 8px;
+
+    .action-start-btn,
+    .action-batch-btn,
+    .n-popconfirm {
+      flex: 1;
+    }
+
+    .n-button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+
+  .field-hint {
+    margin-left: 12px;
+    font-size: 12px;
+    color: #444444;
   }
 }
 </style>

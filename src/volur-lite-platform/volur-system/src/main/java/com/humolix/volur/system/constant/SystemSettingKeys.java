@@ -37,10 +37,14 @@ public final class SystemSettingKeys {
     public static final String MAIL_SMTP_USER = "system.mail.smtp_user";
     public static final String MAIL_SMTP_PASS = "system.mail.smtp_pass";
     public static final String MAIL_SMTP_SSL = "system.mail.smtp_ssl";
+    public static final String MAIL_FROM_ADDRESS = "system.mail.from_address";
     public static final String MAIL_SENDER_NAME = "system.mail.sender_name";
     public static final String MAIL_ALIYUN_ACCESS_KEY = "system.mail.aliyun_access_key";
     public static final String MAIL_ALIYUN_SECRET_KEY = "system.mail.aliyun_secret_key";
     public static final String MAIL_ALIYUN_ACCOUNT = "system.mail.aliyun_account";
+    public static final String MAIL_WEBHOOK_ENABLED = "system.mail.webhook_enabled";
+    public static final String MAIL_WEBHOOK_SECRET = "system.mail.webhook_secret";
+    public static final String MAIL_WEBHOOK_FALLBACK_STRATEGY = "system.mail.webhook_fallback_strategy";
 
     // ========== 5. 容器基础设施 (Container Infrastructure) ==========
     public static final String CONTAINER_TYPE = "system.container.type";

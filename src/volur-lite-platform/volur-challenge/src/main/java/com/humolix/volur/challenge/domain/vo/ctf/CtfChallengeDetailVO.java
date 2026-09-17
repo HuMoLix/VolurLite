@@ -1,5 +1,6 @@
 package com.humolix.volur.challenge.domain.vo.ctf;
 
+import com.humolix.volur.challenge.domain.enums.ChallengeDifficulty;
 import com.humolix.volur.challenge.domain.enums.ChallengeType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,10 +21,11 @@ public class CtfChallengeDetailVO implements Serializable {
     private String description;
     private Long categoryId;
     private String categoryName;
+    private String categoryIcon;
     private Long authorId;
     private String authorName;
     private ChallengeType type;
-    private Integer difficulty;
+    private ChallengeDifficulty difficulty;
     private String flag;
     private String attachmentUrl;
     private String attachmentName;

@@ -15,6 +15,8 @@ public class EmailLogVO {
 
     private Long id;
 
+    private String messageId;
+
     private String recipient;
 
     private String subject;

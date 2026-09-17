@@ -22,7 +22,11 @@
   "type_test": "测试邮件 (TEST)",
   "type_manual": "管理员手动 (MANUAL)",
   "status_all": "全部状态",
-  "status_success": "发送成功 (SUCCESS)",
+  "status_sending": "发送中 (SENDING)",
+  "status_sent": "已转交服务商 (SENT)",
+  "status_delivered": "已真实送达 (DELIVERED)",
+  "status_bounced": "发生退信 (BOUNCED)",
+  "status_complained": "垃圾投诉 (COMPLAINED)",
   "status_failed": "发送失败 (FAILED)",
   "total_prefix": "共 {count} 条发信记录",
   "columns": {
@@ -44,11 +48,17 @@
   "drawer_title": "邮件详情审计",
   "detail": {
     "id": "邮件 ID",
+    "message_id": "Message-ID",
     "recipient": "收件人邮箱",
     "subject": "邮件主题",
     "type": "业务类型",
     "sender": "发信地址",
     "status": "发送状态",
+    "status_sending": "发送中 (SENDING)",
+    "status_sent": "已转交服务商 (SENT)",
+    "status_delivered": "真实送达 (DELIVERED)",
+    "status_bounced": "已退信 (BOUNCED)",
+    "status_complained": "垃圾投诉 (COMPLAINED)",
     "status_success": "成功 (SUCCESS)",
     "status_failed": "失败 (FAILED)",
     "created_at": "发送时间",
@@ -72,8 +82,8 @@
     "cancel": "取消",
     "send": "立即发送",
     "sending": "发送中...",
-    "send_success": "邮件已成功发送",
-    "resend_success": "邮件已成功重新发送"
+    "send_success": "邮件发送任务已提交，正在异步投递",
+    "resend_success": "邮件重发任务已提交，正在异步投递"
   },
   "validation": {
     "recipient_required": "请输入收件人邮箱",

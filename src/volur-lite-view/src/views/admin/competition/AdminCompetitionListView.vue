@@ -22,40 +22,47 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          :placeholder="t('admin.competitions.search_placeholder')"
-          clearable
-          style="width: 240px;"
-          @keyup.enter="handleSearch"
-          @clear="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
+        <div class="competition-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            :placeholder="t('admin.competitions.search_placeholder')"
+            clearable
+            class="filter-input-search"
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
 
-        <n-select
-          v-model:value="filterType"
-          :placeholder="t('competition.type_all')"
-          clearable
-          :options="typeSelectOptions"
-          style="width: 160px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterType"
+            :placeholder="t('competition.type_all')"
+            clearable
+            :options="typeSelectOptions"
+            class="filter-select-type"
+            @update:value="handleSearch"
+          />
 
-        <n-button class="theme-primary-btn" @click="handleSearch">
-          搜索
-        </n-button>
+          <n-button class="theme-primary-btn search-btn" @click="handleSearch">
+            <template #icon>
+              <n-icon :component="SearchOutline" />
+            </template>
+            搜索
+          </n-button>
+        </div>
       </template>
 
       <template #filter-right>
-        <n-button class="theme-primary-btn" @click="openCreateView">
-          <template #icon>
-            <n-icon :component="AddOutline" />
-          </template>
-          {{ t('admin.competitions.create_btn') }}
-        </n-button>
+        <div class="competition-filter-right">
+          <n-button class="theme-primary-btn action-create-btn" @click="openCreateView">
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
+            {{ t('admin.competitions.create_btn') }}
+          </n-button>
+        </div>
       </template>
     </AppTableCard>
   </div>
@@ -415,4 +422,67 @@ onMounted(() => {
   }
 }
 
+.competition-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-input-search {
+    width: 220px;
+    min-width: 160px;
+  }
+
+  .filter-select-type {
+    width: 150px;
+    flex-shrink: 0;
+  }
+}
+
+.competition-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  :deep(.filter-header) {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+
+    .filter-left,
+    .filter-right {
+      width: 100%;
+    }
+  }
+
+  .competition-filter-left {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .filter-input-search,
+    .filter-select-type {
+      width: 100% !important;
+    }
+
+    .search-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .competition-filter-right {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+
+    .action-create-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
 </style>

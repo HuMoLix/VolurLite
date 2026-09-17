@@ -53,7 +53,7 @@
           <img
             v-if="captchaImage"
             :src="captchaImage"
-            @click="fetchCaptcha"
+            @click="fetchCaptcha()"
             class="auth-form__captcha-image"
             :alt="t('auth.captcha_alt')"
             :title="t('auth.captcha_refresh_title')"
@@ -61,7 +61,7 @@
           <n-button
             v-else
             size="large"
-            @click="fetchCaptcha"
+            @click="handleCaptchaButtonClick"
             class="auth-form__captcha-reload-button"
           >
             {{ t('auth.verification_code') }}
@@ -275,13 +275,16 @@ const captchaImage = ref<string>('')
 const captchaId = ref<string>('')
 const captchaType = ref<string>('LINE')
 const captchaTicket = ref<string>('')
+const requireBehaviorVerify = ref<boolean>(false)
 const showPuzzleModal = ref<boolean>(false)
 const puzzleScene = ref<string>('REGISTER')
-const pendingAction = ref<'SEND_EMAIL_CODE' | 'REGISTER' | 'FORGOT_PASSWORD' | null>(null)
+const pendingAction = ref<'SEND_EMAIL_CODE' | 'REGISTER' | 'FORGOT_PASSWORD' | 'FETCH_CAPTCHA' | null>(null)
 
 async function handlePuzzleSuccess(ticketVO: CaptchaTicketVO) {
   captchaTicket.value = ticketVO.ticket
-  if (pendingAction.value === 'SEND_EMAIL_CODE') {
+  if (pendingAction.value === 'FETCH_CAPTCHA') {
+    await fetchCaptcha(ticketVO.ticket)
+  } else if (pendingAction.value === 'SEND_EMAIL_CODE') {
     await doSendEmailCode(ticketVO.ticket)
   } else if (pendingAction.value === 'REGISTER') {
     await doRegister(ticketVO.ticket)
@@ -413,17 +416,44 @@ function toggleMode() {
   }
 }
 
-async function fetchCaptcha() {
+async function fetchCaptcha(ticket?: string) {
   if (!isCaptchaEnabled.value) return
   try {
-    const res = await getCaptchaApi(captchaId.value || undefined)
+    const res = await getCaptchaApi({
+      oldCaptchaId: captchaId.value || undefined,
+      ticket: ticket || undefined
+    })
     if (res.data) {
+      if (res.data.requireBehaviorVerify) {
+        // 由于风险计数太高，需要行为式人机验证：清空图片，置标记，仅展示“验证码”按钮，不自动弹出弹窗
+        captchaImage.value = ''
+        requireBehaviorVerify.value = true
+        return
+      }
+      requireBehaviorVerify.value = false
       captchaId.value = res.data.captchaId
       captchaImage.value = res.data.backgroundImage || res.data.imageBase64 || ''
       captchaType.value = (res.data.captchaType || 'LINE').toUpperCase()
     }
   } catch (e: any) {
     console.warn('Captcha load skipped', e)
+  }
+}
+
+async function handleCaptchaButtonClick() {
+  if (requireBehaviorVerify.value) {
+    // 高风控状态下，用户主动点击“验证码”按钮才唤起滑动拼图弹窗
+    puzzleScene.value = 'LOGIN'
+    pendingAction.value = 'FETCH_CAPTCHA'
+    showPuzzleModal.value = true
+  } else {
+    // 正常获取或刷新验证码
+    await fetchCaptcha()
+    if (requireBehaviorVerify.value) {
+      puzzleScene.value = 'LOGIN'
+      pendingAction.value = 'FETCH_CAPTCHA'
+      showPuzzleModal.value = true
+    }
   }
 }
 

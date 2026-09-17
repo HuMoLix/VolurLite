@@ -60,4 +60,10 @@ public class CompetitionController {
         return ApiResponseEntity.ok("获取竞赛介绍成功", about);
     }
 
+    @Operation(summary = "获取竞赛专属公告列表")
+    @GetMapping("/{id}/announcements")
+    public ApiResponse<java.util.List<com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO>> listAnnouncements(@PathVariable Long id) {
+        return ApiResponseEntity.ok("获取竞赛公告成功", competitionService.listAnnouncements(id));
+    }
+
 }

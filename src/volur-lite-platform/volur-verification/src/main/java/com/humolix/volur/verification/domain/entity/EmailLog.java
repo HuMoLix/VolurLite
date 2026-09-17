@@ -14,6 +14,7 @@ import java.time.Instant;
         @Index(name = "idx_email_log_recipient", columnList = "recipient"),
         @Index(name = "idx_email_log_type", columnList = "type"),
         @Index(name = "idx_email_log_status", columnList = "status"),
+        @Index(name = "idx_email_log_message_id", columnList = "message_id"),
         @Index(name = "idx_email_log_created_at", columnList = "created_at")
 })
 @DynamicUpdate
@@ -29,6 +30,9 @@ public class EmailLog implements Serializable {
     @EqualsAndHashCode.Include
     @Column(name = "id", nullable = false, updatable = false, unique = true, columnDefinition = "BIGINT")
     private Long id;
+
+    @Column(name = "message_id", length = 128, columnDefinition = "VARCHAR(128)")
+    private String messageId;
 
     @Column(name = "recipient", nullable = false, length = 128, columnDefinition = "VARCHAR(128)")
     private String recipient;

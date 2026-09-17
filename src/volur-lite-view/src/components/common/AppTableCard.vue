@@ -35,7 +35,7 @@
     <!-- 3. 主体内容区：默认插槽存在时渲染自定义列表（如卡片网格），否则渲染标准 n-data-table -->
     <div
       class="table-body-container"
-      :style="{ minHeight: typeof tableMinHeight === 'number' ? `${tableMinHeight}px` : tableMinHeight }"
+      :style="{ minHeight: typeof tableMinHeight === 'number' ? `${tableMinHeight}px` : (tableMinHeight || undefined) }"
     >
       <slot v-if="$slots.default" />
       <n-data-table
@@ -54,7 +54,7 @@
         :single-column="singleColumn"
         :single-line="singleLine"
         :max-height="maxHeight"
-        :min-height="tableMinHeight"
+        :min-height="typeof tableMinHeight === 'number' ? tableMinHeight : (tableMinHeight || undefined)"
         :scroll-x="scrollX"
         :class="['app-data-table', tableClass]"
         @update:page="handlePageChange"
@@ -212,6 +212,18 @@ export interface AppTableCardProps {
   minRows?: number
 
   /**
+   * 是否开启基于行数的最小高度/长度拓展（默认为 true，保证至少展示 minRows 行的高度；设为 false 时取消固定长度，完全自适应内容）
+   * @default true
+   */
+  expandLength?: boolean
+
+  /**
+   * 拓展长度别名兼容属性（等同于 expandLength）
+   * @default true
+   */
+  expandHeight?: boolean
+
+  /**
    * 横向滚动最小宽度
    */
   scrollX?: number | string
@@ -264,6 +276,8 @@ const props = withDefaults(defineProps<AppTableCardProps>(), {
   singleLine: true,
   standalonePagination: false,
   minRows: 10,
+  expandLength: true,
+  expandHeight: true,
   page: 1,
   pageSize: 10,
   itemCount: 0
@@ -283,9 +297,14 @@ const defaultRowHeightMap: Record<'small' | 'medium' | 'large', number> = {
   large: 56
 }
 
-const tableMinHeight = computed<string | number>(() => {
+const tableMinHeight = computed<string | number | undefined>(() => {
   if (props.minHeight !== undefined && props.minHeight !== null && props.minHeight !== '') {
     return props.minHeight
+  }
+  // 若显式关闭拓展长度（expandLength: false 或 expandHeight: false），或者 minRows 设为 0，则取消固定高度拓展
+  const isExpandEnabled = props.expandLength !== false && props.expandHeight !== false
+  if (!isExpandEnabled || props.minRows === 0) {
+    return undefined
   }
   const baseH = defaultRowHeightMap[props.size || 'medium'] || 48
   const rows = props.minRows && props.minRows > 0 ? props.minRows : 10

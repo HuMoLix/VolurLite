@@ -236,13 +236,13 @@ function getStatusTagType(st: CompetitionStatus) {
 
 function getStatusText(st: CompetitionStatus): string {
   switch (st) {
-    case 'DRAFT': return `${t('competition.status_draft')} (DRAFT)`
-    case 'PUBLISHED': return `${t('competition.status_published')} (PUBLISHED)`
-    case 'RUNNING': return `${t('competition.status_running')} (RUNNING)`
-    case 'ENDED': return `${t('competition.status_ended')} (ENDED)`
-    case 'ARCHIVED': return `${t('competition.status_archived')} (ARCHIVED)`
-    case 'REGISTRATION': return `${t('competition.status_registration')} (REGISTRATION)`
-    case 'FROZEN': return `${t('competition.status_frozen')} (FROZEN)`
+    case 'DRAFT': return t('competition.status_draft')
+    case 'PUBLISHED': return t('competition.status_published')
+    case 'RUNNING': return t('competition.status_running')
+    case 'ENDED': return t('competition.status_ended')
+    case 'ARCHIVED': return t('competition.status_archived')
+    case 'REGISTRATION': return t('competition.status_registration')
+    case 'FROZEN': return t('competition.status_frozen')
     default: return st
   }
 }

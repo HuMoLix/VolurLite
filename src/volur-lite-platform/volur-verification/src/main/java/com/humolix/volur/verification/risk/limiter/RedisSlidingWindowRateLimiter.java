@@ -50,4 +50,15 @@ public class RedisSlidingWindowRateLimiter {
         }
     }
 
+    public void reduceCount(String key, long count) {
+        if (count <= 0) {
+            return;
+        }
+        try {
+            redisTemplate.opsForZSet().removeRange(key, 0, count - 1);
+        } catch (Exception ex) {
+            log.error("[Volur-Verification] 扣减限频/风险计数异常: key={}, count={}", key, count, ex);
+        }
+    }
+
 }

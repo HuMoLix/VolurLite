@@ -22,13 +22,11 @@ public class CompetitionMemberVO implements Serializable {
     private String avatarUrl;
     private String realName;
     private com.humolix.volur.user.domain.enums.Gender gender;
-    private String idCard;
-    private String organization;
-    private String org;
-    private String department;
-    private String position;
+    private String studentNumber;
     private String phone;
     private String email;
+    private String idCard;
+    private String college;
     private MemberRole role;
     private MemberStatus status;
     private Instant joinedAt;

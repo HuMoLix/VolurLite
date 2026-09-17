@@ -16,6 +16,7 @@ public class CtfCategoryVO implements Serializable {
 
     private Long id;
     private String name;
+    private String icon;
     private String description;
     private Integer sortOrder;
     private Instant createdAt;

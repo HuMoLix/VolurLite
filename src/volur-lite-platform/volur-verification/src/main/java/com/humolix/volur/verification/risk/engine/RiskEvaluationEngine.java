@@ -23,7 +23,7 @@ public class RiskEvaluationEngine {
     private final StringRedisTemplate redisTemplate;
 
     public RiskLevel evaluateRisk(String ip, CaptchaScene scene) {
-        if (ip == null || ip.isBlank()) {
+        if (ip == null || ip.isBlank() || isBypassedIp(ip)) {
             return RiskLevel.LOW;
         }
 
@@ -71,7 +71,7 @@ public class RiskEvaluationEngine {
     }
 
     public void recordFailure(String ip, CaptchaScene scene) {
-        if (ip == null || ip.isBlank()) {
+        if (ip == null || ip.isBlank() || isBypassedIp(ip)) {
             return;
         }
         String failureKey = VREDIS_VERIFICATION_RISK_FAILURES_KEY_PREFIX + ip;
@@ -79,23 +79,29 @@ public class RiskEvaluationEngine {
     }
 
     public void recordVelocity(String ip) {
-        if (ip == null || ip.isBlank()) {
+        if (ip == null || ip.isBlank() || isBypassedIp(ip)) {
             return;
         }
         String velocityKey = VREDIS_VERIFICATION_RISK_VELOCITY_KEY_PREFIX + ip;
         rateLimiter.tryAcquire(velocityKey, 100, Duration.ofMinutes(1));
     }
 
-    public void recordSuccess(String ip, CaptchaScene scene) {
-        if (ip == null || ip.isBlank()) {
+    public void reduceRisk(String ip) {
+        if (ip == null || ip.isBlank() || isBypassedIp(ip)) {
             return;
         }
         String failureKey = VREDIS_VERIFICATION_RISK_FAILURES_KEY_PREFIX + ip;
-        try {
-            redisTemplate.delete(failureKey);
-        } catch (Exception ex) {
-            log.warn("[Volur-Verification] 清理成功 IP 风控记录警告: ip={}", ip, ex);
-        }
+        // 降低 6 次失败计数惩罚，使其脱离高危阈值，但保留部分历史风险底数，若后续持续异常则迅速再次升险
+        rateLimiter.reduceCount(failureKey, 6);
+    }
+
+    public void recordSuccess(String ip, CaptchaScene scene) {
+        reduceRisk(ip);
+    }
+
+    private boolean isBypassedIp(String ip) {
+        String clean = ip.trim();
+        return "127.0.0.1".equals(clean) || "0:0:0:0:0:0:0:1".equals(clean) || "localhost".equalsIgnoreCase(clean);
     }
 
 }

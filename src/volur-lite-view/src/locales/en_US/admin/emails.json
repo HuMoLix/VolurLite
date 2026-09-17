@@ -22,7 +22,11 @@
   "type_test": "System Test (TEST)",
   "type_manual": "Manual Send (MANUAL)",
   "status_all": "All Status",
-  "status_success": "Success (SUCCESS)",
+  "status_sending": "Sending (SENDING)",
+  "status_sent": "Sent to Relay (SENT)",
+  "status_delivered": "Delivered (DELIVERED)",
+  "status_bounced": "Bounced (BOUNCED)",
+  "status_complained": "Spam Complaint (COMPLAINED)",
   "status_failed": "Failed (FAILED)",
   "total_prefix": "Total {count} email records",
   "columns": {
@@ -44,11 +48,17 @@
   "drawer_title": "Email Audit Detail",
   "detail": {
     "id": "Email ID",
+    "message_id": "Message-ID",
     "recipient": "Recipient Email",
     "subject": "Email Subject",
     "type": "Business Type",
     "sender": "Sender Address",
     "status": "Delivery Status",
+    "status_sending": "Sending (SENDING)",
+    "status_sent": "Sent to Relay (SENT)",
+    "status_delivered": "Delivered (DELIVERED)",
+    "status_bounced": "Bounced (BOUNCED)",
+    "status_complained": "Spam Complaint (COMPLAINED)",
     "status_success": "Success (SUCCESS)",
     "status_failed": "Failed (FAILED)",
     "created_at": "Sent At",
@@ -72,8 +82,8 @@
     "cancel": "Cancel",
     "send": "Send Now",
     "sending": "Sending...",
-    "send_success": "Email has been sent successfully",
-    "resend_success": "Email has been resent successfully"
+    "send_success": "Email dispatch task submitted to background delivery",
+    "resend_success": "Email resend task submitted to background delivery"
   },
   "validation": {
     "recipient_required": "Recipient email is required",

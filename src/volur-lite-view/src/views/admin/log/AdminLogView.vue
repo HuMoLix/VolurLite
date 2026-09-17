@@ -68,69 +68,73 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          :placeholder="t('admin.logs.search_placeholder')"
-          clearable
-          style="width: 240px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
+        <div class="log-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            :placeholder="t('admin.logs.search_placeholder')"
+            clearable
+            class="filter-search-input"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
 
-        <n-select
-          v-model:value="filterLevel"
-          :placeholder="t('admin.logs.filter_level')"
-          clearable
-          :options="levelSelectOptions"
-          style="width: 130px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterLevel"
+            :placeholder="t('admin.logs.filter_level')"
+            clearable
+            :options="levelSelectOptions"
+            class="filter-level-select"
+            @update:value="handleSearch"
+          />
 
-        <n-select
-          v-model:value="filterModule"
-          :placeholder="t('admin.logs.filter_module')"
-          clearable
-          :options="moduleSelectOptions"
-          style="width: 140px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterModule"
+            :placeholder="t('admin.logs.filter_module')"
+            clearable
+            :options="moduleSelectOptions"
+            class="filter-module-select"
+            @update:value="handleSearch"
+          />
 
-        <n-select
-          v-model:value="filterStatus"
-          :placeholder="t('admin.logs.filter_status')"
-          clearable
-          :options="statusSelectOptions"
-          style="width: 130px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterStatus"
+            :placeholder="t('admin.logs.filter_status')"
+            clearable
+            :options="statusSelectOptions"
+            class="filter-status-select"
+            @update:value="handleSearch"
+          />
 
-        <n-date-picker
-          v-model:value="dateRange"
-          type="datetimerange"
-          clearable
-          format="yyyy-MM-dd HH:mm"
-          :start-placeholder="t('admin.logs.start_time')"
-          :end-placeholder="t('admin.logs.end_time')"
-          style="width: 320px;"
-          @update:value="handleSearch"
-        />
+          <n-date-picker
+            v-model:value="dateRange"
+            type="datetimerange"
+            clearable
+            format="yyyy-MM-dd HH:mm"
+            :start-placeholder="t('admin.logs.start_time')"
+            :end-placeholder="t('admin.logs.end_time')"
+            class="filter-date-picker"
+            @update:value="handleSearch"
+          />
 
-        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-          <template #icon>
-            <n-icon :component="SearchOutline" />
-          </template>
-          {{ t('admin.logs.query_btn') }}
-        </n-button>
+          <div class="filter-actions-group">
+            <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+              <template #icon>
+                <n-icon :component="SearchOutline" />
+              </template>
+              {{ t('admin.logs.query_btn') }}
+            </n-button>
 
-        <n-button quaternary @click="handleReset">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          {{ t('admin.logs.reset_btn') }}
-        </n-button>
+            <n-button quaternary @click="handleReset">
+              <template #icon>
+                <n-icon :component="RefreshOutline" />
+              </template>
+              {{ t('admin.logs.reset_btn') }}
+            </n-button>
+          </div>
+        </div>
       </template>
     </AppTableCard>
 
@@ -776,6 +780,67 @@ onMounted(() => {
       padding: 8px 12px;
       border-radius: 6px;
       word-break: break-all;
+    }
+  }
+}
+
+.log-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-search-input {
+    width: 200px;
+  }
+
+  .filter-level-select {
+    width: 120px;
+  }
+
+  .filter-module-select {
+    width: 130px;
+  }
+
+  .filter-status-select {
+    width: 120px;
+  }
+
+  .filter-date-picker {
+    width: 280px;
+  }
+
+  .filter-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .log-filter-left {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+
+    .filter-search-input,
+    .filter-level-select,
+    .filter-module-select,
+    .filter-status-select,
+    .filter-date-picker {
+      width: 100% !important;
+    }
+
+    .filter-actions-group {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+
+      .n-button {
+        flex: 1;
+        justify-content: center;
+      }
     }
   }
 }

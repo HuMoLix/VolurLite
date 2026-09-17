@@ -49,7 +49,9 @@
     "port": "SMTP 服务端口",
     "port_hint": "SSL 通常为 465，TLS 为 587",
     "user": "发信人邮箱账号",
-    "user_placeholder": "如：service{'@'}volur.local",
+    "user_placeholder": "如：resend 或 service{'@'}volur.local",
+    "from_address": "发件人邮箱地址",
+    "from_address_placeholder": "QQ等邮箱保持与发信人邮箱账号一致即可",
     "pass": "授权密码 / Token",
     "pass_placeholder": "请输入邮箱授权码或 SMTP 密码",
     "ssl": "SSL / TLS 加密传输",
@@ -57,7 +59,12 @@
     "sender_name": "发件人显示昵称",
     "sender_name_placeholder": "如：Volur Lite 安全演练平台",
     "test_connection": "发信联通性自检",
-    "send_test": "发送测试邮件"
+    "send_test": "发送测试邮件",
+    "webhook_section_title": "Webhook回调设置",
+    "webhook_enabled": "启用 Webhook 回调",
+    "webhook_secret": "Secret Token",
+    "webhook_secret_placeholder": "配置外部服务商调用本系统 Webhook 时的密钥（留空则不验签）",
+    "webhook_url": "Webhook回调地址"
   },
   "maintenance": {
     "alert_title": "平台当前正处于全站维护模式中",
@@ -78,6 +85,9 @@
     "save_failed": "保存设置失败",
     "reset_info": "已恢复为系统推荐默认参数",
     "test_mail_success": "邮件服务器连通性测试成功，SMTP 服务正常可用",
-    "test_mail_failed": "SMTP 连接测试失败，请检查邮件配置"
+    "test_mail_failed": "SMTP 连接测试失败，请检查邮件配置",
+    "smtp_host_required": "SMTP 服务器主机不能为空",
+    "smtp_user_required": "发信人邮箱账号不能为空",
+    "from_address_required": "发件人邮箱地址不能为空"
   }
 }

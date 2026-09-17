@@ -48,8 +48,10 @@
     "host_placeholder": "e.g. smtp.example.com or smtp.gmail.com",
     "port": "SMTP Service Port",
     "port_hint": "Usually 465 for SSL, 587 for TLS",
-    "user": "Sender Email Address",
-    "user_placeholder": "e.g. service{'@'}volur.local",
+    "user": "SMTP Auth Username",
+    "user_placeholder": "e.g. resend or service{'@'}volur.local",
+    "from_address": "Sender Email Address",
+    "from_address_placeholder": "For QQ/163 mail, keep same as auth username; for Resend enter verified email",
     "pass": "Auth Password / Token",
     "pass_placeholder": "Enter email authorization code or SMTP password",
     "ssl": "SSL / TLS Encryption",
@@ -57,7 +59,12 @@
     "sender_name": "Sender Display Name",
     "sender_name_placeholder": "e.g. Volur Lite Cybersecurity Platform",
     "test_connection": "Test Mail Connectivity",
-    "send_test": "Send Test Email"
+    "send_test": "Send Test Email",
+    "webhook_section_title": "Webhook Settings",
+    "webhook_enabled": "Enable Webhook",
+    "webhook_secret": "Secret Token",
+    "webhook_secret_placeholder": "Secret token expected from provider webhook requests (leave empty to disable validation)",
+    "webhook_url": "Webhook URL"
   },
   "maintenance": {
     "alert_title": "Platform is currently in full maintenance mode",
@@ -78,6 +85,9 @@
     "save_failed": "Failed to save settings",
     "reset_info": "Reset to recommended default parameters",
     "test_mail_success": "SMTP connectivity test successful, mail service is operational.",
-    "test_mail_failed": "SMTP connection test failed. Please check mail settings."
+    "test_mail_failed": "SMTP connection test failed. Please check mail settings.",
+    "smtp_host_required": "SMTP host cannot be empty",
+    "smtp_user_required": "SMTP user cannot be empty",
+    "from_address_required": "Sender email address cannot be empty"
   }
 }

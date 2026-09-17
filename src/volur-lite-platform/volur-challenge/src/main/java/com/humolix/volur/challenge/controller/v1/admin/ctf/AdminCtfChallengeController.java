@@ -2,6 +2,7 @@ package com.humolix.volur.challenge.controller.v1.admin.ctf;
 
 import com.humolix.volur.challenge.domain.dto.ctf.CtfChallengeCreateRequestDTO;
 import com.humolix.volur.challenge.domain.dto.ctf.CtfChallengeUpdateRequestDTO;
+import com.humolix.volur.challenge.domain.vo.ChallengeImportResultVO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeListVO;
 import com.humolix.volur.challenge.service.admin.ctf.AdminCtfChallengeService;
@@ -12,9 +13,15 @@ import com.humolix.volur.framework.security.annotation.CurrentUserId;
 import com.humolix.volur.logging.annotation.Syslog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Tag(name = "管理端 CTF 题库管理", description = "管理员管理解题赛 (CTF) 模式题目增删改查接口")
 @RestController
@@ -24,14 +31,16 @@ public class AdminCtfChallengeController {
 
     private final AdminCtfChallengeService challengeService;
 
-    @Operation(summary = "分页获取 CTF 题目列表")
+    @Operation(summary = "分页获取 CTF 题目列表（仅支持按题目名称模糊检索）")
     @GetMapping
     public ApiResponse<PageResponse<CtfChallengeListVO>> listChallenges(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String name,
             @RequestParam(required = false) String keyword) {
-        return ApiResponseEntity.ok("获取题目列表成功", challengeService.listChallenges(page, size, categoryId, keyword));
+        String searchName = StringUtils.hasText(name) ? name : keyword;
+        return ApiResponseEntity.ok("获取题目列表成功", challengeService.listChallenges(page, size, categoryId, searchName));
     }
 
     @Operation(summary = "获取指定 CTF 题目详情")
@@ -65,6 +74,29 @@ public class AdminCtfChallengeController {
     public ApiResponse<Void> deleteChallenge(@PathVariable Long id) {
         challengeService.deleteChallenge(id);
         return ApiResponseEntity.success("删除题目成功");
+    }
+
+    @Operation(summary = "导入 CTF 题目 (支持单个题目 ZIP 压缩包，含 build.json/challenge.json 与附件)")
+    @Syslog(module = "CHALLENGE", value = "导入 CTF 题目", recordParams = false)
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<ChallengeImportResultVO> importChallenge(
+            @RequestParam("file") MultipartFile file,
+            @CurrentUserId Long authorId) {
+        return ApiResponseEntity.ok("题目导入处理完成", challengeService.importChallenge(file, authorId));
+    }
+
+    @Operation(summary = "下载标准 CTF 题目包模版 (ZIP 压缩包)")
+    @GetMapping("/template")
+    public void downloadTemplate(HttpServletResponse response) {
+        challengeService.downloadTemplate(response);
+    }
+
+    @Operation(summary = "批量导出 CTF 题目 (ZIP 压缩包)")
+    @GetMapping("/export")
+    public void exportChallenges(
+            @RequestParam(required = false) List<Long> ids,
+            HttpServletResponse response) {
+        challengeService.exportChallenges(ids, response);
     }
 
 }

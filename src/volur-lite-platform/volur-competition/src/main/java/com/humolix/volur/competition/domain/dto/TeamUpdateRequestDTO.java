@@ -15,8 +15,6 @@ public class TeamUpdateRequestDTO {
 
     private String teamName;
 
-    private String teamSlogan;
-
     private String avatarUrl;
 
     @Valid

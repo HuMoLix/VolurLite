@@ -2,6 +2,7 @@ package com.humolix.volur.challenge.domain.entity.ctf;
 
 import com.humolix.volur.challenge.domain.entity.Challenge;
 import com.humolix.volur.challenge.domain.entity.Containerizable;
+import com.humolix.volur.challenge.domain.enums.ChallengeDifficulty;
 import com.humolix.volur.challenge.domain.enums.ChallengeMode;
 import com.humolix.volur.challenge.domain.enums.ChallengeType;
 import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
@@ -49,9 +50,10 @@ public class CtfChallenge implements Challenge, Containerizable, Serializable {
     @Column(name = "type", nullable = false, columnDefinition = "VARCHAR(32)")
     private ChallengeType type;
 
-    @Column(name = "difficulty", columnDefinition = "INT DEFAULT 1")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "difficulty", nullable = false, columnDefinition = "VARCHAR(32) DEFAULT 'EASY'")
     @Builder.Default
-    private Integer difficulty = 1;
+    private ChallengeDifficulty difficulty = ChallengeDifficulty.EASY;
 
     @Column(name = "flag", columnDefinition = "VARCHAR(255)")
     private String flag;

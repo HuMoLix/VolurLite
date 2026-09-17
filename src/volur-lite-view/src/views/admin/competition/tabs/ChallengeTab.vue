@@ -30,13 +30,13 @@
             </div>
           </div>
           <div class="actions-right">
-            <n-button quaternary size="small" :loading="loading" @click="fetchMountedChallenges">
+            <n-button quaternary :loading="loading" @click="fetchMountedChallenges">
               <template #icon>
                 <n-icon :component="RefreshOutline" />
               </template>
               刷新
             </n-button>
-            <n-button class="theme-primary-btn" size="small" @click="openImportModal">
+            <n-button type="primary" class="theme-primary-btn" @click="openImportModal">
               <template #icon>
                 <n-icon :component="AddOutline" />
               </template>
@@ -585,6 +585,35 @@ function handleUnmount(row: CtfCompetitionChallengeVO) {
       display: flex;
       align-items: center;
       gap: 12px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .tab-top-actions {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+
+      .stats-row {
+        flex-wrap: wrap;
+        width: 100%;
+
+        .stat-pill {
+          flex: 1;
+          text-align: center;
+        }
+      }
+
+      .actions-right {
+        display: flex;
+        width: 100%;
+        gap: 10px;
+
+        .n-button {
+          flex: 1;
+          justify-content: center;
+        }
+      }
     }
   }
 

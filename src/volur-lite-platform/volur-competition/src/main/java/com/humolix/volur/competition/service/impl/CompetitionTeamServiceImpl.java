@@ -138,13 +138,14 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         Set<String> seenEmails = new HashSet<>();
         Set<String> seenPhones = new HashSet<>();
         Set<String> seenIdCards = new HashSet<>();
+        Set<String> seenStudentNumbers = new HashSet<>();
         for (TeamMemberSignupDTO m : memberList) {
-            String email = m.getEmail() != null ? m.getEmail().trim().toLowerCase() : "";
-            if (!StringUtils.hasText(email)) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "成员邮箱不能为空");
+            String studentNumber = m.getStudentNumber() != null ? m.getStudentNumber().trim() : "";
+            if (!StringUtils.hasText(studentNumber)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "成员学号不能为空");
             }
-            if (!seenEmails.add(email)) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + email);
+            if (!seenStudentNumbers.add(studentNumber)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员学号重复: " + studentNumber);
             }
 
             String phone = m.getPhone() != null ? m.getPhone().trim() : "";
@@ -155,12 +156,24 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员手机号重复: " + phone);
             }
 
+            String email = m.getEmail() != null ? m.getEmail().trim().toLowerCase() : "";
+            if (!StringUtils.hasText(email)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "成员邮箱不能为空");
+            }
+            if (!seenEmails.add(email)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + email);
+            }
+
             String idCard = m.getIdCard() != null ? m.getIdCard().trim() : "";
             if (!StringUtils.hasText(idCard)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "成员身份证号不能为空");
             }
             if (!seenIdCards.add(idCard)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员身份证号重复: " + idCard);
+            }
+
+            if (!StringUtils.hasText(m.getCollege())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "成员学院不能为空");
             }
         }
 
@@ -171,7 +184,6 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         CompetitionTeam team = CompetitionTeam.builder()
                 .competition(competition)
                 .teamName(request.getTeamName().trim())
-                .teamSlogan(request.getTeamSlogan())
                 .avatarUrl(StringUtils.hasText(request.getAvatarUrl()) ? request.getAvatarUrl() : "/api/v1/uploads/avatar/default_team.png")
                 .captain(captain)
                 .status(requireAudit ? TeamStatus.AUDIT_DRAFT : TeamStatus.AUDIT_PASSED)
@@ -187,12 +199,11 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .status(MemberStatus.INVITED_ACCEPTED)
                 .realName(captainRow.getRealName().trim())
                 .gender(captainRow.getGender() != null ? captainRow.getGender() : Gender.MALE)
-                .idCard(captainRow.getIdCard().trim())
-                .email(captain.getEmail())
+                .studentNumber(captainRow.getStudentNumber().trim())
                 .phone(captainRow.getPhone().trim())
-                .organization(StringUtils.hasText(captainRow.getOrganization()) ? captainRow.getOrganization().trim() : null)
-                .department(StringUtils.hasText(captainRow.getDepartment()) ? captainRow.getDepartment().trim() : null)
-                .position(StringUtils.hasText(captainRow.getPosition()) ? captainRow.getPosition().trim() : null)
+                .email(captain.getEmail())
+                .idCard(captainRow.getIdCard().trim())
+                .college(captainRow.getCollege().trim())
                 .build();
         memberRepository.save(captainMember);
 
@@ -222,10 +233,6 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
         CompetitionConfig config = configRepository.findByCompetitionId(competitionId).orElse(null);
 
-        // 队伍名称不允许修改
-        if (request.getTeamSlogan() != null) {
-            team.setTeamSlogan(request.getTeamSlogan());
-        }
         if (StringUtils.hasText(request.getAvatarUrl())) {
             team.setAvatarUrl(request.getAvatarUrl());
         }
@@ -259,7 +266,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             if (captainRows.size() != 1) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "队伍必须且只能包含 1 名队长");
             }
-            TeamMemberSignupDTO captainRow = captainRows.get(0);
+            TeamMemberSignupDTO captainRow = captainRows.getFirst();
 
             User captain = team.getCaptain();
             if (captain.getEmail() == null || !captain.getEmail().equalsIgnoreCase(captainRow.getEmail().trim())) {
@@ -281,18 +288,25 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             Set<String> seenEmails = new HashSet<>();
             Set<String> seenPhones = new HashSet<>();
             Set<String> seenIdCards = new HashSet<>();
+            Set<String> seenStudentNumbers = new HashSet<>();
             for (TeamMemberSignupDTO m : memberList) {
-                String em = m.getEmail() != null ? m.getEmail().trim().toLowerCase() : "";
-                if (!StringUtils.hasText(em)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员邮箱不能为空");
-                if (!seenEmails.add(em)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + em);
+                String studentNumber = m.getStudentNumber() != null ? m.getStudentNumber().trim() : "";
+                if (!StringUtils.hasText(studentNumber)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员学号不能为空");
+                if (!seenStudentNumbers.add(studentNumber)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员学号重复: " + studentNumber);
 
                 String ph = m.getPhone() != null ? m.getPhone().trim() : "";
                 if (!StringUtils.hasText(ph)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员手机号不能为空");
                 if (!seenPhones.add(ph)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员手机号重复: " + ph);
 
+                String em = m.getEmail() != null ? m.getEmail().trim().toLowerCase() : "";
+                if (!StringUtils.hasText(em)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员邮箱不能为空");
+                if (!seenEmails.add(em)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + em);
+
                 String idCard = m.getIdCard() != null ? m.getIdCard().trim() : "";
                 if (!StringUtils.hasText(idCard)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员身份证号不能为空");
                 if (!seenIdCards.add(idCard)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员身份证号重复: " + idCard);
+
+                if (!StringUtils.hasText(m.getCollege())) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员学院不能为空");
             }
 
             // 更新队长自身的登记明细
@@ -300,11 +314,10 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             if (captainMember != null) {
                 if (StringUtils.hasText(captainRow.getRealName())) captainMember.setRealName(captainRow.getRealName().trim());
                 if (captainRow.getGender() != null) captainMember.setGender(captainRow.getGender());
-                if (StringUtils.hasText(captainRow.getIdCard())) captainMember.setIdCard(captainRow.getIdCard().trim());
+                if (StringUtils.hasText(captainRow.getStudentNumber())) captainMember.setStudentNumber(captainRow.getStudentNumber().trim());
                 if (StringUtils.hasText(captainRow.getPhone())) captainMember.setPhone(captainRow.getPhone().trim());
-                if (captainRow.getOrganization() != null) captainMember.setOrganization(captainRow.getOrganization().trim());
-                if (captainRow.getDepartment() != null) captainMember.setDepartment(captainRow.getDepartment().trim());
-                if (captainRow.getPosition() != null) captainMember.setPosition(captainRow.getPosition().trim());
+                if (StringUtils.hasText(captainRow.getIdCard())) captainMember.setIdCard(captainRow.getIdCard().trim());
+                if (StringUtils.hasText(captainRow.getCollege())) captainMember.setCollege(captainRow.getCollege().trim());
                 memberRepository.save(captainMember);
             }
 
@@ -335,12 +348,11 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 if (existing != null) {
                     existing.setRealName(l.getRealName().trim());
                     existing.setGender(l.getGender() != null ? l.getGender() : Gender.MALE);
-                    existing.setIdCard(l.getIdCard().trim());
-                    existing.setEmail(l.getEmail().trim());
+                    existing.setStudentNumber(l.getStudentNumber().trim());
                     existing.setPhone(l.getPhone().trim());
-                    existing.setOrganization(StringUtils.hasText(l.getOrganization()) ? l.getOrganization().trim() : null);
-                    existing.setDepartment(StringUtils.hasText(l.getDepartment()) ? l.getDepartment().trim() : null);
-                    existing.setPosition(StringUtils.hasText(l.getPosition()) ? l.getPosition().trim() : null);
+                    existing.setEmail(l.getEmail().trim());
+                    existing.setIdCard(l.getIdCard().trim());
+                    existing.setCollege(l.getCollege().trim());
                     existing.setRole(MemberRole.LEADER);
                     memberRepository.save(existing);
                 } else {
@@ -355,12 +367,11 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 if (existing != null) {
                     existing.setRealName(m.getRealName().trim());
                     existing.setGender(m.getGender() != null ? m.getGender() : Gender.MALE);
-                    existing.setIdCard(m.getIdCard().trim());
-                    existing.setEmail(m.getEmail().trim());
+                    existing.setStudentNumber(m.getStudentNumber().trim());
                     existing.setPhone(m.getPhone().trim());
-                    existing.setOrganization(StringUtils.hasText(m.getOrganization()) ? m.getOrganization().trim() : null);
-                    existing.setDepartment(StringUtils.hasText(m.getDepartment()) ? m.getDepartment().trim() : null);
-                    existing.setPosition(StringUtils.hasText(m.getPosition()) ? m.getPosition().trim() : null);
+                    existing.setEmail(m.getEmail().trim());
+                    existing.setIdCard(m.getIdCard().trim());
+                    existing.setCollege(m.getCollege().trim());
                     existing.setRole(MemberRole.MEMBER);
                     memberRepository.save(existing);
                 } else {
@@ -637,9 +648,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .competitionId(competitionId)
                 .competitionTitle(team.getCompetition() != null ? team.getCompetition().getTitle() : null)
                 .teamName(team.getTeamName())
-                .teamSlogan(team.getTeamSlogan())
                 .avatarUrl(team.getAvatarUrl())
-                .inviteCode(team.getInviteCode())
                 .status(team.getStatus())
                 .auditReason(team.getAuditReason())
                 .myRole(member.getRole())
@@ -743,8 +752,8 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         vo.setPhone(null);
         vo.setEmail(null);
         vo.setRealName(null);
-        vo.setDepartment(null);
-        vo.setPosition(null);
+        vo.setStudentNumber(null);
+        vo.setCollege(null);
     }
 
     private Map<String, User> validateAndResolveRegisteredUsers(
@@ -813,12 +822,11 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .status(MemberStatus.INVITED)
                 .realName(input.getRealName().trim())
                 .gender(input.getGender() != null ? input.getGender() : Gender.MALE)
-                .idCard(input.getIdCard().trim())
-                .email(input.getEmail().trim().toLowerCase())
+                .studentNumber(input.getStudentNumber().trim())
                 .phone(input.getPhone().trim())
-                .organization(StringUtils.hasText(input.getOrganization()) ? input.getOrganization().trim() : null)
-                .department(StringUtils.hasText(input.getDepartment()) ? input.getDepartment().trim() : null)
-                .position(StringUtils.hasText(input.getPosition()) ? input.getPosition().trim() : null)
+                .email(input.getEmail().trim().toLowerCase())
+                .idCard(input.getIdCard().trim())
+                .college(input.getCollege().trim())
                 .build();
         memberRepository.save(member);
 

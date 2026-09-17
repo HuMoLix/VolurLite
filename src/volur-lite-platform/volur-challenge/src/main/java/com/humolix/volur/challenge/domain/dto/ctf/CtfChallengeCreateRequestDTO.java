@@ -1,5 +1,6 @@
 package com.humolix.volur.challenge.domain.dto.ctf;
 
+import com.humolix.volur.challenge.domain.enums.ChallengeDifficulty;
 import com.humolix.volur.challenge.domain.enums.ChallengeType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,7 +24,7 @@ public class CtfChallengeCreateRequestDTO {
     @NotNull(message = "题目类型不能为空")
     private ChallengeType type;
 
-    private Integer difficulty;
+    private ChallengeDifficulty difficulty;
 
     private String flag;
 

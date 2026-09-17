@@ -17,40 +17,9 @@
           <span>{{ t('admin.clusters.nodes.title') }}</span>
         </div>
         <div class="toolbar-actions">
-          <n-button quaternary size="small" :loading="loading" @click="emit('refresh')">
-            <template #icon>
-              <n-icon :component="RefreshOutline" />
-            </template>
-            {{ t('admin.clusters.nodes.refresh') }}
-          </n-button>
-          <n-button
-            v-if="isK3sCluster"
-            size="small"
-            secondary
-            type="primary"
-            :loading="syncingK3s"
-            @click="handleSyncK3s"
-          >
-            <template #icon>
-              <n-icon :component="SyncOutline" />
-            </template>
-            {{ t('admin.clusters.nodes.sync_k3s') }}
-          </n-button>
-          <n-button
-            size="small"
-            secondary
-            type="info"
-            :loading="checkingAllHealth"
-            @click="handleCheckAllHealth"
-          >
-            <template #icon>
-              <n-icon :component="PulseOutline" />
-            </template>
-            {{ t('admin.clusters.nodes.health_check_all') }}
-          </n-button>
           <n-button
             type="primary"
-            class="theme-primary-btn"
+            class="theme-primary-btn action-add-btn"
             @click="emit('add-node')"
           >
             <template #icon>
@@ -58,6 +27,21 @@
             </template>
             {{ t('admin.clusters.nodes.add_node') }}
           </n-button>
+
+          <n-dropdown
+            :options="moreActionsOptions"
+            trigger="click"
+            placement="bottom-end"
+            @select="handleMoreActionSelect"
+          >
+            <n-button secondary class="action-more-btn" :loading="syncingK3s || checkingAllHealth || loading">
+              <template #icon>
+                <n-icon :component="EllipsisHorizontalOutline" />
+              </template>
+              <span>更多操作</span>
+              <n-icon :component="ChevronDownOutline" class="dropdown-chevron-icon" />
+            </n-button>
+          </n-dropdown>
         </div>
       </div>
     </template>
@@ -72,8 +56,10 @@ import {
   NIcon,
   NTag,
   NPopconfirm,
+  NDropdown,
   useMessage,
-  type DataTableColumns
+  type DataTableColumns,
+  type DropdownOption
 } from 'naive-ui'
 import AppTableCard from '@/components/common/AppTableCard.vue'
 import {
@@ -82,7 +68,9 @@ import {
   GitNetworkOutline,
   PulseOutline,
   CreateOutline,
-  SyncOutline
+  SyncOutline,
+  EllipsisHorizontalOutline,
+  ChevronDownOutline
 } from '@vicons/ionicons5'
 import {
   removeAdminClusterNodeApi,
@@ -324,6 +312,43 @@ async function handleCheckAllHealth() {
   }
 }
 
+function renderIcon(icon: any) {
+  return () => h(NIcon, null, { default: () => h(icon) })
+}
+
+const moreActionsOptions = computed<DropdownOption[]>(() => {
+  const options: DropdownOption[] = [
+    {
+      label: () => t('admin.clusters.nodes.refresh'),
+      key: 'refresh',
+      icon: renderIcon(RefreshOutline)
+    },
+    {
+      label: () => t('admin.clusters.nodes.check_all_health'),
+      key: 'health_check_all',
+      icon: renderIcon(PulseOutline)
+    }
+  ]
+  if (isK3sCluster.value) {
+    options.push({
+      label: () => t('admin.clusters.nodes.sync_k3s'),
+      key: 'sync_k3s',
+      icon: renderIcon(SyncOutline)
+    })
+  }
+  return options
+})
+
+function handleMoreActionSelect(key: string) {
+  if (key === 'refresh') {
+    emit('refresh')
+  } else if (key === 'health_check_all') {
+    handleCheckAllHealth()
+  } else if (key === 'sync_k3s') {
+    handleSyncK3s()
+  }
+}
+
 async function handleSyncImagesToNode(node: AdminClusterNodeVO) {
   if (node.role === 'MASTER') {
     message.warning('主控制节点无需同步镜像')
@@ -374,6 +399,8 @@ async function handleRemoveNode(node: AdminClusterNodeVO) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
 
   .toolbar-title {
     display: flex;
@@ -387,6 +414,35 @@ async function handleRemoveNode(node: AdminClusterNodeVO) {
     display: flex;
     align-items: center;
     gap: 12px;
+
+    .dropdown-chevron-icon {
+      font-size: 12px;
+      margin-left: 4px;
+      transition: transform 0.2s ease;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .nodes-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    .toolbar-actions {
+      display: flex;
+      gap: 10px;
+
+      .action-add-btn,
+      .action-more-btn {
+        flex: 1;
+      }
+
+      .n-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
   }
 }
 

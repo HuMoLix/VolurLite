@@ -49,6 +49,7 @@ public class SystemSettingInitializer implements ApplicationRunner {
             Map.entry("SMTP_PASSWORD", SystemSettingKeys.MAIL_SMTP_PASS),
             Map.entry("SMTP_PASS", SystemSettingKeys.MAIL_SMTP_PASS),
             Map.entry("SMTP_FROM", SystemSettingKeys.MAIL_SENDER_NAME),
+            Map.entry("SMTP_FROM_ADDRESS", SystemSettingKeys.MAIL_FROM_ADDRESS),
             Map.entry("SMTP_SSL", SystemSettingKeys.MAIL_SMTP_SSL),
             Map.entry("ALIYUN_DM_ACCESS_KEY", SystemSettingKeys.MAIL_ALIYUN_ACCESS_KEY),
             Map.entry("ALIYUN_DM_SECRET_KEY", SystemSettingKeys.MAIL_ALIYUN_SECRET_KEY),
@@ -152,6 +153,9 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, "5000", "CONTAINER", "INTEGER", false, "私有镜像仓库Registry宿主机对外暴露端口");
         initDefaultIfAbsent(SystemSettingKeys.STORAGE_TYPE, "LOCAL", "STORAGE", "STRING", false, "文件存储类型(LOCAL/OSS)");
         initDefaultIfAbsent(SystemSettingKeys.STORAGE_LOCAL_UPLOAD_DIR, "uploads/", "STORAGE", "STRING", false, "本地文件上传保存目录");
+        initDefaultIfAbsent(SystemSettingKeys.MAIL_WEBHOOK_ENABLED, "false", "MAIL", "BOOLEAN", false, "邮件投递 Webhook 回调追踪开关");
+        initDefaultIfAbsent(SystemSettingKeys.MAIL_WEBHOOK_SECRET, "", "MAIL", "STRING", false, "邮件投递 Webhook 验签密钥/Token");
+        initDefaultIfAbsent(SystemSettingKeys.MAIL_WEBHOOK_FALLBACK_STRATEGY, "AUTO_DELIVERED", "MAIL", "STRING", false, "Webhook未启用或超时备用策略(AUTO_DELIVERED/KEEP_SENT)");
     }
 
     private void initDefaultIfAbsent(String key, String defaultValue, String group, String type, boolean isPublic, String desc) {

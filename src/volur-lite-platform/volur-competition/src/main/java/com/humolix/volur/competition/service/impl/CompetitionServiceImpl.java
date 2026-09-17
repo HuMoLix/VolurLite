@@ -22,6 +22,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import com.humolix.volur.competition.domain.entity.CompetitionAnnouncement;
+import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
+import com.humolix.volur.competition.repository.CompetitionAnnouncementRepository;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +34,7 @@ public class CompetitionServiceImpl implements CompetitionService {
 
     private final CompetitionRepository competitionRepository;
     private final CompetitionTeamRepository teamRepository;
+    private final CompetitionAnnouncementRepository announcementRepository;
     private final CompetitionMapper competitionMapper;
 
     @Override
@@ -106,6 +110,15 @@ public class CompetitionServiceImpl implements CompetitionService {
             return null;
         }
         return competitionMapper.toAboutVO(competition);
+    }
+
+    @Override
+    public List<CompetitionAnnouncementVO> listAnnouncements(Long competitionId) {
+        if (!competitionRepository.existsById(competitionId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在");
+        }
+        List<CompetitionAnnouncement> list = announcementRepository.findByCompetitionIdOrderByIsPinnedDescCreatedAtDesc(competitionId);
+        return competitionMapper.toAnnouncementVOList(list);
     }
 
     private CompetitionDetailVO buildDetailVO(Competition competition) {

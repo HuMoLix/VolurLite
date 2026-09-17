@@ -10,8 +10,8 @@
           </p>
         </div>
         <n-button
+          type="primary"
           class="theme-primary-btn"
-          size="small"
           :loading="savingConfig"
           @click="handleSaveWpConfig"
         >
@@ -23,10 +23,12 @@
         <n-grid-item>
           <div class="form-item-block">
             <span class="item-label">开放选手提交 WP</span>
-            <n-switch v-model:value="wpConfig.allowWriteupSubmission">
-              <template #checked>允许提交</template>
-              <template #unchecked>禁止提交</template>
-            </n-switch>
+            <div class="switch-row">
+              <n-switch v-model:value="wpConfig.allowWriteupSubmission" />
+              <span class="field-hint">
+                {{ wpConfig.allowWriteupSubmission ? '允许提交' : '禁止提交' }}
+              </span>
+            </div>
           </div>
         </n-grid-item>
 
@@ -106,20 +108,22 @@
       </template>
 
       <template #filter-right>
-        <n-input
-          v-model:value="searchKeyword"
-          placeholder="搜索队伍名、队长或文件名..."
-          clearable
-          style="width: 260px;"
-          @keyup.enter="fetchWriteups"
-        />
-        <n-button size="small" @click="fetchWriteups">查询</n-button>
-        <n-button quaternary size="small" :loading="loading" @click="fetchWriteups">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          刷新
-        </n-button>
+        <div class="tab-filter-right">
+          <n-input
+            v-model:value="searchKeyword"
+            placeholder="搜索队伍名、队长或文件名..."
+            clearable
+            class="filter-search-input"
+            @keyup.enter="fetchWriteups"
+          />
+          <n-button type="primary" class="theme-primary-btn" @click="fetchWriteups">查询</n-button>
+          <n-button quaternary :loading="loading" @click="fetchWriteups">
+            <template #icon>
+              <n-icon :component="RefreshOutline" />
+            </template>
+            刷新
+          </n-button>
+        </div>
       </template>
 
       <template #empty>
@@ -757,6 +761,18 @@ function formatFileSize(bytes: number) {
         font-weight: 500;
         color: var(--v-text-primary, #111111);
       }
+
+      .switch-row {
+        display: flex;
+        align-items: center;
+        height: 34px;
+
+        .field-hint {
+          margin-left: 12px;
+          font-size: 12px;
+          color: #444444;
+        }
+      }
     }
 
     .template-section {
@@ -932,6 +948,36 @@ function formatFileSize(bytes: number) {
     justify-content: flex-end;
     gap: 12px;
     margin-top: 20px;
+  }
+}
+
+.tab-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-search-input {
+    width: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .tab-filter-right {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+
+    .filter-search-input {
+      width: 100% !important;
+    }
+
+    .n-button {
+      width: 100%;
+      justify-content: center;
+    }
   }
 }
 </style>

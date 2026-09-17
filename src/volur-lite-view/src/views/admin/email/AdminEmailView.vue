@@ -68,69 +68,75 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          :placeholder="t('admin.emails.search_placeholder')"
-          clearable
-          style="width: 260px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
+        <div class="email-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            :placeholder="t('admin.emails.search_placeholder')"
+            clearable
+            class="filter-input-search"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
 
-        <n-select
-          v-model:value="filterType"
-          :placeholder="t('admin.emails.filter_type')"
-          clearable
-          :options="typeSelectOptions"
-          style="width: 170px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterType"
+            :placeholder="t('admin.emails.filter_type')"
+            clearable
+            :options="typeSelectOptions"
+            class="filter-select-type"
+            @update:value="handleSearch"
+          />
 
-        <n-select
-          v-model:value="filterStatus"
-          :placeholder="t('admin.emails.filter_status')"
-          clearable
-          :options="statusSelectOptions"
-          style="width: 140px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterStatus"
+            :placeholder="t('admin.emails.filter_status')"
+            clearable
+            :options="statusSelectOptions"
+            class="filter-select-status"
+            @update:value="handleSearch"
+          />
 
-        <n-date-picker
-          v-model:value="dateRange"
-          type="datetimerange"
-          clearable
-          format="yyyy-MM-dd HH:mm"
-          :start-placeholder="t('admin.emails.start_time')"
-          :end-placeholder="t('admin.emails.end_time')"
-          style="width: 320px;"
-          @update:value="handleSearch"
-        />
+          <n-date-picker
+            v-model:value="dateRange"
+            type="datetimerange"
+            clearable
+            format="yyyy-MM-dd HH:mm"
+            :start-placeholder="t('admin.emails.start_time')"
+            :end-placeholder="t('admin.emails.end_time')"
+            class="filter-date-picker"
+            @update:value="handleSearch"
+          />
 
-        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-          <template #icon>
-            <n-icon :component="SearchOutline" />
-          </template>
-          {{ t('admin.emails.query_btn') }}
-        </n-button>
+          <div class="filter-action-buttons">
+            <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+              <template #icon>
+                <n-icon :component="SearchOutline" />
+              </template>
+              {{ t('admin.emails.query_btn') }}
+            </n-button>
 
-        <n-button quaternary @click="handleReset">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          {{ t('admin.emails.reset_btn') }}
-        </n-button>
+            <n-button quaternary @click="handleReset">
+              <template #icon>
+                <n-icon :component="RefreshOutline" />
+              </template>
+              {{ t('admin.emails.reset_btn') }}
+            </n-button>
+          </div>
+        </div>
       </template>
 
       <template #filter-right>
-        <n-button type="primary" class="theme-primary-btn" @click="openSendModal">
-          <template #icon>
-            <n-icon :component="PaperPlaneOutline" />
-          </template>
-          {{ t('admin.emails.send_btn') }}
-        </n-button>
+        <div class="email-filter-right">
+          <n-button type="primary" class="theme-primary-btn action-send-btn" @click="openSendModal">
+            <template #icon>
+              <n-icon :component="PaperPlaneOutline" />
+            </template>
+            {{ t('admin.emails.send_btn') }}
+          </n-button>
+        </div>
       </template>
     </AppTableCard>
 
@@ -143,9 +149,12 @@
               <span class="id-text">{{ selectedEmail.id }}</span>
             </n-descriptions-item>
             <n-descriptions-item :label="t('admin.emails.detail.status')">
-              <n-tag :type="selectedEmail.status === 'SUCCESS' ? 'success' : 'error'" size="small">
-                {{ selectedEmail.status === 'SUCCESS' ? t('admin.emails.detail.status_success') : t('admin.emails.detail.status_failed') }}
+              <n-tag :type="getStatusTagProps(selectedEmail.status).type" size="small">
+                {{ getStatusTagProps(selectedEmail.status).label }}
               </n-tag>
+            </n-descriptions-item>
+            <n-descriptions-item :label="t('admin.emails.detail.message_id') || 'Message-ID'" :span="2" v-if="selectedEmail.messageId">
+              <span class="id-text">{{ selectedEmail.messageId }}</span>
             </n-descriptions-item>
             <n-descriptions-item :label="t('admin.emails.detail.type')" :span="2">
               <n-tag :type="getTypeTagType(selectedEmail.type)" size="small">
@@ -197,7 +206,7 @@
                     <template #icon>
                       <n-icon :component="CopyOutline" />
                     </template>
-                    {{ t('common.copy') || '复制' }}
+                    {{ t('common.copy') }}
                   </n-button>
                 </div>
                 <pre class="code-block source-block">{{ selectedEmail.content || '-' }}</pre>
@@ -221,7 +230,7 @@
               {{ t('admin.emails.actions.resend') }}
             </n-button>
             <n-button @click="showDetailDrawer = false">
-              {{ t('common.close') || '关闭' }}
+              {{ t('common.close') }}
             </n-button>
           </div>
         </template>
@@ -316,7 +325,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, h, onMounted } from 'vue'
+import { ref, reactive, computed, h, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NIcon,
@@ -397,10 +406,33 @@ const typeSelectOptions = computed<SelectOption[]>(() => [
   { label: t('admin.emails.type_manual'), value: 'MANUAL' }
 ])
 
+function getStatusTagProps(status?: string): { type: 'default' | 'info' | 'warning' | 'success' | 'error'; label: string } {
+  switch (status) {
+    case 'SENDING':
+      return { type: 'info', label: t('admin.emails.status_sending') || '发送中 (SENDING)' }
+    case 'SENT':
+      return { type: 'warning', label: t('admin.emails.status_sent') || '已转交服务商 (SENT)' }
+    case 'DELIVERED':
+    case 'SUCCESS':
+      return { type: 'success', label: t('admin.emails.status_delivered') || '已真实送达 (DELIVERED)' }
+    case 'BOUNCED':
+      return { type: 'error', label: t('admin.emails.status_bounced') || '发生退信 (BOUNCED)' }
+    case 'COMPLAINED':
+      return { type: 'error', label: t('admin.emails.status_complained') || '垃圾投诉 (COMPLAINED)' }
+    case 'FAILED':
+    default:
+      return { type: 'error', label: t('admin.emails.status_failed') || '发送失败 (FAILED)' }
+  }
+}
+
 const statusSelectOptions = computed<SelectOption[]>(() => [
   { label: t('admin.emails.status_all'), value: '' },
-  { label: t('admin.emails.status_success'), value: 'SUCCESS' },
-  { label: t('admin.emails.status_failed'), value: 'FAILED' }
+  { label: t('admin.emails.status_sending') || '发送中 (SENDING)', value: 'SENDING' },
+  { label: t('admin.emails.status_sent') || '已转交服务商 (SENT)', value: 'SENT' },
+  { label: t('admin.emails.status_delivered') || '已真实送达 (DELIVERED)', value: 'DELIVERED' },
+  { label: t('admin.emails.status_bounced') || '发生退信 (BOUNCED)', value: 'BOUNCED' },
+  { label: t('admin.emails.status_complained') || '垃圾投诉 (COMPLAINED)', value: 'COMPLAINED' },
+  { label: t('admin.emails.status_failed') || '发送失败 (FAILED)', value: 'FAILED' }
 ])
 
 // Table & Pagination State
@@ -573,16 +605,17 @@ const columns = computed<DataTableColumns<EmailLogVO>>(() => [
   {
     title: t('admin.emails.columns.status'),
     key: 'status',
-    width: 100,
+    width: 130,
     render(row) {
-      const isSuccess = row.status === 'SUCCESS'
+      const tag = getStatusTagProps(row.status)
       return h(
         NTag,
         {
-          type: isSuccess ? 'success' : 'error',
-          size: 'small'
+          type: tag.type,
+          size: 'small',
+          bordered: false
         },
-        { default: () => (isSuccess ? t('admin.emails.status_success') : t('admin.emails.status_failed')) }
+        { default: () => tag.label }
       )
     }
   },
@@ -646,8 +679,44 @@ async function fetchStatistics() {
   } catch {}
 }
 
-async function fetchEmailList() {
-  loading.value = true
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+function checkAndStartPolling() {
+  const hasInFlight = emailList.value.some((item) => item.status === 'SENDING' || item.status === 'SENT')
+  if (hasInFlight && !pollTimer) {
+    pollTimer = setInterval(async () => {
+      await fetchEmailList(false)
+      await fetchStatistics()
+      if (selectedEmail.value && (selectedEmail.value.status === 'SENDING' || selectedEmail.value.status === 'SENT')) {
+        const found = emailList.value.find((item) => item.id === selectedEmail.value?.id)
+        if (found) {
+          selectedEmail.value = found
+        }
+      }
+      if (!emailList.value.some((item) => item.status === 'SENDING' || item.status === 'SENT')) {
+        stopPolling()
+      }
+    }, 2500)
+  } else if (!hasInFlight && pollTimer) {
+    stopPolling()
+  }
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+onUnmounted(() => {
+  stopPolling()
+})
+
+async function fetchEmailList(showLoading = true) {
+  if (showLoading) {
+    loading.value = true
+  }
   try {
     const queryDTO: AdminEmailQueryDTO = {
       page: pagination.page,
@@ -674,12 +743,15 @@ async function fetchEmailList() {
     if (res.data) {
       emailList.value = res.data.list || []
       pagination.itemCount = res.data.total || 0
+      checkAndStartPolling()
     }
   } catch {
     emailList.value = []
     pagination.itemCount = 0
   } finally {
-    loading.value = false
+    if (showLoading) {
+      loading.value = false
+    }
   }
 }
 
@@ -689,6 +761,7 @@ function handleSearch() {
 }
 
 function handleReset() {
+  stopPolling()
   searchKeyword.value = ''
   filterType.value = null
   filterStatus.value = null
@@ -749,8 +822,9 @@ function handleResend(row: EmailLogVO) {
         if (window.$message) {
           window.$message.success(t('admin.emails.send_modal.resend_success'))
         }
-        fetchEmailList()
-        fetchStatistics()
+        await fetchEmailList()
+        await fetchStatistics()
+        checkAndStartPolling()
       } catch {
       } finally {
         resendingId.value = null
@@ -782,8 +856,9 @@ async function handleSendEmail() {
           window.$message.success(t('admin.emails.send_modal.send_success'))
         }
         showSendModal.value = false
-        fetchEmailList()
-        fetchStatistics()
+        await fetchEmailList()
+        await fetchStatistics()
+        checkAndStartPolling()
       } catch {
       } finally {
         sendLoading.value = false
@@ -796,7 +871,7 @@ function copyRawContent() {
   if (!selectedEmail.value?.content) return
   navigator.clipboard.writeText(selectedEmail.value.content).then(() => {
     if (window.$message) {
-      window.$message.success(t('common.copied_to_clipboard') || '已复制到剪贴板')
+      window.$message.success(t('common.copied_to_clipboard'))
     }
   })
 }
@@ -1057,5 +1132,92 @@ onMounted(() => {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.email-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-input-search {
+    width: 200px;
+    min-width: 150px;
+  }
+
+  .filter-select-type {
+    width: 140px;
+    flex-shrink: 0;
+  }
+
+  .filter-select-status {
+    width: 125px;
+    flex-shrink: 0;
+  }
+
+  .filter-date-picker {
+    width: 290px;
+  }
+
+  .filter-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.email-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  :deep(.filter-header) {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+
+    .filter-left,
+    .filter-right {
+      width: 100%;
+    }
+  }
+
+  .email-filter-left {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .filter-input-search,
+    .filter-select-type,
+    .filter-select-status,
+    .filter-date-picker {
+      width: 100% !important;
+    }
+
+    .filter-action-buttons {
+      width: 100%;
+      display: flex;
+      gap: 10px;
+
+      :deep(.n-button) {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  }
+
+  .email-filter-right {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+
+    :deep(.n-button) {
+      flex: 1;
+      justify-content: center;
+    }
+  }
 }
 </style>

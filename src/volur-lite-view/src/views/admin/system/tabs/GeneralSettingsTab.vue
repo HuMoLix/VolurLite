@@ -41,11 +41,10 @@
       </n-form-item>
 
       <n-form-item :label="t('admin.system.general.registration_enabled')" path="registrationEnabled">
-        <n-switch v-model:value="form.registrationEnabled">
-          <template #checked>ON</template>
-          <template #unchecked>OFF</template>
-        </n-switch>
-        <span class="field-hint">{{ t('admin.system.general.registration_hint') }}</span>
+        <div class="switch-row">
+          <n-switch v-model:value="form.registrationEnabled" />
+          <span class="field-hint">{{ t('admin.system.general.registration_hint') }}</span>
+        </div>
       </n-form-item>
     </n-form>
   </div>
@@ -86,6 +85,11 @@ const localeOptions = computed<SelectOption[]>(() => [
 <style scoped lang="scss">
 .tab-content-container {
   padding: 16px 8px;
+
+  .switch-row {
+    display: flex;
+    align-items: center;
+  }
 
   .field-hint {
     margin-left: 12px;

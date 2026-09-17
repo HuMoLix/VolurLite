@@ -1,7 +1,10 @@
 package com.humolix.volur.competition.domain.dto;
 
 import com.humolix.volur.competition.domain.enums.MemberRole;
+import com.humolix.volur.framework.common.validation.annotation.IdentificationCard;
+import com.humolix.volur.framework.common.validation.annotation.Phone;
 import com.humolix.volur.user.domain.enums.Gender;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -22,20 +25,22 @@ public class TeamMemberSignupDTO {
     @NotNull(message = "角色不能为空")
     private MemberRole role;
 
-    @NotBlank(message = "身份证号不能为空")
-    private String idCard;
-
-    @NotBlank(message = "电子邮箱不能为空")
-    @jakarta.validation.constraints.Email(message = "邮箱格式不正确")
-    private String email;
+    @NotBlank(message = "学号不能为空")
+    private String studentNumber;
 
     @NotBlank(message = "手机号不能为空")
+    @Phone(message = "手机号格式不正确")
     private String phone;
 
-    private String organization;
+    @NotBlank(message = "电子邮箱不能为空")
+    @Email(message = "邮箱格式不正确")
+    private String email;
 
-    private String department;
+    @NotBlank(message = "身份证号不能为空")
+    @IdentificationCard(message = "身份证号格式不正确")
+    private String idCard;
 
-    private String position;
+    @NotBlank(message = "学院不能为空")
+    private String college;
 
 }

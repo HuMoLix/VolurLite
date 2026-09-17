@@ -75,14 +75,11 @@ public class CompetitionMember implements Serializable {
     @Column(name = "phone", length = 32, columnDefinition = "VARCHAR(32)")
     private String phone;
 
-    @Column(name = "organization", length = 128, columnDefinition = "VARCHAR(128)")
-    private String organization;
+    @Column(name = "student_number", length = 64, columnDefinition = "VARCHAR(64)")
+    private String studentNumber;
 
-    @Column(name = "department", length = 128, columnDefinition = "VARCHAR(128)")
-    private String department;
-
-    @Column(name = "position", length = 128, columnDefinition = "VARCHAR(128)")
-    private String position;
+    @Column(name = "college", length = 128, columnDefinition = "VARCHAR(128)")
+    private String college;
 
     @CreationTimestamp
     @Column(name = "joined_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")

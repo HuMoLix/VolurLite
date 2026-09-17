@@ -67,50 +67,54 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          :placeholder="t('admin.images.search.placeholder')"
-          clearable
-          style="width: 320px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
+        <div class="image-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            :placeholder="t('admin.images.search.placeholder')"
+            clearable
+            class="filter-input-search"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
 
-        <n-button type="primary" class="theme-primary-btn" @click="handleSearch">
-          <template #icon>
-            <n-icon :component="SearchOutline" />
-          </template>
-          {{ t('admin.images.search.refresh') }}
-        </n-button>
+          <n-button type="primary" class="theme-primary-btn search-btn" @click="handleSearch">
+            <template #icon>
+              <n-icon :component="SearchOutline" />
+            </template>
+            {{ t('admin.images.search.refresh') }}
+          </n-button>
+        </div>
       </template>
 
       <template #filter-right>
-        <!-- Scan & Sync Docker Images Button -->
-        <n-popconfirm
-          positive-text="确认同步"
-          negative-text="取消"
-          @positive-click="handleScanAndSync"
-        >
-          <template #trigger>
-            <n-button secondary :loading="scanningImages">
-              <template #icon>
-                <n-icon :component="SyncOutline" />
-              </template>
-              {{ t('admin.images.search.scanBtn') }}
-            </n-button>
-          </template>
-          {{ t('admin.images.search.scanConfirm') }}
-        </n-popconfirm>
+        <div class="image-filter-right">
+          <!-- Scan & Sync Docker Images Button -->
+          <n-popconfirm
+            positive-text="确认同步"
+            negative-text="取消"
+            @positive-click="handleScanAndSync"
+          >
+            <template #trigger>
+              <n-button secondary class="action-sync-btn" :loading="scanningImages">
+                <template #icon>
+                  <n-icon :component="SyncOutline" />
+                </template>
+                {{ t('admin.images.search.scanBtn') }}
+              </n-button>
+            </template>
+            {{ t('admin.images.search.scanConfirm') }}
+          </n-popconfirm>
 
-        <n-button type="primary" class="theme-primary-btn" @click="openPullModal">
-          <template #icon>
-            <n-icon :component="DownloadOutline" />
-          </template>
-          {{ t('admin.images.search.pullBtn') }}
-        </n-button>
+          <n-button type="primary" class="theme-primary-btn action-pull-btn" @click="openPullModal">
+            <template #icon>
+              <n-icon :component="DownloadOutline" />
+            </template>
+            {{ t('admin.images.search.pullBtn') }}
+          </n-button>
+        </div>
       </template>
     </AppTableCard>
 
@@ -1234,6 +1238,64 @@ onUnmounted(() => {
         color: #0f172a;
         word-break: break-all;
       }
+    }
+  }
+}
+
+.image-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-input-search {
+    width: 260px;
+    min-width: 180px;
+  }
+}
+
+.image-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  :deep(.filter-header) {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+
+    .filter-left,
+    .filter-right {
+      width: 100%;
+    }
+  }
+
+  .image-filter-left {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .filter-input-search {
+      width: 100% !important;
+    }
+
+    .search-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .image-filter-right {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+
+    :deep(.n-button) {
+      flex: 1;
+      justify-content: center;
     }
   }
 }

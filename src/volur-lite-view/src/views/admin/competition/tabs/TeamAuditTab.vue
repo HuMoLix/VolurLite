@@ -12,10 +12,10 @@
         <div class="config-right">
           <div class="switch-wrap">
             <span class="label">人工审核模式：</span>
-            <n-switch v-model:value="requireAudit" @update:value="handleToggleAuditSwitch">
-              <template #checked>需审核</template>
-              <template #unchecked>免审直接参赛</template>
-            </n-switch>
+            <n-switch v-model:value="requireAudit" @update:value="handleToggleAuditSwitch" />
+            <span class="field-hint">
+              {{ requireAudit ? '需审核' : '免审直接参赛' }}
+            </span>
           </div>
         </div>
       </div>
@@ -90,35 +90,39 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          placeholder="搜索队伍名称或队长用户名..."
-          clearable
-          style="width: 260px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
-        <n-select
-          v-model:value="selectedStatus"
-          :options="statusFilterOptions"
-          placeholder="审核状态筛选"
-          clearable
-          style="width: 160px;"
-          @update:value="handleSearch"
-        />
-        <n-button size="small" @click="handleSearch">查询</n-button>
+        <div class="tab-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            placeholder="搜索队伍名称或队长用户名..."
+            clearable
+            class="filter-search-input"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
+          <n-select
+            v-model:value="selectedStatus"
+            :options="statusFilterOptions"
+            placeholder="审核状态筛选"
+            clearable
+            class="filter-status-select"
+            @update:value="handleSearch"
+          />
+          <n-button type="primary" class="theme-primary-btn" @click="handleSearch">查询</n-button>
+        </div>
       </template>
 
       <template #filter-right>
-        <n-button quaternary size="small" :loading="loading" @click="() => fetchTeams()">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          刷新列表
-        </n-button>
+        <div class="tab-filter-right">
+          <n-button quaternary :loading="loading" @click="() => fetchTeams()">
+            <template #icon>
+              <n-icon :component="RefreshOutline" />
+            </template>
+            刷新列表
+          </n-button>
+        </div>
       </template>
 
       <template #empty>
@@ -184,7 +188,6 @@
                   {{ getTeamStatusLabel(detailTeam.status) }}
                 </n-tag>
               </div>
-              <p class="slogan">{{ detailTeam.teamSlogan || '暂无队伍口号宣言' }}</p>
               <div class="meta-tags">
                 <span class="meta-item">队长：<strong>{{ detailTeam.captainUsername }}</strong></span>
                 <span class="meta-item">报名时间：{{ new Date(detailTeam.createdAt).toLocaleString() }}</span>
@@ -234,6 +237,9 @@
                   <div class="m-detail-line" v-if="m.gender">
                     <span class="sub-label">性别：</span>{{ m.gender === 'MALE' ? '男' : m.gender === 'FEMALE' ? '女' : '未知' }}
                   </div>
+                  <div class="m-detail-line" v-if="m.studentNumber">
+                    <span class="sub-label">学号：</span>{{ m.studentNumber }}
+                  </div>
                   <div class="m-detail-line" v-if="m.phone">
                     <span class="sub-label">手机：</span>{{ m.phone }}
                   </div>
@@ -243,8 +249,8 @@
                   <div class="m-detail-line" v-if="m.idCard">
                     <span class="sub-label">身份证：</span>{{ m.idCard }}
                   </div>
-                  <div class="m-detail-line" v-if="m.organization || m.department || m.position">
-                    <span class="sub-label">单位/职务：</span>{{ [m.organization, m.department, m.position].filter(Boolean).join(' / ') }}
+                  <div class="m-detail-line" v-if="m.college">
+                    <span class="sub-label">学院：</span>{{ m.college }}
                   </div>
                   <span class="join-time">加入：{{ m.joinedAt ? new Date(m.joinedAt).toLocaleDateString() : '—' }}</span>
                 </div>
@@ -673,6 +679,11 @@ function getTeamStatusLabel(status?: string) {
             font-weight: 500;
             color: var(--v-text-primary, #111111);
           }
+
+          .field-hint {
+            font-size: 12px;
+            color: #444444;
+          }
         }
       }
     }
@@ -908,6 +919,58 @@ function getTeamStatusLabel(status?: string) {
             margin-top: 4px;
           }
         }
+      }
+    }
+  }
+
+  .tab-filter-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .filter-search-input {
+      width: 240px;
+    }
+
+    .filter-status-select {
+      width: 150px;
+    }
+  }
+
+  .tab-filter-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  @media (max-width: 768px) {
+    .tab-filter-left {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      gap: 10px;
+
+      .filter-search-input,
+      .filter-status-select {
+        width: 100% !important;
+      }
+
+      .n-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    .tab-filter-right {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+      margin-top: 8px;
+
+      .n-button {
+        width: 100%;
+        justify-content: center;
       }
     }
   }

@@ -1,5 +1,6 @@
 package com.humolix.volur.verification.mail.provider;
 
+import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.verification.mail.bo.MailMessageBO;
 import jakarta.mail.internet.MimeMessage;
@@ -28,11 +29,12 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
 
     @Override
     public boolean isAvailable() {
-        String host = systemSettingService.getSettingValue("system.mail.smtp_host");
-        String port = systemSettingService.getSettingValue("system.mail.smtp_port");
-        String username = systemSettingService.getSettingValue("system.mail.smtp_user");
-        String password = systemSettingService.getSettingValue("system.mail.smtp_pass");
-        return StringUtils.hasText(host) && StringUtils.hasText(port) && StringUtils.hasText(username) && StringUtils.hasText(password);
+        String host = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_HOST);
+        String port = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_PORT);
+        String username = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_USER);
+        String password = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_PASS);
+        String fromAddress = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS);
+        return StringUtils.hasText(host) && StringUtils.hasText(port) && StringUtils.hasText(username) && StringUtils.hasText(password) && StringUtils.hasText(fromAddress);
     }
 
     @Override
@@ -50,6 +52,11 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
             helper.setTo(recipient);
             helper.setSubject(message.getSubject());
             helper.setText(message.getContent(), message.isHtml());
+            if (StringUtils.hasText(message.getMessageId())) {
+                mimeMessage.setHeader("Message-ID", "<" + message.getMessageId() + ">");
+                mimeMessage.setHeader("X-Entity-Ref-ID", message.getMessageId());
+                mimeMessage.setHeader("X-Volur-Message-Id", message.getMessageId());
+            }
 
             mailSender.send(mimeMessage);
             log.info("[Volur-Verification] SMTP 邮件发送成功 -> to: {}, subject: {}", recipient, message.getSubject());
@@ -62,6 +69,11 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
                 fallbackHelper.setTo(recipient);
                 fallbackHelper.setSubject(message.getSubject());
                 fallbackHelper.setText(message.getFallbackContent(), false);
+                if (StringUtils.hasText(message.getMessageId())) {
+                    fallbackMessage.setHeader("Message-ID", "<" + message.getMessageId() + ">");
+                    fallbackMessage.setHeader("X-Entity-Ref-ID", message.getMessageId());
+                    fallbackMessage.setHeader("X-Volur-Message-Id", message.getMessageId());
+                }
                 mailSender.send(fallbackMessage);
                 log.info("[Volur-Verification] SMTP 邮件纯文本降级发送成功 -> to: {}", recipient);
             } else {
@@ -77,7 +89,6 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
     }
 
     public void applySender(MimeMessageHelper helper, JavaMailSenderImpl mailSender, MailMessageBO message) throws Exception {
-        String hostUsername = mailSender != null ? mailSender.getUsername() : null;
         String rawFrom = message != null ? message.getFrom() : null;
         String senderName = message != null ? message.getSenderName() : null;
 
@@ -104,16 +115,22 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
             }
         }
 
+        // 不进行回退至 smtp_user，直接从 system.mail.from_address 获取
         if (!StringUtils.hasText(fromAddress)) {
-            fromAddress = hostUsername;
+            fromAddress = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS);
         }
+
         if (!StringUtils.hasText(fromAddress)) {
-            fromAddress = systemSettingService.getSettingValue("system.mail.smtp_user", "noreply@volur.local");
+            throw new IllegalStateException("发件人邮箱地址 (system.mail.from_address) 不能为空");
         }
         fromAddress = fromAddress.trim();
 
+        if (!fromAddress.contains("@") || hasWhitespace(fromAddress)) {
+            throw new IllegalArgumentException("发件人邮箱地址格式不合法: " + fromAddress);
+        }
+
         if (!StringUtils.hasText(senderName)) {
-            senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+            senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
         }
         if (StringUtils.hasText(senderName)) {
             senderName = senderName.trim();
@@ -136,13 +153,14 @@ public class SmtpMailDeliveryProvider implements MailDeliveryProvider {
     }
 
     private JavaMailSenderImpl createMailSender() {
-        String host = trim(systemSettingService.getSettingValue("system.mail.smtp_host"));
-        String portValue = trim(systemSettingService.getSettingValue("system.mail.smtp_port"));
-        String username = trim(systemSettingService.getSettingValue("system.mail.smtp_user"));
-        String password = trim(systemSettingService.getSettingValue("system.mail.smtp_pass"));
+        String host = trim(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_HOST));
+        String portValue = trim(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_PORT));
+        String username = trim(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_USER));
+        String password = trim(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_PASS));
+        String fromAddress = trim(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS));
 
-        if (!StringUtils.hasText(host) || !StringUtils.hasText(portValue) || !StringUtils.hasText(username) || !StringUtils.hasText(password)) {
-            throw new IllegalStateException("SMTP 服务配置不完整");
+        if (!StringUtils.hasText(host) || !StringUtils.hasText(portValue) || !StringUtils.hasText(username) || !StringUtils.hasText(password) || !StringUtils.hasText(fromAddress)) {
+            throw new IllegalStateException("SMTP 服务配置不完整（主机、端口、发信账号、密码及发件人邮箱地址均必填）");
         }
 
         int port;

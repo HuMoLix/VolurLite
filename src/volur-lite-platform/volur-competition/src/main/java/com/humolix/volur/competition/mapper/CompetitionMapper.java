@@ -60,13 +60,11 @@ public interface CompetitionMapper {
     @Mapping(source = "member.user.userProfile.avatarUrl", target = "avatarUrl")
     @Mapping(source = "member.realName", target = "realName")
     @Mapping(source = "member.gender", target = "gender")
-    @Mapping(source = "member.idCard", target = "idCard")
-    @Mapping(source = "member.email", target = "email")
+    @Mapping(source = "member.studentNumber", target = "studentNumber")
     @Mapping(source = "member.phone", target = "phone")
-    @Mapping(source = "member.organization", target = "organization")
-    @Mapping(source = "member.organization", target = "org")
-    @Mapping(source = "member.department", target = "department")
-    @Mapping(source = "member.position", target = "position")
+    @Mapping(source = "member.email", target = "email")
+    @Mapping(source = "member.idCard", target = "idCard")
+    @Mapping(source = "member.college", target = "college")
     CompetitionMemberVO toMemberVO(CompetitionMember member);
 
     List<CompetitionMemberVO> toMemberVOList(List<CompetitionMember> members);
@@ -130,5 +128,9 @@ public interface CompetitionMapper {
     CompetitionInvitationVO toInvitationVO(CompetitionTeamInvitation invitation);
 
     List<CompetitionInvitationVO> toInvitationVOList(List<CompetitionTeamInvitation> invitations);
+
+    CompetitionAnnouncementVO toAnnouncementVO(CompetitionAnnouncement announcement);
+
+    List<CompetitionAnnouncementVO> toAnnouncementVOList(List<CompetitionAnnouncement> announcements);
 
 }

@@ -102,35 +102,39 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          placeholder="搜索题目、用户名或容器ID..."
-          clearable
-          style="width: 260px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
-        <n-select
-          v-model:value="selectedStatus"
-          :options="statusOptions"
-          placeholder="容器运行状态"
-          clearable
-          style="width: 160px;"
-          @update:value="handleSearch"
-        />
-        <n-button size="small" @click="handleSearch">查询</n-button>
+        <div class="tab-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            placeholder="搜索题目、用户名或容器ID..."
+            clearable
+            class="filter-search-input"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
+          <n-select
+            v-model:value="selectedStatus"
+            :options="statusOptions"
+            placeholder="容器运行状态"
+            clearable
+            class="filter-status-select"
+            @update:value="handleSearch"
+          />
+          <n-button type="primary" class="theme-primary-btn" @click="handleSearch">查询</n-button>
+        </div>
       </template>
 
       <template #filter-right>
-        <n-button quaternary size="small" :loading="tableLoading" @click="() => fetchInstances()">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          刷新容器列表
-        </n-button>
+        <div class="tab-filter-right">
+          <n-button quaternary :loading="tableLoading" @click="() => fetchInstances()">
+            <template #icon>
+              <n-icon :component="RefreshOutline" />
+            </template>
+            刷新容器列表
+          </n-button>
+        </div>
       </template>
 
       <template #empty>
@@ -650,6 +654,58 @@ function getStatusLabel(status: string) {
       display: flex;
       justify-content: flex-end;
       margin-top: 20px;
+    }
+  }
+
+  .tab-filter-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .filter-search-input {
+      width: 240px;
+    }
+
+    .filter-status-select {
+      width: 150px;
+    }
+  }
+
+  .tab-filter-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  @media (max-width: 768px) {
+    .tab-filter-left {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      gap: 10px;
+
+      .filter-search-input,
+      .filter-status-select {
+        width: 100% !important;
+      }
+
+      .n-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    .tab-filter-right {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+      margin-top: 8px;
+
+      .n-button {
+        width: 100%;
+        justify-content: center;
+      }
     }
   }
 }

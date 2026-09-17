@@ -49,6 +49,7 @@ public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
 
         CtfChallengeCategory category = CtfChallengeCategory.builder()
                 .name(request.getName().trim())
+                .icon(StringUtils.hasText(request.getIcon()) ? request.getIcon().trim() : null)
                 .description(request.getDescription())
                 .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
                 .build();
@@ -67,6 +68,10 @@ public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
                 throw new BusinessException(HttpStatus.CONFLICT, "分类名称已存在");
             }
             category.setName(request.getName().trim());
+        }
+
+        if (request.getIcon() != null) {
+            category.setIcon(StringUtils.hasText(request.getIcon()) ? request.getIcon().trim() : null);
         }
 
         if (request.getDescription() != null) {

@@ -52,7 +52,8 @@
    - 前端目录全面参考后端 `src/volur-lite-platform` 模块化结构：
    - API 请求层 `src/api/{module}/` 与后端 `volur-{module}` 控制器 1:1 对齐；
    - 实体定义层 `src/types/{module}/` 与后端 `volur-{module}/domain` 领域模型 1:1 对齐；
-   - 状态管理层 `src/store/modules/{module}.ts` 按业务领域进行解耦与收敛。
+   - 状态管理层 `src/store/modules/{module}.ts` 按业务领域进行解耦与收敛；
+   - **平台自研前端组件库 (`src/public/volurEx/`，别名 `@/public/volurEx`)**：明确为 Volur 的自研前端组件库（命名为 **`volurEx`**），集中收敛平台级高复用、高度定制的通用 UI 与交互组件（如平台级通用侧边栏 `VolurSidebar` 等），由其根目录 `index.ts` 统一向外导出。
 3. **API 请求路径与 HTTP 动词严格 1:1 对齐 Controller**：
    - 前端所有 API 请求函数的 HTTP Method 与 URI 路径，**必须 100% 严格与后端对应 Controller 类级别 `@RequestMapping` 与方法级别的路由注解（`@GetMapping`、`@PostMapping` 等）声明对齐**，严禁凭空臆测不存在的动作子路径（如 `/competition/list` 等反模式）。
 4. **TS API 实体与后端 API 实体严格对齐**：
@@ -74,6 +75,11 @@
    - 前端表单校验规则（Naive UI `FormRules` 必填、长度范围、密码复杂度正则表达式、邮箱等）**必须 100% 严格参考后端对应 DTO 中的 Jakarta Validation 注解（如 `@NotBlank`, `@Size`, `@Pattern`, `@Email`）**，严禁前端规则松弛或与后端规则冲突。
 9. **系统动态设置层级键名规范与防抖**：
    - 前端所有读取与更新系统配置的逻辑统一采用层级规范 Key（如 `system.maintenance.enabled`），杜绝大写下划线历史键；`fetchPublicSettings` 必须具备在途 Promise 复用与去重机制。
+10. **Volur 前端自研组件库规范 (volurEx)**：
+    - `src/volur-lite-view/src/public/volurEx`（别名 `@/public/volurEx`）为 Volur 平台自主研发的前端组件库（命名为 **`volurEx`**）。
+    - 该目录收敛平台自主设计、高内聚、高复用度的平台级通用 UI（`components/`）、全平台布局框架（`layouts/`）以及全局主题体系（`styles/`），与普通业务功能组件（`src/components/`）进行物理和职责隔离。
+    - **主题色彩铁律**：日间模式严格保持当前平台视觉规范（纯黑 `#000000` 主要按钮、`#444444` 描述与标签文本、浅灰底色）；黑夜模式全面重构为深曜炭黑（Obsidian & Cyber Slate）沉浸式阶梯体系，搭配高对比反色纯白按钮。
+    - 组件库内部遵循清晰的模块解耦架构，并通过根入口 `index.ts` 集中向外导出；业务视图与路由统一从 `@/public/volurEx` 引入。
 
 ---
 
@@ -89,7 +95,7 @@
 ## 3. AI 行为指引
 
 1. **执行后端任务时**：自动遵循 `Rules.md` 规范，包括 Lombok 构造注入、DTO (`@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`)、VO (`@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`)、MapStruct 映射器、Controller 路径版本化与标准分页 Record，绝不生成冗余样板代码。
-2. **执行前端任务时**：自动遵循 `view-Rules.md` 规范，包括 ES2026 语言标准、Pinia Setup Store 规范、Vue 3 Setup Script、TypeScript 严格类型对齐后端 DTO/VO、**API 请求路径与 Controller 路由 100% 严格对齐**、SCSS 样式隔离、Naive UI Provider 体系、vfonts 字体导入与无感 Token 刷新机制，杜绝 `any` 泛滥。
+2. **执行前端任务时**：自动遵循 `view-Rules.md` 规范，包括 ES2026 语言标准、Pinia Setup Store 规范、Vue 3 Setup Script、TypeScript 严格类型对齐后端 DTO/VO、**API 请求路径与 Controller 路由 100% 严格对齐**、SCSS 样式隔离、Naive UI Provider 体系、**自研组件库 `volurEx` (`src/public/volurEx`) 架构与集中导出规范**、vfonts 字体导入与无感 Token 刷新机制，杜绝 `any` 泛滥。
 3. **重构/修改既有代码时**：主动识别不合规代码并予以清理重构，保持代码库风格高度统一。
 4. **开发记录与审计溯源要求**：当每次 Agent 对项目文件进行修改或重构完成之后，必须在 `agent/volur-design-md` 文件夹中使用 Markdown 形式记录完整的施工与修改文档，详细阐述变更背景、改动点、安全隐患修复说明及影响范围，以便开发者进行溯源分析和审计。
 5. **自动化脚本与批量任务操作规范 (Scripting for Batch Operations)**：当且仅当需要 Agent 进行跨多文件的大批量、高重复性作业时，方可使用 Python、C 或 Go 编写自动化脚本。所有脚本必须统一存放在 `agent/volur-design-scripts` 文件夹中，且**必须严格遵守 [`agent/volur-design-scripts/Script-rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-scripts/Script-rules.md) 的约束要求**（仅供 Agent内部消费、杜绝冗余注释与文档字符串、禁止输出装饰性 UI/无用打印、输出直击核心）。严禁在针对性单文件任务中滥用脚本。

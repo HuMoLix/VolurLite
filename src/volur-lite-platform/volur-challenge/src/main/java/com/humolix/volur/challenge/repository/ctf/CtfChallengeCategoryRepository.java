@@ -11,6 +11,8 @@ public interface CtfChallengeCategoryRepository extends JpaRepository<CtfChallen
 
     Optional<CtfChallengeCategory> findByName(String name);
 
+    Optional<CtfChallengeCategory> findByNameIgnoreCase(String name);
+
     boolean existsByName(String name);
 
 }

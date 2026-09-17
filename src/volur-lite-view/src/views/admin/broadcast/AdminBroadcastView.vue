@@ -70,65 +70,71 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          :placeholder="t('admin.broadcasts.search_placeholder')"
-          clearable
-          style="width: 240px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
+        <div class="broadcast-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            :placeholder="t('admin.broadcasts.search_placeholder')"
+            clearable
+            class="filter-input-search"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
 
-        <n-select
-          v-model:value="filterCategory"
-          :placeholder="t('admin.broadcasts.filter_category')"
-          clearable
-          :options="categoryOptions"
-          style="width: 140px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterCategory"
+            :placeholder="t('admin.broadcasts.filter_category')"
+            clearable
+            :options="categoryOptions"
+            class="filter-select-category"
+            @update:value="handleSearch"
+          />
 
-        <n-select
-          v-model:value="filterDisplayType"
-          :placeholder="t('admin.broadcasts.filter_display_type')"
-          clearable
-          :options="displayTypeOptions"
-          style="width: 140px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterDisplayType"
+            :placeholder="t('admin.broadcasts.filter_display_type')"
+            clearable
+            :options="displayTypeOptions"
+            class="filter-select-type"
+            @update:value="handleSearch"
+          />
 
-        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-          <template #icon>
-            <n-icon :component="SearchOutline" />
-          </template>
-          {{ t('admin.broadcasts.query_btn') }}
-        </n-button>
+          <div class="filter-action-buttons">
+            <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+              <template #icon>
+                <n-icon :component="SearchOutline" />
+              </template>
+              {{ t('admin.broadcasts.query_btn') }}
+            </n-button>
 
-        <n-button quaternary @click="handleReset">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          {{ t('admin.broadcasts.reset_btn') }}
-        </n-button>
+            <n-button quaternary @click="handleReset">
+              <template #icon>
+                <n-icon :component="RefreshOutline" />
+              </template>
+              {{ t('admin.broadcasts.reset_btn') }}
+            </n-button>
+          </div>
+        </div>
       </template>
 
       <template #filter-right>
-        <n-button type="primary" class="theme-primary-btn" @click="openCreateModal('ANNOUNCEMENT')">
-          <template #icon>
-            <n-icon :component="MegaphoneOutline" />
-          </template>
-          {{ t('admin.broadcasts.create_announcement_btn') }}
-        </n-button>
+        <div class="broadcast-filter-right">
+          <n-button type="primary" class="theme-primary-btn action-create-btn" @click="openCreateModal('ANNOUNCEMENT')">
+            <template #icon>
+              <n-icon :component="MegaphoneOutline" />
+            </template>
+            {{ t('admin.broadcasts.create_announcement_btn') }}
+          </n-button>
 
-        <n-button secondary @click="openCreateModal('PROMOTION')">
-          <template #icon>
-            <n-icon :component="AddOutline" />
-          </template>
-          {{ t('admin.broadcasts.create_promotion_btn') }}
-        </n-button>
+          <n-button secondary class="action-promo-btn" @click="openCreateModal('PROMOTION')">
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
+            {{ t('admin.broadcasts.create_promotion_btn') }}
+          </n-button>
+        </div>
       </template>
     </AppTableCard>
 
@@ -197,10 +203,12 @@
         </n-form-item>
 
         <n-form-item :label="t('admin.broadcasts.modal.field_force_popup')" path="forcePopup">
-          <n-switch v-model:value="formData.forcePopup">
-            <template #checked>{{ t('admin.broadcasts.modal.force_popup_checked') }}</template>
-            <template #unchecked>{{ t('admin.broadcasts.modal.force_popup_unchecked') }}</template>
-          </n-switch>
+          <div class="switch-row">
+            <n-switch v-model:value="formData.forcePopup" />
+            <span class="field-hint">
+              {{ formData.forcePopup ? t('admin.broadcasts.modal.force_popup_checked') : t('admin.broadcasts.modal.force_popup_unchecked') }}
+            </span>
+          </div>
         </n-form-item>
       </n-form>
 
@@ -902,6 +910,95 @@ onMounted(() => {
       text-decoration: underline;
       word-break: break-all;
     }
+  }
+}
+
+.broadcast-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-input-search {
+    width: 220px;
+    min-width: 160px;
+  }
+
+  .filter-select-category,
+  .filter-select-type {
+    width: 135px;
+    flex-shrink: 0;
+  }
+
+  .filter-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.broadcast-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  :deep(.filter-header) {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+
+    .filter-left,
+    .filter-right {
+      width: 100%;
+    }
+  }
+
+  .broadcast-filter-left {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .filter-input-search,
+    .filter-select-category,
+    .filter-select-type {
+      width: 100% !important;
+    }
+
+    .filter-action-buttons {
+      width: 100%;
+      display: flex;
+      gap: 10px;
+
+      :deep(.n-button) {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  }
+
+  .broadcast-filter-right {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+
+    :deep(.n-button) {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+
+  .field-hint {
+    margin-left: 12px;
+    font-size: 12px;
+    color: #444444;
   }
 }
 </style>

@@ -8,7 +8,9 @@ public interface Challenge {
 
     String getName();
 
-    Integer getDifficulty();
+    default Object getDifficulty() {
+        return null;
+    }
 
     String getCategoryName();
 

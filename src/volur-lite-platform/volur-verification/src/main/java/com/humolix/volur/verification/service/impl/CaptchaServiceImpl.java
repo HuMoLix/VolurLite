@@ -43,7 +43,50 @@ public class CaptchaServiceImpl implements CaptchaService {
 
     @Override
     public CaptchaResponseVO generateCaptcha(String oldCaptchaId) {
-        return generateChallenge(null, null, oldCaptchaId);
+        return generateCaptcha(oldCaptchaId, null);
+    }
+
+    @Override
+    public CaptchaResponseVO generateCaptcha(String oldCaptchaId, String ticket) {
+        String ip = RequestHolder.getRemoteIp();
+        checkRateLimit(ip);
+
+        // 1. 若携带了滑动验证码 Ticket，核销 Ticket 并适度降低风险计数
+        if (StringUtils.hasText(ticket)) {
+            boolean ticketValid = verifyTicket(ticket, CaptchaScene.LOGIN, CaptchaType.SLIDE_PUZZLE);
+            if (!ticketValid) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "人机验证凭证已失效或过期，请重新完成滑动验证");
+            }
+            // 降低风险计数（扣减失败计数惩罚，保留底数，避免一次性重置为0）
+            riskEngine.reduceRisk(ip);
+        } else {
+            // 2. 未携带 Ticket 时评估当前风险
+            RiskLevel currentRisk = riskEngine.evaluateRisk(ip, CaptchaScene.LOGIN);
+            if (currentRisk == RiskLevel.HIGH) {
+                // 触发高风控：通知前端需要进行行为式验证，严禁直接下发滑动大图伪装成普通图形验证码
+                riskEngine.recordVelocity(ip);
+                return CaptchaResponseVO.builder()
+                        .requireBehaviorVerify(true)
+                        .captchaType(CaptchaType.SLIDE_PUZZLE.name())
+                        .build();
+            }
+        }
+
+        // 3. 正常生成字符图形验证码 (LOW 为 LINE，MEDIUM 为 SHEAR 扭曲加噪)
+        RiskLevel effectiveRisk = riskEngine.evaluateRisk(ip, CaptchaScene.LOGIN);
+        CaptchaType effectiveType = (effectiveRisk == RiskLevel.MEDIUM) ? CaptchaType.SHEAR : CaptchaType.LINE;
+
+        if (StringUtils.hasText(oldCaptchaId) && isValidCaptchaId(oldCaptchaId)) {
+            redisTemplate.delete(VREDIS_VERIFICATION_CAPTCHA_IMAGE_KEY_PREFIX + CaptchaScene.LOGIN.name() + ":" + oldCaptchaId);
+        }
+
+        CaptchaProvider provider = providerManager.getProvider(effectiveType);
+        CaptchaResponseVO response = provider.generate(CaptchaScene.LOGIN, effectiveRisk);
+        response.setRequireBehaviorVerify(false);
+
+        // 持续记录访问速率：若用户仍在此后频繁重复获取，速率累加将再次推高风控等级
+        riskEngine.recordVelocity(ip);
+        return response;
     }
 
     @Override

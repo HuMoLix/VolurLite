@@ -21,9 +21,7 @@ public class AdminTeamDetailVO implements Serializable {
     private Long competitionId;
     private String competitionTitle;
     private String teamName;
-    private String teamSlogan;
     private String avatarUrl;
-    private String inviteCode;
     private Long captainId;
     private String captainUsername;
     private TeamStatus status;

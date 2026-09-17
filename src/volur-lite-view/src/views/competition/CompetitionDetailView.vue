@@ -3,7 +3,7 @@
     <!-- Subview Top Header -->
     <div class="subview-header">
       <div class="header-left">
-        <n-button quaternary size="small" class="back-btn" @click="backToList">
+        <n-button text size="small" class="back-btn" @click="backToList">
           <template #icon>
             <n-icon :component="ArrowBackOutline" />
           </template>
@@ -28,7 +28,7 @@
         </div>
 
         <!-- Section 1: 报名与入场专属主控制卡片 -->
-        <n-card class="action-status-card" :bordered="false">
+        <n-card v-if="shouldShowActionCard" class="action-status-card" :bordered="false">
           <div class="status-card-inner">
             <!-- Case A: 用户未登录 -->
             <div v-if="!userStore.isLoggedIn" class="unauth-box">
@@ -103,7 +103,6 @@
                         {{ myTeam.myRole === 'CAPTAIN' ? '队长' : (myTeam.myRole === 'LEADER' ? '领队' : '队员') }}
                       </n-tag>
                     </div>
-                    <p class="slogan">{{ myTeam.teamSlogan || myTeam.motto || '暂无战队宣言' }}</p>
                   </div>
                 </div>
 
@@ -321,6 +320,9 @@ const loading = ref<boolean>(false)
 const competition = ref<CompetitionDetailVO | null>(null)
 const myTeam = ref<MyTeamInfoVO | null>(null)
 
+// Current timestamp for reactive countdown & status
+const nowTimestamp = ref<number>(Date.now())
+
 // Countdown to start
 const countdownToStart = ref<string>('00:00:00')
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -331,20 +333,57 @@ const teamFormMode = ref<'create' | 'view' | 'edit'>('create')
 const teamInvitationsModalVisible = ref<boolean>(false)
 const invitations = ref<TeamInvitationVO[]>([])
 
-const isUpcoming = computed(() => {
+/** 比赛是否已开始（包括进行中、冻结或已结束/归档） */
+const hasStarted = computed(() => {
   if (!competition.value) return false
-  const now = new Date().getTime()
-  const start = new Date(competition.value.startTime).getTime()
-  return now < start || competition.value.status === 'PUBLISHED' || competition.value.status === 'REGISTRATION' || competition.value.status === 'DRAFT'
+  if (competition.value.status === 'DRAFT') return false
+  if (
+    competition.value.status === 'RUNNING' ||
+    competition.value.status === 'FROZEN' ||
+    competition.value.status === 'ENDED' ||
+    competition.value.status === 'ARCHIVED'
+  ) {
+    return true
+  }
+  if (competition.value.startTime) {
+    return nowTimestamp.value >= new Date(competition.value.startTime).getTime()
+  }
+  return false
 })
 
+/** 比赛是否尚未开始 */
+const isUpcoming = computed(() => {
+  if (!competition.value) return false
+  if (hasStarted.value) return false
+  return competition.value.status === 'PUBLISHED' || competition.value.status === 'REGISTRATION' || competition.value.status === 'DRAFT'
+})
+
+/** 比赛是否处于进行中 */
 const isRunning = computed(() => {
   if (!competition.value) return false
   if (competition.value.status === 'RUNNING' || competition.value.status === 'FROZEN') return true
-  const now = new Date().getTime()
+  if (competition.value.status === 'ENDED' || competition.value.status === 'ARCHIVED' || competition.value.status === 'DRAFT') {
+    return false
+  }
   const start = new Date(competition.value.startTime).getTime()
   const end = new Date(competition.value.endTime).getTime()
-  return now >= start && now <= end
+  return nowTimestamp.value >= start && nowTimestamp.value <= end
+})
+
+/** 当前用户是否已完成该赛事的战队报名 */
+const isUserRegistered = computed(() => {
+  return Boolean(userStore.isLoggedIn && myTeam.value && myTeam.value.status !== 'DISBANDED')
+})
+
+/**
+ * 是否展示“报名与入场专属主控制卡片”
+ * 铁律：当比赛开始之后，用户若尚未报名参赛，则彻底不展示主控制卡片，仅展示简介与赛程、队伍与防作弊规则
+ */
+const shouldShowActionCard = computed(() => {
+  if (hasStarted.value && !isUserRegistered.value) {
+    return false
+  }
+  return true
 })
 
 const isRegistrationOpen = computed(() => {
@@ -352,15 +391,14 @@ const isRegistrationOpen = computed(() => {
   if (competition.value.status === 'DRAFT' || competition.value.status === 'ARCHIVED' || competition.value.status === 'ENDED') {
     return false
   }
-  const now = new Date().getTime()
   // 比赛已开始，严格禁止报名
-  if (competition.value.startTime && now >= new Date(competition.value.startTime).getTime()) {
+  if (hasStarted.value) {
     return false
   }
-  if (competition.value.regStartTime && now < new Date(competition.value.regStartTime).getTime()) {
+  if (competition.value.regStartTime && nowTimestamp.value < new Date(competition.value.regStartTime).getTime()) {
     return false
   }
-  if (competition.value.regEndTime && now > new Date(competition.value.regEndTime).getTime()) {
+  if (competition.value.regEndTime && nowTimestamp.value > new Date(competition.value.regEndTime).getTime()) {
     return false
   }
   return true
@@ -374,14 +412,13 @@ function getRegistrationStatusTip(): string {
   if (competition.value.status === 'ARCHIVED' || competition.value.status === 'ENDED') {
     return '竞赛已结束或已归档，报名通道已关闭'
   }
-  const now = new Date().getTime()
-  if (competition.value.startTime && now >= new Date(competition.value.startTime).getTime()) {
+  if (hasStarted.value) {
     return '比赛已开始，报名通道已关闭'
   }
-  if (competition.value.regStartTime && now < new Date(competition.value.regStartTime).getTime()) {
+  if (competition.value.regStartTime && nowTimestamp.value < new Date(competition.value.regStartTime).getTime()) {
     return `报名开放时间: ${formatDateTime(competition.value.regStartTime)}`
   }
-  if (competition.value.regEndTime && now > new Date(competition.value.regEndTime).getTime()) {
+  if (competition.value.regEndTime && nowTimestamp.value > new Date(competition.value.regEndTime).getTime()) {
     return '报名已截止'
   }
   return '报名进行中'
@@ -504,6 +541,7 @@ function startCountdown() {
 function updateStartCountdown() {
   if (!competition.value) return
   const now = new Date().getTime()
+  nowTimestamp.value = now
   const start = new Date(competition.value.startTime).getTime()
   const diff = Math.max(0, start - now)
   const totalSeconds = Math.floor(diff / 1000)
@@ -603,9 +641,24 @@ onUnmounted(() => {
       align-self: flex-start;
       padding: 0;
       color: #444444;
+      background-color: transparent !important;
+      background: transparent !important;
+      transition: color 0.15s ease;
 
-      &:hover {
-        color: #000000;
+      &:hover,
+      &:focus,
+      &:active {
+        color: #111111 !important;
+        background-color: transparent !important;
+        background: transparent !important;
+
+        :deep(.n-icon) {
+          color: #111111 !important;
+        }
+      }
+
+      :deep(.n-button__state-border) {
+        display: none !important;
       }
     }
 
@@ -721,12 +774,6 @@ onUnmounted(() => {
                 font-weight: 700;
                 margin: 0;
               }
-            }
-
-            .slogan {
-              font-size: 13px;
-              color: #444444;
-              margin: 4px 0 0;
             }
           }
         }

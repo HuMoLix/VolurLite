@@ -18,8 +18,6 @@ public class TeamSignupRequestDTO {
     @NotBlank(message = "队伍名称不能为空")
     private String teamName;
 
-    private String teamSlogan;
-
     private String avatarUrl;
 
     @NotEmpty(message = "参赛成员名册不能为空")

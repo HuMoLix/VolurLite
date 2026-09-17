@@ -232,7 +232,7 @@
         <!-- Markdown Description -->
         <n-grid-item :span="2">
           <n-form-item :label="t('admin.competitions.form_desc')">
-            <markdown-editor
+            <VolurMarkdownEditor
               v-model:value="formModel.description"
               :placeholder="t('admin.competitions.form_desc_placeholder')"
               :rows="8"
@@ -350,7 +350,7 @@ import {
 } from '@/api/competition'
 import { uploadImageApi } from '@/api/system'
 import { formatBannerUrl, setMemoryImageCache } from '@/utils/imageCache'
-import MarkdownEditor from '@/components/common/MarkdownEditor.vue'
+import { VolurMarkdownEditor } from '@/public/volurEx'
 
 interface Props {
   compId?: string | number

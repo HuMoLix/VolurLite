@@ -66,13 +66,12 @@
               <th style="width: 100px;">{{ t('competition.col_name') }} <span v-if="isEditing" class="req">*</span></th>
               <th style="width: 90px;">{{ t('competition.col_gender') }} <span v-if="isEditing" class="req">*</span></th>
               <th style="width: 95px;">{{ t('competition.col_role') }} <span v-if="isEditing" class="req">*</span></th>
-              <th style="width: 105px; text-align: center;">{{ t('competition.col_status') }}</th>
-              <th style="width: 165px;">{{ t('competition.col_id_card') }} <span v-if="isEditing" class="req">*</span></th>
-              <th style="width: 165px;">{{ t('competition.col_email') }} <span v-if="isEditing" class="req">*</span></th>
+              <th style="width: 130px;">{{ t('competition.col_student_number') }} <span v-if="isEditing" class="req">*</span></th>
               <th style="width: 135px;">{{ t('competition.col_phone') }} <span v-if="isEditing" class="req">*</span></th>
-              <th style="width: 125px;">{{ t('competition.col_organization') }}</th>
-              <th style="width: 115px;">{{ t('competition.col_department') }}</th>
-              <th style="width: 105px;">{{ t('competition.col_position') }}</th>
+              <th style="width: 165px;">{{ t('competition.col_email') }} <span v-if="isEditing" class="req">*</span></th>
+              <th style="width: 175px;">{{ t('competition.col_id_card') }} <span v-if="isEditing" class="req">*</span></th>
+              <th style="width: 140px;">{{ t('competition.col_college') }} <span v-if="isEditing" class="req">*</span></th>
+              <th style="width: 105px; text-align: center;">{{ t('competition.col_status') }}</th>
               <th v-if="isEditing" style="width: 65px; text-align: center;">{{ t('competition.col_action') }}</th>
             </tr>
           </thead>
@@ -109,25 +108,25 @@
                 />
               </td>
 
-              <!-- 4. 加入状态 -->
-              <td style="text-align: center;">
-                <n-tag
-                  size="small"
-                  :type="getMemberStatusTag(row).type"
-                  round
-                >
-                  {{ getMemberStatusTag(row).label }}
-                </n-tag>
-              </td>
-
-              <!-- 5. 身份证 -->
+              <!-- 4. 学号 -->
               <td>
                 <n-input
-                  v-model:value="row.idCard"
+                  v-model:value="row.studentNumber"
                   size="small"
                   :disabled="!isEditing"
-                  :placeholder="t('competition.col_id_card')"
-                  maxlength="32"
+                  :placeholder="t('competition.col_student_number')"
+                  maxlength="64"
+                />
+              </td>
+
+              <!-- 5. 手机号 -->
+              <td>
+                <n-input
+                  v-model:value="row.phone"
+                  size="small"
+                  :disabled="!isEditing"
+                  :placeholder="t('competition.col_phone')"
+                  maxlength="16"
                 />
               </td>
 
@@ -142,51 +141,40 @@
                 />
               </td>
 
-              <!-- 7. 手机号 -->
+              <!-- 7. 身份证 -->
               <td>
                 <n-input
-                  v-model:value="row.phone"
+                  v-model:value="row.idCard"
                   size="small"
                   :disabled="!isEditing"
-                  :placeholder="t('competition.col_phone')"
-                  maxlength="16"
+                  :placeholder="t('competition.col_id_card')"
+                  maxlength="32"
                 />
               </td>
 
-              <!-- 8. 单位 -->
+              <!-- 8. 学院 -->
               <td>
                 <n-input
-                  v-model:value="row.organization"
+                  v-model:value="row.college"
                   size="small"
                   :disabled="!isEditing"
-                  :placeholder="t('competition.col_organization')"
+                  :placeholder="t('competition.col_college')"
                   maxlength="128"
                 />
               </td>
 
-              <!-- 9. 部门 -->
-              <td>
-                <n-input
-                  v-model:value="row.department"
+              <!-- 9. 加入状态 -->
+              <td style="text-align: center;">
+                <n-tag
                   size="small"
-                  :disabled="!isEditing"
-                  :placeholder="t('competition.col_department')"
-                  maxlength="128"
-                />
+                  :type="getMemberStatusTag(row).type"
+                  round
+                >
+                  {{ getMemberStatusTag(row).label }}
+                </n-tag>
               </td>
 
-              <!-- 10. 职位 -->
-              <td>
-                <n-input
-                  v-model:value="row.position"
-                  size="small"
-                  :disabled="!isEditing"
-                  :placeholder="t('competition.col_position')"
-                  maxlength="64"
-                />
-              </td>
-
-              <!-- 11. 操作 (仅编辑态) -->
+              <!-- 10. 操作 (仅编辑态) -->
               <td v-if="isEditing" style="text-align: center;">
                 <n-button
                   size="tiny"
@@ -293,6 +281,7 @@ import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/store/modules/user'
 import { getCurrentUserProfileApi } from '@/api/user'
 import { signupTeamApi, updateMyTeamApi, deleteMyTeamApi } from '@/api/competition'
+import { isValidChinaPhone, isValidIdCard } from '@/utils/validation'
 import type {
   CompetitionDetailVO,
   MyTeamInfoVO,
@@ -452,12 +441,11 @@ async function initModalData() {
         realName: m.realName || m.username || '',
         gender: (m.gender === 'FEMALE' ? 'FEMALE' : 'MALE') as 'MALE' | 'FEMALE',
         role: m.role || 'MEMBER',
-        idCard: m.idCard || '',
-        email: m.email || '',
+        studentNumber: m.studentNumber || '',
         phone: m.phone || '',
-        organization: m.organization || m.org || '',
-        department: m.department || '',
-        position: m.position || '',
+        email: m.email || '',
+        idCard: m.idCard || '',
+        college: m.college || '',
         status: m.status
       }))
       return
@@ -494,12 +482,11 @@ async function initModalData() {
       realName: currentUserName,
       gender: currentUserGender,
       role: 'CAPTAIN',
-      idCard: '',
-      email: currentUserEmail,
+      studentNumber: '',
       phone: currentUserPhone,
-      organization: currentUserOrg,
-      department: '',
-      position: '',
+      email: currentUserEmail,
+      idCard: '',
+      college: currentUserOrg,
       status: 'INVITED_ACCEPTED'
     }
   ]
@@ -515,12 +502,11 @@ function addMemberRow() {
     realName: '',
     gender: 'MALE',
     role: 'MEMBER',
-    idCard: '',
-    email: '',
+    studentNumber: '',
     phone: '',
-    organization: '',
-    department: '',
-    position: '',
+    email: '',
+    idCard: '',
+    college: '',
     status: 'INVITED'
   })
 }
@@ -583,41 +569,66 @@ function validateMembers(): boolean {
     return false
   }
 
-  // 4. 每行必填与格式校验
+  // 4. 每行必填与格式校验：姓名，性别，角色，学号，手机号，邮箱，身份证，学院，全部必填
+  const studentNumberSet = new Set<string>()
   const phoneSet = new Set<string>()
   const emailSet = new Set<string>()
   const idCardSet = new Set<string>()
 
-  const phoneRegex = /^1[3-9]\d{9}$/
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   for (let i = 0; i < members.value.length; i++) {
     const row = members.value[i]
     const rowNum = i + 1
 
+    // 1) 姓名
     const realName = (row.realName || '').trim()
     if (!realName) {
       message.error(t('competition.validation_name_required', { row: rowNum }))
       return false
     }
 
+    // 2) 性别
     if (!row.gender) {
       message.error(`请选择第 ${rowNum} 行成员的性别`)
       return false
     }
 
-    const idCard = (row.idCard || '').trim()
-    if (!idCard) {
-      message.error(t('competition.validation_id_card_required', { row: rowNum }))
+    // 3) 角色
+    if (!row.role) {
+      message.error(`请选择第 ${rowNum} 行成员的角色`)
       return false
     }
-    const idCardUpper = idCard.toUpperCase()
-    if (idCardSet.has(idCardUpper)) {
-      message.error(t('competition.validation_duplicate_id_card', { idCard }))
-      return false
-    }
-    idCardSet.add(idCardUpper)
 
+    // 4) 学号
+    const studentNumber = (row.studentNumber || '').trim()
+    if (!studentNumber) {
+      message.error(t('competition.validation_student_number_required', { row: rowNum }))
+      return false
+    }
+    if (studentNumberSet.has(studentNumber)) {
+      message.error(t('competition.validation_duplicate_student_number', { studentNumber }))
+      return false
+    }
+    studentNumberSet.add(studentNumber)
+
+    // 5) 手机号 (严格校验中国四大基础电信运营商号段)
+    const phone = (row.phone || '').trim()
+    if (!phone) {
+      message.error(t('competition.validation_phone_required', { row: rowNum }))
+      return false
+    }
+    if (!isValidChinaPhone(phone)) {
+      message.error(t('competition.validation_phone_format', { row: rowNum }))
+      return false
+    }
+    if (phoneSet.has(phone)) {
+      message.error(t('competition.validation_duplicate_phone', { phone }))
+      return false
+    }
+    phoneSet.add(phone)
+
+    // 6) 邮箱
     const email = (row.email || '').trim().toLowerCase()
     if (!email) {
       message.error(t('competition.validation_email_required', { row: rowNum }))
@@ -633,20 +644,29 @@ function validateMembers(): boolean {
     }
     emailSet.add(email)
 
-    const phone = (row.phone || '').trim()
-    if (!phone) {
-      message.error(t('competition.validation_phone_required', { row: rowNum }))
+    // 7) 身份证 (严格校验二代身份证 GB 11643-1999 格式、行政区划、平闰年生日与校验码)
+    const idCard = (row.idCard || '').trim()
+    if (!idCard) {
+      message.error(t('competition.validation_id_card_required', { row: rowNum }))
       return false
     }
-    if (!phoneRegex.test(phone)) {
-      message.error(t('competition.validation_phone_format', { row: rowNum }))
+    if (!isValidIdCard(idCard)) {
+      message.error(t('competition.validation_id_card_format', { row: rowNum }))
       return false
     }
-    if (phoneSet.has(phone)) {
-      message.error(t('competition.validation_duplicate_phone', { phone }))
+    const idCardUpper = idCard.toUpperCase()
+    if (idCardSet.has(idCardUpper)) {
+      message.error(t('competition.validation_duplicate_id_card', { idCard }))
       return false
     }
-    phoneSet.add(phone)
+    idCardSet.add(idCardUpper)
+
+    // 8) 学院
+    const college = (row.college || '').trim()
+    if (!college) {
+      message.error(t('competition.validation_college_required', { row: rowNum }))
+      return false
+    }
   }
 
   return true
@@ -666,12 +686,11 @@ async function handleSubmit() {
         realName: (m.realName || '').trim(),
         gender: m.gender,
         role: m.role,
-        idCard: (m.idCard || '').trim(),
-        email: (m.email || '').trim().toLowerCase(),
+        studentNumber: (m.studentNumber || '').trim(),
         phone: (m.phone || '').trim(),
-        organization: (m.organization || '').trim() || undefined,
-        department: (m.department || '').trim() || undefined,
-        position: (m.position || '').trim() || undefined
+        email: (m.email || '').trim().toLowerCase(),
+        idCard: (m.idCard || '').trim().toUpperCase(),
+        college: (m.college || '').trim()
       }))
 
       if (props.mode !== 'create') {

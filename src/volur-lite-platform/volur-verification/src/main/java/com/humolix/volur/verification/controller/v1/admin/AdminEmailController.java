@@ -51,7 +51,7 @@ public class AdminEmailController {
             @Valid @RequestBody AdminSendEmailDTO sendDTO,
             @CurrentUserId(required = false) Long currentUserId) {
         adminEmailService.sendManualEmail(sendDTO, currentUserId);
-        return ApiResponseEntity.success("邮件发送成功");
+        return ApiResponseEntity.success("邮件发送任务已提交");
     }
 
     @Operation(summary = "重发指定邮件")
@@ -61,7 +61,7 @@ public class AdminEmailController {
             @PathVariable Long id,
             @CurrentUserId(required = false) Long currentUserId) {
         adminEmailService.resendEmail(id, currentUserId);
-        return ApiResponseEntity.success("邮件重发成功");
+        return ApiResponseEntity.success("邮件重发任务已提交");
     }
 
 }

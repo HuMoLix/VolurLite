@@ -21,6 +21,11 @@ public class MailMessageBO {
      */
     private String senderName;
 
+    /**
+     * 邮件全局唯一追踪 ID (RFC 5322 Message-ID)
+     */
+    private String messageId;
+
     private String to;
 
     private String subject;

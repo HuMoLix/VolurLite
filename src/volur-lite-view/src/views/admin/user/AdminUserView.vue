@@ -68,69 +68,75 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          placeholder="搜索用户名 / 邮箱 / 组织"
-          clearable
-          style="width: 240px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
+        <div class="user-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            placeholder="搜索用户名 / 邮箱 / 组织"
+            clearable
+            class="filter-input-search"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
 
-        <n-select
-          v-model:value="filterRole"
-          placeholder="用户角色"
-          clearable
-          :options="roleSelectOptions"
-          style="width: 140px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterRole"
+            placeholder="用户角色"
+            clearable
+            :options="roleSelectOptions"
+            class="filter-select-role"
+            @update:value="handleSearch"
+          />
 
-        <n-select
-          v-model:value="filterStatus"
-          placeholder="账号状态"
-          clearable
-          :options="statusSelectOptions"
-          style="width: 130px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterStatus"
+            placeholder="账号状态"
+            clearable
+            :options="statusSelectOptions"
+            class="filter-select-status"
+            @update:value="handleSearch"
+          />
 
-        <n-date-picker
-          v-model:value="dateRange"
-          type="datetimerange"
-          clearable
-          format="yyyy-MM-dd HH:mm"
-          start-placeholder="注册起始时间"
-          end-placeholder="注册截止时间"
-          style="width: 320px;"
-          @update:value="handleSearch"
-        />
+          <n-date-picker
+            v-model:value="dateRange"
+            type="datetimerange"
+            clearable
+            format="yyyy-MM-dd HH:mm"
+            start-placeholder="注册起始时间"
+            end-placeholder="注册截止时间"
+            class="filter-date-picker"
+            @update:value="handleSearch"
+          />
 
-        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-          <template #icon>
-            <n-icon :component="SearchOutline" />
-          </template>
-          查询
-        </n-button>
+          <div class="filter-action-buttons">
+            <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+              <template #icon>
+                <n-icon :component="SearchOutline" />
+              </template>
+              查询
+            </n-button>
 
-        <n-button quaternary @click="handleReset">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          重置
-        </n-button>
+            <n-button quaternary @click="handleReset">
+              <template #icon>
+                <n-icon :component="RefreshOutline" />
+              </template>
+              重置
+            </n-button>
+          </div>
+        </div>
       </template>
 
       <template #filter-right>
-        <n-button type="primary" class="theme-primary-btn" @click="openCreateModal">
-          <template #icon>
-            <n-icon :component="AddOutline" />
-          </template>
-          新增用户
-        </n-button>
+        <div class="user-filter-right">
+          <n-button type="primary" class="theme-primary-btn action-create-btn" @click="openCreateModal">
+            <template #icon>
+              <n-icon :component="AddOutline" />
+            </template>
+            新增用户
+          </n-button>
+        </div>
       </template>
     </AppTableCard>
 
@@ -203,13 +209,15 @@
         </n-form-item>
 
         <n-form-item v-if="isEditMode" label="账号状态" path="status">
-          <n-switch
-            v-model:value="userFormData.status"
-            :disabled="userFormData.username === 'VolurSuperAdmin'"
-          >
-            <template #checked>正常启用</template>
-            <template #unchecked>封禁禁用</template>
-          </n-switch>
+          <div class="switch-row">
+            <n-switch
+              v-model:value="userFormData.status"
+              :disabled="userFormData.username === 'VolurSuperAdmin'"
+            />
+            <span class="field-hint">
+              {{ userFormData.status ? '正常启用' : '封禁禁用' }}
+            </span>
+          </div>
         </n-form-item>
       </n-form>
 
@@ -460,20 +468,30 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
   {
     title: '账号状态',
     key: 'status',
-    width: 120,
+    width: 130,
     render(row) {
       return h(
-        NSwitch,
+        'div',
         {
-          value: row.status,
-          size: 'small',
-          disabled: row.username === 'VolurSuperAdmin',
-          'onUpdate:value': (val: boolean) => handleToggleStatus(row, val)
+          class: 'switch-row',
+          style: 'display: flex; align-items: center; gap: 8px;'
         },
-        {
-          checked: () => '正常',
-          unchecked: () => '封禁'
-        }
+        [
+          h(NSwitch, {
+            value: row.status,
+            size: 'small',
+            disabled: row.username === 'VolurSuperAdmin',
+            'onUpdate:value': (val: boolean) => handleToggleStatus(row, val)
+          }),
+          h(
+            'span',
+            {
+              class: 'field-hint',
+              style: 'font-size: 12px; color: #444444;'
+            },
+            row.status ? '正常' : '封禁'
+          )
+        ]
       )
     }
   },
@@ -925,5 +943,99 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.user-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-input-search {
+    width: 200px;
+    min-width: 150px;
+  }
+
+  .filter-select-role,
+  .filter-select-status {
+    width: 125px;
+    flex-shrink: 0;
+  }
+
+  .filter-date-picker {
+    width: 290px;
+  }
+
+  .filter-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.user-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  :deep(.filter-header) {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+
+    .filter-left,
+    .filter-right {
+      width: 100%;
+    }
+  }
+
+  .user-filter-left {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .filter-input-search,
+    .filter-select-role,
+    .filter-select-status,
+    .filter-date-picker {
+      width: 100% !important;
+    }
+
+    .filter-action-buttons {
+      width: 100%;
+      display: flex;
+      gap: 10px;
+
+      :deep(.n-button) {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  }
+
+  .user-filter-right {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+
+    :deep(.n-button) {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+
+  .field-hint {
+    margin-left: 12px;
+    font-size: 12px;
+    color: #444444;
+  }
 }
 </style>

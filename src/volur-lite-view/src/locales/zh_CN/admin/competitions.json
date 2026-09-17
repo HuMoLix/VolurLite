@@ -29,6 +29,7 @@
   "form_status": "竞赛状态",
   "form_banner": "横幅 Banner URL",
   "form_desc": "竞赛简述",
+  "form_desc_placeholder": "请输入竞赛详细介绍、赛制规则与注意事项（支持 Markdown 语法）...",
   "form_desc_edit": "编辑",
   "form_desc_preview": "预览",
   "form_desc_tip": "支持 Markdown 语法排版",

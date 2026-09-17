@@ -1,5 +1,6 @@
 package com.humolix.volur.challenge.domain.dto.ctf;
 
+import com.humolix.volur.challenge.domain.enums.ChallengeDifficulty;
 import com.humolix.volur.challenge.domain.enums.ChallengeType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,7 +19,7 @@ public class CtfChallengeUpdateRequestDTO {
 
     private ChallengeType type;
 
-    private Integer difficulty;
+    private ChallengeDifficulty difficulty;
 
     private String flag;
 

@@ -488,6 +488,18 @@ export function unmountCtfChallengeApi(
   )
 }
 
+/**
+ * 获取比赛专属公告列表（前台/竞技场使用）
+ * 对应后端: GET /api/v1/competitions/{competitionId}/announcements
+ */
+export function listCompetitionAnnouncementsApi(
+  competitionId: number | string
+): Promise<ApiResponse<CompetitionAnnouncementVO[]>> {
+  return request.get<CompetitionAnnouncementVO[]>(
+    `/competitions/${competitionId}/announcements`
+  )
+}
+
 // ==========================================
 // 8. 管理端比赛专属公告 API (AdminCompetitionAnnouncementController)
 // ==========================================

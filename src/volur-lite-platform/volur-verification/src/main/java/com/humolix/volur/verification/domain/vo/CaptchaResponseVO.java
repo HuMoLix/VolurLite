@@ -22,6 +22,9 @@ public class CaptchaResponseVO {
 
     private Integer yPosition;
 
+    @Builder.Default
+    private Boolean requireBehaviorVerify = false;
+
     public static CaptchaResponseVO of(String captchaId, String imageBase64) {
         return CaptchaResponseVO.builder()
                 .captchaId(captchaId)

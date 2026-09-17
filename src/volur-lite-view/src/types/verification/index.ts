@@ -12,6 +12,7 @@ export interface CaptchaResponseVO {
   backgroundImage?: string
   sliderImage?: string
   yCoordinate?: number
+  requireBehaviorVerify?: boolean
 }
 
 /** 验证码核销凭证 VO (对应 com.humolix.volur.verification.domain.vo.CaptchaTicketVO) */
@@ -41,11 +42,12 @@ export interface EmailCaptchaRequestDTO {
 /** 邮件日志视图 VO (对应 com.humolix.volur.verification.domain.vo.EmailLogVO) */
 export interface EmailLogVO {
   id: number | string
+  messageId?: string
   recipient: string
   subject: string
   content?: string
   type: string
-  status: 'SUCCESS' | 'FAILED' | string
+  status: 'SENDING' | 'SENT' | 'DELIVERED' | 'BOUNCED' | 'COMPLAINED' | 'FAILED' | 'SUCCESS' | string
   errorMessage?: string
   sender?: string
   operatorId?: number | string

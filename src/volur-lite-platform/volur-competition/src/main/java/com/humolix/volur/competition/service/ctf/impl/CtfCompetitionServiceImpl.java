@@ -184,7 +184,7 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
 
         Long stageId = 0L;
-        String teamToken = team.getInviteCode();
+        String teamToken = null;
 
         return containerInstanceService.startInstance(
                 compChallenge.getChallenge().getId(),

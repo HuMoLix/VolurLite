@@ -22,9 +22,7 @@ public class MyTeamInfoVO implements Serializable {
     private Long competitionId;
     private String competitionTitle;
     private String teamName;
-    private String teamSlogan;
     private String avatarUrl;
-    private String inviteCode;
     private TeamStatus status;
     private String auditReason;
     private MemberRole myRole;

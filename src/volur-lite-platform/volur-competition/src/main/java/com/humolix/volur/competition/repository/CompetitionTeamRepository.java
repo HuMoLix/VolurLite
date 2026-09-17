@@ -14,8 +14,6 @@ import java.util.Optional;
 @Repository
 public interface CompetitionTeamRepository extends JpaRepository<CompetitionTeam, Long>, JpaSpecificationExecutor<CompetitionTeam> {
 
-    Optional<CompetitionTeam> findByCompetitionIdAndInviteCode(Long competitionId, String inviteCode);
-
     Optional<CompetitionTeam> findByCompetitionIdAndTeamName(Long competitionId, String teamName);
 
     boolean existsByCompetitionIdAndTeamName(Long competitionId, String teamName);

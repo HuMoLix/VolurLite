@@ -27,8 +27,11 @@ export function getCaptchaChallengeApi(params?: {
  * 获取通用图形验证码
  * 对应后端: GET /api/v1/captcha
  */
-export function getCaptchaApi(oldCaptchaId?: string): Promise<ApiResponse<CaptchaResponseVO>> {
-  return request.get<CaptchaResponseVO>('/captcha', { params: { oldCaptchaId } })
+export function getCaptchaApi(
+  params?: string | { oldCaptchaId?: string; ticket?: string }
+): Promise<ApiResponse<CaptchaResponseVO>> {
+  const query = typeof params === 'string' ? { oldCaptchaId: params } : params
+  return request.get<CaptchaResponseVO>('/captcha', { params: query })
 }
 
 /**

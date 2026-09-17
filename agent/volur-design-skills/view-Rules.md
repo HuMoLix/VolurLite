@@ -218,16 +218,23 @@ src/volur-lite-view/
 │   │   └── error/                   # 403, 404, 500 异常缺省页
 │   ├── components/                  # 通用/业务可复用组件
 │   │   └── common/                  # 全局基础组件 (如 NaiveProvider 等)
+│   ├── public/                      # 平台自研基础组件库目录
+│   │   └── volurEx/                 # Volur 前端自研组件库 (volurEx)
+│   │       ├── components/          # 平台级通用组件源码与类型定义 (如 VolurSidebar 等)
+│   │       ├── layouts/             # 全平台页面骨架与框架布局 (AdminLayout, AppLayout, AuthLayout, CompetitionLayout 等)
+│   │       ├── styles/              # 组件库与全局主题 SCSS 体系 (日间与深曜黑夜模式令牌)
+│   │       └── index.ts             # 组件库统一聚合导出入口
 │   ├── utils/                       # 核心通用工具库
 │   │   ├── request.ts               # 强类型 Axios 请求实例与双拦截器
 │   │   ├── auth.ts                  # Token 本地存储与凭据存取
 │   │   └── sse.ts                   # Server-Sent Events 客户端工具
-│   ├── styles/                      # 全局样式与 SCSS 变量/Mixins
+│   ├── styles/                      # 全局入口样式与 SCSS 变量/Mixins
 │   │   ├── variables.scss           # 颜色、尺寸、动效全局变量
 │   │   ├── mixins.scss              # Flex、文本省略、毛玻璃卡片等公共 Mixins
 │   │   ├── reset.scss               # 基础标签样式重置
+│   │   ├── theme.scss               # 全局主题入口 (转发 volurEx 核心主题)
 │   │   └── index.scss               # 全局入口样式表
-│   ├── App.vue                      # 根组件 (Naive UI Providers 体系)
+│   ├── App.vue                      # 根组件 (Naive UI Providers 体系与主题响应)
 │   ├── env.d.ts                     # 环境变量与 SFC 声明
 │   └── main.ts                      # 客户端启动入口 (引入 vfonts、挂载应用)
 ├── index.html                       # HTML 模板入口
@@ -235,6 +242,19 @@ src/volur-lite-view/
 ├── tsconfig.json                    # TypeScript 编译配置 (ES2026/ESNext)
 └── vite.config.ts                   # Vite 构建配置 (target: esnext)
 ```
+
+### 4.2 平台自研前端组件库规范 (volurEx)
+- **定位与命名**：`src/volur-lite-view/src/public/volurEx`（别名 `@/public/volurEx`）为 Volur 平台自研前端组件库（命名为 **`volurEx`**）。
+- **资产收敛**：该目录收敛具有全平台通用性、独立交互机制、高度设计一致性的 UI 基础组件体系（`components/`）、全局页面骨架布局（`layouts/`）以及全局主题规范系统（`styles/`），与普通业务组件（`components/`）进行物理隔离。
+- **主题色彩架构**：
+  - **日间模式**：完全继承 Volur 经典主色调（主要操作按钮 `#000000`、标签与描述文字 `#444444`、浅灰 `#fafafa` 背景）。
+  - **黑夜模式**：全新重构为 **深曜炭黑 (Obsidian & Cyber Slate)** 阶梯式美学体系，搭配半透明 Alpha 边框、零眩光防疲劳正文排版与纯白反色高对比度主按钮。
+- **模块与导出架构**：
+  - 组件源码收敛在 `volurEx/components/`；
+  - 页面框架布局收敛在 `volurEx/layouts/`；
+  - 主题与设计变量收敛在 `volurEx/styles/`；
+  - 必须通过 `volurEx/index.ts` 进行统一聚合导出；
+  - 业务视图与全局路由引用组件库资产时，统一通过 `@/public/volurEx` 引入。
 
 ---
 

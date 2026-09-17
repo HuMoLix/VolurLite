@@ -198,18 +198,16 @@ export interface TeamMemberSignupDTO {
   realName: string
   gender: 'MALE' | 'FEMALE'
   role: MemberRole
-  idCard: string
-  email: string
+  studentNumber: string
   phone: string
-  organization?: string
-  department?: string
-  position?: string
+  email: string
+  idCard: string
+  college: string
 }
 
 /** 队伍报名创建入参 DTO */
 export interface TeamSignupRequestDTO {
   teamName: string
-  teamSlogan?: string
   avatarUrl?: string
   members: TeamMemberSignupDTO[]
 }
@@ -217,7 +215,6 @@ export interface TeamSignupRequestDTO {
 /** 更新队伍信息入参 DTO */
 export interface TeamUpdateRequestDTO {
   teamName?: string
-  teamSlogan?: string
   avatarUrl?: string
   members?: TeamMemberSignupDTO[]
 }
@@ -263,9 +260,6 @@ export interface MyTeamInfoVO {
   competitionId?: number | string
   competitionTitle?: string
   teamName: string
-  inviteCode: string
-  teamSlogan?: string
-  motto?: string
   avatarUrl?: string
   status: TeamStatus
   auditReason?: string
@@ -279,7 +273,6 @@ export interface MyTeamInfoVO {
 export interface CompetitionTeamVO {
   teamId: number | string
   teamName: string
-  motto?: string
   avatarUrl?: string
   status: TeamStatus
   captainUserId: number | string
@@ -296,13 +289,11 @@ export interface CompetitionMemberVO {
   avatarUrl?: string
   realName?: string
   gender?: 'UNKNOWN' | 'MALE' | 'FEMALE'
-  idCard?: string
-  organization?: string
-  org?: string
-  department?: string
-  position?: string
+  studentNumber?: string
   phone?: string
   email?: string
+  idCard?: string
+  college?: string
   role: MemberRole
   status?: MemberStatus | string
   joinedAt?: string
@@ -327,9 +318,7 @@ export interface AdminTeamDetailVO {
   competitionId: number | string
   competitionTitle?: string
   teamName: string
-  teamSlogan?: string
   avatarUrl?: string
-  inviteCode?: string
   captainId: number | string
   captainUsername: string
   status: TeamStatus

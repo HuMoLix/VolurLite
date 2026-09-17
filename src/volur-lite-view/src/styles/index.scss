@@ -67,16 +67,33 @@ body {
 // Naive UI 选择框 / 搜索框占位符与文本垂直居中修正 (Vertical Alignment Fix)
 // =========================================================================
 .n-base-selection {
+  .n-base-selection-label {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .n-base-selection-input {
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+
   .n-base-selection-placeholder__inner,
   .n-base-selection-label__render-label,
   .n-base-selection-input__content {
     line-height: 1 !important;
     display: inline-flex;
     align-items: center;
+    max-height: 100%;
+  }
+
+  .n-base-selection-overlay__wrapper {
+    display: flex;
+    align-items: center;
   }
 }
 
-.n-input {
+.n-input:not(.n-input--textarea) {
   .n-input__placeholder > span {
     line-height: 1 !important;
   }

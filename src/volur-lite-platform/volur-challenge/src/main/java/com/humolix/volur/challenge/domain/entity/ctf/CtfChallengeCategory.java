@@ -27,6 +27,9 @@ public class CtfChallengeCategory implements Serializable {
     @Column(name = "name", nullable = false, unique = true, length = 64, columnDefinition = "VARCHAR(64)")
     private String name;
 
+    @Column(name = "icon", length = 64, columnDefinition = "VARCHAR(64)")
+    private String icon;
+
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 

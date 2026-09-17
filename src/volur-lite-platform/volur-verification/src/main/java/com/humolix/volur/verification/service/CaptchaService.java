@@ -10,6 +10,8 @@ public interface CaptchaService {
 
     CaptchaResponseVO generateCaptcha(String oldCaptchaId);
 
+    CaptchaResponseVO generateCaptcha(String oldCaptchaId, String ticket);
+
     CaptchaResponseVO generateChallenge(String sceneStr, String typeStr, String oldCaptchaId);
 
     boolean verifyCaptcha(String captchaId, String code);

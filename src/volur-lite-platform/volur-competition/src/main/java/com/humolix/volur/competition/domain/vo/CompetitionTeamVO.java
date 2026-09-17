@@ -19,7 +19,6 @@ public class CompetitionTeamVO implements Serializable {
     private Long id;
     private Long competitionId;
     private String teamName;
-    private String teamSlogan;
     private String avatarUrl;
     private Long captainId;
     private String captainUsername;

@@ -4,6 +4,7 @@ import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.SortUtils;
 import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.verification.domain.dto.AdminEmailQueryDTO;
 import com.humolix.volur.verification.domain.dto.AdminSendEmailDTO;
@@ -11,7 +12,7 @@ import com.humolix.volur.verification.domain.entity.EmailLog;
 import com.humolix.volur.verification.domain.vo.AdminEmailStatisticsVO;
 import com.humolix.volur.verification.domain.vo.EmailLogVO;
 import com.humolix.volur.verification.mail.bo.MailMessageBO;
-import com.humolix.volur.verification.mail.dispatcher.FailoverMailDispatcher;
+import com.humolix.volur.verification.mail.executor.MailTaskExecutor;
 import com.humolix.volur.verification.mapper.EmailLogMapper;
 import com.humolix.volur.verification.repository.EmailLogRepository;
 import com.humolix.volur.verification.service.admin.AdminEmailService;
@@ -40,7 +41,7 @@ public class AdminEmailServiceImpl implements AdminEmailService {
 
     private final EmailLogRepository emailLogRepository;
     private final EmailLogMapper emailLogMapper;
-    private final FailoverMailDispatcher mailDispatcher;
+    private final MailTaskExecutor mailTaskExecutor;
     private final SystemSettingService systemSettingService;
 
     @Override
@@ -92,8 +93,8 @@ public class AdminEmailServiceImpl implements AdminEmailService {
     @Override
     public AdminEmailStatisticsVO getStatistics() {
         long total = emailLogRepository.count();
-        long success = emailLogRepository.countByStatus("SUCCESS");
-        long failed = emailLogRepository.countByStatus("FAILED");
+        long success = emailLogRepository.countByStatusIn(List.of("DELIVERED", "SENT", "SUCCESS"));
+        long failed = emailLogRepository.countByStatusIn(List.of("FAILED", "BOUNCED", "COMPLAINED"));
 
         Instant startOfToday = LocalDate.now(ZoneId.of("Asia/Shanghai")).atStartOfDay(ZoneId.of("Asia/Shanghai")).toInstant();
         long today = emailLogRepository.countByCreatedAtAfter(startOfToday);
@@ -117,11 +118,13 @@ public class AdminEmailServiceImpl implements AdminEmailService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void sendManualEmail(AdminSendEmailDTO sendDTO, Long operatorId) {
-        String smtpUser = systemSettingService.getSettingValue("system.mail.smtp_user", "");
-        String from = StringUtils.hasText(smtpUser) ? smtpUser.trim() : "noreply@volur.local";
-        String senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+        String from = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS, "");
+        if (!StringUtils.hasText(from)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "发件人邮箱地址 (system.mail.from_address) 未配置或为空，无法发送邮件");
+        }
+        from = from.trim();
+        String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
 
         boolean isHtml = sendDTO.getHtml() == null || Boolean.TRUE.equals(sendDTO.getHtml());
         String ip = RequestHolder.getRemoteIp();
@@ -139,36 +142,10 @@ public class AdminEmailServiceImpl implements AdminEmailService {
                 .operatorIp(ip)
                 .build();
 
-        try {
-            mailDispatcher.dispatch(message);
-            emailLogRepository.save(EmailLog.builder()
-                    .recipient(message.getTo())
-                    .subject(message.getSubject())
-                    .content(message.getContent())
-                    .type("MANUAL")
-                    .status("SUCCESS")
-                    .sender(from)
-                    .operatorId(operatorId)
-                    .operatorIp(ip)
-                    .build());
-        } catch (Exception ex) {
-            emailLogRepository.save(EmailLog.builder()
-                    .recipient(message.getTo())
-                    .subject(message.getSubject())
-                    .content(message.getContent())
-                    .type("MANUAL")
-                    .status("FAILED")
-                    .errorMessage(ex.getMessage())
-                    .sender(from)
-                    .operatorId(operatorId)
-                    .operatorIp(ip)
-                    .build());
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "邮件发送失败: " + ex.getMessage(), ex);
-        }
+        mailTaskExecutor.executeAsyncMail(message);
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void resendEmail(Long id, Long operatorId) {
         EmailLog oldLog = emailLogRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "未找到指定的邮件记录"));

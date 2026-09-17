@@ -7,11 +7,10 @@
       require-mark-placement="right-hanging"
     >
       <n-form-item :label="t('admin.system.captcha.enabled')" path="captchaEnabled">
-        <n-switch v-model:value="form.captchaEnabled">
-          <template #checked>ON</template>
-          <template #unchecked>OFF</template>
-        </n-switch>
-        <span class="field-hint">{{ t('admin.system.captcha.enabled_hint') }}</span>
+        <div class="switch-row">
+          <n-switch v-model:value="form.captchaEnabled" />
+          <span class="field-hint">{{ t('admin.system.captcha.enabled_hint') }}</span>
+        </div>
       </n-form-item>
 
       <n-form-item :label="t('admin.system.captcha.tolerance')" path="captchaTolerance">
@@ -45,11 +44,10 @@
       </n-form-item>
 
       <n-form-item :label="t('admin.system.captcha.force_reset')" path="forceCaptchaOnReset">
-        <n-switch v-model:value="form.forceCaptchaOnReset">
-          <template #checked>ON</template>
-          <template #unchecked>OFF</template>
-        </n-switch>
-        <span class="field-hint">{{ t('admin.system.captcha.force_reset_hint') }}</span>
+        <div class="switch-row">
+          <n-switch v-model:value="form.forceCaptchaOnReset" />
+          <span class="field-hint">{{ t('admin.system.captcha.force_reset_hint') }}</span>
+        </div>
       </n-form-item>
     </n-form>
   </div>
@@ -82,6 +80,11 @@ const { t } = useI18n()
 <style scoped lang="scss">
 .tab-content-container {
   padding: 16px 8px;
+
+  .switch-row {
+    display: flex;
+    align-items: center;
+  }
 
   .field-hint {
     margin-left: 12px;

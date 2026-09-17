@@ -24,13 +24,13 @@
             <span class="tab-subtitle">已发布赛事公告 ({{ announcements.length }})</span>
           </div>
           <div class="actions-right">
-            <n-button quaternary size="small" :loading="loading" @click="fetchAnnouncements">
+            <n-button quaternary :loading="loading" @click="fetchAnnouncements">
               <template #icon>
                 <n-icon :component="RefreshOutline" />
               </template>
               刷新
             </n-button>
-            <n-button class="theme-primary-btn" size="small" @click="openCreateModal">
+            <n-button type="primary" class="theme-primary-btn" @click="openCreateModal">
               <template #icon>
                 <n-icon :component="AddOutline" />
               </template>
@@ -84,10 +84,12 @@
 
           <n-grid-item :span="1">
             <n-form-item label="置顶显示">
-              <n-switch v-model:value="formModel.isPinned">
-                <template #checked>置顶于赛场顶部</template>
-                <template #unchecked>普通排序</template>
-              </n-switch>
+              <div class="switch-row">
+                <n-switch v-model:value="formModel.isPinned" />
+                <span class="field-hint">
+                  {{ formModel.isPinned ? '置顶顶部' : '普通排序' }}
+                </span>
+              </div>
             </n-form-item>
           </n-grid-item>
 
@@ -103,7 +105,7 @@
 
           <n-grid-item :span="2">
             <n-form-item label="公告详细内容 (支持 Markdown)" path="content">
-              <markdown-editor
+              <VolurMarkdownEditor
                 v-model:value="formModel.content"
                 placeholder="请输入通报详情与提示正文，支持加粗、代码块、列表等排版"
                 :rows="6"
@@ -184,7 +186,7 @@ import {
   deleteAdminCompetitionAnnouncementApi
 } from '@/api/competition'
 import { renderMarkdown } from '@/utils/markdown'
-import MarkdownEditor from '@/components/common/MarkdownEditor.vue'
+import { VolurMarkdownEditor } from '@/public/volurEx'
 
 interface Props {
   compId: string | number
@@ -486,6 +488,25 @@ function getLevelLabel(level?: string) {
     }
   }
 
+  @media (max-width: 768px) {
+    .tab-top-actions {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+
+      .actions-right {
+        display: flex;
+        width: 100%;
+        gap: 10px;
+
+        .n-button {
+          flex: 1;
+          justify-content: center;
+        }
+      }
+    }
+  }
+
   .modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -521,6 +542,17 @@ function getLevelLabel(level?: string) {
   .content-body {
     font-size: 14px;
     line-height: 1.8;
+  }
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+
+  .field-hint {
+    margin-left: 12px;
+    font-size: 12px;
+    color: #444444;
   }
 }
 </style>

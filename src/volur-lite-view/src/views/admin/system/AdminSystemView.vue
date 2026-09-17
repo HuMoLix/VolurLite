@@ -172,9 +172,13 @@ const settingsForm = reactive({
   smtpHost: 'smtp.example.com',
   smtpPort: 465,
   smtpUser: 'noreply@volur.local',
+  fromAddress: 'noreply@volur.local',
   smtpPass: '',
   smtpSsl: true,
   senderName: 'Volur Lite Security Team',
+  webhookEnabled: false,
+  webhookSecret: '',
+  webhookFallbackStrategy: 'AUTO_DELIVERED',
   // Maintenance
   maintenanceMode: false,
   maintenanceNotice: '平台底层正在维护，请稍后访问。',
@@ -211,8 +215,12 @@ async function fetchSettings() {
         if (item.key === 'system.mail.smtp_host') settingsForm.smtpHost = item.value
         if (item.key === 'system.mail.smtp_port') settingsForm.smtpPort = Number(item.value) || 465
         if (item.key === 'system.mail.smtp_user') settingsForm.smtpUser = item.value
+        if (item.key === 'system.mail.from_address') settingsForm.fromAddress = item.value
         if (item.key === 'system.mail.smtp_ssl') settingsForm.smtpSsl = item.value === 'true'
         if (item.key === 'system.mail.sender_name') settingsForm.senderName = item.value
+        if (item.key === 'system.mail.webhook_enabled') settingsForm.webhookEnabled = item.value === 'true'
+        if (item.key === 'system.mail.webhook_secret') settingsForm.webhookSecret = item.value
+        if (item.key === 'system.mail.webhook_fallback_strategy') settingsForm.webhookFallbackStrategy = item.value || 'AUTO_DELIVERED'
         if (item.key === 'system.maintenance.enabled') settingsForm.maintenanceMode = item.value === 'true'
         if (item.key === 'system.maintenance.notice_message') settingsForm.maintenanceNotice = item.value
         if (item.key === 'system.security.rate_limit_window') settingsForm.rateLimitWindow = Number(item.value) || 60
@@ -225,6 +233,19 @@ async function fetchSettings() {
 }
 
 async function handleSaveSettings() {
+  if (!settingsForm.smtpHost?.trim()) {
+    message.error(t('admin.system.messages.smtp_host_required'))
+    return
+  }
+  if (!settingsForm.smtpUser?.trim()) {
+    message.error(t('admin.system.messages.smtp_user_required'))
+    return
+  }
+  if (!settingsForm.fromAddress?.trim()) {
+    message.error(t('admin.system.messages.from_address_required'))
+    return
+  }
+
   saveLoading.value = true
   try {
     const payload: SystemSettingUpdateDTO[] = [
@@ -241,8 +262,12 @@ async function handleSaveSettings() {
       { key: 'system.mail.smtp_host', value: settingsForm.smtpHost },
       { key: 'system.mail.smtp_port', value: String(settingsForm.smtpPort) },
       { key: 'system.mail.smtp_user', value: settingsForm.smtpUser },
+      { key: 'system.mail.from_address', value: settingsForm.fromAddress },
       { key: 'system.mail.smtp_ssl', value: String(settingsForm.smtpSsl) },
       { key: 'system.mail.sender_name', value: settingsForm.senderName },
+      { key: 'system.mail.webhook_enabled', value: String(settingsForm.webhookEnabled) },
+      { key: 'system.mail.webhook_secret', value: settingsForm.webhookSecret || '' },
+      { key: 'system.mail.webhook_fallback_strategy', value: settingsForm.webhookFallbackStrategy || 'AUTO_DELIVERED' },
       { key: 'system.maintenance.enabled', value: String(settingsForm.maintenanceMode) },
       { key: 'system.maintenance.notice_message', value: settingsForm.maintenanceNotice },
       { key: 'system.security.rate_limit_window', value: String(settingsForm.rateLimitWindow) },
@@ -278,6 +303,7 @@ function handleResetDefault() {
   settingsForm.smtpHost = 'smtp.example.com'
   settingsForm.smtpPort = 465
   settingsForm.smtpUser = 'noreply@volur.local'
+  settingsForm.fromAddress = 'noreply@volur.local'
   settingsForm.smtpPass = ''
   settingsForm.smtpSsl = true
   settingsForm.senderName = 'Volur Lite Security Team'
@@ -378,6 +404,11 @@ onMounted(() => {
 
   .tab-content-container {
     padding: 24px 8px;
+  }
+
+  .switch-row {
+    display: flex;
+    align-items: center;
   }
 
   .field-hint {

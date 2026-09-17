@@ -114,6 +114,7 @@ public class EmailServiceVerificationTest {
         when(captchaService.verifyCaptcha(eq("c_123"), eq("valid_code"), eq(CaptchaScene.REGISTER))).thenReturn(true);
         when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
         when(systemSettingService.getBoolean("system.auth.require_email_verification", false)).thenReturn(false);
+        when(systemSettingService.getSettingValue(eq("system.mail.from_address"), anyString())).thenReturn("noreply@volur.local");
 
         EmailCaptchaRequestDTO request = new EmailCaptchaRequestDTO();
         request.setEmail("user@example.com");
@@ -126,6 +127,20 @@ public class EmailServiceVerificationTest {
         verify(captchaService).verifyCaptcha(eq("c_123"), eq("valid_code"), eq(CaptchaScene.REGISTER));
         verify(userRepository).existsByEmail("user@example.com");
         verify(mailTaskExecutor).executeAsyncMail(any());
+    }
+
+    @Test
+    public void testSendVerificationEmailThrowsWhenFromAddressNotConfigured() {
+        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(false);
+        when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(systemSettingService.getSettingValue(eq("system.mail.from_address"), anyString())).thenReturn("");
+
+        EmailCaptchaRequestDTO request = new EmailCaptchaRequestDTO();
+        request.setEmail("user@example.com");
+        request.setUsername("testuser");
+
+        IllegalStateException ex = Assertions.assertThrows(IllegalStateException.class, () -> emailService.sendVerificationEmail(request));
+        Assertions.assertTrue(ex.getMessage().contains("system.mail.from_address"));
     }
 
 }

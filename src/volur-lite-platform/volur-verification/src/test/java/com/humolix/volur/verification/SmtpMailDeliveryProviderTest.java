@@ -1,5 +1,6 @@
 package com.humolix.volur.verification;
 
+import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.verification.mail.bo.MailMessageBO;
 import com.humolix.volur.verification.mail.provider.SmtpMailDeliveryProvider;
@@ -35,7 +36,7 @@ public class SmtpMailDeliveryProviderTest {
 
     @Test
     public void testApplySenderWithWhitespaceAndChineseDisplayNameDoesNotThrowException() throws Exception {
-        when(systemSettingService.getSettingValue("system.mail.sender_name", "")).thenReturn("Volur Lite 安全演练平台");
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "")).thenReturn("Volur Lite 安全演练平台");
 
         MailMessageBO message = MailMessageBO.builder()
                 .from("service@volur.local")
@@ -61,8 +62,8 @@ public class SmtpMailDeliveryProviderTest {
 
     @Test
     public void testApplySenderHandlesLegacyNicknameInFromGracefully() throws Exception {
-        when(systemSettingService.getSettingValue("system.mail.sender_name", "")).thenReturn("");
-        when(systemSettingService.getSettingValue("system.mail.smtp_user", "noreply@volur.local")).thenReturn("service@volur.local");
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "")).thenReturn("");
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS)).thenReturn("service@volur.local");
 
         MailMessageBO message = MailMessageBO.builder()
                 .from("Volur Lite Security Team") // Legacy bug where sender_name was stored in from
@@ -111,7 +112,7 @@ public class SmtpMailDeliveryProviderTest {
 
     @Test
     public void testApplySenderWithoutSenderName() throws Exception {
-        when(systemSettingService.getSettingValue("system.mail.sender_name", "")).thenReturn("");
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "")).thenReturn("");
 
         MailMessageBO message = MailMessageBO.builder()
                 .from("service@volur.local")
@@ -132,5 +133,35 @@ public class SmtpMailDeliveryProviderTest {
         InternetAddress inet = (InternetAddress) fromAddresses[0];
         Assertions.assertEquals("service@volur.local", inet.getAddress());
         Assertions.assertNull(inet.getPersonal());
+    }
+
+    @Test
+    public void testApplySenderThrowsExceptionWhenFromAddressMissing() throws Exception {
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS)).thenReturn(null);
+
+        MailMessageBO message = MailMessageBO.builder()
+                .to("recipient@example.com")
+                .subject("Test")
+                .content("Content")
+                .build();
+
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+
+        Assertions.assertThrows(IllegalStateException.class, () -> provider.applySender(helper, mailSender, message));
+    }
+
+    @Test
+    public void testIsAvailableRequiresFromAddress() {
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_HOST)).thenReturn("smtp.example.com");
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_PORT)).thenReturn("465");
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_USER)).thenReturn("user");
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_PASS)).thenReturn("pass");
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS)).thenReturn(null);
+
+        Assertions.assertFalse(provider.isAvailable());
+
+        when(systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS)).thenReturn("notify@volurctf.com");
+        Assertions.assertTrue(provider.isAvailable());
     }
 }

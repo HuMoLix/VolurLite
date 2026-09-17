@@ -85,69 +85,75 @@
       @update:page-size="handlePageSizeChange"
     >
       <template #filter-left>
-        <n-input
-          v-model:value="searchKeyword"
-          :placeholder="t('admin.tasks.search_placeholder')"
-          clearable
-          style="width: 300px;"
-          @keyup.enter="handleSearch"
-        >
-          <template #prefix>
-            <n-icon :component="SearchOutline" />
-          </template>
-        </n-input>
+        <div class="task-filter-left">
+          <n-input
+            v-model:value="searchKeyword"
+            :placeholder="t('admin.tasks.search_placeholder')"
+            clearable
+            class="filter-search-input"
+            @keyup.enter="handleSearch"
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
 
-        <n-select
-          v-model:value="filterType"
-          :placeholder="t('admin.tasks.filter_type')"
-          clearable
-          :options="taskTypeOptions"
-          style="width: 180px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterType"
+            :placeholder="t('admin.tasks.filter_type')"
+            clearable
+            :options="taskTypeOptions"
+            class="filter-type-select"
+            @update:value="handleSearch"
+          />
 
-        <n-select
-          v-model:value="filterStatus"
-          :placeholder="t('admin.tasks.filter_status')"
-          clearable
-          :options="statusOptions"
-          style="width: 150px;"
-          @update:value="handleSearch"
-        />
+          <n-select
+            v-model:value="filterStatus"
+            :placeholder="t('admin.tasks.filter_status')"
+            clearable
+            :options="statusOptions"
+            class="filter-status-select"
+            @update:value="handleSearch"
+          />
 
-        <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
-          <template #icon>
-            <n-icon :component="SearchOutline" />
-          </template>
-          {{ t('admin.tasks.query_btn') }}
-        </n-button>
+          <div class="filter-actions-group">
+            <n-button type="primary" @click="handleSearch" class="theme-primary-btn">
+              <template #icon>
+                <n-icon :component="SearchOutline" />
+              </template>
+              {{ t('admin.tasks.query_btn') }}
+            </n-button>
 
-        <n-button quaternary @click="handleReset">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-          {{ t('admin.tasks.reset_btn') }}
-        </n-button>
+            <n-button quaternary @click="handleReset">
+              <template #icon>
+                <n-icon :component="RefreshOutline" />
+              </template>
+              {{ t('admin.tasks.reset_btn') }}
+            </n-button>
+          </div>
+        </div>
       </template>
 
       <template #filter-right>
-        <n-popconfirm @positive-click="handleClearHistory">
-          <template #trigger>
-            <n-button quaternary type="warning" size="medium">
-              <template #icon>
-                <n-icon :component="TrashOutline" />
-              </template>
-              {{ t('admin.tasks.clear_history_btn') }}
-            </n-button>
-          </template>
-          {{ t('admin.tasks.clear_history_confirm') }}
-        </n-popconfirm>
+        <div class="task-filter-right">
+          <n-popconfirm @positive-click="handleClearHistory">
+            <template #trigger>
+              <n-button quaternary type="warning" size="medium" class="action-clear-btn">
+                <template #icon>
+                  <n-icon :component="TrashOutline" />
+                </template>
+                {{ t('admin.tasks.clear_history_btn') }}
+              </n-button>
+            </template>
+            {{ t('admin.tasks.clear_history_confirm') }}
+          </n-popconfirm>
 
-        <n-button quaternary circle size="medium" @click="fetchData" :loading="loading">
-          <template #icon>
-            <n-icon :component="RefreshOutline" />
-          </template>
-        </n-button>
+          <n-button quaternary circle size="medium" @click="fetchData" :loading="loading">
+            <template #icon>
+              <n-icon :component="RefreshOutline" />
+            </template>
+          </n-button>
+        </div>
       </template>
     </AppTableCard>
 
@@ -1038,6 +1044,81 @@ onUnmounted(() => {
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+
+.task-filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .filter-search-input {
+    width: 220px;
+  }
+
+  .filter-type-select {
+    width: 150px;
+  }
+
+  .filter-status-select {
+    width: 130px;
+  }
+
+  .filter-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.task-filter-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .task-filter-left {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 10px;
+
+    .filter-search-input,
+    .filter-type-select,
+    .filter-status-select {
+      width: 100% !important;
+    }
+
+    .filter-actions-group {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+
+      .n-button {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  }
+
+  .task-filter-right {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+    margin-top: 8px;
+
+    .n-popconfirm,
+    .action-clear-btn {
+      flex: 1;
+    }
+
+    .n-button:not(.n-button--circle) {
+      width: 100%;
+      justify-content: center;
+    }
   }
 }
 </style>

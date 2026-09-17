@@ -2,10 +2,38 @@
   <div class="competition-list-view">
     <!-- Header & Search Bar -->
     <div class="header-action-bar">
-      <div class="title-search-row">
+      <div class="page-title-row">
         <div class="page-title">
           <h2>{{ t('competition.page_title') }}</h2>
           <p class="subtitle">{{ t('competition.page_subtitle') }}</p>
+        </div>
+      </div>
+
+      <!-- Filter Tabs & Search Toolbar -->
+      <div class="filter-toolbar-row">
+        <div class="filter-tabs">
+          <n-tabs
+            v-model:value="selectedType"
+            type="segment"
+            size="medium"
+            @update:value="handleTypeChange"
+          >
+            <n-tab
+              v-for="tab in availableTypeTabs"
+              :key="tab.value"
+              :name="tab.value"
+            >
+              <div class="tab-item-inner">
+                <span class="tab-label">{{ tab.label }}</span>
+                <span
+                  class="tab-count-badge"
+                  :class="{ 'is-active': selectedType === tab.value }"
+                >
+                  {{ tab.count }}
+                </span>
+              </div>
+            </n-tab>
+          </n-tabs>
         </div>
 
         <div class="search-bar">
@@ -25,18 +53,6 @@
             搜索
           </n-button>
         </div>
-      </div>
-
-      <!-- Type Filter Tabs -->
-      <div class="filter-tabs">
-        <n-tabs v-model:value="selectedType" type="segment" size="medium" @update:value="handleTypeChange">
-          <n-tab name="ALL">{{ t('competition.type_all') }}</n-tab>
-          <n-tab name="CTF">{{ t('competition.type_ctf') }}</n-tab>
-          <n-tab name="THEORY">{{ t('competition.type_theory') }}</n-tab>
-          <n-tab name="AWD">{{ t('competition.type_awd') }}</n-tab>
-          <n-tab name="AWD_PLUS">{{ t('competition.type_awd_plus') }}</n-tab>
-          <n-tab name="ISW">{{ t('competition.type_isw') }}</n-tab>
-        </n-tabs>
       </div>
     </div>
 
@@ -139,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NCard,
@@ -173,6 +189,20 @@ import { renderMarkdown } from '@/utils/markdown'
 const { t } = useI18n()
 const router = useRouter()
 
+interface FilterTabItem {
+  value: string
+  label: string
+  count: number
+}
+
+const SUPPORTED_COMPETITION_TYPES: CompetitionType[] = [
+  'CTF',
+  'THEORY',
+  'AWD',
+  'AWD_PLUS',
+  'ISW'
+]
+
 // State
 const loading = ref<boolean>(false)
 const searchKeyword = ref<string>('')
@@ -184,6 +214,60 @@ const pagination = reactive({
   page: 1,
   pageSize: 10,
   total: 0
+})
+
+// 统计当前响应列表中的每种赛制出现频次
+const typeCountMap = computed<Record<string, number>>(() => {
+  const map: Record<string, number> = {}
+  for (const item of competitionList.value) {
+    if (item.type) {
+      map[item.type] = (map[item.type] || 0) + 1
+    }
+  }
+  return map
+})
+
+// 根据 /api/v1/competitions 响应数据动态判别并生成赛制过滤标签
+const availableTypeTabs = computed<FilterTabItem[]>(() => {
+  const tabs: FilterTabItem[] = [
+    {
+      value: 'ALL',
+      label: t('competition.type_all'),
+      count: competitionList.value.length
+    }
+  ]
+
+  // 按照标准赛制顺序，仅展示响应数据中真实存在的赛制
+  for (const type of SUPPORTED_COMPETITION_TYPES) {
+    const count = typeCountMap.value[type] || 0
+    if (count > 0) {
+      tabs.push({
+        value: type,
+        label: getTypeLabel(type),
+        count
+      })
+    }
+  }
+
+  // 兜底：若后台返回了未在标准列表中的其他赛制类型，也动态追加显示
+  for (const type of Object.keys(typeCountMap.value)) {
+    if (!SUPPORTED_COMPETITION_TYPES.includes(type as CompetitionType) && type !== 'ALL') {
+      tabs.push({
+        value: type,
+        label: getTypeLabel(type as CompetitionType),
+        count: typeCountMap.value[type]
+      })
+    }
+  }
+
+  return tabs
+})
+
+// 监听可用赛制标签列表：若当前选中的类型在最新列表中不再存在，平滑重置为全部
+watch(availableTypeTabs, (newTabs) => {
+  if (selectedType.value !== 'ALL' && !newTabs.some((tab) => tab.value === selectedType.value)) {
+    selectedType.value = 'ALL'
+  }
 })
 
 // Filtered List by Single Mode Type
@@ -328,22 +412,95 @@ onMounted(() => {
   flex-direction: column;
   gap: 16px;
 
-  .title-search-row {
+  .page-title-row {
+    .page-title {
+      h2 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        color: var(--v-text-primary, #111111);
+      }
+      .subtitle {
+        font-size: 13px;
+        color: #444444;
+      }
+    }
+  }
+
+  .filter-toolbar-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
     gap: 16px;
 
-    .page-title {
-      h2 {
-        font-size: 24px;
-        font-weight: 700;
-        margin-bottom: 4px;
+    .filter-tabs {
+      width: fit-content;
+      max-width: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
       }
-      .subtitle {
-        font-size: 13px;
-        color: #444444;
+
+      :deep(.n-tabs) {
+        width: fit-content;
+      }
+
+      :deep(.n-tabs-rail) {
+        padding: 3px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.05);
+
+        @include theme-dark {
+          background: rgba(255, 255, 255, 0.08);
+        }
+      }
+
+      :deep(.n-tabs-tab) {
+        padding: 6px 14px;
+        transition: all 0.2s ease;
+      }
+
+      .tab-item-inner {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+
+        .tab-label {
+          font-weight: 500;
+        }
+
+        .tab-count-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 18px;
+          height: 18px;
+          padding: 0 5px;
+          border-radius: 9px;
+          font-size: 11px;
+          font-weight: 600;
+          background: rgba(0, 0, 0, 0.06);
+          color: #555555;
+          transition: all 0.2s ease;
+
+          @include theme-dark {
+            background: rgba(255, 255, 255, 0.12);
+            color: #cccccc;
+          }
+
+          &.is-active {
+            background: #000000;
+            color: #ffffff;
+
+            @include theme-dark {
+              background: #ffffff;
+              color: #000000;
+            }
+          }
+        }
       }
     }
 
@@ -351,11 +508,16 @@ onMounted(() => {
       display: flex;
       align-items: center;
       gap: 10px;
-    }
-  }
 
-  .filter-tabs {
-    max-width: 620px;
+      @media (max-width: 768px) {
+        width: 100%;
+
+        :deep(.n-input) {
+          flex: 1;
+          width: auto !important;
+        }
+      }
+    }
   }
 }
 

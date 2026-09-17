@@ -1,7 +1,5 @@
 import type { RouteRecordRaw } from 'vue-router'
-import AppLayout from '@/layout/AppLayout.vue'
-import AuthLayout from '@/layout/AuthLayout.vue'
-import AdminLayout from '@/layout/AdminLayout.vue'
+import { AppLayout, AuthLayout, AdminLayout } from '@/public/volurEx'
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -60,13 +58,13 @@ export const routes: RouteRecordRaw[] = [
   },
   {
     path: '/arena/:slug',
-    component: () => import('@/layout/CompetitionLayout.vue'),
+    component: () => import('@/public/volurEx/layouts/competitions/CtfCompetitionLayout.vue'),
     meta: { requiresAuth: true },
     children: [
       {
         path: '',
         name: 'CompetitionArena',
-        component: () => import('@/views/competition/CompetitionArenaView.vue'),
+        component: () => import('@/views/competition/CtfCompetitionArenaView.vue'),
         meta: { title: '竞赛竞技场', titleKey: 'competition.arena_title', requiresAuth: true }
       }
     ]
@@ -108,6 +106,26 @@ export const routes: RouteRecordRaw[] = [
               titleKey: 'admin.challenges.ctf_title',
               parentTitle: '题库管理',
               parentTitleKey: 'admin.challenges.title'
+            }
+          },
+          {
+            path: 'ctf/create',
+            name: 'AdminCtfChallengeCreate',
+            component: () => import('@/views/admin/challenge/AdminCtfChallengeEditView.vue'),
+            meta: {
+              title: '新增 CTF 赛题',
+              parentTitle: 'CTF 题库',
+              parentTitleKey: 'admin.challenges.ctf_title'
+            }
+          },
+          {
+            path: 'ctf/:id/edit',
+            name: 'AdminCtfChallengeEdit',
+            component: () => import('@/views/admin/challenge/AdminCtfChallengeEditView.vue'),
+            meta: {
+              title: '编辑 CTF 赛题',
+              parentTitle: 'CTF 题库',
+              parentTitleKey: 'admin.challenges.ctf_title'
             }
           },
           {

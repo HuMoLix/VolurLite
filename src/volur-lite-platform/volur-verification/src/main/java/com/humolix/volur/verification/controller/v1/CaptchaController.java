@@ -34,9 +34,10 @@ public class CaptchaController {
     @Operation(summary = "获取通用图形验证码")
     @GetMapping
     public ApiResponse<CaptchaResponseVO> getCaptcha(
-            @RequestParam(value = "oldCaptchaId", required = false) String oldCaptchaId
+            @RequestParam(value = "oldCaptchaId", required = false) String oldCaptchaId,
+            @RequestParam(value = "ticket", required = false) String ticket
     ) {
-        CaptchaResponseVO captchaResponse = captchaService.generateCaptcha(oldCaptchaId);
+        CaptchaResponseVO captchaResponse = captchaService.generateCaptcha(oldCaptchaId, ticket);
         return ApiResponseEntity.ok("获取验证码成功", captchaResponse);
     }
 

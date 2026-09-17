@@ -15,8 +15,6 @@ public class TeamRegisterRequestDTO {
     @NotBlank(message = "队伍名称不能为空")
     private String teamName;
 
-    private String teamSlogan;
-
     private String avatarUrl;
 
     /**

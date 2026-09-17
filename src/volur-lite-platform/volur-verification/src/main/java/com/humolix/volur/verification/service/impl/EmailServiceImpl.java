@@ -4,6 +4,7 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
@@ -202,9 +203,12 @@ public class EmailServiceImpl implements EmailService {
         ));
         String simpleContent = "您的验证码是: " + code + "\n有效期为 " + (VERIFY_CODE_EXPIRATION_SECONDS / 60) + " 分钟";
 
-        String smtpUser = systemSettingService.getSettingValue("system.mail.smtp_user", "");
-        String from = StringUtils.hasText(smtpUser) ? smtpUser.trim() : "noreply@volur.local";
-        String senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+        String from = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS, "");
+        if (!StringUtils.hasText(from)) {
+            throw new IllegalStateException("发件人邮箱地址 (system.mail.from_address) 未配置或为空，无法发送邮件");
+        }
+        from = from.trim();
+        String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
 
         String emailType = "SYSTEM";
         if (TEMPLATE_NAME.equals(templateName)) {
@@ -258,9 +262,12 @@ public class EmailServiceImpl implements EmailService {
         ));
         String simpleContent = "请点击以下链接重置密码: " + resetLink + " (有效期15分钟)";
 
-        String smtpUser = systemSettingService.getSettingValue("system.mail.smtp_user", "");
-        String from = StringUtils.hasText(smtpUser) ? smtpUser.trim() : "noreply@volur.local";
-        String senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+        String from = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS, "");
+        if (!StringUtils.hasText(from)) {
+            throw new IllegalStateException("发件人邮箱地址 (system.mail.from_address) 未配置或为空，无法发送邮件");
+        }
+        from = from.trim();
+        String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
 
         MailMessageBO message = MailMessageBO.builder()
                 .from(from)
@@ -297,9 +304,12 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendEmail(String to, String subject, String content) {
         String normalizedTo = to != null ? to.trim() : "";
-        String smtpUser = systemSettingService.getSettingValue("system.mail.smtp_user", "");
-        String from = StringUtils.hasText(smtpUser) ? smtpUser.trim() : "noreply@volur.local";
-        String senderName = systemSettingService.getSettingValue("system.mail.sender_name", "");
+        String from = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS, "");
+        if (!StringUtils.hasText(from)) {
+            throw new IllegalStateException("发件人邮箱地址 (system.mail.from_address) 未配置或为空，无法发送邮件");
+        }
+        from = from.trim();
+        String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
         String type = "[VolurCTF] SMTP 服务测试邮件".equals(subject) ? "TEST" : "SYSTEM";
         String ip = RequestHolder.getRemoteIp();
 

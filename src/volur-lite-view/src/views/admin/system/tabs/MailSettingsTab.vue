@@ -24,10 +24,18 @@
         <span class="field-hint">{{ t('admin.system.mail.port_hint') }}</span>
       </n-form-item>
 
-      <n-form-item :label="t('admin.system.mail.user')" path="smtpUser">
+      <n-form-item :label="t('admin.system.mail.user')" path="smtpUser" required>
         <n-input
           v-model:value="form.smtpUser"
           :placeholder="t('admin.system.mail.user_placeholder')"
+          style="max-width: 420px;"
+        />
+      </n-form-item>
+
+      <n-form-item :label="t('admin.system.mail.from_address')" path="fromAddress" required>
+        <n-input
+          v-model:value="form.fromAddress"
+          :placeholder="t('admin.system.mail.from_address_placeholder')"
           style="max-width: 420px;"
         />
       </n-form-item>
@@ -43,11 +51,10 @@
       </n-form-item>
 
       <n-form-item :label="t('admin.system.mail.ssl')" path="smtpSsl">
-        <n-switch v-model:value="form.smtpSsl">
-          <template #checked>ON</template>
-          <template #unchecked>OFF</template>
-        </n-switch>
-        <span class="field-hint">{{ t('admin.system.mail.ssl_hint') }}</span>
+        <div class="switch-row">
+          <n-switch v-model:value="form.smtpSsl" />
+          <span class="field-hint">{{ t('admin.system.mail.ssl_hint') }}</span>
+        </div>
       </n-form-item>
 
       <n-form-item :label="t('admin.system.mail.sender_name')" path="senderName">
@@ -66,12 +73,44 @@
           {{ t('admin.system.mail.send_test') }}
         </n-button>
       </n-form-item>
+
+      <n-divider title-placement="left" style="margin: 24px 0 16px;">
+        {{ t('admin.system.mail.webhook_section_title') }}
+      </n-divider>
+
+      <n-form-item :label="t('admin.system.mail.webhook_enabled')" path="webhookEnabled">
+        <div class="switch-row">
+          <n-switch v-model:value="form.webhookEnabled" />
+        </div>
+      </n-form-item>
+
+      <n-form-item :label="t('admin.system.mail.webhook_secret')" path="webhookSecret">
+        <n-input
+          v-model:value="form.webhookSecret"
+          type="password"
+          show-password-on="click"
+          :placeholder="t('admin.system.mail.webhook_secret_placeholder')"
+          style="max-width: 420px;"
+        />
+      </n-form-item>
+
+      <n-form-item :label="t('admin.system.mail.webhook_url')">
+        <div style="display: flex; align-items: center; gap: 8px; max-width: 520px; width: 100%;">
+          <n-input :value="webhookUrl" readonly />
+          <n-button secondary size="small" @click="copyWebhookUrl">
+            <template #icon>
+              <n-icon :component="CopyOutline" />
+            </template>
+            {{ t('common.copy') }}
+          </n-button>
+        </div>
+      </n-form-item>
     </n-form>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   NForm,
@@ -81,18 +120,23 @@ import {
   NSwitch,
   NButton,
   NIcon,
+  NDivider,
   useMessage
 } from 'naive-ui'
-import { MailOutline } from '@vicons/ionicons5'
+import { MailOutline, CopyOutline } from '@vicons/ionicons5'
 import { testSmtpConnectionApi } from '@/api/system'
 
 interface MailSettings {
   smtpHost: string
   smtpPort: number
   smtpUser: string
+  fromAddress: string
   smtpPass: string
   smtpSsl: boolean
   senderName: string
+  webhookEnabled: boolean
+  webhookSecret: string
+  webhookFallbackStrategy?: string
 }
 
 defineProps<{
@@ -102,6 +146,19 @@ defineProps<{
 const { t } = useI18n()
 const message = useMessage()
 const testMailLoading = ref(false)
+
+const webhookUrl = computed(() => {
+  if (typeof window !== 'undefined' && window.location) {
+    return `${window.location.origin}/api/v1/verification/webhook/mail`
+  }
+  return '/api/v1/verification/webhook/mail'
+})
+
+function copyWebhookUrl() {
+  navigator.clipboard.writeText(webhookUrl.value).then(() => {
+    message.success(t('common.copied_to_clipboard'))
+  })
+}
 
 async function handleSendTestEmail() {
   testMailLoading.value = true
@@ -121,6 +178,11 @@ async function handleSendTestEmail() {
 <style scoped lang="scss">
 .tab-content-container {
   padding: 16px 8px;
+
+  .switch-row {
+    display: flex;
+    align-items: center;
+  }
 
   .field-hint {
     margin-left: 12px;

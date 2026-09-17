@@ -38,18 +38,12 @@ public class CompetitionTeam implements Serializable {
     @Column(name = "team_name", nullable = false, length = 64, columnDefinition = "VARCHAR(64)")
     private String teamName;
 
-    @Column(name = "team_slogan", columnDefinition = "VARCHAR(255)")
-    private String teamSlogan;
-
     @Column(name = "avatar_url", columnDefinition = "VARCHAR(255)")
     private String avatarUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "captain_id", nullable = false, columnDefinition = "BIGINT")
     private User captain;
-
-    @Column(name = "invite_code", length = 16, columnDefinition = "VARCHAR(16)")
-    private String inviteCode;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, columnDefinition = "VARCHAR(32)")

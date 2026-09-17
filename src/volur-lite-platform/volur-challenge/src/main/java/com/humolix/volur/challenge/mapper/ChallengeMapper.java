@@ -29,12 +29,14 @@ public interface ChallengeMapper {
     // --- CTF ---
     @Mapping(source = "category.id", target = "categoryId")
     @Mapping(source = "category.name", target = "categoryName")
+    @Mapping(source = "category.icon", target = "categoryIcon")
     @Mapping(source = "author.id", target = "authorId")
     @Mapping(source = "author.username", target = "authorName")
     CtfChallengeDetailVO toCtfDetailVO(CtfChallenge challenge);
 
     @Mapping(source = "category.id", target = "categoryId")
     @Mapping(source = "category.name", target = "categoryName")
+    @Mapping(source = "category.icon", target = "categoryIcon")
     @Mapping(source = "author.username", target = "authorName")
     CtfChallengeListVO toCtfListVO(CtfChallenge challenge);
 
