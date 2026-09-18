@@ -3,32 +3,21 @@
     <!-- Subview Top Header with Back action & Breadcrumbs -->
     <div class="subview-header">
       <div class="header-left">
-        <n-button quaternary size="small" class="back-btn" @click="handleBack">
+        <n-button text size="small" class="back-btn" @click="handleBack">
           <template #icon>
             <n-icon :component="ArrowBackOutline" />
           </template>
-          返回 CTF 题库
+          {{ t('admin.challenges.back_to_ctf') }}
         </n-button>
         <div class="title-wrap">
           <h2 class="subview-title">
-            {{ isEditMode ? '编辑 CTF 赛题' : '新增 CTF 赛题' }}
+            {{ pageTitle }}
           </h2>
-          <span v-if="isEditMode && editingChallengeName" class="challenge-title-badge">
-            {{ editingChallengeName }}
-          </span>
-          <n-tag
-            v-if="formData.type"
-            size="small"
-            :type="getTypeTagType(formData.type)"
-            round
-          >
-            {{ formData.type }}
-          </n-tag>
         </div>
       </div>
 
       <div class="header-right">
-        <n-button secondary @click="handleBack">取消</n-button>
+        <n-button secondary @click="handleBack">{{ t('admin.challenges.cancel') }}</n-button>
         <n-button
           type="primary"
           class="theme-primary-btn"
@@ -38,7 +27,7 @@
           <template #icon>
             <n-icon :component="SaveOutline" />
           </template>
-          {{ isEditMode ? '保存赛题修改' : '确认创建赛题' }}
+          {{ isEditMode ? t('admin.challenges.save_challenge') : t('admin.challenges.confirm_create_challenge') }}
         </n-button>
       </div>
     </div>
@@ -55,102 +44,182 @@
         class="challenge-edit-form"
       >
         <!-- 1. 基本信息 Card -->
-        <n-card class="form-section-card" :bordered="false" title="基本信息">
-          <n-form-item label="题目名称" path="name">
+        <n-card class="form-section-card" :bordered="false" :title="t('admin.challenges.basic_info')">
+          <n-form-item :label="t('admin.challenges.challenge_name')" path="name">
             <n-input
               v-model:value="formData.name"
-              placeholder="请输入题目名称 (例: Easy Web, Pwn_fmt_01)"
+              :placeholder="t('admin.challenges.challenge_name_placeholder')"
               maxlength="100"
               show-count
             />
           </n-form-item>
 
           <div class="form-row-2">
-            <n-form-item label="所属方向" path="categoryId">
+            <n-form-item :label="t('admin.challenges.category')" path="categoryId">
               <n-select
                 v-model:value="formData.categoryId"
                 :options="categoryFormOptions"
                 :render-label="renderCategoryOptionLabel"
-                placeholder="选择题目分类方向"
+                :placeholder="t('admin.challenges.category_placeholder')"
               />
             </n-form-item>
 
-            <n-form-item label="赛题模式" path="type">
+            <n-form-item :label="t('admin.challenges.challenge_type')" path="type">
               <n-select
                 v-model:value="formData.type"
                 :options="typeOptions"
-                placeholder="选择赛题类型"
+                :placeholder="t('admin.challenges.challenge_type_placeholder')"
               />
             </n-form-item>
           </div>
 
           <div class="form-row-2">
-            <n-form-item label="难度等级" path="difficulty">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <n-rate v-model:value="formData.difficulty" :count="5" />
-                <n-tag size="small" :type="getDifficultyBadge(formData.difficulty).type" :bordered="false">
-                  {{ getDifficultyBadge(formData.difficulty).label }}
-                </n-tag>
-              </div>
+            <n-form-item :label="t('admin.challenges.difficulty')" path="difficulty">
+              <n-select
+                v-model:value="formData.difficulty"
+                :options="difficultyOptions"
+                :placeholder="t('admin.challenges.difficulty_placeholder')"
+              />
             </n-form-item>
 
-            <n-form-item label="静态 Flag" path="flag">
+            <n-form-item :label="t('admin.challenges.static_flag')" path="flag">
               <n-input
                 v-model:value="formData.flag"
-                placeholder="flag{your_flag_here} (动态靶机可留空)"
+                :placeholder="t('admin.challenges.static_flag_placeholder')"
               />
             </n-form-item>
           </div>
         </n-card>
 
         <!-- 2. 题目描述与指引 Card -->
-        <n-card class="form-section-card" :bordered="false" title="题目说明与指引">
-          <n-form-item label="题目描述" path="description">
-            <n-input
+        <n-card class="form-section-card" :bordered="false" :title="t('admin.challenges.desc_section')">
+          <n-form-item :label="t('admin.challenges.desc_section')" path="description" :show-label="false">
+            <VolurMarkdownEditor
               v-model:value="formData.description"
-              type="textarea"
-              :autosize="{ minRows: 5, maxRows: 14 }"
-              placeholder="支持 Markdown 格式题目详细说明、解题提示与背景故事..."
+              :placeholder="t('admin.challenges.desc_placeholder')"
+              min-height="260px"
+              max-height="600px"
+              style="width: 100%;"
             />
           </n-form-item>
         </n-card>
 
-        <!-- 3. 赛题附件 Card -->
-        <n-card class="form-section-card" :bordered="false" title="赛题附件配置">
-          <n-form-item label="赛题附件">
-            <div class="attachment-box">
-              <div v-if="formData.attachmentUrl" class="attachment-preview">
-                <n-tag type="info" closable @close="clearAttachment">
+        <!-- 3. 赛题附件 Card (支持多附件扩展) -->
+        <n-card class="form-section-card attachments-section-card" :bordered="false">
+          <template #header>
+            <div class="card-header-with-badge">
+              <span>{{ t('admin.challenges.attachments_config') }}</span>
+              <n-tag
+                v-if="formData.attachments.length > 0"
+                size="small"
+                :bordered="false"
+                round
+                type="info"
+              >
+                {{ t('admin.challenges.attachments_count', { count: formData.attachments.length }) }}
+              </n-tag>
+            </div>
+          </template>
+
+          <div class="attachments-container">
+            <!-- 顶部操作栏: 上传本地附件 + 快速添加外部下载链接 -->
+            <div class="attachment-actions-bar">
+              <n-upload
+                multiple
+                :show-file-list="false"
+                :custom-request="handleAttachmentUpload"
+              >
+                <n-button secondary size="small" :loading="uploadingAttachment">
                   <template #icon>
-                    <n-icon :component="DocumentTextOutline" />
+                    <n-icon :component="CloudUploadOutline" />
                   </template>
-                  {{ formData.attachmentName || '附件文件' }}
-                </n-tag>
-                <a :href="formData.attachmentUrl" target="_blank" class="attachment-link">查看/下载</a>
-              </div>
+                  {{ t('admin.challenges.upload_local_attachments') }}
+                </n-button>
+              </n-upload>
 
-              <div class="attachment-actions">
-                <n-upload
-                  :show-file-list="false"
-                  :custom-request="handleAttachmentUpload"
-                >
-                  <n-button size="small" secondary :loading="uploadingAttachment">
-                    <template #icon>
-                      <n-icon :component="CloudUploadOutline" />
-                    </template>
-                    {{ formData.attachmentUrl ? '更换附件' : '上传附件' }}
-                  </n-button>
-                </n-upload>
-
+              <div class="external-link-row">
                 <n-input
-                  v-model:value="formData.attachmentUrl"
+                  v-model:value="externalAttachment.name"
                   size="small"
-                  placeholder="或直接填入附件外部下载 URL"
-                  style="flex: 1;"
+                  :placeholder="t('admin.challenges.attachment_name_placeholder')"
+                  style="width: 200px;"
                 />
+                <n-input
+                  v-model:value="externalAttachment.url"
+                  size="small"
+                  :placeholder="t('admin.challenges.attachment_url_placeholder')"
+                  style="flex: 1;"
+                  @keydown.enter.prevent="handleAddExternalAttachment"
+                />
+                <n-button secondary size="small" @click="handleAddExternalAttachment">
+                  <template #icon>
+                    <n-icon :component="AddOutline" />
+                  </template>
+                  {{ t('admin.challenges.add_external_link') }}
+                </n-button>
               </div>
             </div>
-          </n-form-item>
+
+            <!-- 附件列表展示 -->
+            <div v-if="formData.attachments.length > 0" class="attachments-list">
+              <div
+                v-for="(item, index) in formData.attachments"
+                :key="index"
+                class="attachment-item"
+              >
+                <div class="attachment-main">
+                  <div class="attachment-icon-box">
+                    <n-icon :component="DocumentTextOutline" size="20" />
+                  </div>
+                  <div class="attachment-details">
+                    <div class="attachment-title-row">
+                      <span class="attachment-name" :title="item.name">{{ item.name }}</span>
+                      <span v-if="item.size" class="attachment-size">
+                        {{ formatFileSize(item.size) }}
+                      </span>
+                    </div>
+                    <div class="attachment-url" :title="item.url">
+                      {{ item.url }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="attachment-actions">
+                  <n-button
+                    quaternary
+                    size="small"
+                    tag="a"
+                    :href="item.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <template #icon>
+                      <n-icon :component="DownloadOutline" />
+                    </template>
+                    {{ t('admin.challenges.view_download') }}
+                  </n-button>
+
+                  <n-button
+                    quaternary
+                    size="small"
+                    type="error"
+                    @click="removeAttachment(index)"
+                  >
+                    <template #icon>
+                      <n-icon :component="TrashOutline" />
+                    </template>
+                    {{ t('admin.challenges.remove') }}
+                  </n-button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 暂无附件时的空状态 -->
+            <div v-else class="attachments-empty">
+              <n-icon :component="AttachOutline" size="28" class="empty-icon" />
+              <span class="empty-text">{{ t('admin.challenges.no_attachments_tip') }}</span>
+            </div>
+          </div>
         </n-card>
 
         <!-- 4. 容器靶机配置 Card (仅当容器或动态模式时展开) -->
@@ -158,28 +227,24 @@
           v-if="formData.type === 'CONTAINER' || formData.type === 'DYNAMIC'"
           class="form-section-card container-config-card"
           :bordered="false"
-          title="动态靶机容器配置"
+          :title="t('admin.challenges.container_config')"
         >
           <template #header-extra>
             <div class="section-badge">
               <n-icon :component="CubeOutline" />
-              <span>动态实例下发</span>
+              <span>{{ t('admin.challenges.dynamic_instance_dispatch') }}</span>
             </div>
           </template>
 
-          <n-alert type="info" :show-icon="false" style="margin-bottom: 16px;">
-            系统将基于此镜像按需为选手下发独立的动态靶机实例；镜像若在当前集群节点中未就绪，保存后将自动提交异步镜像拉取任务。
-          </n-alert>
-
-          <n-form-item label="镜像全称" path="imageName">
+          <n-form-item :label="t('admin.challenges.image_name')" path="imageName">
             <n-input
               v-model:value="formData.imageName"
-              placeholder="例如: wzbcctf2026/cve-0114-0514:latest 或 ctf_web_sqli:v1"
+              :placeholder="t('admin.challenges.image_name_placeholder')"
             />
           </n-form-item>
 
           <div class="form-row-3">
-            <n-form-item label="开放端口" path="containerPort">
+            <n-form-item :label="t('admin.challenges.container_port')" path="containerPort">
               <n-input-number
                 v-model:value="formData.containerPort"
                 placeholder="80"
@@ -189,7 +254,7 @@
               />
             </n-form-item>
 
-            <n-form-item label="CPU配额(m)" path="cpuLimit">
+            <n-form-item :label="t('admin.challenges.cpu_limit')" path="cpuLimit">
               <n-input-number
                 v-model:value="formData.cpuLimit"
                 placeholder="1000"
@@ -199,7 +264,7 @@
               />
             </n-form-item>
 
-            <n-form-item label="内存配额(MB)" path="memoryLimit">
+            <n-form-item :label="t('admin.challenges.memory_limit')" path="memoryLimit">
               <n-input-number
                 v-model:value="formData.memoryLimit"
                 placeholder="512"
@@ -213,7 +278,7 @@
 
         <!-- Bottom Action Bar -->
         <div class="bottom-action-bar">
-          <n-button secondary size="medium" @click="handleBack">取消并返回</n-button>
+          <n-button secondary size="medium" @click="handleBack">{{ t('admin.challenges.cancel_and_back') }}</n-button>
           <n-button
             type="primary"
             class="theme-primary-btn"
@@ -224,7 +289,7 @@
             <template #icon>
               <n-icon :component="SaveOutline" />
             </template>
-            {{ isEditMode ? '保存赛题修改' : '确认创建赛题' }}
+            {{ isEditMode ? t('admin.challenges.save_challenge') : t('admin.challenges.confirm_create_challenge') }}
           </n-button>
         </div>
       </n-form>
@@ -235,6 +300,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import {
   NCard,
   NForm,
@@ -242,11 +308,9 @@ import {
   NInput,
   NInputNumber,
   NSelect,
-  NRate,
   NTag,
   NButton,
   NIcon,
-  NAlert,
   NUpload,
   NSpin,
   useMessage,
@@ -259,22 +323,27 @@ import {
   SaveOutline,
   DocumentTextOutline,
   CloudUploadOutline,
-  CubeOutline
+  CubeOutline,
+  AddOutline,
+  TrashOutline,
+  DownloadOutline,
+  AttachOutline
 } from '@vicons/ionicons5'
 import {
   getAdminCtfChallengeDetailApi,
   createAdminCtfChallengeApi,
   updateAdminCtfChallengeApi,
-  getAdminCtfCategoriesApi
+  getAdminCtfCategoriesApi,
+  uploadAdminCtfAttachmentApi
 } from '@/api/challenge'
-import { uploadResourceApi } from '@/api/system'
 import type {
   CtfCategoryVO,
   CtfChallengeCreateRequestDTO,
+  CtfAttachmentVO,
   ChallengeType,
   ChallengeDifficulty
 } from '@/types/challenge'
-import { VolurIcon } from '@/public/volurEx'
+import { VolurIcon, VolurMarkdownEditor } from '@/public/volurEx'
 
 interface Props {
   challengeId?: number | string
@@ -294,12 +363,23 @@ const emit = defineEmits<{
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
+const { t } = useI18n()
 
 const targetId = computed<string | number | undefined>(() => {
   return props.challengeId || (route.params.id as string | undefined)
 })
 
 const isEditMode = computed<boolean>(() => Boolean(targetId.value))
+
+const pageTitle = computed(() => {
+  if (isEditMode.value) {
+    const titleName = editingChallengeName.value || formData.name
+    return titleName
+      ? `${titleName} - ${t('admin.challenges.ctf_manage_title')}`
+      : t('admin.challenges.ctf_manage_title')
+  }
+  return t('admin.challenges.create_ctf_title')
+})
 
 const loadingDetail = ref(false)
 const saving = ref(false)
@@ -308,6 +388,14 @@ const formRef = ref<FormInst | null>(null)
 const editingChallengeName = ref('')
 const categoryList = ref<CtfCategoryVO[]>([])
 
+const externalAttachment = reactive<{
+  name: string
+  url: string
+}>({
+  name: '',
+  url: ''
+})
+
 const formData = reactive<{
   name: string
   categoryId: number | string | null
@@ -315,8 +403,7 @@ const formData = reactive<{
   difficulty: number
   flag: string
   description: string
-  attachmentUrl: string
-  attachmentName: string
+  attachments: CtfAttachmentVO[]
   imageName: string
   containerPort: number | null
   cpuLimit: number | null
@@ -328,51 +415,37 @@ const formData = reactive<{
   difficulty: 1,
   flag: '',
   description: '',
-  attachmentUrl: '',
-  attachmentName: '',
+  attachments: [],
   imageName: '',
   containerPort: 80,
   cpuLimit: 1000,
   memoryLimit: 512
 })
 
-const formRules: FormRules = {
+const formRules = computed<FormRules>(() => ({
   name: [
-    { required: true, message: '题目名称不能为空', trigger: ['blur', 'input'] }
+    { required: true, message: t('admin.challenges.rules_name_required'), trigger: ['blur', 'input'] }
   ],
   categoryId: [
-    { required: true, message: '分类方向不能为空' }
+    { required: true, message: t('admin.challenges.rules_category_required') }
   ],
   type: [
-    { required: true, message: '题目模式不能为空', trigger: 'change' }
+    { required: true, message: t('admin.challenges.rules_type_required'), trigger: 'change' }
   ]
-}
+}))
 
-const typeOptions = [
-  { label: '静态题 (STATIC)', value: 'STATIC' },
-  { label: '动态Flag (DYNAMIC)', value: 'DYNAMIC' },
-  { label: '动态容器/靶机 (CONTAINER)', value: 'CONTAINER' }
-]
+const typeOptions = computed(() => [
+  { label: t('admin.challenges.type_static_attachment'), value: 'STATIC' },
+  { label: t('admin.challenges.type_dynamic_container'), value: 'DYNAMIC' }
+])
 
-/**
- * 难度等级映射 (对齐后端 CtfChallenge 与 challenge.json)
- * 1 -> 入门 (easy)
- * 2 -> 简单 (normal)
- * 3 -> 中等 (mid)
- * 4 -> 进阶 (hard)
- * 5 -> 困难 (difficult)
- */
-function getDifficultyBadge(diffVal?: ChallengeDifficulty | number | string) {
-  const num = parseDifficultyToNumber(diffVal)
-  const map: Record<number, { label: string; type: 'default' | 'info' | 'success' | 'warning' | 'error' }> = {
-    1: { label: '入门 (easy)', type: 'info' },
-    2: { label: '简单 (normal)', type: 'success' },
-    3: { label: '中等 (mid)', type: 'warning' },
-    4: { label: '进阶 (hard)', type: 'error' },
-    5: { label: '困难 (difficult)', type: 'error' }
-  }
-  return map[num] || { label: `Lv.${num}`, type: 'default' }
-}
+const difficultyOptions = computed(() => [
+  { label: t('admin.challenges.diff_easy'), value: 1 },
+  { label: t('admin.challenges.diff_normal'), value: 2 },
+  { label: t('admin.challenges.diff_mid'), value: 3 },
+  { label: t('admin.challenges.diff_hard'), value: 4 },
+  { label: t('admin.challenges.diff_difficult'), value: 5 }
+])
 
 function parseDifficultyToNumber(diff?: ChallengeDifficulty | number | string): number {
   if (typeof diff === 'number') return diff
@@ -403,6 +476,17 @@ function parseDifficultyToNumber(diff?: ChallengeDifficulty | number | string): 
     default:
       return 1
   }
+}
+
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  const kb = bytes / 1024
+  if (kb < 1024) return `${kb.toFixed(1)} KB`
+  const mb = kb / 1024
+  if (mb < 1024) return `${mb.toFixed(1)} MB`
+  const gb = mb / 1024
+  return `${gb.toFixed(2)} GB`
 }
 
 const categoryFormOptions = computed(() => {
@@ -451,15 +535,6 @@ function renderCategoryOptionLabel(option: { label?: string; icon?: string; [key
   )
 }
 
-function getTypeTagType(type: ChallengeType): 'default' | 'primary' | 'info' | 'success' | 'warning' | 'error' {
-  switch (type) {
-    case 'CONTAINER': return 'info'
-    case 'DYNAMIC': return 'warning'
-    case 'STATIC': return 'default'
-    default: return 'default'
-  }
-}
-
 async function fetchCategories() {
   try {
     const res = await getAdminCtfCategoriesApi()
@@ -482,21 +557,37 @@ async function fetchChallengeDetail(id: number | string) {
       const d = res.data
       formData.name = d.name
       formData.categoryId = d.categoryId
-      formData.type = d.type
+      formData.type = (d.type === 'CONTAINER' ? 'DYNAMIC' : d.type) || 'STATIC'
       formData.difficulty = parseDifficultyToNumber(d.difficulty)
       formData.flag = d.flag || ''
       formData.description = d.description || ''
-      formData.attachmentUrl = d.attachmentUrl || ''
-      formData.attachmentName = d.attachmentName || ''
       formData.imageName = d.imageName || ''
       formData.containerPort = d.containerPort || 80
       formData.cpuLimit = d.cpuLimit || 1000
       formData.memoryLimit = d.memoryLimit || 512
       editingChallengeName.value = d.name
+
+      // 解析赛题附件列表：优先使用 attachments 数组，兼容历史单一 attachmentUrl
+      if (d.attachments && Array.isArray(d.attachments) && d.attachments.length > 0) {
+        formData.attachments = d.attachments.map(att => ({
+          name: att.name,
+          url: att.url,
+          size: att.size
+        }))
+      } else if (d.attachmentUrl) {
+        formData.attachments = [
+          {
+            name: d.attachmentName || t('admin.challenges.default_attachment_name'),
+            url: d.attachmentUrl
+          }
+        ]
+      } else {
+        formData.attachments = []
+      }
     }
   } catch (err) {
     console.error('Failed to load challenge detail:', err)
-    message.error('加载赛题详情失败')
+    message.error(t('admin.challenges.load_detail_failed'))
   } finally {
     loadingDetail.value = false
   }
@@ -515,6 +606,7 @@ async function handleSaveChallenge() {
     if (errors) return
     saving.value = true
     try {
+      const primaryAttachment = formData.attachments.length > 0 ? formData.attachments[0] : null
       const payload: CtfChallengeCreateRequestDTO = {
         name: formData.name.trim(),
         description: formData.description,
@@ -522,8 +614,13 @@ async function handleSaveChallenge() {
         type: formData.type,
         difficulty: formData.difficulty,
         flag: formData.flag?.trim() || undefined,
-        attachmentUrl: formData.attachmentUrl?.trim() || undefined,
-        attachmentName: formData.attachmentName?.trim() || undefined,
+        attachments: formData.attachments.map(att => ({
+          name: att.name.trim(),
+          url: att.url.trim(),
+          size: att.size
+        })),
+        attachmentUrl: primaryAttachment ? primaryAttachment.url.trim() : undefined,
+        attachmentName: primaryAttachment ? primaryAttachment.name.trim() : undefined,
         imageName: formData.imageName?.trim() || undefined,
         containerPort: formData.containerPort || undefined,
         cpuLimit: formData.cpuLimit || undefined,
@@ -532,7 +629,7 @@ async function handleSaveChallenge() {
 
       if (isEditMode.value && targetId.value) {
         await updateAdminCtfChallengeApi(targetId.value, payload)
-        message.success('赛题更新成功')
+        message.success(t('admin.challenges.update_success'))
         if (props.isEmbedded) {
           emit('saved', targetId.value)
         } else {
@@ -540,7 +637,7 @@ async function handleSaveChallenge() {
         }
       } else {
         const createRes = await createAdminCtfChallengeApi(payload)
-        message.success('赛题创建成功')
+        message.success(t('admin.challenges.create_success'))
         const newId = createRes.data || ''
         if (props.isEmbedded) {
           emit('saved', newId)
@@ -550,7 +647,7 @@ async function handleSaveChallenge() {
       }
     } catch (err: unknown) {
       console.error('Failed to save challenge:', err)
-      const errorMsg = err instanceof Error ? err.message : '保存赛题失败'
+      const errorMsg = err instanceof Error ? err.message : t('admin.challenges.save_failed')
       message.error(errorMsg)
     } finally {
       saving.value = false
@@ -565,23 +662,60 @@ async function handleAttachmentUpload(options: UploadCustomRequestOptions) {
   try {
     const uploadForm = new FormData()
     uploadForm.append('file', file)
-    const res = await uploadResourceApi(uploadForm, 'attachments')
+    const res = await uploadAdminCtfAttachmentApi(uploadForm)
     if (res.success && res.data) {
-      formData.attachmentUrl = res.data.filePath
-      formData.attachmentName = res.data.fileName
-      message.success('附件上传成功')
+      const att = res.data
+      formData.attachments.push({
+        name: att.name || file.name,
+        url: att.url,
+        size: att.size || file.size
+      })
+      message.success(t('admin.challenges.attachment_uploaded', { name: att.name || file.name }))
+      options.onFinish()
+    } else {
+      message.error(res.message || t('admin.challenges.upload_attachment_failed'))
+      options.onError()
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Attachment upload failed:', err)
-    message.error('附件上传失败')
+    const msg = err instanceof Error ? err.message : t('admin.challenges.attachment_upload_failed')
+    message.error(msg)
+    options.onError()
   } finally {
     uploadingAttachment.value = false
   }
 }
 
-function clearAttachment() {
-  formData.attachmentUrl = ''
-  formData.attachmentName = ''
+function handleAddExternalAttachment() {
+  const url = externalAttachment.url.trim()
+  if (!url) {
+    message.warning(t('admin.challenges.input_attachment_url_tip'))
+    return
+  }
+  let name = externalAttachment.name.trim()
+  if (!name) {
+    try {
+      const parsedUrl = new URL(url)
+      const pathname = parsedUrl.pathname
+      const lastSegment = pathname.substring(pathname.lastIndexOf('/') + 1)
+      name = decodeURIComponent(lastSegment) || t('admin.challenges.default_external_name')
+    } catch {
+      name = t('admin.challenges.default_external_name')
+    }
+  }
+
+  formData.attachments.push({
+    name,
+    url
+  })
+
+  externalAttachment.name = ''
+  externalAttachment.url = ''
+  message.success(t('admin.challenges.attachment_added', { name }))
+}
+
+function removeAttachment(index: number) {
+  formData.attachments.splice(index, 1)
 }
 
 onMounted(async () => {
@@ -609,15 +743,30 @@ onMounted(async () => {
     .header-left {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
 
       .back-btn {
         align-self: flex-start;
-        padding-left: 0;
+        padding: 0;
         color: #444444;
+        background-color: transparent !important;
+        background: transparent !important;
+        transition: color 0.15s ease;
 
-        &:hover {
-          color: var(--v-color-primary, #000000);
+        &:hover,
+        &:focus,
+        &:active {
+          color: #111111 !important;
+          background-color: transparent !important;
+          background: transparent !important;
+
+          :deep(.n-icon) {
+            color: #111111 !important;
+          }
+        }
+
+        :deep(.n-button__state-border) {
+          display: none !important;
         }
       }
 
@@ -632,15 +781,6 @@ onMounted(async () => {
           font-weight: 700;
           color: var(--v-text-primary, #111111);
           margin: 0;
-        }
-
-        .challenge-title-badge {
-          font-size: 14px;
-          font-weight: 500;
-          color: #666666;
-          background: rgba(0, 0, 0, 0.05);
-          padding: 2px 10px;
-          border-radius: 6px;
         }
       }
     }
@@ -705,32 +845,141 @@ onMounted(async () => {
       border: 1px solid #bbf7d0;
     }
 
-    .attachment-box {
+    .card-header-with-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .attachments-container {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      width: 100%;
+      gap: 16px;
 
-      .attachment-preview {
+      .attachment-actions-bar {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 14px;
+        flex-wrap: wrap;
 
-        .attachment-link {
-          font-size: 13px;
-          color: #2563eb;
-          text-decoration: none;
+        .external-link-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex: 1;
+          min-width: 320px;
+        }
+      }
+
+      .attachments-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        .attachment-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 14px;
+          background: var(--v-bg-subtle, #f9fafb);
+          border: 1px solid var(--v-border-base, #e5e4e7);
+          border-radius: 6px;
+          transition: all 0.2s ease;
 
           &:hover {
-            text-decoration: underline;
+            border-color: #cbd5e1;
+            background: rgba(0, 0, 0, 0.02);
+          }
+
+          .attachment-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex: 1;
+
+            .attachment-icon-box {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 36px;
+              height: 36px;
+              border-radius: 6px;
+              background: rgba(0, 0, 0, 0.05);
+              color: #444444;
+              flex-shrink: 0;
+            }
+
+            .attachment-details {
+              display: flex;
+              flex-direction: column;
+              gap: 3px;
+              min-width: 0;
+              flex: 1;
+
+              .attachment-title-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+
+                .attachment-name {
+                  font-size: 14px;
+                  font-weight: 600;
+                  color: var(--v-text-primary, #111111);
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                }
+
+                .attachment-size {
+                  font-size: 11px;
+                  color: #666666;
+                  background: rgba(0, 0, 0, 0.05);
+                  padding: 1px 6px;
+                  border-radius: 4px;
+                }
+              }
+
+              .attachment-url {
+                font-size: 12px;
+                color: #666666;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+            }
+          }
+
+          .attachment-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            margin-left: 12px;
           }
         }
       }
 
-      .attachment-actions {
+      .attachments-empty {
         display: flex;
         align-items: center;
-        gap: 12px;
+        justify-content: center;
+        gap: 10px;
+        padding: 24px 16px;
+        border: 1px dashed var(--v-border-base, #e5e4e7);
+        border-radius: 6px;
+        background: var(--v-bg-subtle, #fafafa);
+        color: #666666;
+        font-size: 13px;
+
+        .empty-icon {
+          color: #999999;
+          flex-shrink: 0;
+        }
+
+        .empty-text {
+          color: #666666;
+        }
       }
     }
 

@@ -99,4 +99,11 @@ public class AdminCtfChallengeController {
         challengeService.exportChallenges(ids, response);
     }
 
+    @Operation(summary = "上传 CTF 赛题附件")
+    @PostMapping(value = "/attachments/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<com.humolix.volur.challenge.domain.vo.ctf.CtfAttachmentVO> uploadAttachment(
+            @RequestParam("file") MultipartFile file) {
+        return ApiResponseEntity.ok("附件上传成功", challengeService.uploadAttachment(file));
+    }
+
 }

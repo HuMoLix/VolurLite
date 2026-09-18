@@ -1,7 +1,7 @@
 <template>
   <div class="challenge-tab">
     <!-- Mounted Challenges Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :columns="columns"
@@ -40,29 +40,29 @@
               <template #icon>
                 <n-icon :component="AddOutline" />
               </template>
-              从题库导入赛题
+              创建题目
             </n-button>
           </div>
         </div>
       </template>
       <template #empty>
         <div style="padding: 24px; text-align: center; color: #888;">
-          暂无挂载赛题，请点击右上角「从题库导入赛题」进行挂载
+          暂无挂载赛题，请点击右上角「创建题目」进行添加
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Import Challenges Modal -->
     <n-modal
       v-model:show="showImportModal"
       preset="card"
-      title="从公共题库导入赛题"
+      title="创建题目"
       style="width: 860px; max-height: 85vh;"
       :mask-closable="false"
     >
-      <div class="import-modal-container">
+      <n-space vertical :size="16" style="width: 100%;">
         <!-- Filter Controls -->
-        <div class="bank-filter-bar">
+        <n-space align="center" :size="12" class="bank-filter-bar">
           <n-select
             v-model:value="filterCategory"
             :options="categoryOptions"
@@ -75,36 +75,45 @@
             v-model:value="searchKeyword"
             placeholder="搜索题库题目名称..."
             clearable
-            style="width: 240px;"
+            style="width: 280px;"
             @keyup.enter="fetchBankChallenges"
-          />
-          <n-button size="small" @click="fetchBankChallenges">查询</n-button>
-        </div>
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
+          <n-button type="primary" class="theme-primary-btn" @click="fetchBankChallenges">
+            <template #icon>
+              <n-icon :component="SearchOutline" />
+            </template>
+            查询
+          </n-button>
+        </n-space>
 
         <!-- Default Scoring Batch Settings -->
-        <n-card class="batch-scoring-card" size="small" title="挂载分值策略默认参数" :bordered="false">
+        <n-card class="batch-scoring-card" size="small" title="挂载分值策略默认参数" :bordered="false" style="background: var(--v-bg-muted, #f8f8f9);">
           <n-grid :x-gap="16" :y-gap="8" cols="2 s:4" responsive="screen">
             <n-grid-item>
-              <div class="score-input-item">
-                <span class="label">初始分 (pts)</span>
+              <div class="score-input-item" style="display: flex; flex-direction: column; gap: 4px;">
+                <span class="label" style="font-size: 12px; color: #444444;">初始分 (pts)</span>
                 <n-input-number v-model:value="batchScoring.initialPoints" :min="10" :max="10000" size="small" />
               </div>
             </n-grid-item>
             <n-grid-item>
-              <div class="score-input-item">
-                <span class="label">保底分 (pts)</span>
+              <div class="score-input-item" style="display: flex; flex-direction: column; gap: 4px;">
+                <span class="label" style="font-size: 12px; color: #444444;">保底分 (pts)</span>
                 <n-input-number v-model:value="batchScoring.minPoints" :min="10" :max="5000" size="small" />
               </div>
             </n-grid-item>
             <n-grid-item>
-              <div class="score-input-item">
-                <span class="label">衰减解出数</span>
+              <div class="score-input-item" style="display: flex; flex-direction: column; gap: 4px;">
+                <span class="label" style="font-size: 12px; color: #444444;">衰减解出数</span>
                 <n-input-number v-model:value="batchScoring.decayCount" :min="1" :max="500" size="small" />
               </div>
             </n-grid-item>
             <n-grid-item>
-              <div class="score-input-item">
-                <span class="label">排序权重</span>
+              <div class="score-input-item" style="display: flex; flex-direction: column; gap: 4px;">
+                <span class="label" style="font-size: 12px; color: #444444;">排序权重</span>
                 <n-input-number v-model:value="batchScoring.sortOrder" :min="0" :max="9999" size="small" />
               </div>
             </n-grid-item>
@@ -124,11 +133,15 @@
             empty-text="暂无匹配题库赛题"
           />
         </n-spin>
+      </n-space>
 
-        <!-- Footer -->
-        <div class="modal-actions">
-          <span class="selected-hint">已选中 {{ selectedBankKeys.length }} 道题目</span>
-          <div class="btn-group">
+      <!-- Footer -->
+      <template #footer>
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <span style="font-size: 13px; color: var(--v-color-primary, #18a058); font-weight: 500;">
+            已选中 {{ selectedBankKeys.length }} 道题目
+          </span>
+          <n-space :size="12">
             <n-button @click="showImportModal = false">取消</n-button>
             <n-button
               class="theme-primary-btn"
@@ -138,9 +151,9 @@
             >
               确认批量挂载
             </n-button>
-          </div>
+          </n-space>
         </div>
-      </div>
+      </template>
     </n-modal>
 
     <!-- Edit Mounted Challenge Config Modal -->
@@ -174,14 +187,17 @@
               </n-form-item>
             </n-grid-item>
           </n-grid>
-          <div class="modal-actions">
-            <n-button @click="showConfigModal = false">取消</n-button>
-            <n-button class="theme-primary-btn" :loading="configSubmitting" @click="handleSaveChallengeConfig">
-              保存配置
-            </n-button>
-          </div>
         </n-form>
       </div>
+
+      <template #footer>
+        <n-space justify="end" :size="12">
+          <n-button @click="showConfigModal = false">取消</n-button>
+          <n-button class="theme-primary-btn" :loading="configSubmitting" @click="handleSaveChallengeConfig">
+            保存配置
+          </n-button>
+        </n-space>
+      </template>
     </n-modal>
   </div>
 </template>
@@ -203,14 +219,16 @@ import {
   NTag,
   NGrid,
   NGridItem,
+  NSpace,
   useMessage,
   useDialog,
   type DataTableColumns
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   RefreshOutline,
-  AddOutline
+  AddOutline,
+  SearchOutline
 } from '@vicons/ionicons5'
 import type {
   CtfCompetitionChallengeVO,
@@ -614,60 +632,6 @@ function handleUnmount(row: CtfCompetitionChallengeVO) {
           justify-content: center;
         }
       }
-    }
-  }
-
-  .import-modal-container {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-
-    .bank-filter-bar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .batch-scoring-card {
-      background: var(--v-bg-muted, #f8f8f9);
-
-      .score-input-item {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-
-        .label {
-          font-size: 12px;
-          color: #444444;
-        }
-      }
-    }
-
-    .modal-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 10px;
-
-      .selected-hint {
-        font-size: 13px;
-        color: var(--v-color-primary, #18a058);
-        font-weight: 500;
-      }
-
-      .btn-group {
-        display: flex;
-        gap: 12px;
-      }
-    }
-  }
-
-  .config-modal-form {
-    .modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 12px;
-      margin-top: 20px;
     }
   }
 }

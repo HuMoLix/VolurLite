@@ -64,7 +64,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'CompetitionArena',
-        component: () => import('@/views/competition/CtfCompetitionArenaView.vue'),
+        component: () => import('@/views/competition/ctf/CtfCompetitionArenaView.vue'),
         meta: { title: '竞赛竞技场', titleKey: 'competition.arena_title', requiresAuth: true }
       }
     ]

@@ -63,6 +63,7 @@
   "tab_containers": "Container Management",
   "tab_writeups": "Writeup Management",
   "tab_teams": "Team Audit",
+  "tab_tickets": "Tickets & Chat",
   "tip_create_first": "Please save the basic event settings first before configuring challenges, containers, announcements, and team audits.",
   "btn_save_config": "Save Configuration",
   "btn_open_public": "Open Public Page",

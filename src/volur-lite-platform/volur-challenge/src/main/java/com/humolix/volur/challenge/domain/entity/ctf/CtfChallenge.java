@@ -64,6 +64,9 @@ public class CtfChallenge implements Challenge, Containerizable, Serializable {
     @Column(name = "attachment_name", columnDefinition = "VARCHAR(255)")
     private String attachmentName;
 
+    @Column(name = "attachments", columnDefinition = "TEXT")
+    private String attachments;
+
     @Column(name = "image_name", columnDefinition = "VARCHAR(255)")
     private String imageName;
 

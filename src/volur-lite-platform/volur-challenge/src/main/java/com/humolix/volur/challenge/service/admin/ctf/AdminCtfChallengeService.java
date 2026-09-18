@@ -33,4 +33,6 @@ public interface AdminCtfChallengeService {
 
     void exportChallenges(List<Long> challengeIds, HttpServletResponse response);
 
+    com.humolix.volur.challenge.domain.vo.ctf.CtfAttachmentVO uploadAttachment(MultipartFile file);
+
 }

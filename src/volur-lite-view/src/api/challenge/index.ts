@@ -5,6 +5,7 @@ import type {
   CtfChallengeDetailVO,
   CtfChallengeCreateRequestDTO,
   CtfChallengeUpdateRequestDTO,
+  CtfAttachmentVO,
   CtfCategoryVO,
   CtfCategoryCreateRequestDTO,
   CtfCategoryUpdateRequestDTO,
@@ -75,6 +76,16 @@ export function deleteAdminCtfChallengeApi(id: number | string): Promise<ApiResp
  */
 export function importAdminCtfChallengeApi(formData: FormData): Promise<ApiResponse<ChallengeImportResultVO>> {
   return request.post<ChallengeImportResultVO>('/admin/challenges/ctf/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+/**
+ * 上传 CTF 赛题附件
+ * 对应后端: POST /api/v1/admin/challenges/ctf/attachments/upload
+ */
+export function uploadAdminCtfAttachmentApi(formData: FormData): Promise<ApiResponse<CtfAttachmentVO>> {
+  return request.post<CtfAttachmentVO>('/admin/challenges/ctf/attachments/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
 }

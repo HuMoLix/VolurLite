@@ -29,6 +29,7 @@ public class CtfChallengeDetailVO implements Serializable {
     private String flag;
     private String attachmentUrl;
     private String attachmentName;
+    private java.util.List<CtfAttachmentVO> attachments;
     private String imageName;
     private Integer containerPort;
     private Integer cpuLimit;

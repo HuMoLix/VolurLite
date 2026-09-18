@@ -93,7 +93,7 @@
     </n-card>
 
     <!-- Section 2: Submitted Writeups List -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :columns="columns"
@@ -108,22 +108,32 @@
       </template>
 
       <template #filter-right>
-        <div class="tab-filter-right">
+        <n-space align="center" :size="12" class="tab-filter-right">
           <n-input
             v-model:value="searchKeyword"
             placeholder="搜索队伍名、队长或文件名..."
             clearable
+            style="width: 260px;"
             class="filter-search-input"
             @keyup.enter="fetchWriteups"
-          />
-          <n-button type="primary" class="theme-primary-btn" @click="fetchWriteups">查询</n-button>
+          >
+            <template #prefix>
+              <n-icon :component="SearchOutline" />
+            </template>
+          </n-input>
+          <n-button type="primary" class="theme-primary-btn" @click="fetchWriteups">
+            <template #icon>
+              <n-icon :component="SearchOutline" />
+            </template>
+            查询
+          </n-button>
           <n-button quaternary :loading="loading" @click="fetchWriteups">
             <template #icon>
               <n-icon :component="RefreshOutline" />
             </template>
             刷新
           </n-button>
-        </div>
+        </n-space>
       </template>
 
       <template #empty>
@@ -131,7 +141,7 @@
           当前比赛暂无队伍提交 Writeup
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Section 3: Live Document Rendering Modal (Supports DOCX, PDF, Markdown) -->
     <n-modal
@@ -204,6 +214,11 @@
           </n-spin>
         </div>
       </div>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showPreviewModal = false">关闭预览</n-button>
+        </n-space>
+      </template>
     </n-modal>
 
     <!-- Audit & Score Modal -->
@@ -237,15 +252,16 @@
               :rows="4"
             />
           </n-form-item>
-
-          <div class="modal-actions">
-            <n-button @click="showAuditModal = false">取消</n-button>
-            <n-button class="theme-primary-btn" :loading="auditSubmitting" @click="handleSaveAudit">
-              提交评审
-            </n-button>
-          </div>
         </n-form>
       </div>
+      <template #footer>
+        <n-space justify="end" :size="12">
+          <n-button @click="showAuditModal = false">取消</n-button>
+          <n-button class="theme-primary-btn" :loading="auditSubmitting" @click="handleSaveAudit">
+            提交评审
+          </n-button>
+        </n-space>
+      </template>
     </n-modal>
   </div>
 </template>
@@ -268,16 +284,18 @@ import {
   NTag,
   NGrid,
   NGridItem,
+  NSpace,
   useMessage,
   useDialog,
   type DataTableColumns
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   CloudUploadOutline,
   DocumentTextOutline,
   DownloadOutline,
-  RefreshOutline
+  RefreshOutline,
+  SearchOutline
 } from '@vicons/ionicons5'
 import type {
   CompetitionWriteupVO,
@@ -942,15 +960,6 @@ function formatFileSize(bytes: number) {
   }
 }
 
-.audit-modal-form {
-  .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-top: 20px;
-  }
-}
-
 .tab-filter-right {
   display: flex;
   align-items: center;
@@ -958,7 +967,7 @@ function formatFileSize(bytes: number) {
   flex-wrap: wrap;
 
   .filter-search-input {
-    width: 240px;
+    width: 260px;
   }
 }
 

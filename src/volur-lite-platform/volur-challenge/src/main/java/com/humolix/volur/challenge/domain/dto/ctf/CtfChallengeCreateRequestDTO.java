@@ -32,6 +32,8 @@ public class CtfChallengeCreateRequestDTO {
 
     private String attachmentName;
 
+    private java.util.List<CtfAttachmentDTO> attachments;
+
     private String imageName;
 
     private Integer containerPort;

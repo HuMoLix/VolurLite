@@ -7,7 +7,7 @@
     </div>
 
     <!-- Main Content Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :scroll-x="1210"
@@ -64,7 +64,7 @@
           </n-button>
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
   </div>
 </template>
 
@@ -81,7 +81,7 @@ import {
   useMessage,
   type DataTableColumns
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   SearchOutline,
   AddOutline
@@ -115,6 +115,7 @@ const pagination = reactive({
   pageSize: 10,
   itemCount: 0,
   showSizePicker: true,
+  showQuickJumper: true,
   pageSizes: [10, 20, 50],
   onChange: (page: number) => {
     pagination.page = page
@@ -417,7 +418,7 @@ onMounted(() => {
 
   .page-desc {
     font-size: 13px;
-    color: #444444;
+    color: var(--v-text-desc, #444444);
     margin-top: 4px;
   }
 }

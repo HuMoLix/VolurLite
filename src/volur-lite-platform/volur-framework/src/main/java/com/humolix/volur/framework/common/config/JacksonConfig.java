@@ -33,9 +33,6 @@ public class JacksonConfig {
                 .build();
     }
 
-    /**
-     * 为兼容使用 Jackson 2 (com.fasterxml.jackson) 的历史或第三方组件，提供兜底 Bean，防止 BeanNotFoundException。
-     */
     @Bean
     @org.springframework.boot.autoconfigure.condition.ConditionalOnClass(com.fasterxml.jackson.databind.ObjectMapper.class)
     @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(com.fasterxml.jackson.databind.ObjectMapper.class)

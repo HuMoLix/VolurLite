@@ -329,7 +329,8 @@ onMounted(() => {
 
 .overview-card {
   border-radius: 10px;
-  background-color: var(--n-color, #ffffff);
+  background-color: var(--v-bg-card, #ffffff);
+  border: 1px solid var(--v-border-base, #e5e4e7);
 
   .overview-grid {
     display: grid;
@@ -377,7 +378,7 @@ onMounted(() => {
 
         .meta-label {
           font-size: 12px;
-          color: #666666;
+          color: var(--v-text-desc, #666666);
         }
 
         .meta-value {
@@ -400,7 +401,8 @@ onMounted(() => {
 
 .settings-card {
   border-radius: 10px;
-  background-color: var(--n-color, #ffffff);
+  background-color: var(--v-bg-card, #ffffff);
+  border: 1px solid var(--v-border-base, #e5e4e7);
 
   .tab-content-container {
     padding: 24px 8px;

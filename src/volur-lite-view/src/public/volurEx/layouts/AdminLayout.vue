@@ -65,7 +65,7 @@ import {
 } from '@vicons/ionicons5'
 import { useAppStore } from '@/store/modules/app'
 import { useI18n } from 'vue-i18n'
-import { SseClient } from '@/utils/sse'
+import { getGlobalSseClient } from '@/utils/sse'
 import type { AdminAsyncTaskVO } from '@/types/task'
 
 const router = useRouter()
@@ -183,12 +183,12 @@ function handleMenuSelect(key: string) {
 }
 
 const notification = useNotification()
-let adminSseClient: SseClient | null = null
+let unsubTaskEvent: (() => void) | null = null
 
 onMounted(() => {
   try {
-    adminSseClient = new SseClient('/api/v1/realtime/stream')
-    adminSseClient.on('task_event', (data: AdminAsyncTaskVO) => {
+    const sse = getGlobalSseClient()
+    unsubTaskEvent = sse.on('task_event', (data: AdminAsyncTaskVO) => {
       if (!data) return
 
       if (data.status === 'SUCCESS') {
@@ -210,15 +210,15 @@ onMounted(() => {
         window.dispatchEvent(new CustomEvent('volur:async-task-failed', { detail: data }))
       }
     })
-    adminSseClient.connect()
+    sse.connect()
   } catch (e) {
     console.warn('[AdminLayout] SSE connect error', e)
   }
 })
 
 onUnmounted(() => {
-  adminSseClient?.close()
-  adminSseClient = null
+  unsubTaskEvent?.()
+  unsubTaskEvent = null
 })
 </script>
 

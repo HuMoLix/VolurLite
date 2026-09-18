@@ -7,7 +7,7 @@
     </div>
 
     <!-- Main Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :scroll-x="800"
@@ -19,6 +19,7 @@
       :page="currentPage"
       :page-size="pageSize"
       :item-count="totalCount"
+      :row-key="(row: CtfChallengeListVO) => row.id"
       :checked-row-keys="checkedRowKeys"
       @update:page="handlePageChange"
       @update:page-size="handlePageSizeChange"
@@ -91,7 +92,7 @@
           </n-dropdown>
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Import Challenge Modal Component -->
     <CtfImportModal
@@ -123,7 +124,6 @@ import {
   type DataTableColumns,
   type DropdownOption
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
 import CtfCategoryModal from './components/CtfCategoryModal.vue'
 import CtfImportModal from './components/CtfImportModal.vue'
 import {
@@ -147,7 +147,7 @@ import type {
   CtfCategoryVO,
   ChallengeDifficulty
 } from '@/types/challenge'
-import { VolurIcon } from '@/public/volurEx'
+import { VolurIcon, VolurTableCard } from '@/public/volurEx'
 
 const router = useRouter()
 const { t } = useI18n()

@@ -52,7 +52,7 @@
     </div>
 
     <!-- Bottom section: Log Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :scroll-x="1140"
@@ -136,7 +136,7 @@
           </div>
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Log Detail Drawer -->
     <n-drawer v-model:show="showDetailDrawer" :width="560" placement="right">
@@ -221,7 +221,7 @@ import {
   type DataTableColumns,
   type SelectOption
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   ReaderOutline,
   KeyOutline,
@@ -618,19 +618,19 @@ onMounted(() => {
 }
 
 .stat-mini-card {
-  background-color: var(--n-color, #ffffff);
-  border-radius: 8px;
-  padding: 10px 16px;
+  background-color: var(--v-bg-card, #ffffff);
+  border-radius: 10px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--v-border-base, #e5e4e7);
+  box-shadow: var(--v-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.02));
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.2s ease;
 
   &:hover {
-    border-color: rgba(0, 0, 0, 0.12);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    border-color: var(--v-border-focus, #bbbbbb);
+    box-shadow: var(--v-shadow-md, 0 2px 6px rgba(0, 0, 0, 0.05));
   }
 
   .stat-icon-wrapper {
@@ -677,7 +677,7 @@ onMounted(() => {
 
     .stat-label {
       font-size: 12px;
-      color: #444444;
+      color: var(--v-text-desc, #444444);
       font-weight: 500;
     }
   }

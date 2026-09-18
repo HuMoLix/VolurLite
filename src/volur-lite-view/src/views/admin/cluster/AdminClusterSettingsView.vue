@@ -254,7 +254,7 @@ onMounted(() => {
 
   .page-desc {
     font-size: 13px;
-    color: #444444;
+    color: var(--v-text-desc, #444444);
     margin: 0;
   }
 }
@@ -266,17 +266,20 @@ onMounted(() => {
   gap: 16px;
 
   .stat-mini-card {
-    background-color: var(--n-color, #ffffff);
+    background-color: var(--v-bg-card, #ffffff);
     border-radius: 10px;
     padding: 16px 20px;
     display: flex;
     align-items: center;
     gap: 14px;
+    border: 1px solid var(--v-border-base, #e5e4e7);
     box-shadow: var(--v-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
-    transition: transform 0.2s ease;
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
 
     &:hover {
       transform: translateY(-2px);
+      border-color: var(--v-border-focus, #bbbbbb);
+      box-shadow: var(--v-shadow-md, 0 4px 8px rgba(0, 0, 0, 0.06));
     }
 
     .stat-icon-wrapper {
@@ -323,7 +326,7 @@ onMounted(() => {
 
       .stat-label {
         font-size: 12px;
-        color: #444444;
+        color: var(--v-text-desc, #444444);
       }
     }
   }
@@ -331,6 +334,7 @@ onMounted(() => {
 
 .content-card {
   border-radius: 10px;
-  background-color: var(--n-color, #ffffff);
+  background-color: var(--v-bg-card, #ffffff);
+  border: 1px solid var(--v-border-base, #e5e4e7);
 }
 </style>

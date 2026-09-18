@@ -60,6 +60,14 @@ export interface CtfChallengeListVO {
   createdAt?: string
 }
 
+/** CTF 赛题附件 VO (对应 com.humolix.volur.challenge.domain.vo.ctf.CtfAttachmentVO) */
+export interface CtfAttachmentVO {
+  name: string
+  url: string
+  size?: number
+}
+export type CtfAttachmentDTO = CtfAttachmentVO
+
 /** CTF 题目详情 VO (对应 com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeDetailVO) */
 export interface CtfChallengeDetailVO {
   id: number | string
@@ -75,6 +83,7 @@ export interface CtfChallengeDetailVO {
   flag?: string
   attachmentUrl?: string
   attachmentName?: string
+  attachments?: CtfAttachmentVO[]
   imageName?: string
   containerPort?: number
   cpuLimit?: number
@@ -93,6 +102,7 @@ export interface CtfChallengeCreateRequestDTO {
   flag?: string
   attachmentUrl?: string
   attachmentName?: string
+  attachments?: CtfAttachmentDTO[]
   imageName?: string
   containerPort?: number
   cpuLimit?: number
@@ -109,6 +119,7 @@ export interface CtfChallengeUpdateRequestDTO {
   flag?: string
   attachmentUrl?: string
   attachmentName?: string
+  attachments?: CtfAttachmentDTO[]
   imageName?: string
   containerPort?: number
   cpuLimit?: number

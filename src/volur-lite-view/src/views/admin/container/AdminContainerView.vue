@@ -86,7 +86,7 @@
     </div>
 
     <!-- Main Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :scroll-x="1650"
@@ -168,7 +168,7 @@
           </n-popconfirm>
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Renew Duration Modal -->
     <n-modal
@@ -671,7 +671,7 @@ import {
   type DataTableColumns,
   type SelectOption
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   CubeOutline,
   PlayCircleOutline,
@@ -1712,19 +1712,20 @@ onUnmounted(() => {
   .stat-mini-card {
     flex: 1;
     min-width: 160px;
-    background-color: var(--n-color, #ffffff);
+    background-color: var(--v-bg-card, #ffffff);
     border-radius: 10px;
     padding: 12px 16px;
     display: flex;
     align-items: center;
     gap: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    border: 1px solid var(--v-border-subtle, #f0f0f0);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: var(--v-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
+    border: 1px solid var(--v-border-base, #e5e4e7);
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      border-color: var(--v-border-focus, #bbbbbb);
+      box-shadow: var(--v-shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
     }
   }
 
@@ -1789,7 +1790,7 @@ onUnmounted(() => {
 
     .stat-label {
       font-size: 12px;
-      color: #444444;
+      color: var(--v-text-desc, #444444);
       font-weight: 500;
       white-space: nowrap;
     }

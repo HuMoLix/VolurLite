@@ -10,7 +10,7 @@
         </div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.totalUsers }}</div>
-          <div class="stat-label">系统总用户</div>
+          <div class="stat-label">{{ t('admin.users.stat_total_users') }}</div>
         </div>
       </div>
 
@@ -22,7 +22,7 @@
         </div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.adminCount }}</div>
-          <div class="stat-label">管理员数</div>
+          <div class="stat-label">{{ t('admin.users.stat_admin_count') }}</div>
         </div>
       </div>
 
@@ -34,7 +34,7 @@
         </div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.activeCount }}</div>
-          <div class="stat-label">正常启用</div>
+          <div class="stat-label">{{ t('admin.users.stat_active_count') }}</div>
         </div>
       </div>
 
@@ -46,13 +46,13 @@
         </div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.bannedCount }}</div>
-          <div class="stat-label">已封禁</div>
+          <div class="stat-label">{{ t('admin.users.stat_banned_count') }}</div>
         </div>
       </div>
     </div>
 
     <!-- Bottom section: User Management Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :scroll-x="1170"
@@ -71,7 +71,7 @@
         <div class="user-filter-left">
           <n-input
             v-model:value="searchKeyword"
-            placeholder="搜索用户名 / 邮箱 / 组织"
+            :placeholder="t('admin.users.search_placeholder')"
             clearable
             class="filter-input-search"
             @keyup.enter="handleSearch"
@@ -83,7 +83,7 @@
 
           <n-select
             v-model:value="filterRole"
-            placeholder="用户角色"
+            :placeholder="t('admin.users.filter_role')"
             clearable
             :options="roleSelectOptions"
             class="filter-select-role"
@@ -92,7 +92,7 @@
 
           <n-select
             v-model:value="filterStatus"
-            placeholder="账号状态"
+            :placeholder="t('admin.users.filter_status')"
             clearable
             :options="statusSelectOptions"
             class="filter-select-status"
@@ -104,8 +104,8 @@
             type="datetimerange"
             clearable
             format="yyyy-MM-dd HH:mm"
-            start-placeholder="注册起始时间"
-            end-placeholder="注册截止时间"
+            :start-placeholder="t('admin.users.start_time')"
+            :end-placeholder="t('admin.users.end_time')"
             class="filter-date-picker"
             @update:value="handleSearch"
           />
@@ -115,14 +115,14 @@
               <template #icon>
                 <n-icon :component="SearchOutline" />
               </template>
-              查询
+              {{ t('admin.users.query_btn') }}
             </n-button>
 
             <n-button quaternary @click="handleReset">
               <template #icon>
                 <n-icon :component="RefreshOutline" />
               </template>
-              重置
+              {{ t('admin.users.reset_btn') }}
             </n-button>
           </div>
         </div>
@@ -134,17 +134,17 @@
             <template #icon>
               <n-icon :component="AddOutline" />
             </template>
-            新增用户
+            {{ t('admin.users.create_btn') }}
           </n-button>
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Create / Edit User Modal -->
     <n-modal
       v-model:show="showUserModal"
       preset="card"
-      :title="isEditMode ? '编辑用户资料' : '创建新用户'"
+      :title="isEditMode ? t('admin.users.modal.title_edit') : t('admin.users.modal.title_create')"
       style="width: 540px;"
       :mask-closable="false"
     >
@@ -156,66 +156,66 @@
         label-width="90"
         require-mark-placement="right-hanging"
       >
-        <n-form-item label="用户名" path="username">
+        <n-form-item :label="t('admin.users.modal.username_label')" path="username">
           <n-input
             v-model:value="userFormData.username"
-            placeholder="请输入用户名（3-32位字符）"
+            :placeholder="t('admin.users.modal.username_placeholder')"
             :disabled="isEditMode && userFormData.username === 'VolurSuperAdmin'"
           />
         </n-form-item>
 
-        <n-form-item label="电子邮箱" path="email">
+        <n-form-item :label="t('admin.users.modal.email_label')" path="email">
           <n-input
             v-model:value="userFormData.email"
-            placeholder="请输入有效的电子邮箱"
+            :placeholder="t('admin.users.modal.email_placeholder')"
           />
         </n-form-item>
 
         <n-form-item
-          :label="isEditMode ? '新密码' : '登录密码'"
+          :label="isEditMode ? t('admin.users.modal.password_label_edit') : t('admin.users.modal.password_label_create')"
           path="password"
         >
           <n-input
             v-model:value="userFormData.password"
             type="password"
             show-password-on="click"
-            :placeholder="isEditMode ? '留空则保持原密码不变' : '请输入密码（至少6位）'"
+            :placeholder="isEditMode ? t('admin.users.modal.password_placeholder_edit') : t('admin.users.modal.password_placeholder_create')"
           />
         </n-form-item>
 
-        <n-form-item label="用户角色" path="roleName">
+        <n-form-item :label="t('admin.users.modal.role_label')" path="roleName">
           <n-select
             v-model:value="userFormData.roleName"
             :options="roleModalOptions"
-            placeholder="请选择用户权限角色"
+            :placeholder="t('admin.users.modal.role_placeholder')"
             :disabled="isEditMode && userFormData.username === 'VolurSuperAdmin'"
           />
         </n-form-item>
 
-        <n-form-item label="所属组织" path="org">
+        <n-form-item :label="t('admin.users.modal.org_label')" path="org">
           <n-input
             v-model:value="userFormData.org"
-            placeholder="选填，所属战队、公司或院校"
+            :placeholder="t('admin.users.modal.org_placeholder')"
           />
         </n-form-item>
 
-        <n-form-item label="个人简介" path="bio">
+        <n-form-item :label="t('admin.users.modal.bio_label')" path="bio">
           <n-input
             v-model:value="userFormData.bio"
             type="textarea"
             :rows="3"
-            placeholder="选填，个人简介或签名"
+            :placeholder="t('admin.users.modal.bio_placeholder')"
           />
         </n-form-item>
 
-        <n-form-item v-if="isEditMode" label="账号状态" path="status">
+        <n-form-item v-if="isEditMode" :label="t('admin.users.modal.status_label')" path="status">
           <div class="switch-row">
             <n-switch
               v-model:value="userFormData.status"
               :disabled="userFormData.username === 'VolurSuperAdmin'"
             />
             <span class="field-hint">
-              {{ userFormData.status ? '正常启用' : '封禁禁用' }}
+              {{ userFormData.status ? t('admin.users.modal.status_active') : t('admin.users.modal.status_banned') }}
             </span>
           </div>
         </n-form-item>
@@ -223,14 +223,14 @@
 
       <template #footer>
         <div class="modal-footer">
-          <n-button @click="showUserModal = false">取消</n-button>
+          <n-button @click="showUserModal = false">{{ t('admin.users.modal.cancel') }}</n-button>
           <n-button
             type="primary"
             :loading="submitLoading"
             class="theme-primary-btn"
             @click="handleSubmitUserForm"
           >
-            保存提交
+            {{ t('admin.users.modal.submit') }}
           </n-button>
         </div>
       </template>
@@ -239,7 +239,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, h, onMounted } from 'vue'
+import { ref, reactive, computed, h, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   NIcon,
   NInput,
@@ -260,7 +261,7 @@ import {
   type SelectOption
 } from 'naive-ui'
 import AppAvatar from '@/components/common/AppAvatar.vue'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   PeopleOutline,
   ShieldCheckmarkOutline,
@@ -288,6 +289,7 @@ import type {
   AdminUserUpdateDTO
 } from '@/types/user'
 
+const { t, locale } = useI18n()
 const message = useMessage()
 
 // Statistics State
@@ -306,23 +308,23 @@ const dateRange = ref<[number, number] | null>(null)
 const sortBy = ref<string>('id')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 
-const roleSelectOptions: SelectOption[] = [
-  { label: '全部角色', value: '' },
-  { label: '普通用户 (USER)', value: 'USER' },
-  { label: '管理员 (ADMIN)', value: 'ADMIN' },
-  { label: '超级管理员 (SUPER_ADMIN)', value: 'SUPER_ADMIN' }
-]
+const roleSelectOptions = computed<SelectOption[]>(() => [
+  { label: t('admin.users.role_all'), value: '' },
+  { label: t('admin.users.role_user'), value: 'USER' },
+  { label: t('admin.users.role_admin'), value: 'ADMIN' },
+  { label: t('admin.users.role_super_admin'), value: 'SUPER_ADMIN' }
+])
 
-const statusSelectOptions: SelectOption[] = [
-  { label: '全部状态', value: '' },
-  { label: '正常启用', value: 'true' },
-  { label: '已封禁', value: 'false' }
-]
+const statusSelectOptions = computed<SelectOption[]>(() => [
+  { label: t('admin.users.status_all'), value: '' },
+  { label: t('admin.users.status_active'), value: 'true' },
+  { label: t('admin.users.status_banned'), value: 'false' }
+])
 
-const roleModalOptions: SelectOption[] = [
-  { label: '普通用户 (USER)', value: 'USER' },
-  { label: '管理员 (ADMIN)', value: 'ADMIN' }
-]
+const roleModalOptions = computed<SelectOption[]>(() => [
+  { label: t('admin.users.role_user'), value: 'USER' },
+  { label: t('admin.users.role_admin'), value: 'ADMIN' }
+])
 
 // Table & Pagination State
 const loading = ref(false)
@@ -332,14 +334,15 @@ const pagination = reactive({
   pageSize: 10,
   itemCount: 0,
   showSizePicker: true,
+  showQuickJumper: true,
   pageSizes: [10, 20, 50],
-  prefix: (info: { itemCount?: number }) => `共 ${info.itemCount || 0} 条用户记录`
+  prefix: (info: { itemCount?: number }) => t('admin.users.total_prefix', { count: info.itemCount || 0 })
 })
 
 // Table Columns Definition
-const columns: DataTableColumns<AdminUserDetailsVO> = [
+const columns = computed<DataTableColumns<AdminUserDetailsVO>>(() => [
   {
-    title: 'ID',
+    title: t('admin.users.columns.id'),
     key: 'id',
     width: 180,
     sorter: true,
@@ -348,7 +351,7 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
     }
   },
   {
-    title: '用户',
+    title: t('admin.users.columns.user'),
     key: 'username',
     minWidth: 260,
     sorter: true,
@@ -434,7 +437,7 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
                         whiteSpace: 'nowrap'
                       }
                     },
-                    '未设置邮箱'
+                    t('admin.users.email_empty')
                   )
             ]
           )
@@ -443,7 +446,7 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
     }
   },
   {
-    title: '所属组织',
+    title: t('admin.users.columns.org'),
     key: 'org',
     width: 150,
     render(row) {
@@ -451,22 +454,22 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
     }
   },
   {
-    title: '角色身份',
+    title: t('admin.users.columns.role'),
     key: 'role',
     width: 130,
     sorter: true,
     render(row) {
       const role = (row.role || 'USER').toUpperCase()
       if (role === 'SUPER_ADMIN') {
-        return h(NTag, { type: 'warning', size: 'small', round: true }, { default: () => '超级管理员' })
+        return h(NTag, { type: 'warning', size: 'small', round: true }, { default: () => t('admin.users.role_tag_super_admin') })
       } else if (role === 'ADMIN') {
-        return h(NTag, { type: 'info', size: 'small', round: true }, { default: () => '管理员' })
+        return h(NTag, { type: 'info', size: 'small', round: true }, { default: () => t('admin.users.role_tag_admin') })
       }
-      return h(NTag, { size: 'small', round: true }, { default: () => '普通用户' })
+      return h(NTag, { size: 'small', round: true }, { default: () => t('admin.users.role_tag_user') })
     }
   },
   {
-    title: '账号状态',
+    title: t('admin.users.columns.status'),
     key: 'status',
     width: 130,
     render(row) {
@@ -489,21 +492,21 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
               class: 'field-hint',
               style: 'font-size: 12px; color: #444444;'
             },
-            row.status ? '正常' : '封禁'
+            row.status ? t('admin.users.status_active_short') : t('admin.users.status_banned_short')
           )
         ]
       )
     }
   },
   {
-    title: '注册时间',
+    title: t('admin.users.columns.created_at'),
     key: 'createdAt',
     width: 180,
     sorter: true,
     render(row) {
       if (!row.createdAt) return '-'
       const date = new Date(row.createdAt)
-      return date.toLocaleString('zh-CN', {
+      return date.toLocaleString(locale.value === 'en_US' ? 'en-US' : 'zh-CN', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -513,7 +516,7 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
     }
   },
   {
-    title: '操作',
+    title: t('admin.users.columns.actions'),
     key: 'actions',
     width: 150,
     fixed: 'right',
@@ -530,7 +533,7 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
             },
             {
               icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
-              default: () => '编辑'
+              default: () => t('admin.users.actions.edit')
             }
           ),
           row.username !== 'VolurSuperAdmin'
@@ -550,10 +553,10 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
                       },
                       {
                         icon: () => h(NIcon, null, { default: () => h(TrashOutline) }),
-                        default: () => '删除'
+                        default: () => t('admin.users.actions.delete')
                       }
                     ),
-                  default: () => `确定删除用户 "${row.username}" 吗？此操作不可逆。`
+                  default: () => t('admin.users.actions.delete_confirm', { username: row.username })
                 }
               )
             : null
@@ -561,7 +564,7 @@ const columns: DataTableColumns<AdminUserDetailsVO> = [
       })
     }
   }
-]
+])
 
 // Modal & Form State
 const showUserModal = ref(false)
@@ -588,30 +591,30 @@ const userFormData = reactive<{
   status: true
 })
 
-const userFormRules: FormRules = {
+const userFormRules = computed<FormRules>(() => ({
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 32, message: '用户名长度需在 3 到 32 个字符之间', trigger: 'blur' }
+    { required: true, message: t('admin.users.validation.username_required'), trigger: 'blur' },
+    { min: 3, max: 32, message: t('admin.users.validation.username_length'), trigger: 'blur' }
   ],
   email: [
-    { required: true, message: '请输入电子邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: ['input', 'blur'] }
+    { required: true, message: t('admin.users.validation.email_required'), trigger: 'blur' },
+    { type: 'email', message: t('admin.users.validation.email_invalid'), trigger: ['input', 'blur'] }
   ],
   password: [
     {
       validator(_rule, value) {
         if (!isEditMode.value && (!value || value.length < 6)) {
-          return new Error('新增用户登录密码长度至少为 6 位')
+          return new Error(t('admin.users.validation.password_create_length'))
         }
         if (isEditMode.value && value && value.length < 6) {
-          return new Error('修改密码时长度至少为 6 位')
+          return new Error(t('admin.users.validation.password_edit_length'))
         }
         return true
       },
       trigger: 'blur'
     }
   ]
-}
+}))
 
 // Data Fetching Methods
 async function fetchStatistics() {
@@ -699,10 +702,11 @@ async function handleToggleStatus(row: AdminUserDetailsVO, newStatus: boolean) {
   try {
     await toggleAdminUserStatusApi(row.id, newStatus)
     row.status = newStatus
-    message.success(`用户 "${row.username}" 状态已${newStatus ? '启用' : '禁用'}`)
+    const statusText = newStatus ? t('admin.users.status_active') : t('admin.users.status_banned')
+    message.success(t('admin.users.messages.toggle_status_success', { username: row.username, status: statusText }))
     fetchStatistics()
   } catch (error: any) {
-    message.error(error.message || '切换状态失败')
+    message.error(error.message || t('admin.users.messages.toggle_status_failed'))
   }
 }
 
@@ -751,7 +755,7 @@ async function handleSubmitUserForm() {
           updatePayload.password = userFormData.password.trim()
         }
         await updateAdminUserApi(currentEditId.value, updatePayload)
-        message.success('更新用户信息成功')
+        message.success(t('admin.users.messages.update_success'))
       } else {
         const createPayload: AdminUserCreateDTO = {
           username: userFormData.username.trim(),
@@ -762,14 +766,14 @@ async function handleSubmitUserForm() {
           bio: userFormData.bio?.trim()
         }
         await createAdminUserApi(createPayload)
-        message.success('创建新用户成功')
+        message.success(t('admin.users.messages.create_success'))
       }
 
       showUserModal.value = false
       fetchUserList()
       fetchStatistics()
     } catch (error: any) {
-      message.error(error.message || '操作失败')
+      message.error(error.message || t('admin.users.messages.action_failed'))
     } finally {
       submitLoading.value = false
     }
@@ -779,11 +783,11 @@ async function handleSubmitUserForm() {
 async function handleDeleteUser(row: AdminUserDetailsVO) {
   try {
     await deleteAdminUserApi(row.id)
-    message.success(`用户 "${row.username}" 已删除`)
+    message.success(t('admin.users.messages.delete_success', { username: row.username }))
     fetchUserList()
     fetchStatistics()
   } catch (error: any) {
-    message.error(error.message || '删除用户失败')
+    message.error(error.message || t('admin.users.messages.delete_failed'))
   }
 }
 
@@ -815,19 +819,19 @@ onMounted(() => {
 }
 
 .stat-mini-card {
-  background-color: var(--n-color, #ffffff);
-  border-radius: 8px;
-  padding: 10px 16px;
+  background-color: var(--v-bg-card, #ffffff);
+  border-radius: 10px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--v-border-base, #e5e4e7);
+  box-shadow: var(--v-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.02));
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.2s ease;
 
   &:hover {
-    border-color: rgba(0, 0, 0, 0.12);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    border-color: var(--v-border-focus, #bbbbbb);
+    box-shadow: var(--v-shadow-md, 0 2px 6px rgba(0, 0, 0, 0.05));
   }
 
   .stat-icon-wrapper {
@@ -875,7 +879,7 @@ onMounted(() => {
 
     .stat-label {
       font-size: 12px;
-      color: #444444;
+      color: var(--v-text-desc, #444444);
       font-weight: 500;
       white-space: nowrap;
     }

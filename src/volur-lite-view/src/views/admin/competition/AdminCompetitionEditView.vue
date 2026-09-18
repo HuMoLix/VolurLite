@@ -116,6 +116,19 @@
               @refresh="fetchDetail"
             />
           </n-tab-pane>
+
+          <!-- Tab: 工单管理与队伍交流 -->
+          <n-tab-pane name="tickets" :tab="t('admin.competitions.tab_tickets', '工单管理')">
+            <div v-if="!isEdit" class="tab-disabled-state">
+              <n-alert type="warning" title="功能暂未就绪">
+                {{ t('admin.competitions.tip_create_first') }}
+              </n-alert>
+            </div>
+            <ticket-tab
+              v-else
+              :comp-id="compId!"
+            />
+          </n-tab-pane>
         </n-tabs>
       </n-spin>
     </n-card>
@@ -154,6 +167,7 @@ import ChallengeTab from './tabs/ChallengeTab.vue'
 import ContainerTab from './tabs/ContainerTab.vue'
 import WriteupTab from './tabs/WriteupTab.vue'
 import TeamAuditTab from './tabs/TeamAuditTab.vue'
+import TicketTab from './tabs/TicketTab.vue'
 
 const { t } = useI18n()
 const route = useRoute()

@@ -85,7 +85,7 @@
     </div>
 
     <!-- Section 3: Active Competition Containers Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :columns="columns"
@@ -142,7 +142,7 @@
           当前比赛暂无运行中的题目靶机容器
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
   </div>
 </template>
 
@@ -161,7 +161,7 @@ import {
   type DataTableColumns,
   type SelectOption
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   CubeOutline,
   PlayCircleOutline,

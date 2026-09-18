@@ -1,5 +1,5 @@
 <template>
-  <AppTableCard
+  <VolurTableCard
     :bordered="true"
     :table-bordered="true"
     :scroll-x="1440"
@@ -45,7 +45,7 @@
         </div>
       </div>
     </template>
-  </AppTableCard>
+  </VolurTableCard>
 </template>
 
 <script setup lang="ts">
@@ -61,7 +61,7 @@ import {
   type DataTableColumns,
   type DropdownOption
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   AddOutline,
   RefreshOutline,

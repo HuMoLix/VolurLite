@@ -70,7 +70,7 @@
     </div>
 
     <!-- Main Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :scroll-x="1260"
@@ -155,7 +155,7 @@
           </n-button>
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Task Detail Drawer (Styled like AdminLogView.vue) -->
     <n-drawer v-model:show="showDrawer" :width="620" placement="right">
@@ -284,7 +284,7 @@ import {
   useMessage,
   type DataTableColumns
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   SearchOutline,
   RefreshOutline,
@@ -315,7 +315,7 @@ import type {
   AsyncTaskType,
   AsyncTaskStatus
 } from '@/types/task'
-import { SseClient } from '@/utils/sse'
+import { getGlobalSseClient } from '@/utils/sse'
 import { safeJsonParse } from '@/utils/request'
 
 const { t } = useI18n()
@@ -349,8 +349,8 @@ const pagination = reactive({
   prefix: (info: { itemCount?: number }) => `共 ${info.itemCount || 0} 条记录`
 })
 
-// SSE Client
-let sseClient: SseClient | null = null
+// SSE Unsubscribe handle
+let unsubTaskEvent: (() => void) | null = null
 
 // Options
 const taskTypeOptions = computed(() => [
@@ -767,21 +767,21 @@ function handleSseTaskEvent(eventData: AdminAsyncTaskVO) {
 onMounted(() => {
   fetchData()
 
-  // Connect SSE for task_event
+  // 复用全站全局 SSE 长连接单例订阅 task_event 事件，杜绝重复建连与连接泄露
   try {
-    sseClient = new SseClient('/api/v1/realtime/stream')
-    sseClient.on('task_event', (data: AdminAsyncTaskVO) => {
+    const sse = getGlobalSseClient()
+    unsubTaskEvent = sse.on('task_event', (data: AdminAsyncTaskVO) => {
       handleSseTaskEvent(data)
     })
-    sseClient.connect()
+    sse.connect()
   } catch (e) {
     console.warn('[AdminTaskView] SSE connect error', e)
   }
 })
 
 onUnmounted(() => {
-  sseClient?.close()
-  sseClient = null
+  unsubTaskEvent?.()
+  unsubTaskEvent = null
 })
 </script>
 
@@ -819,17 +819,20 @@ onUnmounted(() => {
   gap: 16px;
 
   .stat-mini-card {
-    background-color: var(--n-color, #ffffff);
+    background-color: var(--v-bg-card, #ffffff);
     border-radius: 10px;
     padding: 16px 20px;
     display: flex;
     align-items: center;
     gap: 14px;
+    border: 1px solid var(--v-border-base, #e5e4e7);
     box-shadow: var(--v-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
-    transition: transform 0.2s ease;
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
 
     &:hover {
       transform: translateY(-2px);
+      border-color: var(--v-border-focus, #bbbbbb);
+      box-shadow: var(--v-shadow-md, 0 4px 8px rgba(0, 0, 0, 0.06));
     }
 
     &.pulse-active {
@@ -894,7 +897,7 @@ onUnmounted(() => {
 
       .stat-label {
         font-size: 12px;
-        color: #444444;
+        color: var(--v-text-desc, #444444);
       }
     }
   }

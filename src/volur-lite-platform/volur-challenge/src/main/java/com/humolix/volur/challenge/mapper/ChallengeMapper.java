@@ -17,10 +17,16 @@ import com.humolix.volur.challenge.domain.vo.isw.IswChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.isw.IswChallengeListVO;
 import com.humolix.volur.challenge.domain.vo.theory.TheoryChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.theory.TheoryChallengeListVO;
+import com.alibaba.fastjson2.JSON;
+import com.humolix.volur.challenge.domain.vo.ctf.CtfAttachmentVO;
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
+import org.springframework.util.StringUtils;
 
+import java.util.Collections;
 import java.util.List;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
@@ -32,7 +38,26 @@ public interface ChallengeMapper {
     @Mapping(source = "category.icon", target = "categoryIcon")
     @Mapping(source = "author.id", target = "authorId")
     @Mapping(source = "author.username", target = "authorName")
+    @Mapping(target = "attachments", ignore = true)
     CtfChallengeDetailVO toCtfDetailVO(CtfChallenge challenge);
+
+    @AfterMapping
+    default void mapCtfAttachments(CtfChallenge challenge, @MappingTarget CtfChallengeDetailVO vo) {
+        if (challenge == null || vo == null) return;
+        List<CtfAttachmentVO> list = null;
+        if (StringUtils.hasText(challenge.getAttachments())) {
+            try {
+                list = JSON.parseArray(challenge.getAttachments(), CtfAttachmentVO.class);
+            } catch (Exception ignored) {}
+        }
+        if ((list == null || list.isEmpty()) && StringUtils.hasText(challenge.getAttachmentUrl())) {
+            list = List.of(CtfAttachmentVO.builder()
+                    .name(challenge.getAttachmentName() != null ? challenge.getAttachmentName() : "附件文件")
+                    .url(challenge.getAttachmentUrl())
+                    .build());
+        }
+        vo.setAttachments(list != null ? list : Collections.emptyList());
+    }
 
     @Mapping(source = "category.id", target = "categoryId")
     @Mapping(source = "category.name", target = "categoryName")

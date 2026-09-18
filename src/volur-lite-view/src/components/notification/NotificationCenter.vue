@@ -203,7 +203,7 @@ import {
 } from '@/api/notification'
 import type { NotificationVO } from '@/types/notification'
 import { useUserStore } from '@/store/modules/user'
-import { SseClient } from '@/utils/sse'
+import { getGlobalSseClient } from '@/utils/sse'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -220,7 +220,7 @@ const notificationList = ref<NotificationVO[]>([])
 const showDetailModal = ref(false)
 const selectedNotification = ref<NotificationVO | null>(null)
 
-let sseClient: SseClient | null = null
+let unsubNotification: (() => void) | null = null
 
 function formatTime(timeStr?: string) {
   if (!timeStr) return ''
@@ -396,15 +396,17 @@ async function handleDeleteItem(item: NotificationVO) {
 function initSse() {
   if (!userStore.isLoggedIn) return
   try {
-    sseClient = new SseClient('/api/v1/realtime/stream')
-    sseClient.on('notification', (data: NotificationVO) => {
-      unreadCount.value++
-      message.info(`收到新通知: ${data.title}`)
-      if (showPopover.value) {
-        fetchNotifications()
-      }
-    })
-    sseClient.connect()
+    const sse = getGlobalSseClient()
+    if (!unsubNotification) {
+      unsubNotification = sse.on('notification', (data: NotificationVO) => {
+        unreadCount.value++
+        message.info(`收到新通知: ${data.title}`)
+        if (showPopover.value) {
+          fetchNotifications()
+        }
+      })
+    }
+    sse.connect()
   } catch (err) {
     console.error('[SSE] Failed to initialize in notification center:', err)
   }
@@ -419,8 +421,8 @@ watch(
     } else {
       unreadCount.value = 0
       notificationList.value = []
-      sseClient?.close()
-      sseClient = null
+      unsubNotification?.()
+      unsubNotification = null
     }
   }
 )
@@ -439,8 +441,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  sseClient?.close()
-  sseClient = null
+  unsubNotification?.()
+  unsubNotification = null
 })
 </script>
 

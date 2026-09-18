@@ -63,6 +63,7 @@
   "tab_containers": "容器管理",
   "tab_writeups": "WP 管理",
   "tab_teams": "队伍审核",
+  "tab_tickets": "工单管理",
   "tip_create_first": "请先完成基础信息配置并保存创建，方可开启题目挂载、容器监控、专属公告及队伍审核等管理功能。",
   "btn_save_config": "保存配置",
   "btn_open_public": "打开前台公开页面",

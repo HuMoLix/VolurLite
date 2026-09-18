@@ -1,7 +1,7 @@
 <template>
   <div class="announce-tab">
     <!-- Announcement Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :columns="columns"
@@ -11,13 +11,6 @@
       :row-key="(row) => row.id"
       table-class="announcements-table"
     >
-      <template #table-header>
-        <!-- Intro Alert -->
-        <n-alert type="info" :bordered="false" class="tab-intro-alert" style="margin-bottom: 16px;">
-          <strong>比赛专属实时通报：</strong>本模块发布的公告仅向参与当前比赛的选手进行推送与展示，区别于全站公开公告，适用于赛题解题提示 (Hint)、赛程变动、靶机维护与紧急规则澄清。
-        </n-alert>
-      </template>
-
       <template #toolbar>
         <div class="tab-top-actions">
           <div class="actions-left">
@@ -45,7 +38,7 @@
           暂无比赛专属公告，点击右上角发布新公告
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Create/Edit Modal -->
     <n-modal
@@ -114,14 +107,16 @@
             </n-form-item>
           </n-grid-item>
         </n-grid>
+      </n-form>
 
-        <div class="modal-actions">
+      <template #footer>
+        <n-space justify="end" :size="12">
           <n-button @click="showModal = false">取消</n-button>
           <n-button class="theme-primary-btn" :loading="modalSubmitting" @click="handleSaveAnnouncement">
-            确认发布
+            {{ isEditMode ? '保存修改' : '确认发布' }}
           </n-button>
-        </div>
-      </n-form>
+        </n-space>
+      </template>
     </n-modal>
 
     <!-- Detail View Modal -->
@@ -144,6 +139,12 @@
         </div>
         <div class="volur-markdown-body content-body" v-html="renderMarkdown(selectedAnnouncement.content)" />
       </div>
+
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showDetailModal = false">关闭</n-button>
+        </n-space>
+      </template>
     </n-modal>
   </div>
 </template>
@@ -151,7 +152,6 @@
 <script setup lang="ts">
 import { ref, reactive, h, onMounted } from 'vue'
 import {
-  NAlert,
   NButton,
   NIcon,
   NModal,
@@ -163,13 +163,14 @@ import {
   NTag,
   NGrid,
   NGridItem,
+  NSpace,
   useMessage,
   useDialog,
   type DataTableColumns,
   type FormInst,
   type FormRules
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard, VolurMarkdownEditor } from '@/public/volurEx'
 import {
   RefreshOutline,
   AddOutline
@@ -186,7 +187,6 @@ import {
   deleteAdminCompetitionAnnouncementApi
 } from '@/api/competition'
 import { renderMarkdown } from '@/utils/markdown'
-import { VolurMarkdownEditor } from '@/public/volurEx'
 
 interface Props {
   compId: string | number
@@ -461,12 +461,6 @@ function getLevelLabel(level?: string) {
 
 <style scoped lang="scss">
 .announce-tab {
-  .tab-intro-alert {
-    margin-bottom: 20px;
-    font-size: 13px;
-    line-height: 1.6;
-  }
-
   .tab-top-actions {
     display: flex;
     justify-content: space-between;
@@ -505,13 +499,6 @@ function getLevelLabel(level?: string) {
         }
       }
     }
-  }
-
-  .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-top: 20px;
   }
 }
 

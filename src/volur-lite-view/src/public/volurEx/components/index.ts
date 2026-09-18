@@ -19,3 +19,10 @@ export type { VolurFooterProps } from './VolurFooter.vue'
 export { default as VolurMarkdownEditor } from './VolurMarkdownEditor.vue'
 export type { VolurMarkdownEditorProps } from './VolurMarkdownEditor.vue'
 
+export { default as VolurTableCard } from './VolurTableCard.vue'
+export { default as AppTableCard } from './VolurTableCard.vue'
+export type { VolurTableCardProps, AppTableCardProps } from './VolurTableCard.vue'
+
+export { default as VolurChatDrawer } from './VolurChatDrawer.vue'
+export type { VolurChatDrawerProps } from './VolurChatDrawer.vue'
+

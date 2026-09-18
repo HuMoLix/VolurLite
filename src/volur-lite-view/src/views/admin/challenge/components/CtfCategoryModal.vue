@@ -6,7 +6,7 @@
     style="width: 820px; max-width: 95vw;"
     class="ctf-category-modal"
   >
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :scroll-x="780"
@@ -53,7 +53,7 @@
           </n-button>
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Edit Category Modal -->
     <n-modal
@@ -120,8 +120,7 @@ import {
   useMessage,
   type DataTableColumns
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
-import { VolurSvgPicker, VolurIcon } from '@/public/volurEx'
+import { VolurSvgPicker, VolurIcon, VolurTableCard } from '@/public/volurEx'
 import { AddOutline } from '@vicons/ionicons5'
 import {
   getAdminCtfCategoriesApi,

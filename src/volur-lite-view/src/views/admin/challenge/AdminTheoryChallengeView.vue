@@ -7,7 +7,7 @@
     </div>
 
     <!-- Main Table Card -->
-    <AppTableCard
+    <VolurTableCard
       :bordered="true"
       :table-bordered="true"
       :scroll-x="1000"
@@ -19,6 +19,7 @@
       :page="currentPage"
       :page-size="pageSize"
       :item-count="totalCount"
+      :row-key="(row: TheoryChallengeListVO) => row.id"
       :checked-row-keys="checkedRowKeys"
       @update:page="handlePageChange"
       @update:page-size="handlePageSizeChange"
@@ -98,7 +99,7 @@
           </n-dropdown>
         </div>
       </template>
-    </AppTableCard>
+    </VolurTableCard>
 
     <!-- Create / Edit Theory Challenge Modal -->
     <n-modal
@@ -423,7 +424,7 @@ import {
   type FormRules,
   type UploadCustomRequestOptions
 } from 'naive-ui'
-import AppTableCard from '@/components/common/AppTableCard.vue'
+import { VolurTableCard } from '@/public/volurEx'
 import {
   SearchOutline,
   RefreshOutline,

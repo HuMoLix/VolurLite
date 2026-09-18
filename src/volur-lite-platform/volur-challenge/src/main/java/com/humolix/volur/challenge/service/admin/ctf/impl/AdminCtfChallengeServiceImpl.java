@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.fastjson2.JSONWriter;
+import com.humolix.volur.challenge.domain.dto.ctf.CtfAttachmentDTO;
 import com.humolix.volur.challenge.domain.dto.ctf.CtfChallengeCreateRequestDTO;
 import com.humolix.volur.challenge.domain.dto.ctf.CtfChallengeUpdateRequestDTO;
 import com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge;
@@ -11,6 +12,7 @@ import com.humolix.volur.challenge.domain.entity.ctf.CtfChallengeCategory;
 import com.humolix.volur.challenge.domain.enums.ChallengeDifficulty;
 import com.humolix.volur.challenge.domain.enums.ChallengeType;
 import com.humolix.volur.challenge.domain.vo.ChallengeImportResultVO;
+import com.humolix.volur.challenge.domain.vo.ctf.CtfAttachmentVO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeListVO;
 import com.humolix.volur.challenge.event.ChallengeImagePullEvent;
@@ -108,6 +110,27 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
             author = userRepository.findById(authorId).orElse(null);
         }
 
+        String attachmentsJson = null;
+        String firstAttachmentUrl = request.getAttachmentUrl();
+        String firstAttachmentName = request.getAttachmentName();
+
+        if (request.getAttachments() != null && !request.getAttachments().isEmpty()) {
+            attachmentsJson = JSON.toJSONString(request.getAttachments());
+            if (!StringUtils.hasText(firstAttachmentUrl)) {
+                firstAttachmentUrl = request.getAttachments().get(0).getUrl();
+            }
+            if (!StringUtils.hasText(firstAttachmentName)) {
+                firstAttachmentName = request.getAttachments().get(0).getName();
+            }
+        } else if (StringUtils.hasText(firstAttachmentUrl)) {
+            List<CtfAttachmentDTO> singleList = List.of(new CtfAttachmentDTO(
+                    StringUtils.hasText(firstAttachmentName) ? firstAttachmentName : "附件文件",
+                    firstAttachmentUrl,
+                    null
+            ));
+            attachmentsJson = JSON.toJSONString(singleList);
+        }
+
         CtfChallenge challenge = CtfChallenge.builder()
                 .name(request.getName().trim())
                 .description(request.getDescription())
@@ -116,8 +139,9 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                 .type(request.getType())
                 .difficulty(request.getDifficulty() != null ? request.getDifficulty() : ChallengeDifficulty.EASY)
                 .flag(request.getFlag())
-                .attachmentUrl(request.getAttachmentUrl())
-                .attachmentName(request.getAttachmentName())
+                .attachmentUrl(firstAttachmentUrl)
+                .attachmentName(firstAttachmentName)
+                .attachments(attachmentsJson)
                 .imageName(request.getImageName())
                 .containerPort(request.getContainerPort())
                 .cpuLimit(request.getCpuLimit() != null ? request.getCpuLimit() : 1)
@@ -164,8 +188,28 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
         if (request.getType() != null) challenge.setType(request.getType());
         if (request.getDifficulty() != null) challenge.setDifficulty(request.getDifficulty());
         if (request.getFlag() != null) challenge.setFlag(request.getFlag());
-        if (request.getAttachmentUrl() != null) challenge.setAttachmentUrl(request.getAttachmentUrl());
-        if (request.getAttachmentName() != null) challenge.setAttachmentName(request.getAttachmentName());
+
+        if (request.getAttachments() != null) {
+            if (request.getAttachments().isEmpty()) {
+                challenge.setAttachments(null);
+                challenge.setAttachmentUrl(null);
+                challenge.setAttachmentName(null);
+            } else {
+                challenge.setAttachments(JSON.toJSONString(request.getAttachments()));
+                challenge.setAttachmentUrl(request.getAttachments().get(0).getUrl());
+                challenge.setAttachmentName(request.getAttachments().get(0).getName());
+            }
+        } else {
+            if (request.getAttachmentUrl() != null) challenge.setAttachmentUrl(request.getAttachmentUrl());
+            if (request.getAttachmentName() != null) challenge.setAttachmentName(request.getAttachmentName());
+            if (StringUtils.hasText(challenge.getAttachmentUrl()) && !StringUtils.hasText(challenge.getAttachments())) {
+                challenge.setAttachments(JSON.toJSONString(List.of(new CtfAttachmentDTO(
+                        StringUtils.hasText(challenge.getAttachmentName()) ? challenge.getAttachmentName() : "附件文件",
+                        challenge.getAttachmentUrl(),
+                        null
+                ))));
+            }
+        }
 
         String oldImage = challenge.getImageName();
         if (request.getImageName() != null) challenge.setImageName(request.getImageName());
@@ -413,12 +457,10 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                         type = ChallengeType.CONTAINER;
                     }
 
-                    // 附件解析与存储落盘
-                    String attachmentName = null;
-                    String attachmentUrl = null;
-                    byte[] attBytes = null;
+                    // 附件解析与存储落盘（支持多附件导入）
+                    List<CtfAttachmentVO> importedAttachments = new ArrayList<>();
 
-                    // 先看 Attachments 配置中的文件路径
+                    // 1. 先看 Attachments 配置中的文件路径
                     JSONArray atts = chal.getJSONArray("Attachments");
                     if (atts != null && !atts.isEmpty()) {
                         for (int i = 0; i < atts.size(); i++) {
@@ -428,46 +470,64 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                                 pathInJson = attItem.getString("Name");
                             }
                             if (StringUtils.hasText(pathInJson)) {
+                                String attName = Paths.get(pathInJson).getFileName().toString();
+                                byte[] attBytes = null;
                                 String targetAttKey = dirPrefix + pathInJson;
                                 if (allFiles.containsKey(targetAttKey)) {
-                                    attachmentName = Paths.get(pathInJson).getFileName().toString();
                                     attBytes = allFiles.get(targetAttKey);
-                                    break;
                                 } else {
                                     String fn = Paths.get(pathInJson).getFileName().toString();
                                     for (String fk : allFiles.keySet()) {
                                         if (fk.startsWith(dirPrefix) && fk.endsWith("/" + fn)) {
-                                            attachmentName = fn;
                                             attBytes = allFiles.get(fk);
                                             break;
                                         }
+                                    }
+                                }
+                                if (attBytes != null && attBytes.length > 0) {
+                                    InMemoryMultipartFile inMemFile = new InMemoryMultipartFile(
+                                            attName, attName, "application/octet-stream", attBytes
+                                    );
+                                    StorageResponseVO storageResp = storageService.uploadResource(inMemFile, "attachments");
+                                    if (storageResp != null) {
+                                        importedAttachments.add(CtfAttachmentVO.builder()
+                                                .name(attName)
+                                                .url(storageResp.getFilePath())
+                                                .size((long) attBytes.length)
+                                                .build());
                                     }
                                 }
                             }
                         }
                     }
 
-                    // 如果未在配置中找到，选取该目录下除了 JSON 外的首个附件
-                    if (attBytes == null) {
+                    // 2. 如果配置中未指定，选取该目录下除了 JSON 外的所有非目录文件
+                    if (importedAttachments.isEmpty()) {
                         for (Map.Entry<String, byte[]> entry : allFiles.entrySet()) {
                             String fk = entry.getKey();
                             if (fk.startsWith(dirPrefix) && !isMetadataJson(fk) && !fk.endsWith("/")) {
-                                attachmentName = Paths.get(fk).getFileName().toString();
-                                attBytes = entry.getValue();
-                                break;
+                                String attName = Paths.get(fk).getFileName().toString();
+                                byte[] attBytes = entry.getValue();
+                                if (attBytes != null && attBytes.length > 0) {
+                                    InMemoryMultipartFile inMemFile = new InMemoryMultipartFile(
+                                            attName, attName, "application/octet-stream", attBytes
+                                    );
+                                    StorageResponseVO storageResp = storageService.uploadResource(inMemFile, "attachments");
+                                    if (storageResp != null) {
+                                        importedAttachments.add(CtfAttachmentVO.builder()
+                                                .name(attName)
+                                                .url(storageResp.getFilePath())
+                                                .size((long) attBytes.length)
+                                                .build());
+                                    }
+                                }
                             }
                         }
                     }
 
-                    if (attBytes != null && attBytes.length > 0 && StringUtils.hasText(attachmentName)) {
-                        InMemoryMultipartFile inMemFile = new InMemoryMultipartFile(
-                                attachmentName, attachmentName, "application/octet-stream", attBytes
-                        );
-                        StorageResponseVO storageResp = storageService.uploadResource(inMemFile, "attachments");
-                        if (storageResp != null) {
-                            attachmentUrl = storageResp.getFilePath();
-                        }
-                    }
+                    String attachmentName = !importedAttachments.isEmpty() ? importedAttachments.get(0).getName() : null;
+                    String attachmentUrl = !importedAttachments.isEmpty() ? importedAttachments.get(0).getUrl() : null;
+                    String attachmentsJson = !importedAttachments.isEmpty() ? JSON.toJSONString(importedAttachments) : null;
 
                     // 创建并保存实体
                     CtfChallenge newChal = CtfChallenge.builder()
@@ -480,6 +540,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                             .flag(flag)
                             .attachmentName(attachmentName)
                             .attachmentUrl(attachmentUrl)
+                            .attachments(attachmentsJson)
                             .imageName(imageName)
                             .containerPort(containerPort)
                             .cpuLimit(cpuLimit)
@@ -572,11 +633,30 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                         chalObj.put("Container", container);
                     }
 
-                    if (StringUtils.hasText(challenge.getAttachmentName())) {
+                    // 导出附件列表解析
+                    List<CtfAttachmentVO> exportAtts = new ArrayList<>();
+                    if (StringUtils.hasText(challenge.getAttachments())) {
+                        try {
+                            List<CtfAttachmentVO> parsed = JSON.parseArray(challenge.getAttachments(), CtfAttachmentVO.class);
+                            if (parsed != null) exportAtts.addAll(parsed);
+                        } catch (Exception ignored) {}
+                    }
+                    if (exportAtts.isEmpty() && StringUtils.hasText(challenge.getAttachmentName()) && StringUtils.hasText(challenge.getAttachmentUrl())) {
+                        exportAtts.add(CtfAttachmentVO.builder()
+                                .name(challenge.getAttachmentName())
+                                .url(challenge.getAttachmentUrl())
+                                .build());
+                    }
+
+                    if (!exportAtts.isEmpty()) {
                         JSONArray atts = new JSONArray();
-                        JSONObject att = new JSONObject();
-                        att.put("Path", challenge.getAttachmentName());
-                        atts.add(att);
+                        for (CtfAttachmentVO attVO : exportAtts) {
+                            if (StringUtils.hasText(attVO.getName())) {
+                                JSONObject att = new JSONObject();
+                                att.put("Path", attVO.getName());
+                                atts.add(att);
+                            }
+                        }
                         chalObj.put("Attachments", atts);
                     }
 
@@ -588,13 +668,15 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                     zos.write(jsonBytes);
                     zos.closeEntry();
 
-                    // 2. 导出附件内容
-                    if (StringUtils.hasText(challenge.getAttachmentUrl()) && StringUtils.hasText(challenge.getAttachmentName())) {
-                        byte[] attBytes = loadAttachmentBytes(challenge.getAttachmentUrl(), baseDir);
-                        if (attBytes != null && attBytes.length > 0) {
-                            zos.putNextEntry(new ZipEntry(folder + challenge.getAttachmentName()));
-                            zos.write(attBytes);
-                            zos.closeEntry();
+                    // 2. 导出所有附件内容
+                    for (CtfAttachmentVO attVO : exportAtts) {
+                        if (StringUtils.hasText(attVO.getUrl()) && StringUtils.hasText(attVO.getName())) {
+                            byte[] attBytes = loadAttachmentBytes(attVO.getUrl(), baseDir);
+                            if (attBytes != null && attBytes.length > 0) {
+                                zos.putNextEntry(new ZipEntry(folder + attVO.getName()));
+                                zos.write(attBytes);
+                                zos.closeEntry();
+                            }
                         }
                     }
                 }
@@ -604,6 +686,22 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
             log.error("[AdminCtfChallengeService] 导出 CTF 题目压缩包失败", e);
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "导出 CTF 题目失败: " + e.getMessage());
         }
+    }
+
+    @Override
+    public CtfAttachmentVO uploadAttachment(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "上传附件不能为空");
+        }
+        StorageResponseVO storageResp = storageService.uploadResource(file, "attachments");
+        if (storageResp == null) {
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "附件上传失败");
+        }
+        return CtfAttachmentVO.builder()
+                .name(storageResp.getFileName())
+                .url(storageResp.getFilePath())
+                .size(file.getSize())
+                .build();
     }
 
     private byte[] loadAttachmentBytes(String attachmentUrl, String baseDir) {
