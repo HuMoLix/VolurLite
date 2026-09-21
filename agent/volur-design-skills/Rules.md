@@ -257,6 +257,7 @@ public class AuthenticateResponseVO {
 - **注解规范**：统一使用 `@Data`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor`。
 - **默认值保护**：包含初始值的属性同样必须显式声明 `@Builder.Default`。
 - **存放路径**：位于 `com.humolix.volur.<module>.domain.entity` 或 `domain.po`。
+- **数据库增量迁移同步铁律**：每次对持久化实体（Entity / PO）进行新增或字段变更（增删改字段、约束与索引变化）时，**必须同步修改/更新增量平滑升级脚本 [`scripts/upgrade/upgrade_to_latest.sql`](file:///Users/humolix/Documents/Dev/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql)**，并严格编写具备幂等性的探测性 DDL 与数据回填逻辑，确保生产环境无损升级。
 
 ---
 

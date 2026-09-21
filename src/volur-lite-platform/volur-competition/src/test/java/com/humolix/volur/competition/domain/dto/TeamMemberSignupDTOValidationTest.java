@@ -29,11 +29,12 @@ class TeamMemberSignupDTOValidationTest {
         dto.setRealName("张三");
         dto.setGender(Gender.MALE);
         dto.setRole(MemberRole.MEMBER);
-        dto.setStudentNumber("20240101");
+        dto.setEmployeeNumber("20240101");
         dto.setPhone("13800138000"); // 移动合法手机号
         dto.setEmail("zhangsan@example.com");
         dto.setIdCard("110101199003072367"); // 北京合法二代身份证
-        dto.setCollege("网络安全学院");
+        dto.setDepartment("网络安全学院");
+        dto.setPosition("网安1班");
         return dto;
     }
 
@@ -70,18 +71,37 @@ class TeamMemberSignupDTOValidationTest {
     }
 
     @Test
-    @DisplayName("身份证与手机号为空白字符：同时触发 @NotBlank 约束")
-    void testBlankPhoneAndIdCard_failsValidation() {
+    @DisplayName("姓名为空白字符：触发 @NotBlank 约束")
+    void testBlankRealName_failsValidation() {
         TeamMemberSignupDTO dto = createValidMember();
-        dto.setPhone("   ");
-        dto.setIdCard("");
+        dto.setRealName("   ");
 
         Set<ConstraintViolation<TeamMemberSignupDTO>> violations = validator.validate(dto);
         assertFalse(violations.isEmpty());
-        assertTrue(violations.stream().anyMatch(v -> "phone".equals(v.getPropertyPath().toString())
-                && "手机号不能为空".equals(v.getMessage())));
-        assertTrue(violations.stream().anyMatch(v -> "idCard".equals(v.getPropertyPath().toString())
-                && "身份证号不能为空".equals(v.getMessage())));
+        assertTrue(violations.stream().anyMatch(v -> "realName".equals(v.getPropertyPath().toString())
+                && "姓名不能为空".equals(v.getMessage())));
+    }
+
+    @Test
+    @DisplayName("指导老师/领队使用 TeamLeadersSignupDTO 必填姓名与手机号：校验通过")
+    void testLeaderWithRequiredFields_passesValidation() {
+        TeamLeadersSignupDTO dto = new TeamLeadersSignupDTO();
+        dto.setRealName("李老师");
+        dto.setPhone("13800138000");
+        dto.setGender(Gender.MALE);
+        // 不填 email, idCard, employeeNumber, department, position
+        Set<ConstraintViolation<TeamLeadersSignupDTO>> violations = validator.validate(dto);
+        assertTrue(violations.isEmpty(), "指导老师提供必填姓名和手机号应通过 DTO 校验");
+    }
+
+    @Test
+    @DisplayName("指导老师/领队未填姓名或手机号：触发校验失败")
+    void testLeaderWithoutRequiredFields_failsValidation() {
+        TeamLeadersSignupDTO dto = new TeamLeadersSignupDTO();
+        Set<ConstraintViolation<TeamLeadersSignupDTO>> violations = validator.validate(dto);
+        assertFalse(violations.isEmpty(), "指导老师未填姓名和手机号应触发校验失败");
+        assertTrue(violations.stream().anyMatch(v -> "realName".equals(v.getPropertyPath().toString())));
+        assertTrue(violations.stream().anyMatch(v -> "phone".equals(v.getPropertyPath().toString())));
     }
 
     @Test

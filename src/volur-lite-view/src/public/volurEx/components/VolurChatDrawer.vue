@@ -18,7 +18,6 @@
             <span class="header-title">{{ title }}</span>
             <div class="connection-status-pill" :class="chatStore.status.toLowerCase()" :title="statusTooltip">
               <span class="status-dot" />
-              <span class="status-label">{{ statusText }}</span>
             </div>
           </div>
           <div class="header-right">
@@ -39,13 +38,13 @@
 
       <!-- 2. 消息流主展示区 (Message Feed) -->
       <div ref="messageFeedRef" class="chat-message-feed" @scroll="handleFeedScroll">
-        <div v-if="chatStore.loadingHistory" class="history-loading-indicator">
+        <div v-if="chatStore.loadingHistory || chatStore.loadingMoreHistory" class="history-loading-indicator">
           <n-spin size="small" />
           <span>正在同步历史记录...</span>
         </div>
 
         <!-- 空白提示 -->
-        <div v-if="displayMessages.length === 0 && !chatStore.loadingHistory" class="chat-empty-box">
+        <div v-if="displayMessages.length === 0 && !chatStore.loadingHistory && !chatStore.loadingMoreHistory" class="chat-empty-box">
           <n-empty :description="emptyDescription">
             <template #icon>
               <n-icon :component="ChatbubblesOutline" :size="48" />
@@ -150,6 +149,13 @@
               >
                 <button class="target-dropdown-trigger-btn" type="button" title="点击切换沟通对象">
                   <span class="target-display-name">{{ currentTargetDisplayName }}</span>
+                  <span
+                    v-if="otherChannelsUnreadCount > 0"
+                    class="other-unread-badge"
+                    :title="`其他沟通频道尚有 ${otherChannelsUnreadCount} 条未读消息`"
+                  >
+                    +{{ otherChannelsUnreadCount }}
+                  </span>
                   <n-icon :component="ChevronDownOutline" class="target-dropdown-arrow" />
                 </button>
               </n-dropdown>
@@ -176,7 +182,7 @@
               @click="handleSend"
             >
               <n-icon :component="PaperPlaneOutline" />
-              <span>发送</span>
+              <span>{{ sendButtonText }}</span>
             </button>
           </div>
 
@@ -195,7 +201,7 @@ defineOptions({
   name: 'VolurChatDrawer'
 })
 
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import {
   NDrawer,
   NDrawerContent,
@@ -267,6 +273,54 @@ const inputContent = ref<string>('')
 const showScrollToBottom = ref<boolean>(false)
 const userScrolledUp = ref<boolean>(false)
 
+// 发送限频控制 (最快 1s 发送一条) 与倒计时
+const SEND_COOLDOWN_SECONDS = 1
+const cooldownSeconds = ref<number>(0)
+const lastSendTime = ref<number>(0)
+const isCoolingDown = ref<boolean>(false)
+const sending = ref<boolean>(false)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+let lastWarningTime = 0
+
+const sendButtonText = computed(() => {
+  if (sending.value) return '发送中'
+  if (isCoolingDown.value) return `发送 (${cooldownSeconds.value}s)`
+  return '发送'
+})
+
+function startCooldown() {
+  lastSendTime.value = Date.now()
+  isCoolingDown.value = true
+  cooldownSeconds.value = SEND_COOLDOWN_SECONDS
+
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    cooldownSeconds.value--
+    if (cooldownSeconds.value <= 0) {
+      if (cooldownTimer) {
+        clearInterval(cooldownTimer)
+        cooldownTimer = null
+      }
+      isCoolingDown.value = false
+    }
+  }, 1000)
+}
+
+function notifyRateLimit() {
+  const now = Date.now()
+  if (now - lastWarningTime > 800) {
+    lastWarningTime = now
+    message.warning(`发送频率过快，请等待 ${cooldownSeconds.value || 1} 秒后再发送`)
+  }
+}
+
+onUnmounted(() => {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer)
+    cooldownTimer = null
+  }
+})
+
 // 抽屉宽度响应式计算
 const drawerWidth = computed(() => {
   if (typeof window !== 'undefined' && window.innerWidth <= 640) {
@@ -275,28 +329,21 @@ const drawerWidth = computed(() => {
   return props.width
 })
 
-// 连接状态描述文案
-const statusText = computed(() => {
+// 连接状态描述提示
+const statusTooltip = computed(() => {
   switch (chatStore.status) {
     case 'CONNECTED':
-      return '实时在线'
+      return '连接成功'
     case 'CONNECTING':
       return '正在连接...'
     case 'RECONNECTING':
-      return '重连中...'
+      return '正在重连...'
     case 'CLOSING':
       return '断开中...'
     case 'DISCONNECTED':
     default:
-      return '未连接'
+      return '连接失败'
   }
-})
-
-const statusTooltip = computed(() => {
-  if (chatStore.status === 'CONNECTED') {
-    return 'WebSocket 通道通畅，消息毫秒级推送'
-  }
-  return '连接已断开，系统将根据指数退避策略自动重连'
 })
 
 // 当前沟通目标展示名称 (纯文本无图标)
@@ -322,6 +369,20 @@ const currentTargetDisplayName = computed(() => {
     return '裁判'
   }
   return teamName
+})
+
+// 当前激活频道之外的其他频道未读总数 (用于在切换按钮上直观呈现未读计数徽标，消除信息盲区)
+const otherChannelsUnreadCount = computed<number>(() => {
+  const target = chatStore.currentTarget
+  let activeUnread = 0
+  if (target === 'TEAM') {
+    activeUnread = chatStore.unreadTeamCount
+  } else if (target === 'REFEREE') {
+    activeUnread = chatStore.unreadRefereeCount
+  } else if (target.startsWith('USER_')) {
+    activeUnread = chatStore.unreadPrivateDetails[target] || 0
+  }
+  return Math.max(0, chatStore.totalUnreadCount - activeUnread)
 })
 
 // 沟通对象下拉选项构建 (彻底移除所有图标，仅纯文本显示：队伍名称、用户名称、裁判)
@@ -404,7 +465,12 @@ const isChatReady = computed(() => {
 })
 
 const canSend = computed(() => {
-  return isChatReady.value && inputContent.value.trim().length > 0
+  return (
+    isChatReady.value &&
+    inputContent.value.trim().length > 0 &&
+    !sending.value &&
+    !isCoolingDown.value
+  )
 })
 
 const emptyDescription = computed(() => {
@@ -483,11 +549,23 @@ function handleKeyDown(e: KeyboardEvent) {
   // Enter 发送，Shift+Enter 或 Ctrl+Enter 换行
   if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
     e.preventDefault()
+    if (sending.value || isCoolingDown.value || Date.now() - lastSendTime.value < SEND_COOLDOWN_SECONDS * 1000) {
+      notifyRateLimit()
+      return
+    }
     handleSend()
   }
 }
 
 async function handleSend() {
+  if (sending.value) return
+
+  const now = Date.now()
+  if (isCoolingDown.value || now - lastSendTime.value < SEND_COOLDOWN_SECONDS * 1000) {
+    notifyRateLimit()
+    return
+  }
+
   if (!canSend.value) return
 
   // 校验私信目标不能为自己
@@ -517,14 +595,19 @@ async function handleSend() {
     }
   }
 
+  sending.value = true
   try {
     await chatStore.sendMessage(rawText, 'TEXT', mentionIds)
+    startCooldown()
+
     nextTick(() => {
       scrollToBottom(true)
     })
   } catch (err: any) {
     message.error(err.message || '消息发送失败')
     inputContent.value = rawText // 失败时恢复内容
+  } finally {
+    sending.value = false
   }
 }
 
@@ -631,6 +714,19 @@ function handleFeedScroll() {
   const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
   userScrolledUp.value = distanceFromBottom > 120
   showScrollToBottom.value = distanceFromBottom > 180
+
+  // 触顶自动游标翻页加载更早历史记录
+  if (el.scrollTop < 30 && !chatStore.loadingHistory && !chatStore.loadingMoreHistory) {
+    const prevScrollHeight = el.scrollHeight
+    chatStore.loadMoreHistory(chatStore.currentTarget).then(() => {
+      nextTick(() => {
+        const heightDiff = el.scrollHeight - prevScrollHeight
+        if (heightDiff > 0) {
+          el.scrollTop += heightDiff
+        }
+      })
+    })
+  }
 }
 
 function scrollToBottom(smooth = false) {
@@ -733,36 +829,30 @@ onMounted(() => {
     .connection-status-pill {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 2px 7px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 500;
-      background: rgba(0, 0, 0, 0.04);
-      color: #666;
+      justify-content: center;
+      padding: 3px;
+      border-radius: 50%;
+      background: transparent;
+      cursor: help;
+      transition: all 0.2s ease;
 
       .status-dot {
-        width: 6px;
-        height: 6px;
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
         background: #9ca3af;
+        transition: all 0.2s ease;
       }
 
       &.connected {
-        background: rgba(16, 185, 129, 0.1);
-        color: #059669;
-
         .status-dot {
           background: #10b981;
-          box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+          box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
         }
       }
 
       &.connecting,
       &.reconnecting {
-        background: rgba(245, 158, 11, 0.1);
-        color: #d97706;
-
         .status-dot {
           background: #f59e0b;
           animation: pulse-dot 1.5s infinite;
@@ -770,11 +860,9 @@ onMounted(() => {
       }
 
       &.disconnected {
-        background: rgba(239, 68, 68, 0.1);
-        color: #dc2626;
-
         .status-dot {
           background: #ef4444;
+          box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
         }
       }
     }
@@ -827,6 +915,7 @@ onMounted(() => {
     display: flex;
     gap: 10px;
     max-width: 86%;
+    align-self: flex-start;
 
     .message-avatar-wrap {
       flex-shrink: 0;
@@ -838,12 +927,17 @@ onMounted(() => {
       display: flex;
       flex-direction: column;
       gap: 4px;
+      align-items: flex-start;
+      min-width: 0;
+      max-width: 100%;
 
       .message-meta {
         display: flex;
         align-items: center;
         gap: 6px;
         font-size: 12px;
+        max-width: 100%;
+        flex-wrap: wrap;
 
         .sender-name {
           font-weight: 600;
@@ -919,6 +1013,10 @@ onMounted(() => {
         font-size: 13.5px;
         line-height: 1.5;
         word-break: break-word;
+        overflow-wrap: anywhere;
+        width: fit-content;
+        max-width: 100%;
+        box-sizing: border-box;
         background: #f3f4f6;
         color: #1f2937;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -1058,6 +1156,20 @@ onMounted(() => {
           color: #000000;
         }
 
+        .other-unread-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 5px;
+          height: 16px;
+          font-size: 10.5px;
+          font-weight: 600;
+          border-radius: 10px;
+          background: #ef4444;
+          color: #ffffff;
+          line-height: 1;
+        }
+
         .target-dropdown-arrow {
           font-size: 13px;
           color: #666666;
@@ -1093,8 +1205,9 @@ onMounted(() => {
       align-items: center;
       justify-content: center;
       gap: 6px;
-      padding: 0 16px;
+      padding: 0 14px;
       height: 38px;
+      min-width: 88px;
       border-radius: 8px;
       border: none;
       // 视觉铁律：纯黑底色纯白字

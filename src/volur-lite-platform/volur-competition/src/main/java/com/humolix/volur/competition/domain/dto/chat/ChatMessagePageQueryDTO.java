@@ -25,11 +25,14 @@ public class ChatMessagePageQueryDTO implements Serializable {
     private Long targetUserId;
 
     /**
-     * 游标 ID，用于向上拉取更早历史记录
+     * 游标 ID，用于向上拉取更早历史记录（与 pageToken 等价）
      */
     private Long beforeId;
 
-    private Integer page = 0;
+    /**
+     * 游标分页令牌（与 beforeId 等价，支持直接传入消息雪花 ID 或 Base64 Token）
+     */
+    private String pageToken;
 
     private Integer size = 50;
 

@@ -25,9 +25,6 @@ public class TeamMemberSignupDTO {
     @NotNull(message = "角色不能为空")
     private MemberRole role;
 
-    @NotBlank(message = "学号不能为空")
-    private String studentNumber;
-
     @NotBlank(message = "手机号不能为空")
     @Phone(message = "手机号格式不正确")
     private String phone;
@@ -40,7 +37,10 @@ public class TeamMemberSignupDTO {
     @IdentificationCard(message = "身份证号格式不正确")
     private String idCard;
 
-    @NotBlank(message = "学院不能为空")
-    private String college;
+    private String employeeNumber;
+
+    private String department;
+
+    private String position;
 
 }

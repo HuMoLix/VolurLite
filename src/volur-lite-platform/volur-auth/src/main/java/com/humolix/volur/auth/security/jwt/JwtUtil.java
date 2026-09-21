@@ -1,18 +1,17 @@
 package com.humolix.volur.auth.security.jwt;
 
+import com.humolix.volur.framework.common.exception.authException.tokenException.InvalidTokenException;
+import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.security.entity.UserDetails;
-import com.humolix.volur.auth.security.jwt.exception.InvalidTokenException;
-import com.humolix.volur.auth.security.jwt.exception.MissingTokenException;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -26,11 +25,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtUtil {
-
-    private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
 
     private static final String AUTHORITIES_CLAIM = "authorities";
     private static final String USER_ID_CLAIM = "userId";
@@ -39,7 +37,7 @@ public class JwtUtil {
 
     private final TokenService tokenService;
 
-    @Value("${volur.jwt.secret:VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}")
+    @Value("${volur.jwt.secret}")
     private String secretKeyStr;
 
     @Value("${volur.jwt.expire-seconds:86400}")
@@ -57,7 +55,7 @@ public class JwtUtil {
     @PostConstruct
     public void init() {
         if (!StringUtils.hasText(secretKeyStr)) {
-            throw new IllegalStateException("JWT Secret 必须配置且不能为空");
+            throw new IllegalStateException("Jwt Secret must be configured and not empty");
         }
         
         byte[] keyBytes;
@@ -247,14 +245,14 @@ public class JwtUtil {
         if (StringUtils.hasText(queryAccessToken)) {
             return queryAccessToken;
         }
-        throw new MissingTokenException("未发现 Bearer 认证头部或 Token 查询参数");
+        throw new TokenMissingException();
     }
 
     public String parseTokenFromHeader(String authHeader) {
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
-        throw new MissingTokenException("无效的认证头部格式");
+        throw new TokenMissingException();
     }
 
     @SuppressWarnings("unchecked")

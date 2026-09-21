@@ -2,25 +2,21 @@ package com.humolix.volur.auth.security.jwt;
 
 import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.security.entity.UserDetails;
-import tools.jackson.databind.ObjectMapper;
-import com.humolix.volur.auth.security.jwt.exception.InvalidTokenException;
-import com.humolix.volur.auth.security.jwt.exception.MissingTokenException;
+import com.humolix.volur.framework.common.exception.authException.tokenException.*;
+import io.jsonwebtoken.ExpiredJwtException;
+import org.springframework.beans.factory.annotation.Qualifier;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.security.SignatureException;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 import com.humolix.volur.auth.security.service.UserDetailsService;
 import com.humolix.volur.auth.security.util.SecurityWhitelistMatcher;
-import com.humolix.volur.framework.common.api.ApiResponse;
-import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -33,14 +29,27 @@ import java.io.IOException;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final ObjectMapper objectMapper;
     private final UserDetailsService userDetailsService;
     private final TokenService tokenService;
     private final SecurityWhitelistMatcher whitelistMatcher;
+    private final HandlerExceptionResolver resolver;
+
+    public JwtAuthFilter(
+            JwtUtil jwtUtil,
+            UserDetailsService userDetailsService,
+            TokenService tokenService,
+            SecurityWhitelistMatcher whitelistMatcher,
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver
+    ) {
+        this.jwtUtil = jwtUtil;
+        this.userDetailsService = userDetailsService;
+        this.tokenService = tokenService;
+        this.whitelistMatcher = whitelistMatcher;
+        this.resolver = resolver;
+    }
 
     @Override
     protected void doFilterInternal(
@@ -48,10 +57,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
+
         String token;
         try {
             token = jwtUtil.parseToken(request);
-        } catch (MissingTokenException ex) {
+        } catch (Exception ex) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -67,26 +77,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             Claims claims = jwtUtil.getClaimsFromToken(token);
 
             if (tokenService.isTokenBlacklisted(claims.getId())) {
-                if (isWhitelisted) {
-                    log.debug("白名单路径 [{}] 携带了已拉黑令牌，优雅降级为匿名放行", request.getRequestURI());
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "令牌已失效");
-                return;
+                throw new TokenBlacklistedException();
             }
 
             final Long userId = claims.get("userId", Long.class);
             final long iat = claims.getIssuedAt().getTime();
 
             if (tokenService.isUserForceLoggedOut(userId, iat)) {
-                if (isWhitelisted) {
-                    log.debug("白名单路径 [{}] 携带了被强制下线令牌，优雅降级为匿名放行", request.getRequestURI());
-                    filterChain.doFilter(request, response);
-                    return;
-                }
-                sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "账号已在其他位置强制登出");
-                return;
+                throw new UserForceLoggedOutException();
             }
 
             final String username = claims.getSubject();
@@ -99,59 +97,32 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                 userDetails.getAuthorities()
                         );
 
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
 
-        } catch (ExpiredJwtException ex) {
-            if (isWhitelisted) {
-                log.debug("白名单路径 [{}] 携带了已过期令牌，优雅降级为匿名放行", request.getRequestURI());
-                filterChain.doFilter(request, response);
-                return;
-            }
-            sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "令牌已过期");
-            return;
-        } catch (MalformedJwtException | InvalidTokenException ex) {
-            if (isWhitelisted) {
-                log.debug("白名单路径 [{}] 携带了格式非法令牌，优雅降级为匿名放行", request.getRequestURI());
-                filterChain.doFilter(request, response);
-                return;
-            }
-            sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "令牌无效或签名错误");
-            return;
-        } catch (UsernameNotFoundException ex) {
-            if (isWhitelisted) {
-                filterChain.doFilter(request, response);
-                return;
-            }
-            sendErrorResponse(response, HttpStatus.UNAUTHORIZED, "用户不存在");
-            return;
+            filterChain.doFilter(request, response);
+
         } catch (Exception ex) {
-            log.error("JWT 认证异常: {}", ex.getMessage());
             if (isWhitelisted) {
                 filterChain.doFilter(request, response);
                 return;
             }
-            sendErrorResponse(response, HttpStatus.INTERNAL_SERVER_ERROR, "认证服务异常");
-            return;
+
+            Exception exception = this.fromException(ex);
+            resolver.resolveException(request, response, null, exception);
         }
-        filterChain.doFilter(request, response);
     }
 
-    private void sendErrorResponse(HttpServletResponse response,
-                                   HttpStatus status, String message) throws IOException {
-
-        if (response.isCommitted()) return;
-        ApiResponse<?> apiResponse = ApiResponseEntity.of(status, message, null);
-
-        response.setStatus(status.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
-
-        String json = objectMapper.writeValueAsString(apiResponse);
-        response.getWriter().write(json);
+    private Exception fromException(Exception ex) {
+        return switch (ex) {
+            case TokenAuthenticationException tae -> tae;
+            case ExpiredJwtException e -> new TokenExpiredException(e);
+            case MalformedJwtException e -> new TokenMalformedException(e);
+            case SignatureException e -> new TokenMalformedException(e);
+            case UsernameNotFoundException e -> new InvalidTokenException("无效的令牌，用户不存在", e);
+            default -> ex;
+        };
     }
 
 }

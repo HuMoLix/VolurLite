@@ -178,62 +178,81 @@
     <n-modal
       v-model:show="showDetailModal"
       preset="card"
-      class="team-detail-modal"
-      style="width: 1200px; max-width: 96vw; border-radius: 12px;"
+      class="team-form-modal team-detail-modal"
+      style="width: 1040px; max-width: 96vw; border-radius: 12px;"
       :title="`参赛队伍详情 - ${detailTeam?.teamName || ''}`"
       :bordered="false"
     >
       <n-spin :show="detailLoading">
         <div v-if="detailTeam" class="team-detail-content">
-          <!-- 1. 队伍基本概况 (Team Meta Panel) -->
-          <div class="team-meta-panel">
-            <div class="team-header-identity">
-              <AppAvatar
-                round
-                :size="46"
-                :src="detailTeam.avatarUrl"
-                :name="detailTeam.teamName"
-              />
-              <div class="identity-info">
-                <div class="team-name-row">
-                  <span class="team-name">{{ detailTeam.teamName }}</span>
+          <!-- 历史审核驳回原因展示 (若有) -->
+          <div
+            v-if="detailTeam.status === 'AUDIT_REJECTED' && detailTeam.auditReason"
+            class="reject-alert-banner"
+          >
+            <n-icon :component="CloseCircleOutline" class="alert-icon" />
+            <div class="alert-text">
+              <strong>历史审核驳回原因：</strong>{{ detailTeam.auditReason }}
+            </div>
+          </div>
+
+          <!-- Top Team Overview Card: 队伍基础信息展示卡片 (管理审核视图，全宽纯文本卡片，不使用表单输入框与双栏排版) -->
+          <div class="team-overview-card">
+            <div class="team-overview-top">
+              <div class="team-avatar-box">
+                <UserAvatar
+                  :size="52"
+                  :src="detailTeamDisplayAvatarUrl"
+                  :username="detailTeam.teamName || 'Team'"
+                  :editable="false"
+                />
+              </div>
+
+              <div class="team-main-meta">
+                <div class="team-name-line">
+                  <h3 class="team-name">{{ detailTeam.teamName }}</h3>
                 </div>
-                <div class="team-sub-meta">
-                  <span class="meta-entry">队长: <strong>{{ detailTeam.captainUsername }}</strong></span>
-                  <span class="meta-divider">|</span>
-                  <span class="meta-entry">报名提交: <span>{{ new Date(detailTeam.createdAt).toLocaleString() }}</span></span>
-                  <template v-if="detailTeam.competitionTitle">
-                    <span class="meta-divider">|</span>
-                    <span class="meta-entry">所属赛事: <span>{{ detailTeam.competitionTitle }}</span></span>
-                  </template>
+
+                <div class="team-info-chips">
+                  <div class="info-chip">
+                    <span class="chip-label">所属单位:</span>
+                    <span class="chip-value">{{ detailTeam.organization || '—' }}</span>
+                  </div>
+                  <span class="meta-sep">|</span>
+                  <div class="info-chip">
+                    <span class="chip-label">单位类型:</span>
+                    <span class="chip-value">{{ getOrganizationTypeLabel(detailTeam.organizationType) }}</span>
+                  </div>
+                  <span class="meta-sep">|</span>
+                  <div class="info-chip">
+                    <span class="chip-label">队长:</span>
+                    <span class="chip-value font-medium">{{ detailTeam.captainUsername }}</span>
+                  </div>
+                  <span class="meta-sep">|</span>
+                  <div class="info-chip">
+                    <span class="chip-label">报名时间:</span>
+                    <span class="chip-value">{{ formatDateTime(detailTeam.createdAt) }}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- 历史驳回原因展示 -->
-            <div
-              v-if="detailTeam.status === 'AUDIT_REJECTED' && detailTeam.auditReason"
-              class="reject-alert-banner"
-            >
-              <n-icon :component="CloseCircleOutline" class="alert-icon" />
-              <div class="alert-text">
-                <strong>历史审核驳回原因：</strong>{{ detailTeam.auditReason }}
-              </div>
+            <!-- 队伍简介 -->
+            <div class="team-desc-line">
+              <span class="desc-label">队伍简介:</span>
+              <span class="desc-content">{{ detailTeam.description || '暂无简介' }}</span>
             </div>
           </div>
 
           <!-- 2. 战队成员名单 (Roster Header & Table) -->
           <div class="roster-header">
             <div class="roster-title-area">
-              <h4 class="roster-title">参赛成员资质名册</h4>
+              <h4 class="roster-title">参赛成员</h4>
               <span class="roster-count">
-                当前成员: <strong>{{ detailMemberCount }}</strong> /
+                当前成员: <strong>{{ detailMembersOnly.length }}</strong> /
                 限制: {{ compMinMembers }} ~ {{ compMaxMembers }} 人
-                <template v-if="compMaxLeaders !== undefined">
-                  (领队: {{ detailLeaderCount }} / {{ compMaxLeaders }} 人)
-                </template>
                 <span class="total-limit-text">
-                  （名册上限: {{ compMaxTotalRows }} 人）
+                  （上限: {{ compMaxMembers }} 人）
                 </span>
               </span>
             </div>
@@ -243,21 +262,35 @@
             <n-table :bordered="true" :single-line="false" size="small" class="roster-table">
               <thead>
                 <tr>
-                  <th style="width: 155px;">成员姓名 / 账号</th>
+                  <th style="width: 140px;">姓名 / 账号</th>
                   <th style="width: 75px; text-align: center;">性别</th>
-                  <th style="width: 95px; text-align: center;">队内角色</th>
-                  <th style="width: 130px;">学号 / 工号</th>
-                  <th style="width: 135px;">联系电话</th>
-                  <th style="width: 165px;">电子邮箱</th>
-                  <th style="width: 175px;">身份证件号码</th>
-                  <th style="width: 140px;">所属院系</th>
+                  <th style="width: 85px; text-align: center;">角色</th>
+
+                  <!-- 学校单位: 学号 / 企业及其他单位: 工号 -->
+                  <th style="width: 130px;">
+                    {{ isSchoolOrganization ? '学号' : '工号' }}
+                  </th>
+
+                  <th style="width: 135px;">手机号</th>
+                  <th style="width: 165px;">邮箱</th>
+                  <th style="width: 175px;">身份证</th>
+
+                  <!-- 学校单位: 学院 / 企业及其他单位: 部门 -->
+                  <th style="width: 140px;">
+                    {{ isSchoolOrganization ? '学院' : '部门' }}
+                  </th>
+
+                  <!-- 学校单位: 班级 / 企业及其他单位: 职位 -->
+                  <th style="width: 120px;">
+                    {{ isSchoolOrganization ? '班级' : '职位' }}
+                  </th>
+
                   <th style="width: 95px; text-align: center;">加入状态</th>
-                  <th style="width: 105px; text-align: center;">加入时间</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="(row, idx) in sortedDetailMembers"
+                  v-for="(row, idx) in detailMembersOnly"
                   :key="idx"
                   :class="{ 'captain-row': row.role === 'CAPTAIN' }"
                 >
@@ -266,7 +299,7 @@
                     <div class="member-profile-cell">
                       <AppAvatar
                         round
-                        :size="26"
+                        :size="24"
                         :src="row.avatarUrl"
                         :name="row.realName || row.username"
                       />
@@ -285,20 +318,19 @@
                     <span v-else class="text-muted">—</span>
                   </td>
 
-                  <!-- 3. 队内角色 -->
+                  <!-- 3. 角色 (普通文字样式，非胶囊) -->
                   <td style="text-align: center;">
-                    <n-tag
-                      size="small"
-                      round
-                      :type="row.role === 'CAPTAIN' ? 'primary' : row.role === 'LEADER' ? 'warning' : 'default'"
+                    <span
+                      class="role-text"
+                      :class="row.role === 'CAPTAIN' ? 'role-captain' : 'role-member'"
                     >
-                      {{ row.role === 'CAPTAIN' ? '队长' : row.role === 'LEADER' ? '领队' : '队员' }}
-                    </n-tag>
+                      {{ row.role === 'CAPTAIN' ? '队长' : '队员' }}
+                    </span>
                   </td>
 
                   <!-- 4. 学号 / 工号 -->
                   <td>
-                    <span class="code-text">{{ row.studentNumber || '—' }}</span>
+                    <span class="code-text">{{ row.employeeNumber || '—' }}</span>
                   </td>
 
                   <!-- 5. 手机号 -->
@@ -311,18 +343,23 @@
                     <span class="email-text" :title="row.email">{{ row.email || '—' }}</span>
                   </td>
 
-                  <!-- 7. 身份证件号码 -->
+                  <!-- 7. 身份证 -->
                   <td>
                     <span v-if="row.idCard" class="id-card-badge">{{ row.idCard }}</span>
                     <span v-else class="text-muted">未填写</span>
                   </td>
 
-                  <!-- 8. 所属院系 -->
+                  <!-- 8. 学院 / 部门 -->
                   <td>
-                    <span class="college-text" :title="row.college">{{ row.college || '—' }}</span>
+                    <span class="college-text" :title="row.department">{{ row.department || '—' }}</span>
                   </td>
 
-                  <!-- 9. 加入状态 -->
+                  <!-- 9. 班级 / 职位 -->
+                  <td>
+                    <span class="college-text" :title="row.position">{{ row.position || '—' }}</span>
+                  </td>
+
+                  <!-- 10. 加入状态 -->
                   <td style="text-align: center;">
                     <n-tag
                       size="small"
@@ -332,14 +369,118 @@
                       {{ getMemberStatusTag(row).label }}
                     </n-tag>
                   </td>
-
-                  <!-- 10. 加入时间 -->
-                  <td style="text-align: center;">
-                    <span class="date-text">{{ row.joinedAt ? new Date(row.joinedAt).toLocaleDateString() : '—' }}</span>
-                  </td>
                 </tr>
               </tbody>
             </n-table>
+          </div>
+
+          <!-- 领队/指导老师名册 (当存在领队时展示) -->
+          <div v-if="detailLeadersOnly.length > 0" class="leaders-section">
+            <div class="roster-header leader-roster-header">
+              <div class="roster-title-area">
+                <h4 class="roster-title">领队/指导老师</h4>
+                <span class="roster-count">
+                  当前领队: <strong>{{ detailLeadersOnly.length }}</strong> /
+                  上限: {{ compMaxLeaders }} 人
+                </span>
+              </div>
+            </div>
+
+            <div class="table-scroll-container">
+              <n-table :bordered="true" :single-line="false" size="small" class="roster-table">
+                <thead>
+                  <tr>
+                    <th style="width: 140px;">姓名 / 账号</th>
+                    <th style="width: 75px; text-align: center;">性别</th>
+                    <th style="width: 85px; text-align: center;">角色</th>
+
+                    <!-- 学校单位: 学号 / 企业及其他单位: 工号 -->
+                    <th style="width: 130px;">
+                      {{ isSchoolOrganization ? '学号' : '工号' }}
+                    </th>
+
+                    <th style="width: 135px;">手机号</th>
+                    <th style="width: 165px;">邮箱</th>
+                    <th style="width: 175px;">身份证</th>
+
+                    <!-- 学校单位: 学院 / 企业及其他单位: 部门 -->
+                    <th style="width: 140px;">
+                      {{ isSchoolOrganization ? '学院' : '部门' }}
+                    </th>
+
+                    <!-- 学校单位: 班级 / 企业及其他单位: 职位 -->
+                    <th style="width: 120px;">
+                      {{ isSchoolOrganization ? '班级' : '职位' }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, idx) in detailLeadersOnly" :key="'leader-' + idx">
+                    <!-- 1. 姓名 / 账号 -->
+                    <td>
+                      <div class="member-profile-cell">
+                        <AppAvatar
+                          round
+                          :size="24"
+                          :src="row.avatarUrl"
+                          :name="row.realName || row.username"
+                        />
+                        <div class="member-name-block">
+                          <span class="real-name">{{ row.realName || row.username }}</span>
+                          <span v-if="row.realName && row.username" class="user-handle">@{{ row.username }}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <!-- 2. 性别 -->
+                    <td style="text-align: center;">
+                      <span v-if="row.gender && row.gender !== 'UNKNOWN'" class="gender-text">
+                        {{ row.gender === 'MALE' ? '男' : '女' }}
+                      </span>
+                      <span v-else class="text-muted">—</span>
+                    </td>
+
+                    <!-- 3. 角色 (普通文字样式) -->
+                    <td style="text-align: center;">
+                      <span class="role-text role-leader">
+                        指导老师
+                      </span>
+                    </td>
+
+                    <!-- 4. 学号 / 工号 -->
+                    <td>
+                      <span class="code-text">{{ row.employeeNumber || '—' }}</span>
+                    </td>
+
+                    <!-- 5. 手机号 -->
+                    <td>
+                      <span class="code-text">{{ row.phone || '—' }}</span>
+                    </td>
+
+                    <!-- 6. 邮箱 -->
+                    <td>
+                      <span class="email-text" :title="row.email">{{ row.email || '—' }}</span>
+                    </td>
+
+                    <!-- 7. 身份证 -->
+                    <td>
+                      <span v-if="row.idCard" class="id-card-badge">{{ row.idCard }}</span>
+                      <span v-else class="text-muted">未填写</span>
+                    </td>
+
+                    <!-- 8. 学院 / 部门 -->
+                    <td>
+                      <span class="college-text" :title="row.department">{{ row.department || '—' }}</span>
+                    </td>
+
+                    <!-- 9. 班级 / 职位 -->
+                    <td>
+                      <span class="college-text" :title="row.position">{{ row.position || '—' }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </n-table>
+            </div>
           </div>
 
           <!-- 3. 底部操作栏 (Modal Actions) -->
@@ -350,6 +491,10 @@
                 <n-tag size="small" :type="getTeamStatusTag(detailTeam.status)" round>
                   {{ getTeamStatusLabel(detailTeam.status) }}
                 </n-tag>
+                <span class="meta-divider" style="margin: 0 8px; color: #d1d1d6;">|</span>
+                <span>队长：<strong>{{ detailTeam.captainUsername }}</strong></span>
+                <span class="meta-divider" style="margin: 0 8px; color: #d1d1d6;">|</span>
+                <span>报名时间：{{ new Date(detailTeam.createdAt).toLocaleString() }}</span>
               </span>
             </div>
             <div class="actions-right">
@@ -400,6 +545,8 @@ import {
 } from 'naive-ui'
 import { VolurTableCard } from '@/public/volurEx'
 import AppAvatar from '@/components/common/AppAvatar.vue'
+import UserAvatar from '@/components/common/UserAvatar.vue'
+import { formatAvatarUrl } from '@/utils/imageCache'
 import {
   PeopleOutline,
   TimeOutline,
@@ -470,27 +617,56 @@ const showDetailModal = ref<boolean>(false)
 const detailLoading = ref<boolean>(false)
 const detailTeam = ref<AdminTeamDetailVO | null>(null)
 
-const sortedDetailMembers = computed<CompetitionMemberVO[]>(() => {
+const detailTeamDisplayAvatarUrl = computed(() => {
+  return formatAvatarUrl(detailTeam.value?.avatarUrl)
+})
+
+const detailMembersOnly = computed<CompetitionMemberVO[]>(() => {
   if (!detailTeam.value?.members) return []
-  const rolePriority: Record<string, number> = {
-    CAPTAIN: 1,
-    LEADER: 2,
-    MEMBER: 3
+  return detailTeam.value.members
+    .filter(m => m.role !== 'LEADER')
+    .sort((a, b) => (a.role === 'CAPTAIN' ? -1 : b.role === 'CAPTAIN' ? 1 : 0))
+})
+
+const detailLeadersOnly = computed<CompetitionMemberVO[]>(() => {
+  if (!detailTeam.value?.members) return []
+  return detailTeam.value.members.filter(m => m.role === 'LEADER')
+})
+
+const organizationTypeMap: Record<string, string> = {
+  SCHOOL: '学校',
+  ENTERPRISE: '企业单位',
+  MILITARY: '军工',
+  ENERGY: '能源',
+  FINANCE: '金融',
+  RESEARCH: '科研院所',
+  OTHER: '其他'
+}
+
+function getOrganizationTypeLabel(type?: string | null): string {
+  if (!type) return '学校'
+  const upper = String(type).trim().toUpperCase()
+  return organizationTypeMap[upper] || type
+}
+
+const isSchoolOrganization = computed(() => {
+  const orgType = detailTeam.value?.organizationType
+  if (!orgType) return true
+  const normalized = String(orgType).trim().toUpperCase()
+  return normalized === 'SCHOOL' || normalized === '学校'
+})
+
+function formatDateTime(val?: string | null): string {
+  if (!val) return '-'
+  try {
+    const d = new Date(val)
+    if (isNaN(d.getTime())) return val
+    const pad = (n: number) => (n < 10 ? '0' + n : n)
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  } catch {
+    return val
   }
-  return [...detailTeam.value.members].sort((a, b) => {
-    const pA = rolePriority[a.role] ?? 99
-    const pB = rolePriority[b.role] ?? 99
-    return pA - pB
-  })
-})
-
-const detailMemberCount = computed(() => {
-  return detailTeam.value?.members?.filter(m => m.role !== 'LEADER').length || 0
-})
-
-const detailLeaderCount = computed(() => {
-  return detailTeam.value?.members?.filter(m => m.role === 'LEADER').length || 0
-})
+}
 
 const compMinMembers = computed(() => {
   return props.initialData?.minTeamMembers ?? 1
@@ -502,10 +678,6 @@ const compMaxMembers = computed(() => {
 
 const compMaxLeaders = computed(() => {
   return props.initialData?.maxLeaders ?? 1
-})
-
-const compMaxTotalRows = computed(() => {
-  return compMaxMembers.value + compMaxLeaders.value
 })
 
 function getMemberStatusTag(row: CompetitionMemberVO): { type: 'success' | 'warning' | 'default' | 'info'; label: string } {
@@ -1043,77 +1215,123 @@ function getTeamStatusLabel(status?: string) {
   flex-direction: column;
   min-height: 200px;
 
-  .team-meta-panel {
+  .reject-alert-banner {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(208, 48, 80, 0.06);
+    border: 1px solid rgba(208, 48, 80, 0.2);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #d03050;
     margin-bottom: 16px;
-    padding: 14px 18px;
+
+    .alert-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .alert-text {
+      line-height: 1.4;
+    }
+  }
+
+  .team-overview-card {
     background: var(--v-bg-card-alt, #fafafc);
     border: 1px solid var(--v-border-base, #e5e4e7);
     border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 
-    .team-header-identity {
+    .team-overview-top {
       display: flex;
       align-items: center;
       gap: 16px;
 
-      .identity-info {
+      .team-avatar-box {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .team-main-meta {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
 
-        .team-name-row {
+        .team-name-line {
           display: flex;
           align-items: center;
           gap: 10px;
+          flex-wrap: wrap;
 
           .team-name {
-            font-size: 16px;
+            margin: 0;
+            font-size: 17px;
             font-weight: 700;
             color: var(--v-text-primary, #111111);
           }
         }
 
-        .team-sub-meta {
+        .team-info-chips {
           display: flex;
           align-items: center;
-          gap: 10px;
-          font-size: 12px;
-          color: var(--v-text-desc, #444444);
+          gap: 12px;
           flex-wrap: wrap;
+          font-size: 13px;
+          color: #444444;
 
-          .meta-divider {
-            color: #d1d1d6;
+          .info-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+
+            .chip-label {
+              color: #666666;
+            }
+
+            .chip-value {
+              color: var(--v-text-primary, #111111);
+
+              &.font-medium {
+                font-weight: 600;
+              }
+            }
           }
 
-          .meta-entry {
-            strong {
-              color: var(--v-text-primary, #111111);
-            }
+          .meta-sep {
+            color: #d1d1d6;
+            font-size: 12px;
           }
         }
       }
     }
 
-    .reject-alert-banner {
+    .team-desc-line {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 8px;
-      padding: 8px 12px;
-      background: rgba(208, 48, 80, 0.06);
-      border: 1px solid rgba(208, 48, 80, 0.2);
-      border-radius: 6px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--v-border-base, #e5e4e7);
       font-size: 13px;
-      color: #d03050;
+      line-height: 1.5;
 
-      .alert-icon {
-        font-size: 16px;
+      .desc-label {
         flex-shrink: 0;
+        font-weight: 500;
+        color: #666666;
       }
 
-      .alert-text {
-        line-height: 1.4;
+      .desc-content {
+        color: #333333;
+        word-break: break-word;
       }
     }
   }
@@ -1141,14 +1359,14 @@ function getTeamStatusLabel(status?: string) {
 
       .roster-count {
         font-size: 12px;
-        color: var(--v-text-desc, #444444);
+        color: #444444;
 
         strong {
           color: var(--v-text-primary, #111111);
         }
 
         .total-limit-text {
-          color: var(--v-text-muted, #666666);
+          color: #666666;
           margin-left: 4px;
         }
       }
@@ -1169,7 +1387,7 @@ function getTeamStatusLabel(status?: string) {
       th {
         font-weight: 600;
         background: var(--v-bg-card-alt, #fafafc);
-        color: var(--v-text-desc, #444444);
+        color: #444444;
         white-space: nowrap;
         padding: 8px 10px;
         position: sticky;
@@ -1183,9 +1401,38 @@ function getTeamStatusLabel(status?: string) {
         vertical-align: middle;
       }
 
-      tr.captain-row {
-        background-color: var(--v-bg-muted, rgba(0, 0, 0, 0.015));
+      .role-text {
+        font-size: 13px;
+        display: inline-block;
+
+        &.role-captain {
+          font-weight: 600;
+          color: var(--v-text-primary, #111111);
+        }
+
+        &.role-member {
+          font-weight: 400;
+          color: #555555;
+        }
+
+        &.role-leader {
+          font-weight: 500;
+          color: #444444;
+        }
       }
+
+      tr.captain-row {
+        background-color: rgba(0, 0, 0, 0.015);
+      }
+    }
+  }
+
+  .leaders-section {
+    margin-top: 8px;
+    margin-bottom: 16px;
+
+    .leader-roster-header {
+      border-bottom-style: dashed;
     }
   }
 
@@ -1221,7 +1468,7 @@ function getTeamStatusLabel(status?: string) {
 
   .email-text {
     font-size: 12px;
-    color: var(--v-text-desc, #444444);
+    color: #444444;
     word-break: break-all;
   }
 
@@ -1237,21 +1484,21 @@ function getTeamStatusLabel(status?: string) {
 
   .gender-text {
     font-size: 13px;
-    color: var(--v-text-desc, #444444);
+    color: #444444;
   }
 
   .college-text {
     font-size: 12px;
-    color: var(--v-text-desc, #444444);
+    color: #444444;
   }
 
   .date-text {
     font-size: 12px;
-    color: var(--v-text-muted, #555555);
+    color: #555555;
   }
 
   .text-muted {
-    color: var(--v-text-disabled, #999999);
+    color: #999999;
     font-size: 12px;
   }
 
@@ -1260,7 +1507,7 @@ function getTeamStatusLabel(status?: string) {
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    margin-top: 12px;
+    margin-top: 16px;
 
     .actions-left {
       display: flex;
@@ -1268,7 +1515,7 @@ function getTeamStatusLabel(status?: string) {
 
       .status-indicator {
         font-size: 13px;
-        color: var(--v-text-desc, #444444);
+        color: #444444;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -1282,13 +1529,13 @@ function getTeamStatusLabel(status?: string) {
     }
 
     .theme-primary-btn {
-      background-color: var(--v-btn-primary-bg, #000000) !important;
-      color: var(--v-btn-primary-text, #ffffff) !important;
+      background-color: #000000 !important;
+      color: #ffffff !important;
       border: none;
       font-weight: 500;
 
       &:hover {
-        background-color: var(--v-btn-primary-hover, #222222) !important;
+        background-color: #222222 !important;
       }
     }
   }
@@ -1298,15 +1545,53 @@ function getTeamStatusLabel(status?: string) {
 html.dark,
 [data-theme='dark'] {
   .team-detail-content {
-    .team-meta-panel {
+    .reject-alert-banner {
+      background: rgba(208, 48, 80, 0.15);
+      border-color: rgba(208, 48, 80, 0.35);
+      color: #f87171;
+    }
+
+    .team-overview-card {
       background: var(--v-bg-muted, #12141c);
       border-color: var(--v-border-base, rgba(255, 255, 255, 0.09));
 
-      .team-header-identity .identity-info .team-sub-meta {
-        color: var(--v-text-desc, #94a3b8);
+      .team-overview-top {
+        .team-main-meta {
+          .team-name-line {
+            .team-name {
+              color: var(--v-text-primary, #f8fafc);
+            }
+          }
 
-        .meta-divider {
-          color: rgba(255, 255, 255, 0.2);
+          .team-info-chips {
+            color: #94a3b8;
+
+            .info-chip {
+              .chip-label {
+                color: #64748b;
+              }
+
+              .chip-value {
+                color: var(--v-text-primary, #f8fafc);
+              }
+            }
+
+            .meta-sep {
+              color: rgba(255, 255, 255, 0.2);
+            }
+          }
+        }
+      }
+
+      .team-desc-line {
+        border-top-color: rgba(255, 255, 255, 0.09);
+
+        .desc-label {
+          color: #64748b;
+        }
+
+        .desc-content {
+          color: #cbd5e1;
         }
       }
     }
@@ -1344,7 +1629,37 @@ html.dark,
         tr.captain-row {
           background-color: rgba(255, 255, 255, 0.03);
         }
+
+        .role-text {
+          &.role-captain {
+            color: #f8fafc;
+          }
+
+          &.role-member {
+            color: #94a3b8;
+          }
+
+          &.role-leader {
+            color: #cbd5e1;
+          }
+        }
       }
+    }
+
+    .member-profile-cell {
+      .member-name-block {
+        .real-name {
+          color: #f8fafc;
+        }
+
+        .user-handle {
+          color: #64748b;
+        }
+      }
+    }
+
+    .code-text {
+      color: #f8fafc;
     }
 
     .id-card-badge {
@@ -1362,9 +1677,17 @@ html.dark,
       color: var(--v-text-muted, #64748b);
     }
 
+    .text-muted {
+      color: #64748b;
+    }
+
     .modal-actions {
       .actions-left .status-indicator {
         color: var(--v-text-desc, #94a3b8);
+      }
+
+      .meta-divider {
+        color: rgba(255, 255, 255, 0.2);
       }
 
       .theme-primary-btn {

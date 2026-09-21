@@ -1,5 +1,5 @@
 import { request } from '@/utils/request'
-import type { ApiResponse, PageResponse } from '@/types/common/api'
+import type { ApiResponse, CursorResponse } from '@/types/common/api'
 import type {
   ChatMessageVO,
   ChatMessageDTO,
@@ -31,14 +31,14 @@ export function markChatReadApi(
 }
 
 /**
- * 分页获取历史聊天记录
+ * 游标流式分页获取历史聊天记录（访问即自动将该频道标记已读）
  * 对应后端: GET /api/v1/competitions/{competitionId}/chat/history
  */
 export function getChatHistoryApi(
   competitionId: number | string,
   params?: ChatMessagePageQueryDTO
-): Promise<ApiResponse<PageResponse<ChatMessageVO>>> {
-  return request.get<PageResponse<ChatMessageVO>>(`/competitions/${competitionId}/chat/history`, { params })
+): Promise<ApiResponse<CursorResponse<ChatMessageVO>>> {
+  return request.get<CursorResponse<ChatMessageVO>>(`/competitions/${competitionId}/chat/history`, { params })
 }
 
 /**

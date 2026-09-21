@@ -3,6 +3,7 @@ package com.humolix.volur.competition.service.impl;
 import com.alibaba.fastjson2.JSON;
 import com.humolix.volur.competition.annotation.RequiredCompetitionStatus;
 import com.humolix.volur.competition.domain.dto.TeamInviteAcceptDTO;
+import com.humolix.volur.competition.domain.dto.TeamLeadersSignupDTO;
 import com.humolix.volur.competition.domain.dto.TeamMemberSignupDTO;
 import com.humolix.volur.competition.domain.dto.TeamSignupRequestDTO;
 import com.humolix.volur.competition.domain.dto.TeamUpdateRequestDTO;
@@ -10,9 +11,10 @@ import com.humolix.volur.competition.domain.entity.*;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.enums.MemberRole;
 import com.humolix.volur.competition.domain.enums.MemberStatus;
+import com.humolix.volur.competition.domain.enums.OrganizationType;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
+import com.humolix.volur.competition.domain.record.TeamLimits;
 import com.humolix.volur.competition.domain.vo.CompetitionMemberVO;
-import com.humolix.volur.competition.domain.vo.CompetitionTeamVO;
 import com.humolix.volur.competition.domain.vo.MyTeamInfoVO;
 import com.humolix.volur.competition.domain.vo.TeamInvitationVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
@@ -32,8 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -82,50 +82,41 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             }
         }
 
-        int maxLeaders = config != null && config.getMaxLeaders() != null ? config.getMaxLeaders() : 1;
-        int maxMembers = config != null && config.getMaxTeamMembers() != null ? config.getMaxTeamMembers() : 4;
-        int minMembers = config != null && config.getMinTeamMembers() != null ? config.getMinTeamMembers() : 1;
+        TeamLimits limits = TeamLimits.from(config);
 
         List<TeamMemberSignupDTO> memberList = request.getMembers() != null ? request.getMembers() : Collections.emptyList();
         if (memberList.isEmpty()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "参赛成员名册不能为空");
         }
-        if (memberList.size() > maxMembers + maxLeaders) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "名册成员总行数超过上限 (" + (maxMembers + maxLeaders) + "行)");
+        if (memberList.size() > limits.maxMembers() + limits.maxLeaders()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "名册成员总行数超过上限 (" + (limits.maxMembers() + limits.maxLeaders()) + "行)");
         }
 
-        // 2. 角色区分与数量校验
-        List<TeamMemberSignupDTO> captainRows = new ArrayList<>();
-        List<TeamMemberSignupDTO> leaderRows = new ArrayList<>();
-        List<TeamMemberSignupDTO> normalMemberRows = new ArrayList<>();
+        List<TeamMemberSignupDTO> captains = new ArrayList<>();
+        List<TeamMemberSignupDTO> members = new ArrayList<>();
 
         for (TeamMemberSignupDTO m : memberList) {
-            if (m.getRole() == MemberRole.CAPTAIN) {
-                captainRows.add(m);
-            } else if (m.getRole() == MemberRole.LEADER) {
-                leaderRows.add(m);
-            } else if (m.getRole() == MemberRole.MEMBER) {
-                normalMemberRows.add(m);
-            } else {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "未知的成员角色类型");
+            switch (m.getRole()) {
+                case CAPTAIN -> captains.add(m);
+                case MEMBER  -> members.add(m);
+                case null, default -> throw new BusinessException(HttpStatus.BAD_REQUEST, "参赛成员列表中只能包含队长和队员");
             }
         }
 
-        if (captainRows.size() != 1) {
+        if (captains.size() != 1) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "队伍必须且只能包含 1 名队长");
         }
-        TeamMemberSignupDTO captainRow = captainRows.getFirst();
+        TeamMemberSignupDTO captainRow = captains.getFirst();
 
-        if (leaderRows.size() > maxLeaders) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "领队人数超过上限 (最多 " + maxLeaders + " 人)");
+        List<TeamLeadersSignupDTO> leaderList = request.getLeaders() != null ? request.getLeaders() : Collections.emptyList();
+        if (leaderList.size() > limits.maxLeaders()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "领队人数超过上限 (最多 " + limits.maxLeaders() + " 人)");
         }
 
-        int totalTeamMembers = 1 + normalMemberRows.size();
-        if (totalTeamMembers > maxMembers) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "参赛队员人数超过上限 (" + maxMembers + "人，含队长)");
-        }
-        if (totalTeamMembers < minMembers) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "队伍总人数未达到最低要求 (" + minMembers + "人，含队长)");
+        int totalTeamMembers = 1 + members.size();
+        if (totalTeamMembers > limits.maxMembers() || totalTeamMembers < limits.minMembers()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    String.format("参赛队员人数须在 %d~%d 人之间（含队长）", limits.minMembers(), limits.maxMembers()));
         }
 
         User captain = userRepository.findById(captainUserId)
@@ -135,17 +126,30 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "队长邮箱必须为当前登录账号绑定的邮箱 (" + captain.getEmail() + ")");
         }
 
+        // 统一名册字段判空与防重校验 (区分学校与其他单位)
+        boolean isEnterprise = request.getOrganizationType() != null && request.getOrganizationType() != OrganizationType.SCHOOL;
         Set<String> seenEmails = new HashSet<>();
         Set<String> seenPhones = new HashSet<>();
         Set<String> seenIdCards = new HashSet<>();
         Set<String> seenStudentNumbers = new HashSet<>();
+
         for (TeamMemberSignupDTO m : memberList) {
-            String studentNumber = m.getStudentNumber() != null ? m.getStudentNumber().trim() : "";
-            if (!StringUtils.hasText(studentNumber)) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "成员学号不能为空");
+            String empNo = m.getEmployeeNumber() != null ? m.getEmployeeNumber().trim() : "";
+            if (!StringUtils.hasText(empNo)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员工号不能为空" : "成员学号不能为空");
             }
-            if (!seenStudentNumbers.add(studentNumber)) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员学号重复: " + studentNumber);
+            if (!seenStudentNumbers.add(empNo)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, (isEnterprise ? "填写的成员工号重复: " : "填写的成员学号重复: ") + empNo);
+            }
+
+            String dept = m.getDepartment() != null ? m.getDepartment().trim() : "";
+            if (!StringUtils.hasText(dept)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员部门不能为空" : "成员学院不能为空");
+            }
+
+            String pos = m.getPosition() != null ? m.getPosition().trim() : "";
+            if (!StringUtils.hasText(pos)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员职位不能为空" : "成员班级不能为空");
             }
 
             String phone = m.getPhone() != null ? m.getPhone().trim() : "";
@@ -164,27 +168,41 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + email);
             }
 
-            String idCard = m.getIdCard() != null ? m.getIdCard().trim() : "";
+            String idCard = m.getIdCard() != null ? m.getIdCard().trim().toUpperCase() : "";
             if (!StringUtils.hasText(idCard)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "成员身份证号不能为空");
             }
             if (!seenIdCards.add(idCard)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员身份证号重复: " + idCard);
             }
+        }
 
-            if (!StringUtils.hasText(m.getCollege())) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "成员学院不能为空");
+        validateMemberIdentitiesAcrossTeams(competitionId, null, memberList);
+
+        for (TeamLeadersSignupDTO l : leaderList) {
+            if (!StringUtils.hasText(l.getRealName())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "领队姓名不能为空");
+            }
+            if (!StringUtils.hasText(l.getPhone())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "领队手机号不能为空");
+            }
+            if (StringUtils.hasText(l.getEmail()) && captain.getEmail() != null
+                    && captain.getEmail().equalsIgnoreCase(l.getEmail().trim())) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "不能填写队长自身的邮箱作为指导老师/领队");
             }
         }
 
-        Map<String, User> verifiedLeaderUsers = validateAndResolveRegisteredUsers(competitionId, captain, leaderRows, "领队", null);
-        Map<String, User> verifiedMemberUsers = validateAndResolveRegisteredUsers(competitionId, captain, normalMemberRows, "队员", null);
+        Map<String, User> verifiedMemberUsers = validateAndResolveRegisteredUsers(competitionId, captain, members, "队员", null);
 
         boolean requireAudit = config != null && Boolean.TRUE.equals(config.getRequireTeamAudit());
+        OrganizationType orgType = request.getOrganizationType() != null ? request.getOrganizationType() : OrganizationType.SCHOOL;
         CompetitionTeam team = CompetitionTeam.builder()
                 .competition(competition)
                 .teamName(request.getTeamName().trim())
                 .avatarUrl(StringUtils.hasText(request.getAvatarUrl()) ? request.getAvatarUrl() : "/api/v1/uploads/avatar/default_team.png")
+                .description(request.getDescription())
+                .organization(request.getOrganization())
+                .organizationType(orgType)
                 .captain(captain)
                 .status(requireAudit ? TeamStatus.AUDIT_DRAFT : TeamStatus.AUDIT_PASSED)
                 .build();
@@ -199,21 +217,41 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .status(MemberStatus.INVITED_ACCEPTED)
                 .realName(captainRow.getRealName().trim())
                 .gender(captainRow.getGender() != null ? captainRow.getGender() : Gender.MALE)
-                .studentNumber(captainRow.getStudentNumber().trim())
                 .phone(captainRow.getPhone().trim())
                 .email(captain.getEmail())
-                .idCard(captainRow.getIdCard().trim())
-                .college(captainRow.getCollege().trim())
+                .idCard(captainRow.getIdCard().trim().toUpperCase())
+                .employeeNumber(StringUtils.hasText(captainRow.getEmployeeNumber()) ? captainRow.getEmployeeNumber().trim() : null)
+                .department(StringUtils.hasText(captainRow.getDepartment()) ? captainRow.getDepartment().trim() : null)
+                .position(StringUtils.hasText(captainRow.getPosition()) ? captainRow.getPosition().trim() : null)
                 .build();
         memberRepository.save(captainMember);
 
-        Instant expireTime = Instant.now().plus(24, ChronoUnit.HOURS);
-        for (TeamMemberSignupDTO l : leaderRows) {
-            User leaderUser = verifiedLeaderUsers.get(l.getEmail().trim().toLowerCase());
-            saveInvitedMemberAndNotify(competition, savedTeam, captain, leaderUser, l, expireTime);
+        // 保存领队/指导老师（无需注册、无需邀请接受，直接确认为 INVITED_ACCEPTED）
+        for (TeamLeadersSignupDTO l : leaderList) {
+            User leaderUser = null;
+            if (StringUtils.hasText(l.getEmail())) {
+                leaderUser = userRepository.findByEmail(l.getEmail().trim().toLowerCase()).orElse(null);
+            }
+            CompetitionMember leaderMember = CompetitionMember.builder()
+                    .competition(competition)
+                    .team(savedTeam)
+                    .user(leaderUser)
+                    .role(MemberRole.LEADER)
+                    .status(MemberStatus.INVITED_ACCEPTED)
+                    .realName(l.getRealName().trim())
+                    .gender(l.getGender() != null ? l.getGender() : Gender.MALE)
+                    .phone(l.getPhone().trim())
+                    .email(StringUtils.hasText(l.getEmail()) ? l.getEmail().trim().toLowerCase() : null)
+                    .idCard(StringUtils.hasText(l.getIdCard()) ? l.getIdCard().trim().toUpperCase() : null)
+                    .employeeNumber(StringUtils.hasText(l.getEmployeeNumber()) ? l.getEmployeeNumber().trim() : null)
+                    .department(StringUtils.hasText(l.getDepartment()) ? l.getDepartment().trim() : null)
+                    .position(StringUtils.hasText(l.getPosition()) ? l.getPosition().trim() : null)
+                    .build();
+            memberRepository.save(leaderMember);
         }
 
-        for (TeamMemberSignupDTO m : normalMemberRows) {
+        Instant expireTime = Instant.now().plus(24, ChronoUnit.HOURS);
+        for (TeamMemberSignupDTO m : members) {
             User memberUser = verifiedMemberUsers.get(m.getEmail().trim().toLowerCase());
             saveInvitedMemberAndNotify(competition, savedTeam, captain, memberUser, m, expireTime);
         }
@@ -236,147 +274,200 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         if (StringUtils.hasText(request.getAvatarUrl())) {
             team.setAvatarUrl(request.getAvatarUrl());
         }
+        if (request.getDescription() != null) {
+            team.setDescription(request.getDescription());
+        }
+        if (StringUtils.hasText(request.getOrganization())) {
+            team.setOrganization(request.getOrganization().trim());
+        }
+        if (request.getOrganizationType() != null) {
+            team.setOrganizationType(request.getOrganizationType());
+        }
+
+        TeamLimits limits = TeamLimits.from(config);
+        OrganizationType currentOrgType = request.getOrganizationType() != null ? request.getOrganizationType() : team.getOrganizationType();
+        boolean isEnterprise = currentOrgType != null && currentOrgType != OrganizationType.SCHOOL;
 
         List<TeamMemberSignupDTO> memberList = request.getMembers();
         if (memberList != null && !memberList.isEmpty()) {
-            int maxLeaders = config != null && config.getMaxLeaders() != null ? config.getMaxLeaders() : 1;
-            int maxMembers = config != null && config.getMaxTeamMembers() != null ? config.getMaxTeamMembers() : 4;
-            int minMembers = config != null && config.getMinTeamMembers() != null ? config.getMinTeamMembers() : 1;
-
-            if (memberList.size() > maxMembers + maxLeaders) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "名册成员总行数超过上限 (" + (maxMembers + maxLeaders) + "行)");
-            }
-
-            List<TeamMemberSignupDTO> captainRows = new ArrayList<>();
-            List<TeamMemberSignupDTO> leaderRows = new ArrayList<>();
-            List<TeamMemberSignupDTO> normalMemberRows = new ArrayList<>();
+            List<TeamMemberSignupDTO> captains = new ArrayList<>();
+            List<TeamMemberSignupDTO> members = new ArrayList<>();
 
             for (TeamMemberSignupDTO m : memberList) {
-                if (m.getRole() == MemberRole.CAPTAIN) {
-                    captainRows.add(m);
-                } else if (m.getRole() == MemberRole.LEADER) {
-                    leaderRows.add(m);
-                } else if (m.getRole() == MemberRole.MEMBER) {
-                    normalMemberRows.add(m);
-                } else {
-                    throw new BusinessException(HttpStatus.BAD_REQUEST, "未知的成员角色类型");
+                switch (m.getRole()) {
+                    case CAPTAIN -> captains.add(m);
+                    case MEMBER  -> members.add(m);
+                    case null, default -> throw new BusinessException(HttpStatus.BAD_REQUEST, "参赛成员列表中只能包含队长和队员");
                 }
             }
 
-            if (captainRows.size() != 1) {
+            if (captains.size() != 1) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "队伍必须且只能包含 1 名队长");
             }
-            TeamMemberSignupDTO captainRow = captainRows.getFirst();
+            TeamMemberSignupDTO captainRow = captains.getFirst();
 
             User captain = team.getCaptain();
             if (captain.getEmail() == null || !captain.getEmail().equalsIgnoreCase(captainRow.getEmail().trim())) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "队长邮箱必须为当前登录账号绑定的邮箱 (" + captain.getEmail() + ")");
             }
 
-            if (leaderRows.size() > maxLeaders) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "领队人数超过上限 (最多 " + maxLeaders + " 人)");
-            }
-            int totalTeamMembers = 1 + normalMemberRows.size();
-            if (totalTeamMembers > maxMembers) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "队员人数超过上限 (" + maxMembers + "人，含队长)");
-            }
-            if (totalTeamMembers < minMembers) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "队伍总人数未达到最低要求 (" + minMembers + "人，含队长)");
+            int totalTeamMembers = 1 + members.size();
+            if (totalTeamMembers > limits.maxMembers() || totalTeamMembers < limits.minMembers()) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST,
+                        String.format("参赛队员人数须在 %d~%d 人之间（含队长）", limits.minMembers(), limits.maxMembers()));
             }
 
-            // 查重校验
+            // 统一名册字段判空与防重校验 (还原之前独立校验逻辑，区分学校与企业)
             Set<String> seenEmails = new HashSet<>();
             Set<String> seenPhones = new HashSet<>();
             Set<String> seenIdCards = new HashSet<>();
             Set<String> seenStudentNumbers = new HashSet<>();
+
             for (TeamMemberSignupDTO m : memberList) {
-                String studentNumber = m.getStudentNumber() != null ? m.getStudentNumber().trim() : "";
-                if (!StringUtils.hasText(studentNumber)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员学号不能为空");
-                if (!seenStudentNumbers.add(studentNumber)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员学号重复: " + studentNumber);
+                String empNo = m.getEmployeeNumber() != null ? m.getEmployeeNumber().trim() : "";
+                if (!StringUtils.hasText(empNo)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员工号不能为空" : "成员学号不能为空");
+                }
+                if (!seenStudentNumbers.add(empNo)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, (isEnterprise ? "填写的成员工号重复: " : "填写的成员学号重复: ") + empNo);
+                }
 
-                String ph = m.getPhone() != null ? m.getPhone().trim() : "";
-                if (!StringUtils.hasText(ph)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员手机号不能为空");
-                if (!seenPhones.add(ph)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员手机号重复: " + ph);
+                String dept = m.getDepartment() != null ? m.getDepartment().trim() : "";
+                if (!StringUtils.hasText(dept)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员部门不能为空" : "成员学院不能为空");
+                }
 
-                String em = m.getEmail() != null ? m.getEmail().trim().toLowerCase() : "";
-                if (!StringUtils.hasText(em)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员邮箱不能为空");
-                if (!seenEmails.add(em)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + em);
+                String pos = m.getPosition() != null ? m.getPosition().trim() : "";
+                if (!StringUtils.hasText(pos)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员职位不能为空" : "成员班级不能为空");
+                }
 
-                String idCard = m.getIdCard() != null ? m.getIdCard().trim() : "";
-                if (!StringUtils.hasText(idCard)) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员身份证号不能为空");
-                if (!seenIdCards.add(idCard)) throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员身份证号重复: " + idCard);
+                String phone = m.getPhone() != null ? m.getPhone().trim() : "";
+                if (!StringUtils.hasText(phone)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "成员手机号不能为空");
+                }
+                if (!seenPhones.add(phone)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员手机号重复: " + phone);
+                }
 
-                if (!StringUtils.hasText(m.getCollege())) throw new BusinessException(HttpStatus.BAD_REQUEST, "成员学院不能为空");
+                String email = m.getEmail() != null ? m.getEmail().trim().toLowerCase() : "";
+                if (!StringUtils.hasText(email)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "成员邮箱不能为空");
+                }
+                if (!seenEmails.add(email)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + email);
+                }
+
+                String idCard = m.getIdCard() != null ? m.getIdCard().trim().toUpperCase() : "";
+                if (!StringUtils.hasText(idCard)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "成员身份证号不能为空");
+                }
+                if (!seenIdCards.add(idCard)) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员身份证号重复: " + idCard);
+                }
             }
+
+            // 跨队伍唯一性冲突校验（排除当前战队自身，允许战队内部修改）
+            validateMemberIdentitiesAcrossTeams(competitionId, team.getId(), memberList);
 
             // 更新队长自身的登记明细
             CompetitionMember captainMember = memberRepository.findByCompetitionIdAndTeamIdAndUserId(competitionId, team.getId(), captainUserId).orElse(null);
             if (captainMember != null) {
                 if (StringUtils.hasText(captainRow.getRealName())) captainMember.setRealName(captainRow.getRealName().trim());
                 if (captainRow.getGender() != null) captainMember.setGender(captainRow.getGender());
-                if (StringUtils.hasText(captainRow.getStudentNumber())) captainMember.setStudentNumber(captainRow.getStudentNumber().trim());
                 if (StringUtils.hasText(captainRow.getPhone())) captainMember.setPhone(captainRow.getPhone().trim());
-                if (StringUtils.hasText(captainRow.getIdCard())) captainMember.setIdCard(captainRow.getIdCard().trim());
-                if (StringUtils.hasText(captainRow.getCollege())) captainMember.setCollege(captainRow.getCollege().trim());
+                if (StringUtils.hasText(captainRow.getIdCard())) captainMember.setIdCard(captainRow.getIdCard().trim().toUpperCase());
+                captainMember.setEmployeeNumber(StringUtils.hasText(captainRow.getEmployeeNumber()) ? captainRow.getEmployeeNumber().trim() : null);
+                captainMember.setDepartment(StringUtils.hasText(captainRow.getDepartment()) ? captainRow.getDepartment().trim() : null);
+                captainMember.setPosition(StringUtils.hasText(captainRow.getPosition()) ? captainRow.getPosition().trim() : null);
                 memberRepository.save(captainMember);
             }
 
-            Map<String, User> verifiedLeaderUsers = validateAndResolveRegisteredUsers(competitionId, captain, leaderRows, "领队", team.getId());
-            Map<String, User> verifiedMemberUsers = validateAndResolveRegisteredUsers(competitionId, captain, normalMemberRows, "队员", team.getId());
+            Map<String, User> verifiedMemberUsers = validateAndResolveRegisteredUsers(competitionId, captain, members, "队员", team.getId());
 
             List<CompetitionMember> currentMembers = memberRepository.findByTeamId(team.getId());
             Map<Long, CompetitionMember> currentMemberMap = currentMembers.stream()
+                    .filter(m -> m.getUser() != null)
                     .collect(Collectors.toMap(m -> m.getUser().getId(), m -> m, (a, b) -> a));
 
-            Set<Long> newTargetUserIds = new HashSet<>();
-            verifiedLeaderUsers.values().forEach(u -> newTargetUserIds.add(u.getId()));
-            verifiedMemberUsers.values().forEach(u -> newTargetUserIds.add(u.getId()));
+            Set<Long> newMemberUserIds = new HashSet<>();
+            verifiedMemberUsers.values().forEach(u -> newMemberUserIds.add(u.getId()));
 
-            // 移除不再新名单中的未确认邀请或成员
+            // 移除不再新名单中的未确认邀请或队员
             for (CompetitionMember m : currentMembers) {
-                if (m.getRole() != MemberRole.CAPTAIN && !newTargetUserIds.contains(m.getUser().getId())) {
+                if (m.getRole() == MemberRole.MEMBER && m.getUser() != null && !newMemberUserIds.contains(m.getUser().getId())) {
                     memberRepository.delete(m);
                 }
             }
 
             Instant expireTime = Instant.now().plus(24, ChronoUnit.HOURS);
 
-            // 更新或创建领队
-            for (TeamMemberSignupDTO l : leaderRows) {
-                User user = verifiedLeaderUsers.get(l.getEmail().trim().toLowerCase());
-                CompetitionMember existing = currentMemberMap.get(user.getId());
-                if (existing != null) {
-                    existing.setRealName(l.getRealName().trim());
-                    existing.setGender(l.getGender() != null ? l.getGender() : Gender.MALE);
-                    existing.setStudentNumber(l.getStudentNumber().trim());
-                    existing.setPhone(l.getPhone().trim());
-                    existing.setEmail(l.getEmail().trim());
-                    existing.setIdCard(l.getIdCard().trim());
-                    existing.setCollege(l.getCollege().trim());
-                    existing.setRole(MemberRole.LEADER);
-                    memberRepository.save(existing);
-                } else {
-                    saveInvitedMemberAndNotify(competition, team, captain, user, l, expireTime);
-                }
-            }
-
             // 更新或创建普通队员
-            for (TeamMemberSignupDTO m : normalMemberRows) {
+            for (TeamMemberSignupDTO m : members) {
                 User user = verifiedMemberUsers.get(m.getEmail().trim().toLowerCase());
                 CompetitionMember existing = currentMemberMap.get(user.getId());
                 if (existing != null) {
                     existing.setRealName(m.getRealName().trim());
                     existing.setGender(m.getGender() != null ? m.getGender() : Gender.MALE);
-                    existing.setStudentNumber(m.getStudentNumber().trim());
-                    existing.setPhone(m.getPhone().trim());
-                    existing.setEmail(m.getEmail().trim());
-                    existing.setIdCard(m.getIdCard().trim());
-                    existing.setCollege(m.getCollege().trim());
+                    existing.setPhone(StringUtils.hasText(m.getPhone()) ? m.getPhone().trim() : null);
+                    existing.setEmail(m.getEmail().trim().toLowerCase());
+                    existing.setIdCard(StringUtils.hasText(m.getIdCard()) ? m.getIdCard().trim().toUpperCase() : null);
+                    existing.setEmployeeNumber(StringUtils.hasText(m.getEmployeeNumber()) ? m.getEmployeeNumber().trim() : null);
+                    existing.setDepartment(StringUtils.hasText(m.getDepartment()) ? m.getDepartment().trim() : null);
+                    existing.setPosition(StringUtils.hasText(m.getPosition()) ? m.getPosition().trim() : null);
                     existing.setRole(MemberRole.MEMBER);
                     memberRepository.save(existing);
                 } else {
                     saveInvitedMemberAndNotify(competition, team, captain, user, m, expireTime);
                 }
+            }
+        }
+
+        // 更新指导老师 / 领队
+        if (request.getLeaders() != null) {
+            List<TeamLeadersSignupDTO> leaderList = request.getLeaders();
+            if (leaderList.size() > limits.maxLeaders()) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "领队人数超过上限 (最多 " + limits.maxLeaders() + " 人)");
+            }
+            User captain = team.getCaptain();
+            for (TeamLeadersSignupDTO l : leaderList) {
+                if (!StringUtils.hasText(l.getRealName())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "领队姓名不能为空");
+                }
+                if (!StringUtils.hasText(l.getPhone())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "领队手机号不能为空");
+                }
+                if (StringUtils.hasText(l.getEmail()) && captain.getEmail() != null
+                        && captain.getEmail().equalsIgnoreCase(l.getEmail().trim())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "不能填写队长自身的邮箱作为指导老师/领队");
+                }
+            }
+            List<CompetitionMember> currentMembers = memberRepository.findByTeamId(team.getId());
+            List<CompetitionMember> oldLeaders = currentMembers.stream().filter(m -> m.getRole() == MemberRole.LEADER).toList();
+            if (!oldLeaders.isEmpty()) {
+                memberRepository.deleteAll(oldLeaders);
+            }
+            for (TeamLeadersSignupDTO l : leaderList) {
+                User leaderUser = null;
+                if (StringUtils.hasText(l.getEmail())) {
+                    leaderUser = userRepository.findByEmail(l.getEmail().trim().toLowerCase()).orElse(null);
+                }
+                CompetitionMember leaderMember = CompetitionMember.builder()
+                        .competition(competition)
+                        .team(team)
+                        .user(leaderUser)
+                        .role(MemberRole.LEADER)
+                        .status(MemberStatus.INVITED_ACCEPTED)
+                        .realName(l.getRealName().trim())
+                        .gender(l.getGender() != null ? l.getGender() : Gender.MALE)
+                        .phone(l.getPhone().trim())
+                        .email(StringUtils.hasText(l.getEmail()) ? l.getEmail().trim().toLowerCase() : null)
+                        .idCard(StringUtils.hasText(l.getIdCard()) ? l.getIdCard().trim().toUpperCase() : null)
+                        .employeeNumber(StringUtils.hasText(l.getEmployeeNumber()) ? l.getEmployeeNumber().trim() : null)
+                        .department(StringUtils.hasText(l.getDepartment()) ? l.getDepartment().trim() : null)
+                        .position(StringUtils.hasText(l.getPosition()) ? l.getPosition().trim() : null)
+                        .build();
+                memberRepository.save(leaderMember);
             }
         }
 
@@ -588,6 +679,77 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void reinviteMember(Long competitionId, Long teamId, Long captainUserId, Long targetUserId) {
+        Competition competition = competitionRepository.findById(competitionId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
+
+        CompetitionTeam team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "队伍不存在"));
+
+        if (!Objects.equals(team.getCaptain().getId(), captainUserId)) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "只有队长有权重新发送入队邀请");
+        }
+
+        CompetitionMember member = memberRepository.findByCompetitionIdAndTeamIdAndUserId(competitionId, teamId, targetUserId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "目标成员不存在或未在该队伍中"));
+
+        if (member.getStatus() == MemberStatus.INVITED_ACCEPTED) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "该成员已接受邀请，无需重新邀请");
+        }
+
+        // 检查该用户是否已在其他队伍确认参赛
+        List<CompetitionMember> existingMembers = memberRepository.findAllByCompetitionIdAndUserId(competitionId, targetUserId);
+        boolean alreadyInOtherTeam = existingMembers.stream()
+                .anyMatch(m -> !Objects.equals(m.getTeam().getId(), teamId) && m.getStatus() == MemberStatus.INVITED_ACCEPTED);
+        if (alreadyInOtherTeam) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该用户已在其他队伍确认参赛，无法重新邀请");
+        }
+
+        member.setStatus(MemberStatus.INVITED);
+        member.setJoinedAt(Instant.now());
+        memberRepository.save(member);
+
+        // 同步将历史邀请卡片状态重置或置为已撤销后重新发送
+        notificationService.updateActionStatus(
+                targetUserId,
+                NotificationType.COMPETITION_INVITE,
+                "\"teamId\":" + teamId,
+                NotificationActionStatus.CANCELLED
+        );
+
+        Instant expireTime = Instant.now().plus(24, ChronoUnit.HOURS);
+        Map<String, Object> actionContext = new HashMap<>();
+        actionContext.put("competitionId", competition.getId());
+        if (competition.getSlug() != null) {
+            actionContext.put("slug", competition.getSlug());
+        }
+        actionContext.put("teamId", team.getId());
+        actionContext.put("teamName", team.getTeamName());
+        actionContext.put("inviterName", team.getCaptain().getUsername());
+        actionContext.put("memberRole", member.getRole().name());
+
+        String roleName = member.getRole() == MemberRole.LEADER ? "领队" : "队员";
+        String content = String.format("队长 %s 重新邀请您作为【%s】加入战队「%s」（竞赛: 「%s」），请及时确认是否参赛。",
+                team.getCaptain().getUsername(), roleName, team.getTeamName(), competition.getTitle());
+
+        eventPublisher.publishEvent(SendNotificationEvent.builder()
+                .source(this)
+                .senderId(captainUserId)
+                .receiverId(targetUserId)
+                .type(NotificationType.COMPETITION_INVITE)
+                .title("【竞赛邀请】" + team.getCaptain().getUsername() + " 重新邀请您加入战队「" + team.getTeamName() + "」")
+                .content(content)
+                .actionStatus(NotificationActionStatus.PENDING)
+                .actionData(JSON.toJSONString(actionContext))
+                .expireTime(expireTime)
+                .build());
+
+        log.info("[Competition-Team] 队长 {} 重新邀请了成员 {} (队伍: {})",
+                captainUserId, targetUserId, team.getTeamName());
+    }
+
+    @Override
     public List<TeamInvitationVO> getMyInvitations(Long competitionId, Long userId) {
         List<CompetitionMember> pendingMembers = memberRepository.findUserInvitations(competitionId, userId, MemberStatus.INVITED);
         List<TeamInvitationVO> result = new ArrayList<>();
@@ -649,6 +811,9 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .competitionTitle(team.getCompetition() != null ? team.getCompetition().getTitle() : null)
                 .teamName(team.getTeamName())
                 .avatarUrl(team.getAvatarUrl())
+                .description(team.getDescription())
+                .organization(team.getOrganization())
+                .organizationType(team.getOrganizationType() != null ? team.getOrganizationType() : OrganizationType.SCHOOL)
                 .status(team.getStatus())
                 .auditReason(team.getAuditReason())
                 .myRole(member.getRole())
@@ -657,103 +822,6 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .myRegistrationData(Collections.emptyMap())
                 .createdAt(team.getCreatedAt())
                 .build();
-    }
-
-    @Override
-    public List<CompetitionTeamVO> listTeams(Long competitionId, Long currentUserId) {
-        if (!competitionRepository.existsById(competitionId)) {
-            throw new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在");
-        }
-
-        boolean isAdmin = checkIsAdmin();
-
-        List<CompetitionMember> userMemberships = currentUserId != null
-                ? memberRepository.findAllByCompetitionIdAndUserId(competitionId, currentUserId)
-                : Collections.emptyList();
-
-        Map<Long, MemberRole> myTeamRoleMap = userMemberships.stream()
-                .filter(m -> m.getStatus() == MemberStatus.INVITED_ACCEPTED && m.getTeam() != null)
-                .collect(Collectors.toMap(
-                        m -> m.getTeam().getId(),
-                        CompetitionMember::getRole,
-                        (existing, replacement) -> existing
-                ));
-
-        List<CompetitionTeam> teams = teamRepository.findByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_PASSED);
-        List<CompetitionTeamVO> result = new ArrayList<>(teams.size());
-
-        for (CompetitionTeam team : teams) {
-            CompetitionTeamVO vo = competitionMapper.toTeamVO(team);
-
-            MemberRole myRole = myTeamRoleMap.get(team.getId());
-            boolean isCaptain = (myRole == MemberRole.CAPTAIN)
-                    || (team.getCaptain() != null && Objects.equals(team.getCaptain().getId(), currentUserId));
-            boolean isLeader = (myRole == MemberRole.LEADER);
-            boolean isCaptainOrLeader = isAdmin || isCaptain || isLeader;
-            boolean isTeamMember = (myRole == MemberRole.MEMBER);
-
-            List<CompetitionMember> members = new ArrayList<>(memberRepository.findByTeamId(team.getId()));
-            members.sort(Comparator.comparingInt((CompetitionMember m) -> {
-                if (m.getRole() == MemberRole.CAPTAIN) return 0;
-                if (m.getRole() == MemberRole.MEMBER) return 1;
-                return 2;
-            }).thenComparing(CompetitionMember::getId));
-
-            List<CompetitionMemberVO> memberVOs = new ArrayList<>(members.size());
-            for (CompetitionMember member : members) {
-                CompetitionMemberVO memberVO = competitionMapper.toMemberVO(member);
-                Long memberUserId = member.getUser() != null ? member.getUser().getId() : null;
-
-                if (isCaptainOrLeader) {
-                    // 仅队长和领队（及管理员）能看到队员的完整信息（不脱敏）
-                } else if (isTeamMember) {
-                    // 队员之间对关键信息进行脱敏（例如 idCard, phone）
-                    if (!Objects.equals(memberUserId, currentUserId)) {
-                        desensitizeKeyInfo(memberVO);
-                    }
-                } else {
-                    // 非本队成员（外部人员）：隐藏私密关键信息，仅保留公共基础信息
-                    hidePrivateInfo(memberVO);
-                }
-                memberVOs.add(memberVO);
-            }
-            vo.setMembers(memberVOs);
-            result.add(vo);
-        }
-        return result;
-    }
-
-    @Override
-    public List<CompetitionTeamVO> listTeams(Long competitionId) {
-        return listTeams(competitionId, null);
-    }
-
-    private boolean checkIsAdmin() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return false;
-        }
-        return auth.getAuthorities().stream().anyMatch(a -> {
-            String authority = a.getAuthority();
-            return "ROLE_ADMIN".equals(authority) || "ROLE_SUPER_ADMIN".equals(authority) || "ROLE_SUPERADMIN".equals(authority);
-        });
-    }
-
-    private void desensitizeKeyInfo(CompetitionMemberVO vo) {
-        if (vo == null) return;
-        vo.setIdCard(DesensitizationUtil.maskIdCard(vo.getIdCard()));
-        vo.setPhone(DesensitizationUtil.maskPhone(vo.getPhone()));
-        vo.setEmail(DesensitizationUtil.maskEmail(vo.getEmail()));
-    }
-
-    private void hidePrivateInfo(CompetitionMemberVO vo) {
-        if (vo == null) return;
-        vo.setIdCard(null);
-        vo.setPhone(null);
-        vo.setEmail(null);
-        vo.setRealName(null);
-        vo.setStudentNumber(null);
-        vo.setCollege(null);
     }
 
     private Map<String, User> validateAndResolveRegisteredUsers(
@@ -814,19 +882,21 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
     private void saveInvitedMemberAndNotify(
             Competition competition, CompetitionTeam team, User captain, User invitee,
             TeamMemberSignupDTO input, Instant expireTime) {
+        MemberRole role = input.getRole() != null ? input.getRole() : MemberRole.MEMBER;
         CompetitionMember member = CompetitionMember.builder()
                 .competition(competition)
                 .team(team)
                 .user(invitee)
-                .role(input.getRole())
+                .role(role)
                 .status(MemberStatus.INVITED)
                 .realName(input.getRealName().trim())
                 .gender(input.getGender() != null ? input.getGender() : Gender.MALE)
-                .studentNumber(input.getStudentNumber().trim())
-                .phone(input.getPhone().trim())
+                .phone(input.getPhone() != null ? input.getPhone().trim() : null)
                 .email(input.getEmail().trim().toLowerCase())
-                .idCard(input.getIdCard().trim())
-                .college(input.getCollege().trim())
+                .idCard(input.getIdCard() != null ? input.getIdCard().trim().toUpperCase() : null)
+                .employeeNumber(StringUtils.hasText(input.getEmployeeNumber()) ? input.getEmployeeNumber().trim() : null)
+                .department(StringUtils.hasText(input.getDepartment()) ? input.getDepartment().trim() : null)
+                .position(StringUtils.hasText(input.getPosition()) ? input.getPosition().trim() : null)
                 .build();
         memberRepository.save(member);
 
@@ -838,9 +908,9 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         actionContext.put("teamId", team.getId());
         actionContext.put("teamName", team.getTeamName());
         actionContext.put("inviterName", captain.getUsername());
-        actionContext.put("memberRole", input.getRole().name());
+        actionContext.put("memberRole", role.name());
 
-        String roleName = input.getRole() == MemberRole.LEADER ? "领队" : "队员";
+        String roleName = role == MemberRole.LEADER ? "领队" : "队员";
         String content = String.format("用户 %s 邀请您作为【%s】加入战队「%s」共同参加竞赛「%s」，请及时确认是否参赛。",
                 captain.getUsername(), roleName, team.getTeamName(), competition.getTitle());
 
@@ -855,6 +925,101 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .actionData(JSON.toJSONString(actionContext))
                 .expireTime(expireTime)
                 .build());
+    }
+
+    private void validateMemberIdentitiesAcrossTeams(
+            Long competitionId,
+            Long excludeTeamId,
+            List<TeamMemberSignupDTO> memberList) {
+
+        if (memberList == null || memberList.isEmpty()) {
+            return;
+        }
+
+        Set<String> phones = new HashSet<>();
+        Set<String> idCards = new HashSet<>();
+        Set<String> emails = new HashSet<>();
+
+        for (TeamMemberSignupDTO m : memberList) {
+            if (StringUtils.hasText(m.getPhone())) {
+                phones.add(m.getPhone().trim());
+            }
+            if (StringUtils.hasText(m.getIdCard())) {
+                idCards.add(m.getIdCard().trim().toUpperCase());
+            }
+            if (StringUtils.hasText(m.getEmail())) {
+                emails.add(m.getEmail().trim().toLowerCase());
+            }
+        }
+
+        if (phones.isEmpty() && idCards.isEmpty() && emails.isEmpty()) {
+            return;
+        }
+
+        Collection<String> safePhones = phones.isEmpty() ? List.of("__EMPTY_PHONE__") : phones;
+        Collection<String> safeIdCards = idCards.isEmpty() ? List.of("__EMPTY_IDCARD__") : idCards;
+        Collection<String> safeEmails = emails.isEmpty() ? List.of("__EMPTY_EMAIL__") : emails;
+
+        List<MemberStatus> activeStatuses = List.of(MemberStatus.INVITED, MemberStatus.INVITED_ACCEPTED);
+
+        List<CompetitionMember> conflicts = memberRepository.findConflictingMembers(
+                competitionId, activeStatuses, excludeTeamId, safePhones, safeIdCards, safeEmails);
+
+        if (conflicts == null || conflicts.isEmpty()) {
+            return;
+        }
+
+        for (TeamMemberSignupDTO input : memberList) {
+            String inputPhone = input.getPhone() != null ? input.getPhone().trim() : "";
+            String inputIdCard = input.getIdCard() != null ? input.getIdCard().trim().toUpperCase() : "";
+            String inputEmail = input.getEmail() != null ? input.getEmail().trim().toLowerCase() : "";
+            String inputName = StringUtils.hasText(input.getRealName()) ? input.getRealName().trim() : "未命名成员";
+            boolean isInputLeader = input.getRole() == MemberRole.LEADER;
+
+            for (CompetitionMember existing : conflicts) {
+                if (excludeTeamId != null && existing.getTeam() != null && Objects.equals(existing.getTeam().getId(), excludeTeamId)) {
+                    continue;
+                }
+
+                String existingPhone = existing.getPhone() != null ? existing.getPhone().trim() : "";
+                String existingIdCard = existing.getIdCard() != null ? existing.getIdCard().trim().toUpperCase() : "";
+                String existingEmail = existing.getEmail() != null ? existing.getEmail().trim().toLowerCase() : "";
+                boolean isExistingLeader = existing.getRole() == MemberRole.LEADER;
+
+                // 1. 手机号冲突校验
+                if (StringUtils.hasText(inputPhone) && inputPhone.equals(existingPhone)) {
+                    if (isInputLeader && isExistingLeader && inputEmail.equals(existingEmail)) {
+                        // 允许同一个领队以相同账号带多队
+                    } else {
+                        throw new BusinessException(HttpStatus.CONFLICT,
+                                String.format("成员 [%s] 的手机号 [%s] 已在本场竞赛的其他队伍中登记，请勿重复使用",
+                                        inputName, inputPhone));
+                    }
+                }
+
+                // 2. 身份证号冲突校验
+                if (StringUtils.hasText(inputIdCard) && inputIdCard.equals(existingIdCard)) {
+                    if (isInputLeader && isExistingLeader && inputEmail.equals(existingEmail)) {
+                        // 允许同一个领队以相同账号带多队
+                    } else {
+                        throw new BusinessException(HttpStatus.CONFLICT,
+                                String.format("成员 [%s] 的身份证号 [%s] 已在本场竞赛的其他队伍中登记，每名参赛者只能报名一支队伍",
+                                        inputName, DesensitizationUtil.maskIdCard(inputIdCard)));
+                    }
+                }
+
+                // 3. 邮箱冲突校验
+                if (StringUtils.hasText(inputEmail) && inputEmail.equals(existingEmail)) {
+                    if (isInputLeader && isExistingLeader) {
+                        // 允许同一个领队带多队
+                    } else {
+                        throw new BusinessException(HttpStatus.CONFLICT,
+                                String.format("成员 [%s] 的邮箱 [%s] 已在本场竞赛的其他队伍中登记",
+                                        inputName, inputEmail));
+                    }
+                }
+            }
+        }
     }
 
 }

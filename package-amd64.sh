@@ -268,7 +268,12 @@ EOF
 fi
 cp "$PKG_ROOT/.env.example" "$PKG_ROOT/.env"
 
-# 5.3 数据持久化目录与权限占位
+# 5.3 数据库升级与增量迁移脚本
+if [ -f "$PROJECT_DIR/scripts/upgrade/upgrade_to_latest.sql" ]; then
+    cp "$PROJECT_DIR/scripts/upgrade/upgrade_to_latest.sql" "$PKG_ROOT/upgrade_to_latest.sql"
+fi
+
+# 5.4 数据持久化目录与权限占位
 mkdir -p "$PKG_ROOT/uploads"
 
 # 5.4 一键启动脚本 start.sh

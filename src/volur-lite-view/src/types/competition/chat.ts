@@ -33,7 +33,7 @@ export interface ChatMessagePageQueryDTO {
   teamId?: string | number
   targetUserId?: string | number
   beforeId?: string | number
-  page?: number
+  pageToken?: string | null
   size?: number
 }
 

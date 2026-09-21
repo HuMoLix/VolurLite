@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,6 +50,19 @@ public interface CompetitionMemberRepository extends JpaRepository<CompetitionMe
             @Param("competitionId") Long competitionId,
             @Param("userId") Long userId,
             @Param("status") MemberStatus status);
+
+    @Query("SELECT m FROM CompetitionMember m " +
+            "WHERE m.competition.id = :competitionId " +
+            "  AND m.status IN :activeStatuses " +
+            "  AND (:excludeTeamId IS NULL OR m.team.id != :excludeTeamId) " +
+            "  AND (m.phone IN :phones OR UPPER(m.idCard) IN :idCards OR LOWER(m.email) IN :emails)")
+    List<CompetitionMember> findConflictingMembers(
+            @Param("competitionId") Long competitionId,
+            @Param("activeStatuses") Collection<MemberStatus> activeStatuses,
+            @Param("excludeTeamId") Long excludeTeamId,
+            @Param("phones") Collection<String> phones,
+            @Param("idCards") Collection<String> idCards,
+            @Param("emails") Collection<String> emails);
 
     void deleteByTeamId(Long teamId);
 

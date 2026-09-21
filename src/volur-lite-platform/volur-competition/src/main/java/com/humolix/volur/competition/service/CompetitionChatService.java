@@ -6,7 +6,7 @@ import com.humolix.volur.competition.domain.dto.chat.ChatReadDTO;
 import com.humolix.volur.competition.domain.vo.chat.ChatMessageVO;
 import com.humolix.volur.competition.domain.vo.chat.ChatUnreadCountVO;
 import com.humolix.volur.competition.domain.vo.chat.RefereeTeamSummaryVO;
-import com.humolix.volur.framework.common.api.PageResponse;
+import com.humolix.volur.framework.common.api.CursorResponse;
 
 import java.util.List;
 
@@ -18,9 +18,9 @@ public interface CompetitionChatService {
     ChatMessageVO sendMessage(Long competitionId, Long userId, ChatMessageSendDTO dto);
 
     /**
-     * 分页拉取历史聊天记录
+     * 游标流式拉取历史聊天记录（访问即自动将该频道标记已读）
      */
-    PageResponse<ChatMessageVO> getHistoryMessages(Long competitionId, ChatMessagePageQueryDTO query, Long userId);
+    CursorResponse<ChatMessageVO> getHistoryMessages(Long competitionId, ChatMessagePageQueryDTO query, Long userId);
 
     /**
      * 裁判获取有申诉沟通记录的队伍列表概览

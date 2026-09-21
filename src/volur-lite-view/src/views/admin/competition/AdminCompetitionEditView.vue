@@ -3,11 +3,11 @@
     <!-- Subview Top Header with Breadcrumb & Back action -->
     <div class="subview-header">
       <div class="header-left">
-        <n-button quaternary size="small" class="back-btn" @click="backToList">
+        <n-button text size="small" class="back-btn" @click="backToList">
           <template #icon>
             <n-icon :component="ArrowBackOutline" />
           </template>
-          返回竞赛列表
+          {{ t('competition.back_to_list', '返回竞赛列表') }}
         </n-button>
         <div class="title-wrap">
           <h2 class="subview-title">
@@ -129,6 +129,19 @@
               :comp-id="compId!"
             />
           </n-tab-pane>
+
+          <!-- Tab: 日志管理与操作流水 -->
+          <n-tab-pane name="logs" :tab="t('admin.competitions.tab_logs', '日志管理')">
+            <div v-if="!isEdit" class="tab-disabled-state">
+              <n-alert type="warning" title="功能暂未就绪">
+                {{ t('admin.competitions.tip_create_first') }}
+              </n-alert>
+            </div>
+            <log-tab
+              v-else
+              :comp-id="compId!"
+            />
+          </n-tab-pane>
         </n-tabs>
       </n-spin>
     </n-card>
@@ -168,6 +181,7 @@ import ContainerTab from './tabs/ContainerTab.vue'
 import WriteupTab from './tabs/WriteupTab.vue'
 import TeamAuditTab from './tabs/TeamAuditTab.vue'
 import TicketTab from './tabs/TicketTab.vue'
+import LogTab from './tabs/LogTab.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -287,12 +301,26 @@ function backToList() {
 
       .back-btn {
         align-self: flex-start;
-        padding-left: 0;
-        margin-bottom: 2px;
+        padding: 0;
         color: #444444;
+        background-color: transparent !important;
+        background: transparent !important;
+        transition: color 0.15s ease;
 
-        &:hover {
-          color: var(--v-color-primary, #000000);
+        &:hover,
+        &:focus,
+        &:active {
+          color: #111111 !important;
+          background-color: transparent !important;
+          background: transparent !important;
+
+          :deep(.n-icon) {
+            color: #111111 !important;
+          }
+        }
+
+        :deep(.n-button__state-border) {
+          display: none !important;
         }
       }
 

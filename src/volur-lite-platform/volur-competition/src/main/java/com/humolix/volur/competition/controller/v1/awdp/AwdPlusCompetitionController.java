@@ -6,7 +6,7 @@ import com.humolix.volur.competition.service.awdp.AwdPlusCompetitionService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
-import com.humolix.volur.logging.annotation.Syslog;
+import com.humolix.volur.competition.annotation.CompetitionLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,7 +32,7 @@ public class AwdPlusCompetitionController {
     }
 
     @Operation(summary = "上传靶机防御补丁 (Patch)")
-    @Syslog(module = "COMPETITION", value = "上传 AWD+ 靶机防御补丁", recordParams = true)
+    @CompetitionLog(logType = "DEFENSE", action = "上传 AWD+ 靶机防御补丁", recordParams = true)
     @PostMapping("/patch/upload")
     public ApiResponse<Void> uploadPatch(
             @PathVariable Long competitionId,

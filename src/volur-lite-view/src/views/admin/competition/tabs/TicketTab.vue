@@ -93,7 +93,7 @@
             <n-icon :component="ChatbubbleEllipsesOutline" size="64" class="guide-icon" />
             <h4 class="guide-title">请从左侧选择参赛队伍</h4>
             <p class="guide-desc">
-              裁判可在此与各战队开展官方答疑工单交互，亦可进入队伍内部频道发布裁判通报或与指定参赛成员发送点对点私信。
+              裁判可在此与各战队开展官方答疑工单交互，亦可进入队伍内部频道发布裁判官方通报或广播。
             </p>
           </div>
         </div>
@@ -126,15 +126,6 @@
                   <n-icon :component="RadioOutline" />
                   <span>队伍公屏广播</span>
                 </button>
-                <button
-                  type="button"
-                  class="channel-pill"
-                  :class="{ active: currentChannel === 'PRIVATE' }"
-                  @click="switchChannel('PRIVATE')"
-                >
-                  <n-icon :component="PersonOutline" />
-                  <span>队员点对点私信</span>
-                </button>
               </div>
             </div>
 
@@ -146,19 +137,6 @@
                 刷新记录
               </n-button>
             </div>
-          </div>
-
-          <!-- 私信目标成员选择条 (仅在 PRIVATE 模式展示) -->
-          <div v-if="currentChannel === 'PRIVATE'" class="private-member-select-bar">
-            <span class="bar-label">私信目标成员:</span>
-            <n-select
-              v-model:value="selectedMemberId"
-              :options="memberSelectOptions"
-              placeholder="请选择接收私信的队员..."
-              size="small"
-              class="member-select"
-              @update:value="handleMemberChange"
-            />
           </div>
 
           <!-- 消息展示流 (Message Feed) -->
@@ -258,16 +236,13 @@ import {
   NTag,
   NSpin,
   NEmpty,
-  NSelect,
-  useMessage,
-  type SelectOption
+  useMessage
 } from 'naive-ui'
 import {
   ChatbubbleEllipsesOutline,
   PaperPlaneOutline,
   RefreshOutline,
   SearchOutline,
-  PersonOutline,
   ShieldCheckmarkOutline,
   RadioOutline
 } from '@vicons/ionicons5'
@@ -282,7 +257,6 @@ import {
 import { listAdminTeamsApi, getAdminTeamDetailApi } from '@/api/competition'
 import type {
   ChatMessageVO,
-  ChatChannelType,
   RefereeTeamSummaryVO
 } from '@/types/competition/chat'
 import type {
@@ -315,10 +289,9 @@ const refereeSummaries = ref<RefereeTeamSummaryVO[]>([])
 // 当前选中的队伍
 const selectedTeam = ref<TeamWithTicketItem | null>(null)
 const teamMembers = ref<CompetitionMemberVO[]>([])
-const selectedMemberId = ref<string | number | null>(null)
 
-// 频道选择：'REFEREE' (工单), 'TEAM' (队伍公屏广播), 'PRIVATE' (队员私信)
-const currentChannel = ref<ChatChannelType>('REFEREE')
+// 频道选择：'REFEREE' (工单), 'TEAM' (队伍公屏广播)
+const currentChannel = ref<'REFEREE' | 'TEAM'>('REFEREE')
 
 // 消息列表与加载
 const messages = ref<ChatMessageVO[]>([])
@@ -350,18 +323,8 @@ const ticketTeamsCount = computed(() => {
   return allTeams.value.filter((t) => t.hasTickets).length
 })
 
-const memberSelectOptions = computed<SelectOption[]>(() => {
-  return teamMembers.value.map((m) => ({
-    label: `${m.username} (${m.role === 'CAPTAIN' ? '队长' : '队员'})`,
-    value: m.userId
-  }))
-})
-
 const canSend = computed(() => {
   if (!inputMessageText.value.trim() || sending.value || !selectedTeam.value) {
-    return false
-  }
-  if (currentChannel.value === 'PRIVATE' && !selectedMemberId.value) {
     return false
   }
   return true
@@ -375,10 +338,6 @@ const currentTargetNoticeText = computed(() => {
   if (currentChannel.value === 'TEAM') {
     return `【${selectedTeam.value.teamName}】队伍公屏频道`
   }
-  if (currentChannel.value === 'PRIVATE') {
-    const mem = teamMembers.value.find((m) => String(m.userId) === String(selectedMemberId.value))
-    return mem ? `队员【${mem.username}】个人私信` : '请选择目标队员'
-  }
   return ''
 })
 
@@ -390,9 +349,6 @@ const inputPlaceholderText = computed(() => {
   if (currentChannel.value === 'TEAM') {
     return `以裁判身份向【${selectedTeam.value.teamName}】队伍频道广播文字（所有队员均可见）...`
   }
-  if (currentChannel.value === 'PRIVATE') {
-    return '以裁判身份向该成员发送私信交流...'
-  }
   return '请输入消息内容...'
 })
 
@@ -401,9 +357,9 @@ const channelEmptyDesc = computed(() => {
     return '该队伍暂无向裁判组发起的申诉或提问工单'
   }
   if (currentChannel.value === 'TEAM') {
-    return '该队伍公屏暂无交流消息，裁判可在此主动发起通报或警告'
+    return '该队伍公屏暂无交流消息，裁判可在此主动发起通报或广播'
   }
-  return '暂无与该队员的私信记录'
+  return '暂无历史记录'
 })
 
 // 生命周期
@@ -471,16 +427,7 @@ function handleIncomingSocketMessage(incomingMsg: ChatMessageVO) {
   if (String(incomingMsg.teamId) !== String(selectedTeam.value.id)) return
 
   if (incomingMsg.channelType === currentChannel.value) {
-    if (currentChannel.value === 'PRIVATE') {
-      if (
-        String(incomingMsg.senderId) === String(selectedMemberId.value) ||
-        String(incomingMsg.receiverId) === String(selectedMemberId.value)
-      ) {
-        appendMessageIfNotExist(incomingMsg)
-      }
-    } else {
-      appendMessageIfNotExist(incomingMsg)
-    }
+    appendMessageIfNotExist(incomingMsg)
   }
 }
 
@@ -552,9 +499,6 @@ async function handleSelectTeam(team: TeamWithTicketItem) {
     const detailRes = await getAdminTeamDetailApi(props.compId, team.id)
     if (detailRes.data?.members) {
       teamMembers.value = detailRes.data.members
-      if (detailRes.data.members.length > 0) {
-        selectedMemberId.value = detailRes.data.members[0].userId
-      }
     }
   } catch {
     teamMembers.value = []
@@ -564,17 +508,11 @@ async function handleSelectTeam(team: TeamWithTicketItem) {
 }
 
 /**
- * 切换交流频道 (工单 / 队伍公屏 / 私信)
+ * 切换交流频道 (工单 / 队伍公屏广播)
  */
-function switchChannel(channel: ChatChannelType) {
+function switchChannel(channel: 'REFEREE' | 'TEAM') {
   currentChannel.value = channel
   fetchHistory()
-}
-
-function handleMemberChange() {
-  if (currentChannel.value === 'PRIVATE') {
-    fetchHistory()
-  }
 }
 
 /**
@@ -588,7 +526,6 @@ async function fetchHistory() {
     const res = await getChatHistoryApi(props.compId, {
       channelType: currentChannel.value,
       teamId: selectedTeam.value.id,
-      targetUserId: currentChannel.value === 'PRIVATE' ? (selectedMemberId.value ?? undefined) : undefined,
       size: 100
     })
 
@@ -610,7 +547,7 @@ async function fetchHistory() {
 }
 
 /**
- * 发送消息（支持向工单回复、向队伍公屏广播、向队员私信）
+ * 发送消息（支持向工单回复、向队伍公屏广播）
  */
 async function handleSend() {
   if (!canSend.value || !selectedTeam.value) return
@@ -623,7 +560,6 @@ async function handleSend() {
     const res = await sendChatMessageApi(props.compId, {
       channelType: currentChannel.value,
       teamId: selectedTeam.value.id,
-      receiverId: currentChannel.value === 'PRIVATE' ? (selectedMemberId.value ?? undefined) : undefined,
       content: text,
       msgType: 'TEXT'
     })
@@ -954,26 +890,6 @@ function formatTime(isoStr?: string): string {
       }
     }
 
-    // 私信队员选择条
-    .private-member-select-bar {
-      padding: 8px 18px;
-      background: rgba(0, 0, 0, 0.02);
-      border-bottom: 1px solid var(--v-border-subtle, rgba(0, 0, 0, 0.06));
-      display: flex;
-      align-items: center;
-      gap: 10px;
-
-      .bar-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #444444;
-      }
-
-      .member-select {
-        width: 240px;
-      }
-    }
-
     // 消息列表
     .workspace-feed-box {
       flex: 1;
@@ -1006,11 +922,14 @@ function formatTime(isoStr?: string): string {
           flex-direction: column;
           gap: 4px;
           max-width: 75%;
+          align-items: flex-start;
+          min-width: 0;
 
           .msg-meta-row {
             display: flex;
             align-items: center;
             gap: 6px;
+            max-width: 100%;
 
             .sender-username {
               font-size: 12px;
@@ -1047,6 +966,11 @@ function formatTime(isoStr?: string): string {
             font-size: 13px;
             line-height: 1.5;
             word-break: break-word;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
+            width: fit-content;
+            max-width: 100%;
+            box-sizing: border-box;
             background: #ffffff;
             border: 1px solid var(--v-border-subtle, rgba(0, 0, 0, 0.08));
             color: #1f2937;
@@ -1056,6 +980,12 @@ function formatTime(isoStr?: string): string {
               color: #ffffff;
               border-color: #000000;
             }
+          }
+        }
+
+        &.is-competitor-sender {
+          .msg-content-col {
+            align-items: flex-start;
           }
         }
 

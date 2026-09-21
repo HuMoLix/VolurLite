@@ -99,10 +99,13 @@
                   <div class="team-texts">
                     <div class="title-role">
                       <h4>{{ myTeam.teamName }}</h4>
-                      <n-tag size="small" :type="myTeam.myRole === 'CAPTAIN' ? 'primary' : 'default'" round>
-                        {{ myTeam.myRole === 'CAPTAIN' ? '队长' : (myTeam.myRole === 'LEADER' ? '领队' : '队员') }}
+                      <n-tag v-if="myTeam.myRole && myTeam.myRole !== 'CAPTAIN'" size="small" type="default" round>
+                        {{ myTeam.myRole === 'LEADER' ? '领队' : '队员' }}
                       </n-tag>
                     </div>
+                    <p v-if="myTeam.description" class="team-desc" :title="myTeam.description">
+                      {{ formatTeamDescription(myTeam.description) }}
+                    </p>
                   </div>
                 </div>
 
@@ -157,11 +160,11 @@
                     </div>
                   </n-alert>
 
-                  <!-- 3.2 比赛进行中：显示【进入竞赛】按钮 -->
+                  <!-- 3.2 比赛进行中：显示实时倒计时与【进入竞赛】按钮 -->
                   <div v-else-if="isRunning" class="running-entry-box">
-                    <div class="running-info">
-                      <n-tag type="success" size="large" round>🔥 竞赛正在进行中</n-tag>
-                      <p class="running-tip">靶机与竞技题库已全面开放，点击下方按钮立即进入专属竞技场！</p>
+                    <div class="competition-countdown-bar">
+                      <span class="countdown-label">竞赛结束倒计时:</span>
+                      <span class="countdown-value">{{ countdownToEnd }}</span>
                     </div>
                     <n-button class="theme-primary-btn enter-arena-btn" size="large" @click="enterArena">
                       <template #icon>
@@ -171,13 +174,17 @@
                     </n-button>
                   </div>
 
-                  <!-- 3.3 比赛已结束：允许回顾 -->
+                  <!-- 3.3 比赛已结束：倒计时结束之后保留【进入竞赛】按钮 -->
                   <div v-else class="ended-box">
-                    <n-alert type="default" title="竞赛已圆满结束">
-                      本次竞赛已结束，您可以进入竞技场查阅实时天梯排行榜并复盘赛题。
-                    </n-alert>
-                    <n-button class="theme-primary-btn" style="margin-top: 12px;" @click="enterArena">
-                      {{ t('competition.enter_arena') }}（查看天梯）
+                    <div class="competition-countdown-bar is-ended">
+                      <span class="countdown-label">竞赛已结束</span>
+                      <span class="countdown-value">00:00:00</span>
+                    </div>
+                    <n-button class="theme-primary-btn enter-arena-btn" size="large" @click="enterArena">
+                      <template #icon>
+                        <n-icon :component="RocketOutline" />
+                      </template>
+                      {{ t('competition.enter_arena') }}
                     </n-button>
                   </div>
                 </div>
@@ -323,8 +330,9 @@ const myTeam = ref<MyTeamInfoVO | null>(null)
 // Current timestamp for reactive countdown & status
 const nowTimestamp = ref<number>(Date.now())
 
-// Countdown to start
+// Countdown to start & end
 const countdownToStart = ref<string>('00:00:00')
+const countdownToEnd = ref<string>('00:00:00')
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
 // Team Form & Invitations Modal State
@@ -530,26 +538,51 @@ async function fetchMyTeamStatus(compId: number | string) {
   }
 }
 
+function formatTeamDescription(desc?: string | null): string {
+  if (!desc) return ''
+  const trimmed = desc.trim()
+  if (trimmed.length > 30) {
+    return trimmed.slice(0, 30) + '....'
+  }
+  return trimmed
+}
+
 function startCountdown() {
   if (countdownTimer) {
     clearInterval(countdownTimer)
   }
-  updateStartCountdown()
-  countdownTimer = setInterval(updateStartCountdown, 1000)
+  updateCountdown()
+  countdownTimer = setInterval(updateCountdown, 1000)
 }
 
-function updateStartCountdown() {
+function updateCountdown() {
   if (!competition.value) return
   const now = new Date().getTime()
   nowTimestamp.value = now
-  const start = new Date(competition.value.startTime).getTime()
-  const diff = Math.max(0, start - now)
-  const totalSeconds = Math.floor(diff / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
+
   const pad = (n: number) => (n < 10 ? '0' + n : String(n))
-  countdownToStart.value = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+
+  // 1. 距离开始倒计时
+  if (competition.value.startTime) {
+    const start = new Date(competition.value.startTime).getTime()
+    const diffStart = Math.max(0, start - now)
+    const totalSecStart = Math.floor(diffStart / 1000)
+    const hStart = Math.floor(totalSecStart / 3600)
+    const mStart = Math.floor((totalSecStart % 3600) / 60)
+    const sStart = totalSecStart % 60
+    countdownToStart.value = `${pad(hStart)}:${pad(mStart)}:${pad(sStart)}`
+  }
+
+  // 2. 距离结束倒计时
+  if (competition.value.endTime) {
+    const end = new Date(competition.value.endTime).getTime()
+    const diffEnd = Math.max(0, end - now)
+    const totalSecEnd = Math.floor(diffEnd / 1000)
+    const hEnd = Math.floor(totalSecEnd / 3600)
+    const mEnd = Math.floor((totalSecEnd % 3600) / 60)
+    const sEnd = totalSecEnd % 60
+    countdownToEnd.value = `${pad(hEnd)}:${pad(mEnd)}:${pad(sEnd)}`
+  }
 }
 
 async function loadCompetition() {
@@ -775,6 +808,14 @@ onUnmounted(() => {
                 margin: 0;
               }
             }
+
+            .team-desc {
+              font-size: 13px;
+              color: #444444;
+              margin: 4px 0 0 0;
+              line-height: 1.4;
+              word-break: break-all;
+            }
           }
         }
 
@@ -786,26 +827,44 @@ onUnmounted(() => {
         }
       }
 
-      .running-entry-box {
+      .running-entry-box,
+      .ended-box {
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         gap: 16px;
-        background: rgba(24, 160, 88, 0.06);
-        border: 1px solid rgba(24, 160, 88, 0.2);
+        background: rgba(0, 0, 0, 0.03);
+        border: 1px solid var(--v-border-base, #e5e4e7);
         border-radius: 10px;
         padding: 16px 20px;
 
-        .running-info {
+        .competition-countdown-bar {
           display: flex;
-          flex-direction: column;
-          gap: 6px;
+          align-items: center;
+          gap: 10px;
 
-          .running-tip {
-            font-size: 13px;
+          .countdown-label {
+            font-size: 14px;
+            font-weight: 600;
             color: #444444;
-            margin: 0;
+          }
+
+          .countdown-value {
+            font-family: var(--v-font-mono, 'Fira Code', monospace);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--v-primary, #000000);
+            letter-spacing: 0.5px;
+          }
+
+          &.is-ended {
+            .countdown-label {
+              color: #888888;
+            }
+            .countdown-value {
+              color: #888888;
+            }
           }
         }
 

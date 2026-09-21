@@ -122,6 +122,7 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
                 .writeupTemplateName(cDTO != null ? cDTO.getWriteupTemplateName() : null)
                 .writeupStartTime(cDTO != null ? cDTO.getWriteupStartTime() : null)
                 .writeupEndTime(cDTO != null ? cDTO.getWriteupEndTime() : null)
+                .regRequirements(cDTO != null ? cDTO.getRegRequirements() : null)
                 .build();
         configRepository.save(config);
 
@@ -200,6 +201,7 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
             if (cDTO.getWriteupTemplateName() != null) config.setWriteupTemplateName(cDTO.getWriteupTemplateName());
             if (cDTO.getWriteupStartTime() != null) config.setWriteupStartTime(cDTO.getWriteupStartTime());
             if (cDTO.getWriteupEndTime() != null) config.setWriteupEndTime(cDTO.getWriteupEndTime());
+            if (cDTO.getRegRequirements() != null) config.setRegRequirements(cDTO.getRegRequirements());
 
             configRepository.save(config);
         }

@@ -41,6 +41,7 @@ public class AdminCompetitionDetailVO implements Serializable {
     private String writeupTemplateName;
     private Instant writeupStartTime;
     private Instant writeupEndTime;
+    private String regRequirements;
     private Long createdById;
     private String createdByName;
     private Instant createdAt;

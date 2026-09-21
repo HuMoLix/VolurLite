@@ -78,4 +78,15 @@ class GlobalExceptionHandlerTest {
         assertEquals("服务器内部故障，请联系管理员", response.message());
     }
 
+    @Test
+    @DisplayName("Test MaintenanceModeException handling")
+    void testMaintenanceModeException() {
+        com.humolix.volur.framework.common.exception.MaintenanceModeException ex =
+                new com.humolix.volur.framework.common.exception.MaintenanceModeException("全站维护测试公告");
+        ApiResponse<Void> response = handler.handleMaintenanceModeException(ex);
+        assertEquals(503, response.status());
+        assertFalse(response.success());
+        assertEquals("全站维护测试公告", response.message());
+    }
+
 }

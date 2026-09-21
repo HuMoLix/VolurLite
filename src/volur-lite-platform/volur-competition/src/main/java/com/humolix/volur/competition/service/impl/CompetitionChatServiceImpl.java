@@ -21,7 +21,7 @@ import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.service.CompetitionChatService;
 import com.humolix.volur.competition.websocket.model.CompetitionChatBroadcastMessage;
 import com.humolix.volur.competition.websocket.redis.CompetitionChatRedisPublisher;
-import com.humolix.volur.framework.common.api.PageResponse;
+import com.humolix.volur.framework.common.api.CursorResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.enums.UserRole;
@@ -72,6 +72,7 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 
         boolean isReferee = (sender.getRole() == UserRole.SUPER_ADMIN || sender.getRole() == UserRole.ADMIN);
+        CompetitionMember acceptedMember = getAcceptedMember(competitionId, userId);
 
         CompetitionTeam targetTeam;
         String senderRole;
@@ -81,30 +82,30 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
 
         if (dto.getChannelType() == ChatChannelType.TEAM) {
             // 战队内部公屏交流
-            if (isReferee) {
-                if (dto.getTeamId() == null) {
-                    throw new BusinessException(HttpStatus.BAD_REQUEST, "裁判向队伍频道发送消息时必须指定目标队伍 ID");
-                }
+            if (isReferee && dto.getTeamId() != null) {
+                // 裁判在管理后台明确指定目标队伍进行官方广播
                 targetTeam = teamRepository.findById(dto.getTeamId())
                         .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "指定的队伍不存在"));
                 senderRole = "REFEREE";
             } else {
-                CompetitionMember member = getAcceptedMember(competitionId, userId);
-                if (member == null) {
+                // 选手端公屏模式（普通参赛选手，或已加入战队的管理员在选手端公屏发言）
+                if (acceptedMember == null) {
+                    if (isReferee) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST, "裁判向队伍频道发送消息时必须指定目标队伍 ID，或以参赛队员身份加入战队");
+                    }
                     throw new BusinessException(HttpStatus.FORBIDDEN, "未加入竞赛队伍，无法发送战队内部消息");
                 }
-                targetTeam = member.getTeam();
-                senderRole = member.getRole().name();
+                targetTeam = acceptedMember.getTeam();
+                senderRole = acceptedMember.getRole().name();
 
                 if (dto.getMentionUserIds() != null && !dto.getMentionUserIds().isEmpty()) {
-                    // 队伍不能在队伍频道中 @ 裁判，严格排除管理员与裁判
                     List<Long> validMentionIds = dto.getMentionUserIds().stream()
                             .filter(id -> {
                                 if (id == null) return false;
                                 User u = userRepository.findById(id).orElse(null);
                                 return u != null && u.getRole() != UserRole.ADMIN && u.getRole() != UserRole.SUPER_ADMIN;
                             })
-                            .collect(Collectors.toList());
+                            .toList();
                     if (!validMentionIds.isEmpty()) {
                         mentionStr = validMentionIds.stream()
                                 .map(String::valueOf)
@@ -125,7 +126,12 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
             User receiver = userRepository.findById(dto.getReceiverId())
                     .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "指定的私信目标用户不存在"));
 
-            if (isReferee) {
+            if (acceptedMember != null) {
+                // 已加入战队的成员（含作为参赛队员的管理员）与同队队友私信
+                targetTeam = acceptedMember.getTeam();
+                senderRole = acceptedMember.getRole().name();
+            } else if (isReferee) {
+                // 纯裁判与参赛成员私信
                 if (dto.getTeamId() != null) {
                     targetTeam = teamRepository.findById(dto.getTeamId()).orElse(null);
                 } else {
@@ -141,12 +147,7 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
                 }
                 senderRole = "REFEREE";
             } else {
-                CompetitionMember member = getAcceptedMember(competitionId, userId);
-                if (member == null) {
-                    throw new BusinessException(HttpStatus.FORBIDDEN, "未加入竞赛队伍，无法发送私信");
-                }
-                targetTeam = member.getTeam();
-                senderRole = member.getRole().name();
+                throw new BusinessException(HttpStatus.FORBIDDEN, "未加入竞赛队伍，无法发送私信");
             }
 
             receiverId = receiver.getId();
@@ -154,20 +155,21 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
 
         } else if (dto.getChannelType() == ChatChannelType.REFEREE) {
             // 裁判工单通道
-            if (isReferee) {
-                if (dto.getTeamId() == null) {
-                    throw new BusinessException(HttpStatus.BAD_REQUEST, "裁判回复工单时必须指定目标队伍 ID");
-                }
+            if (isReferee && dto.getTeamId() != null) {
+                // 裁判在管理后台回复指定队伍工单
                 targetTeam = teamRepository.findById(dto.getTeamId())
                         .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "指定的队伍不存在"));
                 senderRole = "REFEREE";
             } else {
-                CompetitionMember member = getAcceptedMember(competitionId, userId);
-                if (member == null) {
+                // 选手端发起工单（普通队员，或已加入战队的管理员向裁判组发起工单提问）
+                if (acceptedMember == null) {
+                    if (isReferee) {
+                        throw new BusinessException(HttpStatus.BAD_REQUEST, "裁判回复工单时必须指定目标队伍 ID");
+                    }
                     throw new BusinessException(HttpStatus.FORBIDDEN, "未加入竞赛队伍，无法向裁判组发起工单");
                 }
-                targetTeam = member.getTeam();
-                senderRole = member.getRole().name();
+                targetTeam = acceptedMember.getTeam();
+                senderRole = acceptedMember.getRole().name();
             }
         } else {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "不支持的聊天频道类型");
@@ -209,62 +211,108 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public PageResponse<ChatMessageVO> getHistoryMessages(Long competitionId, ChatMessagePageQueryDTO query, Long userId) {
+    @Transactional
+    public CursorResponse<ChatMessageVO> getHistoryMessages(Long competitionId, ChatMessagePageQueryDTO query, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 
         boolean isReferee = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
-        int pageNum = Math.max(0, query.getPage() != null ? query.getPage() : 0);
         int pageSize = query.getSize() != null && query.getSize() > 0 ? Math.min(query.getSize(), 100) : 50;
-        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "id"));
+        Pageable pageable = PageRequest.of(0, pageSize + 1, Sort.by(Sort.Direction.DESC, "id"));
+        Long beforeId = (query.getBeforeId() != null && query.getBeforeId() > 0) ? query.getBeforeId() : null;
+        if (beforeId == null && org.springframework.util.StringUtils.hasText(query.getPageToken())) {
+            String token = query.getPageToken().trim();
+            try {
+                beforeId = Long.parseLong(token);
+            } catch (NumberFormatException e) {
+                com.humolix.volur.framework.common.util.PageTokenUtil.CursorPayload payload =
+                        com.humolix.volur.framework.common.util.PageTokenUtil.decodeToken(token);
+                if (payload != null && org.springframework.util.StringUtils.hasText(payload.getUniqueId())) {
+                    try {
+                        beforeId = Long.parseLong(payload.getUniqueId());
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+        }
+
+        List<CompetitionChatMessage> rawMessages;
 
         if (query.getChannelType() == ChatChannelType.PRIVATE) {
             // 私信历史记录
             Long targetUserId = query.getTargetUserId();
             if (targetUserId == null) {
-                return PageResponse.empty();
+                return CursorResponse.empty();
             }
-            Page<CompetitionChatMessage> page = chatMessageRepository.findDirectMessageHistory(
-                    competitionId, userId, targetUserId, pageable);
-            List<ChatMessageVO> voList = chatMapper.toVOList(page.getContent());
-            return PageResponse.of(voList, page.getTotalElements(), page.getTotalPages(), page.getNumber() + 1);
-        }
-
-        Long targetTeamId;
-        if (query.getChannelType() == ChatChannelType.TEAM) {
-            if (isReferee) {
-                targetTeamId = query.getTeamId();
-                if (targetTeamId == null) {
-                    return PageResponse.empty();
-                }
+            if (beforeId != null) {
+                rawMessages = chatMessageRepository.findEarlierDirectMessages(competitionId, userId, targetUserId, beforeId, pageable);
             } else {
-                CompetitionMember member = getAcceptedMember(competitionId, userId);
-                if (member == null) {
-                    throw new BusinessException(HttpStatus.FORBIDDEN, "未加入竞赛队伍，无法查看战队消息");
-                }
-                targetTeamId = member.getTeam().getId();
+                rawMessages = chatMessageRepository.findLatestDirectMessages(competitionId, userId, targetUserId, pageable);
             }
         } else {
-            if (isReferee) {
-                targetTeamId = query.getTeamId();
-                if (targetTeamId == null) {
-                    return PageResponse.empty();
+            Long targetTeamId;
+            if (query.getChannelType() == ChatChannelType.TEAM) {
+                if (isReferee && query.getTeamId() != null) {
+                    targetTeamId = query.getTeamId();
+                } else {
+                    CompetitionMember member = getAcceptedMember(competitionId, userId);
+                    if (member == null) {
+                        if (isReferee) {
+                            return CursorResponse.empty();
+                        }
+                        throw new BusinessException(HttpStatus.FORBIDDEN, "未加入竞赛队伍，无法查看战队消息");
+                    }
+                    targetTeamId = member.getTeam().getId();
                 }
             } else {
-                CompetitionMember member = getAcceptedMember(competitionId, userId);
-                if (member == null) {
-                    throw new BusinessException(HttpStatus.FORBIDDEN, "未加入竞赛队伍，无法查看裁判工单记录");
+                if (isReferee && query.getTeamId() != null) {
+                    targetTeamId = query.getTeamId();
+                } else {
+                    CompetitionMember member = getAcceptedMember(competitionId, userId);
+                    if (member == null) {
+                        if (isReferee) {
+                            return CursorResponse.empty();
+                        }
+                        throw new BusinessException(HttpStatus.FORBIDDEN, "未加入竞赛队伍，无法查看裁判工单记录");
+                    }
+                    targetTeamId = member.getTeam().getId();
                 }
-                targetTeamId = member.getTeam().getId();
+            }
+
+            if (beforeId != null) {
+                rawMessages = chatMessageRepository.findEarlierChannelMessages(competitionId, query.getChannelType(), targetTeamId, beforeId, pageable);
+            } else {
+                rawMessages = chatMessageRepository.findLatestChannelMessages(competitionId, query.getChannelType(), targetTeamId, pageable);
             }
         }
 
-        Page<CompetitionChatMessage> page = chatMessageRepository.findChannelHistory(
-                competitionId, query.getChannelType(), targetTeamId, pageable);
+        boolean hasMore = rawMessages.size() > pageSize;
+        List<CompetitionChatMessage> finalEntities = hasMore ? rawMessages.subList(0, pageSize) : rawMessages;
+        List<ChatMessageVO> voList = chatMapper.toVOList(finalEntities);
 
-        List<ChatMessageVO> voList = chatMapper.toVOList(page.getContent());
-        return PageResponse.of(voList, page.getTotalElements(), page.getTotalPages(), page.getNumber() + 1);
+        String nextPageToken = null;
+        if (hasMore && !finalEntities.isEmpty()) {
+            nextPageToken = String.valueOf(finalEntities.get(finalEntities.size() - 1).getId());
+        }
+
+        // 自动标记已读：用户访问当前频道的历史记录，表明用户已打开该聊天框，自动同步已读状态
+        String target = null;
+        if (query.getChannelType() == ChatChannelType.TEAM) {
+            target = "TEAM";
+        } else if (query.getChannelType() == ChatChannelType.REFEREE) {
+            target = "REFEREE";
+        } else if (query.getChannelType() == ChatChannelType.PRIVATE && query.getTargetUserId() != null) {
+            target = "USER_" + query.getTargetUserId();
+        }
+
+        if (target != null) {
+            // 当拉取的是最新历史（beforeId == null）且有消息返回时，取首条（即最新一条消息的 ID）作为已读游标；
+            // 若结果集为空，传入 null，markRead 会自动查库获取 MAX(m.id) 或 0L
+            Long latestMessageId = (!voList.isEmpty() && beforeId == null) ? voList.get(0).getId() : null;
+            markRead(competitionId, userId, new ChatReadDTO(target, latestMessageId));
+        }
+
+        return CursorResponse.of(voList, nextPageToken, hasMore);
     }
 
     @Override
@@ -272,12 +320,48 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
         if (dto == null || !StringUtils.hasText(dto.getTarget())) {
             return;
         }
-        String redisKey = VREDIS_COMPETITION_CHAT_READ_KEY_PREFIX + competitionId + ":" + userId;
+        String target = dto.getTarget().trim();
         Long lastId = dto.getLastMessageId();
+
+        // 当客户端未传递具体 messageId 时，按频道精准获取当前数据库中已存在的最大 Snowflake ID，严禁使用 System.currentTimeMillis()
         if (lastId == null || lastId <= 0) {
-            lastId = System.currentTimeMillis();
+            User user = userRepository.findById(userId).orElse(null);
+            boolean isReferee = (user != null && (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN));
+            CompetitionMember myMember = getAcceptedMember(competitionId, userId);
+            Long myTeamId = (myMember != null && myMember.getTeam() != null) ? myMember.getTeam().getId() : null;
+
+            if ("TEAM".equalsIgnoreCase(target)) {
+                if (myTeamId != null) {
+                    lastId = chatMessageRepository.findMaxTeamMessageId(competitionId, myTeamId);
+                }
+            } else if ("REFEREE".equalsIgnoreCase(target)) {
+                if (isReferee && myTeamId == null) {
+                    lastId = chatMessageRepository.findMaxRefereeMessageIdForAdmin(competitionId);
+                } else if (myTeamId != null) {
+                    lastId = chatMessageRepository.findMaxRefereeMessageIdForTeam(competitionId, myTeamId);
+                } else {
+                    lastId = chatMessageRepository.findMaxRefereeMessageIdForAdmin(competitionId);
+                }
+            } else if (target.toUpperCase().startsWith("USER_")) {
+                try {
+                    Long otherUserId = Long.parseLong(target.substring(5));
+                    lastId = chatMessageRepository.findMaxPrivateMessageId(competitionId, userId, otherUserId);
+                } catch (NumberFormatException ignored) {
+                }
+            }
         }
-        stringRedisTemplate.opsForHash().put(redisKey, dto.getTarget(), String.valueOf(lastId));
+
+        if (lastId == null || lastId <= 0) {
+            lastId = 0L;
+        }
+
+        String redisKey = VREDIS_COMPETITION_CHAT_READ_KEY_PREFIX + competitionId + ":" + userId;
+        Object existingVal = stringRedisTemplate.opsForHash().get(redisKey, target);
+        Long existingId = parseReadId(existingVal);
+        // 单调递增推进：只有在新的 readId 大于等于已有游标时更新，防止乱序 ACK 倒退
+        if (existingId == null || lastId >= existingId) {
+            stringRedisTemplate.opsForHash().put(redisKey, target, String.valueOf(lastId));
+        }
         stringRedisTemplate.expire(redisKey, CHAT_READ_TTL);
     }
 
@@ -347,11 +431,17 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
     private Long parseReadId(Object val) {
         if (val == null) return null;
         try {
-            return Long.parseLong(String.valueOf(val));
+            long id = Long.parseLong(String.valueOf(val));
+            // 兼容过滤历史残留的毫秒时间戳（毫秒时间戳在 2026 年约为 1.7*10^12，小于 10^15；而雪花 ID 大于 10^18）
+            if (id > 0 && id < 1_000_000_000_000_000L) {
+                return null;
+            }
+            return id;
         } catch (Exception e) {
             return null;
         }
     }
+
 
     @Override
     @Transactional(readOnly = true)

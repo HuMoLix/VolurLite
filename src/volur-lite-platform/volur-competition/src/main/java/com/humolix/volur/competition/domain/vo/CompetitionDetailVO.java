@@ -33,6 +33,7 @@ public class CompetitionDetailVO implements Serializable {
     private Integer minTeamMembers;
     private Boolean requireTeamAudit;
     private Boolean allowWriteupSubmission;
+    private String regRequirements;
     private Long teamCount;
     private Instant createdAt;
 

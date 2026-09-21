@@ -7,7 +7,7 @@ import com.humolix.volur.competition.service.theory.TheoryCompetitionService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
-import com.humolix.volur.logging.annotation.Syslog;
+import com.humolix.volur.competition.annotation.CompetitionLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,7 +31,7 @@ public class TheoryCompetitionController {
     }
 
     @Operation(summary = "提交理论试卷并获取判分结果")
-    @Syslog(module = "COMPETITION", value = "提交理论考核试卷", recordParams = true, recordResponse = true)
+    @CompetitionLog(logType = "THEORY", action = "提交理论考核试卷", recordParams = true, recordResponse = true)
     @PostMapping("/submit")
     public ApiResponse<TheoryPaperResultVO> submitPaper(
             @PathVariable Long competitionId,

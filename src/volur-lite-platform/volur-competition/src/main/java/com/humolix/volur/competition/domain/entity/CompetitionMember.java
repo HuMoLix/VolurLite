@@ -18,7 +18,10 @@ import java.time.Instant;
 @Entity
 @Table(name = "competition_member", indexes = {
         @Index(name = "idx_comp_user_status", columnList = "competition_id, user_id, status"),
-        @Index(name = "idx_team_status", columnList = "team_id, status")
+        @Index(name = "idx_team_status", columnList = "team_id, status"),
+        @Index(name = "idx_comp_phone", columnList = "competition_id, phone"),
+        @Index(name = "idx_comp_idcard", columnList = "competition_id, id_card"),
+        @Index(name = "idx_comp_email", columnList = "competition_id, email")
 })
 @DynamicUpdate
 @Data
@@ -46,7 +49,7 @@ public class CompetitionMember implements Serializable {
     private CompetitionTeam team;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, columnDefinition = "BIGINT")
+    @JoinColumn(name = "user_id", nullable = true, columnDefinition = "BIGINT")
     private User user;
 
     @Enumerated(EnumType.STRING)
@@ -75,11 +78,14 @@ public class CompetitionMember implements Serializable {
     @Column(name = "phone", length = 32, columnDefinition = "VARCHAR(32)")
     private String phone;
 
-    @Column(name = "student_number", length = 64, columnDefinition = "VARCHAR(64)")
-    private String studentNumber;
+    @Column(name = "employee_number", length = 64, columnDefinition = "VARCHAR(64)")
+    private String employeeNumber;
 
-    @Column(name = "college", length = 128, columnDefinition = "VARCHAR(128)")
-    private String college;
+    @Column(name = "department", length = 128, columnDefinition = "VARCHAR(128)")
+    private String department;
+
+    @Column(name = "position", length = 64, columnDefinition = "VARCHAR(64)")
+    private String position;
 
     @CreationTimestamp
     @Column(name = "joined_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")

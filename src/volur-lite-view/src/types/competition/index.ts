@@ -27,6 +27,16 @@ export type TeamStatus =
 /** 战队成员角色 */
 export type MemberRole = 'CAPTAIN' | 'MEMBER' | 'LEADER'
 
+/** 队伍单位类型 */
+export type OrganizationType =
+  | 'SCHOOL'
+  | 'ENTERPRISE'
+  | 'MILITARY'
+  | 'ENERGY'
+  | 'FINANCE'
+  | 'RESEARCH'
+  | 'OTHER'
+
 /** 战队成员加入/邀请状态 */
 export type MemberStatus = 'INVITED' | 'INVITED_ACCEPTED' | 'NOT_PARTICIPATE'
 
@@ -45,6 +55,7 @@ export interface CompetitionConfigDTO {
   writeupTemplateName?: string
   writeupStartTime?: string
   writeupEndTime?: string
+  regRequirements?: string
 }
 
 export interface CompetitionConfigVO {
@@ -61,6 +72,7 @@ export interface CompetitionConfigVO {
   writeupTemplateName?: string
   writeupStartTime?: string
   writeupEndTime?: string
+  regRequirements?: string
 }
 
 /** 竞赛概要信息 VO (公开列表) */
@@ -97,6 +109,7 @@ export interface CompetitionDetailVO {
   minTeamMembers?: number
   requireTeamAudit?: boolean
   allowWriteupSubmission?: boolean
+  regRequirements?: string
   teamCount?: number
   createdAt?: string
   config?: CompetitionConfigVO
@@ -116,6 +129,7 @@ export interface CompetitionAboutVO {
   minTeamMembers?: number
   maxTeams?: number
   requireTeamAudit?: boolean
+  regRequirements?: string
 }
 
 /** 管理端竞赛列表项 VO */
@@ -158,6 +172,7 @@ export interface AdminCompetitionDetailVO {
   writeupTemplateName?: string
   writeupStartTime?: string
   writeupEndTime?: string
+  regRequirements?: string
   config?: CompetitionConfigVO
   createdAt: string
   updatedAt: string
@@ -198,25 +213,46 @@ export interface TeamMemberSignupDTO {
   realName: string
   gender: 'MALE' | 'FEMALE'
   role: MemberRole
-  studentNumber: string
   phone: string
   email: string
   idCard: string
-  college: string
+  employeeNumber?: string
+  department?: string
+  position?: string
+}
+
+/** 领队/指导老师填报信息项 DTO */
+export interface TeamLeadersSignupDTO {
+  realName: string
+  phone: string
+  gender?: 'MALE' | 'FEMALE'
+  email?: string
+  idCard?: string
+  employeeNumber?: string
+  department?: string
+  position?: string
 }
 
 /** 队伍报名创建入参 DTO */
 export interface TeamSignupRequestDTO {
   teamName: string
   avatarUrl?: string
+  description?: string
+  organization?: string
+  organizationType?: OrganizationType
   members: TeamMemberSignupDTO[]
+  leaders?: TeamLeadersSignupDTO[]
 }
 
 /** 更新队伍信息入参 DTO */
 export interface TeamUpdateRequestDTO {
   teamName?: string
   avatarUrl?: string
+  description?: string
+  organization?: string
+  organizationType?: OrganizationType
   members?: TeamMemberSignupDTO[]
+  leaders?: TeamLeadersSignupDTO[]
 }
 
 /** 接受邀请 DTO */
@@ -261,6 +297,9 @@ export interface MyTeamInfoVO {
   competitionTitle?: string
   teamName: string
   avatarUrl?: string
+  description?: string
+  organization?: string
+  organizationType?: OrganizationType
   status: TeamStatus
   auditReason?: string
   myRole?: MemberRole
@@ -274,6 +313,9 @@ export interface CompetitionTeamVO {
   teamId: number | string
   teamName: string
   avatarUrl?: string
+  description?: string
+  organization?: string
+  organizationType?: OrganizationType
   status: TeamStatus
   captainUserId: number | string
   captainNickname: string
@@ -289,11 +331,12 @@ export interface CompetitionMemberVO {
   avatarUrl?: string
   realName?: string
   gender?: 'UNKNOWN' | 'MALE' | 'FEMALE'
-  studentNumber?: string
   phone?: string
   email?: string
   idCard?: string
-  college?: string
+  employeeNumber?: string
+  department?: string
+  position?: string
   role: MemberRole
   status?: MemberStatus | string
   joinedAt?: string
@@ -319,6 +362,9 @@ export interface AdminTeamDetailVO {
   competitionTitle?: string
   teamName: string
   avatarUrl?: string
+  description?: string
+  organization?: string
+  organizationType?: OrganizationType
   captainId: number | string
   captainUsername: string
   status: TeamStatus
@@ -484,5 +530,52 @@ export interface CompetitionWriteupAuditDTO {
   status?: string
   score?: number
   comment?: string
+}
+
+/** 比赛专属运行操作日志 VO */
+export interface AdminCompetitionLogVO {
+  id: string | number
+  competitionId: string | number
+  userId?: string | number
+  username?: string
+  teamId?: string | number
+  teamName?: string
+  challengeId?: string | number
+  challengeTitle?: string
+  action: string
+  logType: string
+  status: boolean
+  operatorIp?: string
+  requestMethod?: string
+  requestUri?: string
+  durationMs?: number
+  params?: string
+  result?: string
+  errorMessage?: string
+  userAgent?: string
+  createdAt: string
+}
+
+/** 比赛专属运行操作日志统计 VO */
+export interface AdminCompetitionLogStatisticsVO {
+  totalLogs: number
+  containerLogs: number
+  flagLogs: number
+  errorLogs: number
+}
+
+/** 比赛专属运行操作日志查询 DTO */
+export interface AdminCompetitionLogQueryDTO {
+  page?: number
+  size?: number
+  username?: string
+  teamName?: string
+  challengeTitle?: string
+  logType?: string
+  status?: boolean
+  startTime?: string
+  endTime?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }
 

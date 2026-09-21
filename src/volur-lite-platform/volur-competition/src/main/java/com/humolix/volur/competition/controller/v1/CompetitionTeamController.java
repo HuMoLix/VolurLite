@@ -3,14 +3,13 @@ package com.humolix.volur.competition.controller.v1;
 import com.humolix.volur.competition.domain.dto.TeamInviteAcceptDTO;
 import com.humolix.volur.competition.domain.dto.TeamSignupRequestDTO;
 import com.humolix.volur.competition.domain.dto.TeamUpdateRequestDTO;
-import com.humolix.volur.competition.domain.vo.CompetitionTeamVO;
 import com.humolix.volur.competition.domain.vo.MyTeamInfoVO;
 import com.humolix.volur.competition.domain.vo.TeamInvitationVO;
 import com.humolix.volur.competition.service.CompetitionTeamService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
-import com.humolix.volur.logging.annotation.Syslog;
+import com.humolix.volur.competition.annotation.CompetitionLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -27,16 +26,8 @@ public class CompetitionTeamController {
 
     private final CompetitionTeamService teamService;
 
-    @Operation(summary = "获取当前竞赛所有参赛队伍列表")
-    @GetMapping
-    public ApiResponse<List<CompetitionTeamVO>> listTeams(
-            @PathVariable Long competitionId,
-            @CurrentUserId Long userId) {
-        return ApiResponseEntity.ok("获取参赛队伍列表成功", teamService.listTeams(competitionId, userId));
-    }
-
     @Operation(summary = "创建队伍并完成报名")
-    @Syslog(module = "COMPETITION", value = "创建队伍并报名竞赛", recordParams = true)
+    @CompetitionLog(logType = "TEAM", action = "创建队伍并报名竞赛", recordParams = true)
     @PostMapping("/signup")
     public ApiResponse<Long> signupTeam(
             @PathVariable Long competitionId,
@@ -54,7 +45,7 @@ public class CompetitionTeamController {
     }
 
     @Operation(summary = "更新我的战队信息（队长权限）")
-    @Syslog(module = "COMPETITION", value = "更新参赛队伍信息", recordParams = true)
+    @CompetitionLog(logType = "TEAM", action = "更新参赛队伍信息", recordParams = true)
     @PutMapping("/me")
     public ApiResponse<Void> updateTeam(
             @PathVariable Long competitionId,
@@ -65,7 +56,7 @@ public class CompetitionTeamController {
     }
 
     @Operation(summary = "解散我的战队（队长权限）")
-    @Syslog(module = "COMPETITION", value = "解散参赛队伍", recordParams = true)
+    @CompetitionLog(logType = "TEAM", action = "解散参赛队伍", recordParams = true)
     @DeleteMapping("/me")
     public ApiResponse<Void> deleteMyTeam(
             @PathVariable Long competitionId,
@@ -83,7 +74,7 @@ public class CompetitionTeamController {
     }
 
     @Operation(summary = "受邀队员确认接受组队邀请")
-    @Syslog(module = "COMPETITION", value = "接受竞赛组队邀请", recordParams = true)
+    @CompetitionLog(logType = "TEAM", action = "接受竞赛组队邀请", recordParams = true)
     @PostMapping("/{teamId}/invite/accept")
     public ApiResponse<Void> acceptInvitation(
             @PathVariable Long competitionId,
@@ -95,7 +86,7 @@ public class CompetitionTeamController {
     }
 
     @Operation(summary = "受邀队员拒绝组队邀请")
-    @Syslog(module = "COMPETITION", value = "拒绝竞赛组队邀请", recordParams = true)
+    @CompetitionLog(logType = "TEAM", action = "拒绝竞赛组队邀请", recordParams = true)
     @PostMapping("/{teamId}/invite/reject")
     public ApiResponse<Void> rejectInvitation(
             @PathVariable Long competitionId,
@@ -106,7 +97,7 @@ public class CompetitionTeamController {
     }
 
     @Operation(summary = "队长取消已发送的队员组队邀请")
-    @Syslog(module = "COMPETITION", value = "取消队员组队邀请", recordParams = true)
+    @CompetitionLog(logType = "TEAM", action = "取消队员组队邀请", recordParams = true)
     @DeleteMapping("/{teamId}/invite/cancel")
     public ApiResponse<Void> cancelInvitation(
             @PathVariable Long competitionId,
@@ -115,6 +106,18 @@ public class CompetitionTeamController {
             @RequestParam("userId") Long targetUserId) {
         teamService.cancelInvitation(competitionId, teamId, captainUserId, targetUserId);
         return ApiResponseEntity.success("已取消该成员的邀请");
+    }
+
+    @Operation(summary = "队长重新邀请已拒绝或未处理的队员")
+    @CompetitionLog(logType = "TEAM", action = "重新邀请参赛队员", recordParams = true)
+    @PostMapping("/{teamId}/invite/reinvite")
+    public ApiResponse<Void> reinviteMember(
+            @PathVariable Long competitionId,
+            @PathVariable Long teamId,
+            @CurrentUserId Long captainUserId,
+            @RequestParam("userId") Long targetUserId) {
+        teamService.reinviteMember(competitionId, teamId, captainUserId, targetUserId);
+        return ApiResponseEntity.success("已成功重新发送邀请");
     }
 
 }

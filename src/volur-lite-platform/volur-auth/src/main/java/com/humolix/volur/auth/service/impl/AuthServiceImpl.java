@@ -2,6 +2,7 @@ package com.humolix.volur.auth.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.humolix.volur.auth.domain.dto.*;
+import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.UserRole;
@@ -18,7 +19,6 @@ import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
-import com.humolix.volur.auth.security.jwt.exception.MissingTokenException;
 import com.humolix.volur.auth.security.util.SecurityUtils;
 import com.humolix.volur.auth.service.AuthService;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
@@ -29,6 +29,8 @@ import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.domain.vo.AuthenticateResponseVO;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.framework.common.exception.MaintenanceModeException;
+import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.framework.common.util.SpringContextHolder;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
@@ -117,12 +119,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void register(RegisterRequestDTO request) {
-        if (systemSettingService.getBoolean("system.maintenance.enabled", false)) {
-            String notice = systemSettingService.getSettingValue("system.maintenance.notice_message", "系统正在全站维护中，暂不支持注册");
-            throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, notice);
-        }
-
-        if (!systemSettingService.getBoolean("system.auth.registration_enabled", true)) {
+        if (!systemSettingService.getBoolean(SystemSettingKeys.AUTH_REGISTRATION_ENABLED, true)) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "系统已关闭注册功能");
         }
 
@@ -204,7 +201,7 @@ public class AuthServiceImpl implements AuthService {
             );
             Authentication authentication = authenticationManager.authenticate(authenticationToken);
 
-            boolean isMaintenance = systemSettingService.getBoolean("system.maintenance.enabled", false);
+            boolean isMaintenance = systemSettingService.getBoolean(SystemSettingKeys.MAINTENANCE_ENABLED, false);
             if (isMaintenance) {
                 boolean isAdmin = authentication.getAuthorities().stream()
                         .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority())
@@ -212,8 +209,11 @@ public class AuthServiceImpl implements AuthService {
                                 || "ADMIN".equals(a.getAuthority())
                                 || "SUPER_ADMIN".equals(a.getAuthority()));
                 if (!isAdmin) {
-                    String notice = systemSettingService.getSettingValue("system.maintenance.notice_message", "系统正在全站维护升级中，暂仅限管理员登录");
-                    throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, notice);
+                    String notice = systemSettingService.getSettingValue(
+                            SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE,
+                            "系统正在全站维护升级中，暂仅限管理员登录"
+                    );
+                    throw new MaintenanceModeException(notice);
                 }
             }
 
@@ -424,7 +424,7 @@ public class AuthServiceImpl implements AuthService {
     public void logout(HttpServletRequest request) {
         String token = jwtUtil.parseToken(request);
         if (!StringUtils.hasText(token)) {
-            throw new MissingTokenException("未找到有效的令牌");
+            throw new TokenMissingException();
         }
 
         Claims claims;

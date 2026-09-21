@@ -23,6 +23,9 @@ public class MyTeamInfoVO implements Serializable {
     private String competitionTitle;
     private String teamName;
     private String avatarUrl;
+    private String description;
+    private String organization;
+    private com.humolix.volur.competition.domain.enums.OrganizationType organizationType;
     private TeamStatus status;
     private String auditReason;
     private MemberRole myRole;

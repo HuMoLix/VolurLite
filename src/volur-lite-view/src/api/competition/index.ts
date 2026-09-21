@@ -4,7 +4,6 @@ import type {
   CompetitionSummaryVO,
   CompetitionDetailVO,
   CompetitionAboutVO,
-  CompetitionTeamVO,
   TeamSignupRequestDTO,
   TeamUpdateRequestDTO,
   TeamInviteAcceptDTO,
@@ -27,7 +26,10 @@ import type {
   CompetitionAnnouncementDTO,
   CompetitionAnnouncementVO,
   CompetitionWriteupVO,
-  CompetitionWriteupAuditDTO
+  CompetitionWriteupAuditDTO,
+  AdminCompetitionLogVO,
+  AdminCompetitionLogStatisticsVO,
+  AdminCompetitionLogQueryDTO
 } from '@/types/competition'
 
 // ==========================================
@@ -98,16 +100,6 @@ export const getCtfStageScoreboardApi = getCtfScoreboardApi
 // ==========================================
 // 3. 竞赛战队与报名 API (CompetitionTeamController)
 // ==========================================
-
-/**
- * 获取当前竞赛所有参赛队伍列表
- * 对应后端: GET /api/v1/competitions/{competitionId}/teams
- */
-export function listCompetitionTeamsApi(
-  competitionId: number | string
-): Promise<ApiResponse<CompetitionTeamVO[]>> {
-  return request.get<CompetitionTeamVO[]>(`/competitions/${competitionId}/teams`)
-}
 
 /**
  * 创建队伍并完成报名
@@ -194,6 +186,20 @@ export function cancelInvitationApi(
   userId: number | string
 ): Promise<ApiResponse<void>> {
   return request.delete<void>(`/competitions/${competitionId}/teams/${teamId}/invite/cancel`, {
+    params: { userId }
+  })
+}
+
+/**
+ * 队长重新邀请队员
+ * 对应后端: POST /api/v1/competitions/{competitionId}/teams/{teamId}/invite/reinvite
+ */
+export function reinviteMemberApi(
+  competitionId: number | string,
+  teamId: number | string,
+  userId: number | string
+): Promise<ApiResponse<void>> {
+  return request.post<void>(`/competitions/${competitionId}/teams/${teamId}/invite/reinvite`, null, {
     params: { userId }
   })
 }
@@ -630,6 +636,49 @@ export function deleteAdminCompetitionWriteupApi(
 ): Promise<ApiResponse<void>> {
   return request.delete<void>(
     `/admin/competitions/${competitionId}/writeups/${writeupId}`
+  )
+}
+
+// ==========================================
+// 10. 管理端比赛运行操作日志 API (AdminCompetitionLogController)
+// ==========================================
+
+/**
+ * 分页获取单场比赛运行操作日志列表
+ * 对应后端: GET /api/v1/admin/competitions/{competitionId}/logs
+ */
+export function getAdminCompetitionLogListApi(
+  competitionId: number | string,
+  params?: AdminCompetitionLogQueryDTO
+): Promise<ApiResponse<PageResponse<AdminCompetitionLogVO>>> {
+  return request.get<PageResponse<AdminCompetitionLogVO>>(
+    `/admin/competitions/${competitionId}/logs`,
+    { params }
+  )
+}
+
+/**
+ * 获取单场比赛操作日志统计数据
+ * 对应后端: GET /api/v1/admin/competitions/{competitionId}/logs/statistics
+ */
+export function getAdminCompetitionLogStatisticsApi(
+  competitionId: number | string
+): Promise<ApiResponse<AdminCompetitionLogStatisticsVO>> {
+  return request.get<AdminCompetitionLogStatisticsVO>(
+    `/admin/competitions/${competitionId}/logs/statistics`
+  )
+}
+
+/**
+ * 获取指定比赛日志详细记录
+ * 对应后端: GET /api/v1/admin/competitions/{competitionId}/logs/{id}
+ */
+export function getAdminCompetitionLogDetailApi(
+  competitionId: number | string,
+  id: number | string
+): Promise<ApiResponse<AdminCompetitionLogVO>> {
+  return request.get<AdminCompetitionLogVO>(
+    `/admin/competitions/${competitionId}/logs/${id}`
   )
 }
 

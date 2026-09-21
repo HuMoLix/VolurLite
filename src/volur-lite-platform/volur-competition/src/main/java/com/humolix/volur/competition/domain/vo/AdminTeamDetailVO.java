@@ -22,6 +22,9 @@ public class AdminTeamDetailVO implements Serializable {
     private String competitionTitle;
     private String teamName;
     private String avatarUrl;
+    private String description;
+    private String organization;
+    private com.humolix.volur.competition.domain.enums.OrganizationType organizationType;
     private Long captainId;
     private String captainUsername;
     private TeamStatus status;

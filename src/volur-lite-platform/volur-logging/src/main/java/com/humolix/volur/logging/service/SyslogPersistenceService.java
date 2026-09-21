@@ -8,4 +8,6 @@ public interface SyslogPersistenceService {
 
     Syslog saveLog(Syslog syslog);
 
+    void flushBuffer();
+
 }

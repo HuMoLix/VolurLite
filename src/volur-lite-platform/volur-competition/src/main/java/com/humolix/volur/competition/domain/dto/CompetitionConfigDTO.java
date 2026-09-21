@@ -35,4 +35,6 @@ public class CompetitionConfigDTO {
 
     private java.time.Instant writeupEndTime;
 
+    private String regRequirements;
+
 }

@@ -168,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -195,7 +195,6 @@ import {
   ChevronForwardOutline
 } from '@vicons/ionicons5'
 import {
-  getUnreadNotificationCountApi,
   getNotificationListApi,
   getNotificationDetailApi,
   markAllNotificationsReadApi,
@@ -203,15 +202,16 @@ import {
 } from '@/api/notification'
 import type { NotificationVO } from '@/types/notification'
 import { useUserStore } from '@/store/modules/user'
-import { getGlobalSseClient } from '@/utils/sse'
+import { useNotificationStore } from '@/store/modules/notification'
 
 const { t } = useI18n()
 const router = useRouter()
 const message = useMessage()
 const userStore = useUserStore()
+const notificationStore = useNotificationStore()
 
 const showPopover = ref(false)
-const unreadCount = ref(0)
+const unreadCount = computed(() => notificationStore.unreadCount)
 const totalCount = ref(0)
 const loading = ref(false)
 const activeTab = ref('ALL')
@@ -219,8 +219,6 @@ const notificationList = ref<NotificationVO[]>([])
 
 const showDetailModal = ref(false)
 const selectedNotification = ref<NotificationVO | null>(null)
-
-let unsubNotification: (() => void) | null = null
 
 function formatTime(timeStr?: string) {
   if (!timeStr) return ''
@@ -271,18 +269,6 @@ function getTypeTagType(type?: string): 'info' | 'success' | 'warning' | 'defaul
       return 'success'
     default:
       return 'default'
-  }
-}
-
-async function fetchUnreadCount() {
-  if (!userStore.isLoggedIn) return
-  try {
-    const res = await getUnreadNotificationCountApi()
-    if (res.data !== undefined) {
-      unreadCount.value = Number(res.data)
-    }
-  } catch (error) {
-    console.error('Failed to fetch unread count:', error)
   }
 }
 
@@ -359,9 +345,7 @@ async function handleItemClick(item: NotificationVO) {
     }
     if (item.status === 'UNREAD') {
       item.status = 'READ'
-      if (unreadCount.value > 0) {
-        unreadCount.value--
-      }
+      notificationStore.fetchUnreadCount()
     }
   } catch (error) {
     console.error('Failed to fetch notification detail:', error)
@@ -372,7 +356,7 @@ async function handleMarkAllRead() {
   try {
     await markAllNotificationsReadApi()
     notificationList.value.forEach((item) => (item.status = 'READ'))
-    unreadCount.value = 0
+    notificationStore.fetchUnreadCount()
     message.success('已全部标记为已读')
   } catch (error: any) {
     message.error(error.message || '操作失败')
@@ -384,8 +368,8 @@ async function handleDeleteItem(item: NotificationVO) {
     await deleteNotificationApi(item.id)
     notificationList.value = notificationList.value.filter((n) => n.id !== item.id)
     totalCount.value = Math.max(0, totalCount.value - 1)
-    if (item.status === 'UNREAD' && unreadCount.value > 0) {
-      unreadCount.value--
+    if (item.status === 'UNREAD') {
+      notificationStore.fetchUnreadCount()
     }
     message.success('通知已删除')
   } catch (error: any) {
@@ -393,22 +377,9 @@ async function handleDeleteItem(item: NotificationVO) {
   }
 }
 
-function initSse() {
-  if (!userStore.isLoggedIn) return
-  try {
-    const sse = getGlobalSseClient()
-    if (!unsubNotification) {
-      unsubNotification = sse.on('notification', (data: NotificationVO) => {
-        unreadCount.value++
-        message.info(`收到新通知: ${data.title}`)
-        if (showPopover.value) {
-          fetchNotifications()
-        }
-      })
-    }
-    sse.connect()
-  } catch (err) {
-    console.error('[SSE] Failed to initialize in notification center:', err)
+function handleNewNotification() {
+  if (showPopover.value) {
+    fetchNotifications()
   }
 }
 
@@ -416,13 +387,9 @@ watch(
   () => userStore.isLoggedIn,
   (loggedIn) => {
     if (loggedIn) {
-      fetchUnreadCount()
-      initSse()
+      notificationStore.fetchUnreadCount()
     } else {
-      unreadCount.value = 0
       notificationList.value = []
-      unsubNotification?.()
-      unsubNotification = null
     }
   }
 )
@@ -435,14 +402,13 @@ watch(showPopover, (show) => {
 
 onMounted(() => {
   if (userStore.isLoggedIn) {
-    fetchUnreadCount()
-    initSse()
+    notificationStore.fetchUnreadCount()
+    window.addEventListener('volur:new-notification', handleNewNotification)
   }
 })
 
 onUnmounted(() => {
-  unsubNotification?.()
-  unsubNotification = null
+  window.removeEventListener('volur:new-notification', handleNewNotification)
 })
 </script>
 

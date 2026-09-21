@@ -1,7 +1,7 @@
 package com.humolix.volur.competition.controller;
 
 import com.humolix.volur.competition.controller.v1.CompetitionTeamController;
-import com.humolix.volur.competition.domain.vo.CompetitionTeamVO;
+import com.humolix.volur.competition.domain.vo.MyTeamInfoVO;
 import com.humolix.volur.competition.service.CompetitionTeamService;
 import com.humolix.volur.framework.security.UserIdentity;
 import com.humolix.volur.framework.security.resolver.CurrentUserIdArgumentResolver;
@@ -45,8 +45,8 @@ class CompetitionTeamControllerTest {
     }
 
     @Test
-    @DisplayName("已登录用户访问 GET /api/v1/competitions/{compId}/teams：放行并透传 userId")
-    void testListTeams_whenAuthenticated_shouldReturnOk() throws Exception {
+    @DisplayName("已登录用户访问 GET /api/v1/competitions/{compId}/teams/me：放行并透传 userId")
+    void testGetMyTeam_whenAuthenticated_shouldReturnOk() throws Exception {
         Long competitionId = 1L;
         Long userId = 1001L;
 
@@ -66,29 +66,29 @@ class CompetitionTeamControllerTest {
                 new UsernamePasswordAuthenticationToken(identity, null, List.of());
         SecurityContextHolder.getContext().setAuthentication(auth);
 
-        CompetitionTeamVO teamVO = CompetitionTeamVO.builder()
-                .id(10L)
+        MyTeamInfoVO myTeamVO = MyTeamInfoVO.builder()
+                .teamId(10L)
                 .teamName("Team Alpha")
                 .build();
 
-        when(teamService.listTeams(competitionId, userId)).thenReturn(List.of(teamVO));
+        when(teamService.getMyTeam(competitionId, userId)).thenReturn(myTeamVO);
 
-        mockMvc.perform(get("/api/v1/competitions/{competitionId}/teams", competitionId)
+        mockMvc.perform(get("/api/v1/competitions/{competitionId}/teams/me", competitionId)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
-                .andExpect(jsonPath("$.message").value("获取参赛队伍列表成功"))
-                .andExpect(jsonPath("$.data[0].teamName").value("Team Alpha"));
+                .andExpect(jsonPath("$.message").value("获取我的队伍信息成功"))
+                .andExpect(jsonPath("$.data.teamName").value("Team Alpha"));
     }
 
     @Test
-    @DisplayName("未登录匿名用户访问 GET /api/v1/competitions/{compId}/teams：被拦截并抛出 401 异常")
-    void testListTeams_whenUnauthenticated_shouldBeRejected() {
+    @DisplayName("未登录匿名用户访问 GET /api/v1/competitions/{compId}/teams/me：被拦截并抛出 401 异常")
+    void testGetMyTeam_whenUnauthenticated_shouldBeRejected() {
         Long competitionId = 1L;
 
         // 无任何认证上下文，直接请求被 CurrentUserIdArgumentResolver 拦截抛出 UNAUTHORIZED BusinessException
         org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () -> {
-            mockMvc.perform(get("/api/v1/competitions/{competitionId}/teams", competitionId)
+            mockMvc.perform(get("/api/v1/competitions/{competitionId}/teams/me", competitionId)
                     .contentType(MediaType.APPLICATION_JSON));
         });
     }

@@ -46,3 +46,6 @@ data/
 
 # Delivery artifacts
 dist_delivery/
+
+# Ai directory
+/src/volur-lite-platform/.workbuddy-ai/

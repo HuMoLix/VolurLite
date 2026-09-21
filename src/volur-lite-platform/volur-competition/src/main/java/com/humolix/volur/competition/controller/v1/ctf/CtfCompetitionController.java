@@ -8,7 +8,7 @@ import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
-import com.humolix.volur.logging.annotation.Syslog;
+import com.humolix.volur.competition.annotation.CompetitionLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,7 +44,7 @@ public class CtfCompetitionController {
     }
 
     @Operation(summary = "提交 CTF 题目 Flag")
-    @Syslog(module = "COMPETITION", value = "提交 CTF 赛题 Flag", recordParams = true, recordResponse = true)
+    @CompetitionLog(logType = "FLAG", action = "提交 CTF 赛题 Flag", recordParams = true, recordResponse = true)
     @PostMapping("/challenges/{challengeId}/submit")
     public ApiResponse<Boolean> submitFlag(
             @PathVariable Long competitionId,
@@ -60,7 +60,7 @@ public class CtfCompetitionController {
     }
 
     @Operation(summary = "为比赛题目启动独立靶机容器")
-    @Syslog(module = "CONTAINER", value = "竞赛启动靶机容器", recordParams = true)
+    @CompetitionLog(logType = "CONTAINER", action = "竞赛启动靶机容器", recordParams = true)
     @PostMapping("/challenges/{challengeId}/instance/start")
     public ApiResponse<ChallengeInstanceResponseVO> startInstance(
             @PathVariable Long competitionId,
@@ -70,7 +70,7 @@ public class CtfCompetitionController {
     }
 
     @Operation(summary = "销毁比赛题目的靶机容器")
-    @Syslog(module = "CONTAINER", value = "竞赛销毁靶机容器", recordParams = true)
+    @CompetitionLog(logType = "CONTAINER", action = "竞赛销毁靶机容器", recordParams = true)
     @PostMapping("/challenges/{challengeId}/instance/stop")
     public ApiResponse<Void> stopInstance(
             @PathVariable Long competitionId,
@@ -81,7 +81,7 @@ public class CtfCompetitionController {
     }
 
     @Operation(summary = "延长比赛题目的靶机容器租期")
-    @Syslog(module = "CONTAINER", value = "竞赛延长靶机容器租期", recordParams = true)
+    @CompetitionLog(logType = "CONTAINER", action = "竞赛延长靶机容器租期", recordParams = true)
     @PostMapping("/challenges/{challengeId}/instance/extend")
     public ApiResponse<ChallengeInstanceResponseVO> extendInstance(
             @PathVariable Long competitionId,

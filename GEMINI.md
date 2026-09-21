@@ -38,6 +38,10 @@
 8. **系统动态设置统一键名规范**：
    - 全系统统一强制采用小写点分层级键名（`system.<group>.<field_name>`），并在 `SystemSettingKeys` 常量中统一维护。
    - **彻底废除历史兼容扁平大写别名与双写机制**（杜绝 `MAINTENANCE_MODE`、`ENABLE_CAPTCHA` 等历史遗留反模式），保证前后端、数据库与多级缓存的单一真实数据源。
+9. **MySQL 实体与数据表增量平滑迁移规范**：
+   - 当每次对领域持久化实体（Entity / PO）进行调整，或任何涉及 MySQL 数据表结构变更的操作（如新建表、增删改字段、字段类型/非空约束调整、变更索引等）时，**必须同步修改/更新增量平滑升级迁移脚本 [`scripts/upgrade/upgrade_to_latest.sql`](file:///Users/humolix/Documents/Dev/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql)**。
+   - 迁移脚本必须严格具备**幂等性（Idempotent）**设计：统一采用存储过程并结合 `information_schema` 字典进行存在性探测（`IF NOT EXISTS` / `IF EXISTS`），支持在远程生产环境中重复安全执行，杜绝因重复执行或严格模式导致报错阻断。
+   - 涉及字段语义重命名或拆分时，必须在迁移脚本中编写安全的无损数据回填（`UPDATE`）清洗逻辑，确保生产已有数据资产完整平滑过渡。
 
 ---
 
@@ -99,3 +103,4 @@
 3. **重构/修改既有代码时**：主动识别不合规代码并予以清理重构，保持代码库风格高度统一。
 4. **开发记录与审计溯源要求**：当每次 Agent 对项目文件进行修改或重构完成之后，必须在 `agent/volur-design-md` 文件夹中使用 Markdown 形式记录完整的施工与修改文档，详细阐述变更背景、改动点、安全隐患修复说明及影响范围，以便开发者进行溯源分析和审计。
 5. **自动化脚本与批量任务操作规范 (Scripting for Batch Operations)**：当且仅当需要 Agent 进行跨多文件的大批量、高重复性作业时，方可使用 Python、C 或 Go 编写自动化脚本。所有脚本必须统一存放在 `agent/volur-design-scripts` 文件夹中，且**必须严格遵守 [`agent/volur-design-scripts/Script-rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-scripts/Script-rules.md) 的约束要求**（仅供 Agent内部消费、杜绝冗余注释与文档字符串、禁止输出装饰性 UI/无用打印、输出直击核心）。严禁在针对性单文件任务中滥用脚本。
+6. **实体与数据库变更强制同步迁移脚本**：当涉及新增/变更实体类（Entity）、新增/修改数据库表字段、表结构或索引约束时，必须在同一变更周期内同步修改 [`scripts/upgrade/upgrade_to_latest.sql`](file:///Users/humolix/Documents/Dev/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql)，严格编写具备幂等性的增量 DDL 与数据清洗回填逻辑，严禁遗漏迁移脚本而直接提交实体变更。

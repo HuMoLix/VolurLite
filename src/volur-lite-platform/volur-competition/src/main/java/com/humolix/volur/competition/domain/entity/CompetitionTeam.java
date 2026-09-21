@@ -41,6 +41,17 @@ public class CompetitionTeam implements Serializable {
     @Column(name = "avatar_url", columnDefinition = "VARCHAR(255)")
     private String avatarUrl;
 
+    @Column(name = "description", columnDefinition = "VARCHAR(512)")
+    private String description;
+
+    @Column(name = "organization", length = 128, columnDefinition = "VARCHAR(128)")
+    private String organization;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "organization_type", length = 32, columnDefinition = "VARCHAR(32)")
+    @Builder.Default
+    private com.humolix.volur.competition.domain.enums.OrganizationType organizationType = com.humolix.volur.competition.domain.enums.OrganizationType.SCHOOL;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "captain_id", nullable = false, columnDefinition = "BIGINT")
     private User captain;

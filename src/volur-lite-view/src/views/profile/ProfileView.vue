@@ -20,14 +20,6 @@
           <div class="hero-info">
             <div class="username-row">
               <h1 class="username-text">{{ profile.username }}</h1>
-              <n-tag
-                size="small"
-                :bordered="false"
-                :type="userStore.isAdmin ? 'warning' : 'info'"
-                class="role-badge"
-              >
-                {{ profile.role }}
-              </n-tag>
             </div>
             <div class="hero-meta">
               <span class="meta-item">
@@ -1284,12 +1276,6 @@ onUnmounted(() => {
           color: var(--v-text-primary, #111111);
           margin: 0;
           line-height: 1.2;
-        }
-
-        .role-badge {
-          font-weight: 600;
-          font-size: 11px;
-          letter-spacing: 0.5px;
         }
       }
 

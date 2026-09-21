@@ -143,9 +143,11 @@ public class CompetitionChatWebSocketHandler extends TextWebSocketHandler {
                     return;
                 }
 
-                // 权限保护：非裁判用户不可篡改目标队伍 ID
-                if (!context.isReferee()) {
-                    sendDTO.setTeamId(context.getTeamId());
+                // 权限保护：非裁判用户不可篡改目标队伍 ID；若管理员未显式指定目标队伍 ID 且已加入战队，自动填充其参赛战队 ID
+                if (!context.isReferee() || sendDTO.getTeamId() == null) {
+                    if (context.getTeamId() != null) {
+                        sendDTO.setTeamId(context.getTeamId());
+                    }
                 }
 
                 try {

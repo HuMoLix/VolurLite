@@ -26,3 +26,5 @@ export type { VolurTableCardProps, AppTableCardProps } from './VolurTableCard.vu
 export { default as VolurChatDrawer } from './VolurChatDrawer.vue'
 export type { VolurChatDrawerProps } from './VolurChatDrawer.vue'
 
+export { default as VolurBroadcastModal } from './VolurBroadcastModal.vue'
+

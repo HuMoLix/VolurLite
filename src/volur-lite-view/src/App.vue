@@ -11,6 +11,7 @@
           <n-message-provider>
             <naive-provider>
               <router-view />
+              <VolurBroadcastModal />
             </naive-provider>
           </n-message-provider>
         </n-notification-provider>
@@ -21,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import {
   NConfigProvider,
   NLoadingBarProvider,
@@ -39,18 +40,33 @@ import {
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import NaiveProvider from '@/components/common/NaiveProvider.vue'
+import { VolurBroadcastModal } from '@/public/volurEx'
 import { useAppStore } from '@/store/modules/app'
 import { useSystemStore } from '@/store/modules/system'
 import { useUserStore } from '@/store/modules/user'
+import { useNotificationStore } from '@/store/modules/notification'
 
 const { locale } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
 const systemStore = useSystemStore()
 const userStore = useUserStore()
+const notificationStore = useNotificationStore()
 
 const naiveLocale = computed(() => (locale.value === 'en_US' || locale.value === 'en' ? enUS : zhCN))
 const naiveDateLocale = computed(() => (locale.value === 'en_US' || locale.value === 'en' ? dateEnUS : dateZhCN))
+
+// 全局监听登录态：用户登录后初始化全局 SSE；退出登录时安全关闭
+watch(
+  () => userStore.isLoggedIn,
+  (loggedIn) => {
+    if (loggedIn) {
+      notificationStore.initSse()
+    } else {
+      notificationStore.destroySse()
+    }
+  }
+)
 
 onMounted(async () => {
   if (!systemStore.isLoaded) {
@@ -58,6 +74,8 @@ onMounted(async () => {
   }
   if (userStore.isLoggedIn) {
     userStore.fetchCurrentUser().catch(() => {})
+    // 用户携带登录凭证刷新/进入网页时初始化全局 SSE
+    notificationStore.initSse()
   }
   if (systemStore.isMaintenanceMode && !userStore.isAdmin) {
     const currentPath = window.location.pathname

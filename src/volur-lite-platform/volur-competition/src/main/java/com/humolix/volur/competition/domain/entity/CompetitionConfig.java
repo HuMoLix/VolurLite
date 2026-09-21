@@ -79,6 +79,9 @@ public class CompetitionConfig implements Serializable {
     @Column(name = "writeup_end_time", columnDefinition = "DATETIME(6)")
     private Instant writeupEndTime;
 
+    @Column(name = "reg_requirements", columnDefinition = "TEXT")
+    private String regRequirements;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Instant createdAt;

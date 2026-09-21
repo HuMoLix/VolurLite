@@ -107,7 +107,7 @@
             <template v-if="!isEdit">
               <div class="status-readonly-wrap">
                 <n-tag type="default" size="medium" :bordered="false">
-                  {{ t('competition.status_draft') }} (DRAFT)
+                  {{ t('competition.status_draft') }}
                 </n-tag>
                 <div class="status-tip-text">
                   新建竞赛初始状态固定为草稿，创建成功后可在管理界面发布
@@ -117,7 +117,7 @@
             <template v-else-if="isArchived">
               <div class="status-readonly-wrap">
                 <n-tag type="default" size="medium" :bordered="false">
-                  {{ t('competition.status_archived') }} (ARCHIVED)
+                  {{ t('competition.status_archived') }}
                 </n-tag>
                 <div class="status-tip-text">
                   竞赛已归档封存，不可直接修改状态。如需修改请点击上方“取消归档”
@@ -299,6 +299,15 @@
             </n-form-item>
           </n-grid-item>
         </n-grid>
+
+        <n-form-item label="自定义报名要求与须知" style="margin-top: 16px;">
+          <n-input
+            v-model:value="formConfig.regRequirements"
+            type="textarea"
+            :rows="3"
+            placeholder="例如：此次竞赛仅允许长三角地区高校战队报名，线下总决赛需出示学生证等（非系统自动校验的补充说明）"
+          />
+        </n-form-item>
       </n-card>
     </n-form>
   </div>
@@ -403,7 +412,8 @@ const formConfig = reactive<CompetitionConfigDTO>({
   maxTeams: 500,
   requireTeamAudit: false,
   freezeScoreboardMinutes: 0,
-  allowWriteupSubmission: true
+  allowWriteupSubmission: true,
+  regRequirements: ''
 })
 
 // Archive State & Actions
@@ -412,16 +422,16 @@ const isArchived = computed(() => props.initialData?.status === 'ARCHIVED')
 
 // Select Options
 const typeSelectOptions = [
-  { label: 'CTF (解题赛模式)', value: 'CTF' },
-  { label: 'AWD (攻防对抗模式)', value: 'AWD' },
-  { label: 'AWD+ (攻防增强模式)', value: 'AWDP' },
-  { label: 'ISW (实战推演模式)', value: 'ISW' },
-  { label: 'THEORY (理论答题模式)', value: 'THEORY' }
+  { label: 'CTF', value: 'CTF' },
+  { label: 'AWD', value: 'AWD' },
+  { label: 'AWD+', value: 'AWDP' },
+  { label: 'ISW', value: 'ISW' },
+  { label: 'THEORY', value: 'THEORY' }
 ]
 
 const statusSelectOptions = computed(() => [
-  { label: `${t('competition.status_draft')} (DRAFT)`, value: 'DRAFT' },
-  { label: `${t('competition.status_published')} (PUBLISHED)`, value: 'PUBLISHED' }
+  { label: t('competition.status_draft'), value: 'DRAFT' },
+  { label: t('competition.status_published'), value: 'PUBLISHED' }
 ])
 
 async function handleArchive() {
@@ -524,6 +534,7 @@ function populateData(d: AdminCompetitionDetailVO) {
   formConfig.writeupTemplateName = cfg.writeupTemplateName
   formConfig.writeupStartTime = cfg.writeupStartTime
   formConfig.writeupEndTime = cfg.writeupEndTime
+  formConfig.regRequirements = cfg.regRequirements || ''
 }
 
 // Banner Upload Handlers

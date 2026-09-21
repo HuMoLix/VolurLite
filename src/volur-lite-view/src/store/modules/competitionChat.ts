@@ -65,6 +65,11 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
 
   const isDrawerOpen = ref<boolean>(false)
   const loadingHistory = ref<boolean>(false)
+  const loadingMoreHistory = ref<boolean>(false)
+
+  // 游标流式分页元数据 (按 target 存储下一次向上翻页游标与是否还有更多历史)
+  const nextPageTokens = ref<Record<string, string | null>>({})
+  const hasMoreHistory = ref<Record<string, boolean>>({})
 
   // 计算属性
   const isReferee = computed(() => !!readyData.value?.isReferee)
@@ -96,7 +101,7 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
       return privateMessages.value[targetUserId] || []
     }
     if (currentTarget.value === 'REFEREE') {
-      const targetTeamId = isReferee.value
+      const targetTeamId = (isReferee.value && selectedRefereeTeamId.value)
         ? selectedRefereeTeamId.value
         : (readyData.value?.teamId || competitionStore.myTeam?.teamId || 'my_team')
 
@@ -252,6 +257,21 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
   }
 
   /**
+   * 清除本地指定目标的未读计数
+   */
+  function clearLocalUnread(target: string) {
+    if (target === 'TEAM') {
+      unreadTeamCount.value = 0
+    } else if (target.startsWith('USER_')) {
+      const unreadOfThis = unreadPrivateDetails.value[target] || 0
+      unreadPrivateCount.value = Math.max(0, unreadPrivateCount.value - unreadOfThis)
+      unreadPrivateDetails.value[target] = 0
+    } else if (target === 'REFEREE') {
+      unreadRefereeCount.value = 0
+    }
+  }
+
+  /**
    * 按需懒加载历史聊天消息
    */
   async function fetchHistoryIfNeeded(target: string) {
@@ -263,12 +283,15 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
   }
 
   /**
-   * 分页拉取历史聊天消息
+   * 游标流式拉取最新历史聊天消息（服务端收到 /history 会自动将该频道标记已读）
    */
   async function fetchHistory(target: string) {
     if (!currentCompetitionId.value) return
 
     loadingHistory.value = true
+    // 直线自动已读：先乐观清空本地当前频道的未读计数
+    clearLocalUnread(target)
+
     try {
       let channelType: ChatChannelType = 'TEAM'
       let targetUserId: number | string | undefined
@@ -281,8 +304,10 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
         targetUserId = target.replace('USER_', '')
       } else if (target === 'REFEREE') {
         channelType = 'REFEREE'
-        if (isReferee.value) {
-          teamId = selectedRefereeTeamId.value || undefined
+        if (isReferee.value && selectedRefereeTeamId.value) {
+          teamId = selectedRefereeTeamId.value
+        } else {
+          teamId = readyData.value?.teamId || competitionStore.myTeam?.teamId || undefined
         }
       }
 
@@ -293,15 +318,20 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
         size: 50
       })
 
-      if (res.data?.list) {
-        const ascending = [...res.data.list].reverse()
-        if (channelType === 'TEAM') {
-          teamMessages.value = ascending
-        } else if (channelType === 'PRIVATE' && targetUserId) {
-          privateMessages.value[String(targetUserId)] = ascending
-        } else if (channelType === 'REFEREE') {
-          const key = String(teamId || readyData.value?.teamId || competitionStore.myTeam?.teamId || 'my_team')
-          refereeMessages.value[key] = ascending
+      if (res.data) {
+        nextPageTokens.value[target] = res.data.nextPageToken
+        hasMoreHistory.value[target] = res.data.hasMore
+
+        if (res.data.list) {
+          const ascending = [...res.data.list].reverse()
+          if (channelType === 'TEAM') {
+            teamMessages.value = ascending
+          } else if (channelType === 'PRIVATE' && targetUserId) {
+            privateMessages.value[String(targetUserId)] = ascending
+          } else if (channelType === 'REFEREE') {
+            const key = String(teamId || readyData.value?.teamId || competitionStore.myTeam?.teamId || 'my_team')
+            refereeMessages.value[key] = ascending
+          }
         }
       }
     } catch (err) {
@@ -312,26 +342,86 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
   }
 
   /**
-   * 标记当前目标已读并同步至后端与 Redis
+   * 游标向上翻页加载更早的历史记录
+   */
+  async function loadMoreHistory(target: string) {
+    if (!currentCompetitionId.value || loadingMoreHistory.value) return
+    const token = nextPageTokens.value[target]
+    const hasMore = hasMoreHistory.value[target]
+    if (!hasMore || !token) return
+
+    loadingMoreHistory.value = true
+    try {
+      let channelType: ChatChannelType = 'TEAM'
+      let targetUserId: number | string | undefined
+      let teamId: number | string | undefined
+
+      if (target === 'TEAM') {
+        channelType = 'TEAM'
+      } else if (target.startsWith('USER_')) {
+        channelType = 'PRIVATE'
+        targetUserId = target.replace('USER_', '')
+      } else if (target === 'REFEREE') {
+        channelType = 'REFEREE'
+        if (isReferee.value && selectedRefereeTeamId.value) {
+          teamId = selectedRefereeTeamId.value
+        } else {
+          teamId = readyData.value?.teamId || competitionStore.myTeam?.teamId || undefined
+        }
+      }
+
+      const res = await getChatHistoryApi(currentCompetitionId.value, {
+        channelType,
+        targetUserId,
+        teamId,
+        beforeId: token,
+        size: 50
+      })
+
+      if (res.data) {
+        nextPageTokens.value[target] = res.data.nextPageToken
+        hasMoreHistory.value[target] = res.data.hasMore
+
+        if (res.data.list && res.data.list.length > 0) {
+          const olderAscending = [...res.data.list].reverse()
+          if (channelType === 'TEAM') {
+            teamMessages.value = [...olderAscending, ...teamMessages.value]
+          } else if (channelType === 'PRIVATE' && targetUserId) {
+            const currentList = privateMessages.value[String(targetUserId)] || []
+            privateMessages.value[String(targetUserId)] = [...olderAscending, ...currentList]
+          } else if (channelType === 'REFEREE') {
+            const key = String(teamId || readyData.value?.teamId || competitionStore.myTeam?.teamId || 'my_team')
+            const currentList = refereeMessages.value[key] || []
+            refereeMessages.value[key] = [...olderAscending, ...currentList]
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[CompetitionChat] 加载更早历史记录失败:', err)
+    } finally {
+      loadingMoreHistory.value = false
+    }
+  }
+
+  /**
+   * 实时消息到达时的轻量已读同步确认（优先 WebSocket，HTTP 降级）
    */
   function markRead(target: string) {
+    clearLocalUnread(target)
     let lastMsgId: string | number | undefined
 
     if (target === 'TEAM') {
-      unreadTeamCount.value = 0
       const lastMsg = teamMessages.value[teamMessages.value.length - 1]
       lastMsgId = lastMsg ? lastMsg.id : undefined
     } else if (target.startsWith('USER_')) {
       const otherUserId = target.replace('USER_', '')
-      const unreadOfThis = unreadPrivateDetails.value[target] || 0
-      unreadPrivateCount.value = Math.max(0, unreadPrivateCount.value - unreadOfThis)
-      unreadPrivateDetails.value[target] = 0
-      const lastMsg = privateMessages.value[otherUserId]?.[privateMessages.value[otherUserId].length - 1]
+      const list = privateMessages.value[otherUserId]
+      const lastMsg = list ? list[list.length - 1] : undefined
       lastMsgId = lastMsg ? lastMsg.id : undefined
     } else if (target === 'REFEREE') {
-      unreadRefereeCount.value = 0
-      const key = String(selectedRefereeTeamId.value || readyData.value?.teamId || competitionStore.myTeam?.teamId || 'my_team')
-      const lastMsg = refereeMessages.value[key]?.[refereeMessages.value[key].length - 1]
+      const key = String((isReferee.value && selectedRefereeTeamId.value) || readyData.value?.teamId || competitionStore.myTeam?.teamId || 'my_team')
+      const list = refereeMessages.value[key]
+      const lastMsg = list ? list[list.length - 1] : undefined
       lastMsgId = lastMsg ? lastMsg.id : undefined
     }
 
@@ -388,8 +478,8 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
       }
     } else if (currentTarget.value === 'REFEREE') {
       channelType = 'REFEREE'
-      targetTeamId = isReferee.value
-        ? selectedRefereeTeamId.value || undefined
+      targetTeamId = (isReferee.value && selectedRefereeTeamId.value)
+        ? selectedRefereeTeamId.value
         : readyData.value?.teamId || competitionStore.myTeam?.teamId || undefined
     }
 
@@ -413,9 +503,9 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
   }
 
   /**
-   * 切换沟通目标 (TEAM / REFEREE / USER_xxx)，按需懒加载并同步已读
+   * 切换沟通目标 (TEAM / REFEREE / USER_xxx)，拉取历史记录并自动在服务端同步已读
    */
-  function switchTarget(target: string) {
+  async function switchTarget(target: string) {
     if (target.startsWith('USER_')) {
       const targetUserId = target.replace('USER_', '')
       const targetMember = teammateList.value.find((m) => String(m.userId) === targetUserId)
@@ -424,35 +514,33 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
       }
     }
     currentTarget.value = target
-    // 只有在打开抽屉状态下才懒加载历史与标记已读
+    // 只有在打开抽屉状态下才拉取历史（自动置已读）
     if (isDrawerOpen.value) {
-      fetchHistoryIfNeeded(target)
-      markRead(target)
+      clearLocalUnread(target)
+      await fetchHistory(target)
     }
   }
 
   /**
    * 裁判选中指定队伍工单
    */
-  function selectRefereeTeam(teamId: number | string) {
+  async function selectRefereeTeam(teamId: number | string) {
     selectedRefereeTeamId.value = teamId
     unreadRefereeCount.value = 0
     if (isDrawerOpen.value) {
-      fetchHistory('REFEREE')
-      markRead('REFEREE')
+      await fetchHistory('REFEREE')
     }
   }
 
   /**
    * 展开/关闭抽屉
    */
-  function toggleDrawer(open?: boolean) {
+  async function toggleDrawer(open?: boolean) {
     const nextState = open !== undefined ? open : !isDrawerOpen.value
     isDrawerOpen.value = nextState
     if (nextState) {
-      // 展开抽屉时，按需懒加载当前目标的历史并标记已读
-      fetchHistoryIfNeeded(currentTarget.value)
-      markRead(currentTarget.value)
+      clearLocalUnread(currentTarget.value)
+      await fetchHistory(currentTarget.value)
     }
   }
 
@@ -471,6 +559,8 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
     refereeMessages.value = {}
     refereeTeams.value = []
     selectedRefereeTeamId.value = null
+    nextPageTokens.value = {}
+    hasMoreHistory.value = {}
     unreadTeamCount.value = 0
     unreadPrivateCount.value = 0
     unreadRefereeCount.value = 0
@@ -491,12 +581,15 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
     refereeMessages,
     refereeTeams,
     selectedRefereeTeamId,
+    nextPageTokens,
+    hasMoreHistory,
     unreadTeamCount,
     unreadPrivateCount,
     unreadRefereeCount,
     unreadPrivateDetails,
     isDrawerOpen,
     loadingHistory,
+    loadingMoreHistory,
     isReferee,
     currentUserId,
     teammateList,
@@ -509,8 +602,11 @@ export const useCompetitionChatStore = defineStore('competitionChat', () => {
     switchTarget,
     selectRefereeTeam,
     fetchHistory,
+    fetchHistoryIfNeeded,
+    loadMoreHistory,
     fetchRefereeTeams,
     toggleDrawer,
-    markRead
+    markRead,
+    clearLocalUnread
   }
 })

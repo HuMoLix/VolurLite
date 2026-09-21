@@ -3,7 +3,6 @@ package com.humolix.volur.competition.service;
 import com.humolix.volur.competition.domain.dto.TeamInviteAcceptDTO;
 import com.humolix.volur.competition.domain.dto.TeamSignupRequestDTO;
 import com.humolix.volur.competition.domain.dto.TeamUpdateRequestDTO;
-import com.humolix.volur.competition.domain.vo.CompetitionTeamVO;
 import com.humolix.volur.competition.domain.vo.MyTeamInfoVO;
 
 import java.util.List;
@@ -20,16 +19,12 @@ public interface CompetitionTeamService {
 
     void cancelInvitation(Long competitionId, Long teamId, Long captainUserId, Long targetUserId);
 
+    void reinviteMember(Long competitionId, Long teamId, Long captainUserId, Long targetUserId);
+
     void deleteMyTeam(Long competitionId, Long captainUserId);
 
     List<com.humolix.volur.competition.domain.vo.TeamInvitationVO> getMyInvitations(Long competitionId, Long userId);
 
     MyTeamInfoVO getMyTeam(Long competitionId, Long userId);
-
-    List<CompetitionTeamVO> listTeams(Long competitionId, Long currentUserId);
-
-    default List<CompetitionTeamVO> listTeams(Long competitionId) {
-        return listTeams(competitionId, null);
-    }
 
 }

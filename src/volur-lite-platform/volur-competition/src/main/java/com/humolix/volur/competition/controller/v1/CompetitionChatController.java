@@ -9,7 +9,7 @@ import com.humolix.volur.competition.domain.vo.chat.RefereeTeamSummaryVO;
 import com.humolix.volur.competition.service.CompetitionChatService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
-import com.humolix.volur.framework.common.api.PageResponse;
+import com.humolix.volur.framework.common.api.CursorResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -45,9 +45,9 @@ public class CompetitionChatController {
         return ApiResponseEntity.success("标记已读成功");
     }
 
-    @Operation(summary = "获取历史聊天与沟通记录")
+    @Operation(summary = "获取历史聊天与沟通记录（游标流式分页，访问即自动标记该频道已读）")
     @GetMapping("/history")
-    public ApiResponse<PageResponse<ChatMessageVO>> getHistory(
+    public ApiResponse<CursorResponse<ChatMessageVO>> getHistory(
             @PathVariable Long competitionId,
             @ModelAttribute ChatMessagePageQueryDTO query,
             @CurrentUserId Long userId) {

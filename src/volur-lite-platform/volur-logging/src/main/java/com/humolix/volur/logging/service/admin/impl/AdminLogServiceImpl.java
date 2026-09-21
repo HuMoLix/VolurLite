@@ -31,9 +31,14 @@ public class AdminLogServiceImpl implements AdminLogService {
 
     private final SyslogRepository syslogRepository;
     private final SyslogMapper syslogMapper;
+    private final com.humolix.volur.logging.service.SyslogPersistenceService syslogPersistenceService;
 
     @Override
     public PageResponse<AdminLogVO> listLogs(AdminLogQueryDTO queryDTO) {
+        try {
+            syslogPersistenceService.flushBuffer();
+        } catch (Exception ignored) {
+        }
         Pageable pageable = SortUtils.createPageable(
                 queryDTO.getPage(),
                 queryDTO.getSize(),
@@ -85,6 +90,10 @@ public class AdminLogServiceImpl implements AdminLogService {
 
     @Override
     public AdminLogStatisticsVO getStatistics() {
+        try {
+            syslogPersistenceService.flushBuffer();
+        } catch (Exception ignored) {
+        }
         long totalLogs = syslogRepository.count();
         long authLogs = syslogRepository.countByModuleOrLogType("AUTH", "AUTH");
         long securityLogs = syslogRepository.countByLogType("SECURITY");

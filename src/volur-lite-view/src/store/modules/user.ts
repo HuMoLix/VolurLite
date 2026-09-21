@@ -115,6 +115,15 @@ export const useUserStore = defineStore('user', () => {
 
     // 获取并填充当前用户基础概要信息
     await fetchCurrentUser(true)
+
+    // 立即初始化全局 SSE 长连接
+    try {
+      const { useNotificationStore } = await import('./notification')
+      useNotificationStore().initSse()
+    } catch {
+      // ignore
+    }
+
     return data
   }
 
@@ -127,6 +136,14 @@ export const useUserStore = defineStore('user', () => {
       token.value = null
       user.value = null
       clearAuthStorage()
+
+      // 退出登录时主动断开 SSE
+      try {
+        const { useNotificationStore } = await import('./notification')
+        useNotificationStore().destroySse()
+      } catch {
+        // ignore
+      }
     }
   }
 

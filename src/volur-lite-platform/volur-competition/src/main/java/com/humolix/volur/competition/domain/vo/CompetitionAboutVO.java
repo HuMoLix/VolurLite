@@ -51,4 +51,6 @@ public class CompetitionAboutVO {
 
     private Boolean requireTeamAudit;
 
+    private String regRequirements;
+
 }

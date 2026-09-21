@@ -3,6 +3,9 @@ package com.humolix.volur.framework.common.exception.handler;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.framework.common.exception.MaintenanceModeException;
+import com.humolix.volur.framework.common.exception.authException.tokenException.*;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -136,10 +139,24 @@ public class GlobalExceptionHandler {
         return ApiResponseEntity.error(HttpStatus.INTERNAL_SERVER_ERROR, "邮件服务暂时不可用，请稍后再试");
     }
 
+    @ExceptionHandler(MaintenanceModeException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleMaintenanceModeException(MaintenanceModeException ex) {
+        log.warn("全站维护模式拦截: {}", ex.getMessage());
+        return ApiResponseEntity.error(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
     @ExceptionHandler(BusinessException.class)
-    public ApiResponse<Void> handleBusinessException(BusinessException ex) {
+    public ApiResponse<Void> handleBusinessException(BusinessException ex, HttpServletResponse response) {
+        if (response != null && ex.getStatus() != null) {
+            response.setStatus(ex.getStatus().value());
+        }
         log.warn("业务异常: status={}, errorCode={}, message={}", ex.getStatus(), ex.getErrorCode(), ex.getMessage());
         return ApiResponseEntity.of(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), null);
+    }
+
+    public ApiResponse<Void> handleBusinessException(BusinessException ex) {
+        return handleBusinessException(ex, null);
     }
 
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
@@ -154,6 +171,21 @@ public class GlobalExceptionHandler {
     public ApiResponse<Void> handleGlobalException(Exception ex) {
         log.error("系统未处理异常: ", ex);
         return ApiResponseEntity.internalServerError("服务器内部故障，请联系管理员");
+    }
+
+    @ExceptionHandler(TokenAuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleTokenAuthenticationException(TokenAuthenticationException ex) {
+        return switch (ex) {
+            case TokenMissingException e -> ApiResponseEntity.unauthorized(e.getErrorCode(), e.getMessage());
+            case TokenExpiredException e ->
+                    ApiResponseEntity.unauthorized(e.getErrorCode(), "访问令牌已过期，请刷新令牌或重新登录");
+            case TokenMalformedException e -> ApiResponseEntity.unauthorized(e.getErrorCode(), "访问令牌格式不正确");
+            case TokenBlacklistedException e -> ApiResponseEntity.unauthorized(e.getErrorCode(), e.getMessage());
+            case UserForceLoggedOutException e ->
+                    ApiResponseEntity.unauthorized(e.getErrorCode(), e.getMessage());
+            case InvalidTokenException e -> ApiResponseEntity.unauthorized(e.getErrorCode(), e.getMessage());
+        };
     }
 
 }

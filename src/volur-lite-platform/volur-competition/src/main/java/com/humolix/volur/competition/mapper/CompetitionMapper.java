@@ -25,6 +25,7 @@ public interface CompetitionMapper {
     @Mapping(source = "competition.config.minTeamMembers", target = "minTeamMembers")
     @Mapping(source = "competition.config.requireTeamAudit", target = "requireTeamAudit")
     @Mapping(source = "competition.config.allowWriteupSubmission", target = "allowWriteupSubmission")
+    @Mapping(source = "competition.config.regRequirements", target = "regRequirements")
     CompetitionDetailVO toDetailVO(Competition competition);
 
     @Mapping(source = "competition.config.maxLeaders", target = "maxLeaders")
@@ -40,6 +41,7 @@ public interface CompetitionMapper {
     @Mapping(source = "competition.config.writeupTemplateName", target = "writeupTemplateName")
     @Mapping(source = "competition.config.writeupStartTime", target = "writeupStartTime")
     @Mapping(source = "competition.config.writeupEndTime", target = "writeupEndTime")
+    @Mapping(source = "competition.config.regRequirements", target = "regRequirements")
     @Mapping(source = "competition.createdBy.id", target = "createdById")
     @Mapping(source = "competition.createdBy.username", target = "createdByName")
     AdminCompetitionDetailVO toAdminDetailVO(Competition competition);
@@ -53,6 +55,7 @@ public interface CompetitionMapper {
     @Mapping(source = "competition.config.minTeamMembers", target = "minTeamMembers")
     @Mapping(source = "competition.config.maxTeams", target = "maxTeams")
     @Mapping(source = "competition.config.requireTeamAudit", target = "requireTeamAudit")
+    @Mapping(source = "competition.config.regRequirements", target = "regRequirements")
     CompetitionAboutVO toAboutVO(Competition competition);
 
     @Mapping(source = "member.user.id", target = "userId")
@@ -60,11 +63,9 @@ public interface CompetitionMapper {
     @Mapping(source = "member.user.userProfile.avatarUrl", target = "avatarUrl")
     @Mapping(source = "member.realName", target = "realName")
     @Mapping(source = "member.gender", target = "gender")
-    @Mapping(source = "member.studentNumber", target = "studentNumber")
     @Mapping(source = "member.phone", target = "phone")
     @Mapping(source = "member.email", target = "email")
     @Mapping(source = "member.idCard", target = "idCard")
-    @Mapping(source = "member.college", target = "college")
     CompetitionMemberVO toMemberVO(CompetitionMember member);
 
     List<CompetitionMemberVO> toMemberVOList(List<CompetitionMember> members);

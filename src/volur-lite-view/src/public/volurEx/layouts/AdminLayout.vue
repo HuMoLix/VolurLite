@@ -30,13 +30,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, onUnmounted } from 'vue'
+import { computed, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   NLayout,
   NLayoutContent,
   NIcon,
-  useNotification,
   type MenuOption
 } from 'naive-ui'
 import VolurSidebar from '../components/VolurSidebar.vue'
@@ -65,8 +64,6 @@ import {
 } from '@vicons/ionicons5'
 import { useAppStore } from '@/store/modules/app'
 import { useI18n } from 'vue-i18n'
-import { getGlobalSseClient } from '@/utils/sse'
-import type { AdminAsyncTaskVO } from '@/types/task'
 
 const router = useRouter()
 const route = useRoute()
@@ -181,45 +178,6 @@ function handleMenuSelect(key: string) {
   if (route.name === key) return
   router.push({ name: key }).catch(() => {})
 }
-
-const notification = useNotification()
-let unsubTaskEvent: (() => void) | null = null
-
-onMounted(() => {
-  try {
-    const sse = getGlobalSseClient()
-    unsubTaskEvent = sse.on('task_event', (data: AdminAsyncTaskVO) => {
-      if (!data) return
-
-      if (data.status === 'SUCCESS') {
-        const durationText = data.executionDurationMs
-          ? ` (耗时: ${(data.executionDurationMs / 1000).toFixed(1)}s)`
-          : ''
-        notification.success({
-          title: t('admin.tasks.toast.completed'),
-          content: `${data.taskName}${durationText}`,
-          duration: 4500
-        })
-        window.dispatchEvent(new CustomEvent('volur:async-task-completed', { detail: data }))
-      } else if (data.status === 'FAILED') {
-        notification.error({
-          title: t('admin.tasks.toast.failed'),
-          content: `${data.taskName}: ${data.errorMessage || '未知异常'}`,
-          duration: 6000
-        })
-        window.dispatchEvent(new CustomEvent('volur:async-task-failed', { detail: data }))
-      }
-    })
-    sse.connect()
-  } catch (e) {
-    console.warn('[AdminLayout] SSE connect error', e)
-  }
-})
-
-onUnmounted(() => {
-  unsubTaskEvent?.()
-  unsubTaskEvent = null
-})
 </script>
 
 <style scoped lang="scss">

@@ -86,6 +86,9 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                 .competitionTitle(team.getCompetition().getTitle())
                 .teamName(team.getTeamName())
                 .avatarUrl(team.getAvatarUrl())
+                .description(team.getDescription())
+                .organization(team.getOrganization())
+                .organizationType(team.getOrganizationType() != null ? team.getOrganizationType() : com.humolix.volur.competition.domain.enums.OrganizationType.SCHOOL)
                 .captainId(team.getCaptain() != null ? team.getCaptain().getId() : null)
                 .captainUsername(team.getCaptain() != null ? team.getCaptain().getUsername() : null)
                 .status(team.getStatus())
@@ -111,7 +114,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                     m.setStatus(MemberStatus.NOT_PARTICIPATE);
                     memberRepository.save(m);
                     log.info("[Admin-Team] 队伍 {} 审核通过，成员 {} 仍未同意邀请，已自动置为 NOT_PARTICIPATE",
-                            team.getTeamName(), m.getUser().getUsername());
+                            team.getTeamName(), m.getUser() != null ? m.getUser().getUsername() : m.getRealName());
                 } else if (m.getStatus() == MemberStatus.INVITED_ACCEPTED) {
                     acceptedCount++;
                 }
