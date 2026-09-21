@@ -51,6 +51,8 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
     private final CompetitionConfigRepository configRepository;
     private final CompetitionTeamRepository teamRepository;
     private final CompetitionMemberRepository memberRepository;
+    private final CompetitionChatMessageRepository chatMessageRepository;
+    private final CompetitionTeamInvitationRepository teamInvitationRepository;
     private final UserRepository userRepository;
     private final CompetitionMapper competitionMapper;
     private final ApplicationEventPublisher eventPublisher;
@@ -510,6 +512,8 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             }
         }
 
+        teamInvitationRepository.deleteByTeamId(team.getId());
+        chatMessageRepository.deleteByTeamId(team.getId());
         memberRepository.deleteByTeamId(team.getId());
         teamRepository.delete(team);
         log.info("[Competition-Team] 队长 {} 解散了战队 {}", captainUserId, team.getTeamName());

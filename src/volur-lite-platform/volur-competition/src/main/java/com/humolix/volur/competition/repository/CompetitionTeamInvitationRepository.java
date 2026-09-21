@@ -20,4 +20,8 @@ public interface CompetitionTeamInvitationRepository extends JpaRepository<Compe
 
     boolean existsByCompetitionIdAndTeamIdAndInviteeIdAndStatus(Long competitionId, Long teamId, Long inviteeId, InvitationStatus status);
 
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM CompetitionTeamInvitation i WHERE i.team.id = :teamId")
+    void deleteByTeamId(@org.springframework.data.repository.query.Param("teamId") Long teamId);
+
 }

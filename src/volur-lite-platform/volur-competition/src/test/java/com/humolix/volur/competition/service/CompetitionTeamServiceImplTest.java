@@ -7,8 +7,10 @@ import com.humolix.volur.competition.domain.enums.MemberRole;
 import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
+import com.humolix.volur.competition.repository.CompetitionChatMessageRepository;
 import com.humolix.volur.competition.repository.CompetitionMemberRepository;
 import com.humolix.volur.competition.repository.CompetitionRepository;
+import com.humolix.volur.competition.repository.CompetitionTeamInvitationRepository;
 import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.service.impl.CompetitionTeamServiceImpl;
 import com.humolix.volur.user.domain.entity.User;
@@ -54,6 +56,12 @@ class CompetitionTeamServiceImplTest {
 
     @Mock
     private CompetitionMemberRepository memberRepository;
+
+    @Mock
+    private CompetitionChatMessageRepository chatMessageRepository;
+
+    @Mock
+    private CompetitionTeamInvitationRepository teamInvitationRepository;
 
     @Mock
     private CompetitionMapper competitionMapper;
@@ -231,6 +239,8 @@ class CompetitionTeamServiceImplTest {
         assertEquals(NotificationType.COMPETITION_INVITE, event.getType());
         assertTrue(event.getTitle().contains("已被解散"));
 
+        verify(teamInvitationRepository).deleteByTeamId(teamId);
+        verify(chatMessageRepository).deleteByTeamId(teamId);
         verify(memberRepository).deleteByTeamId(teamId);
         verify(teamRepository).delete(team);
     }

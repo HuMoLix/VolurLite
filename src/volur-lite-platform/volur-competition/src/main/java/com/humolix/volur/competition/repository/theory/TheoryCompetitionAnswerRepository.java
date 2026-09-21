@@ -18,4 +18,6 @@ public interface TheoryCompetitionAnswerRepository extends JpaRepository<TheoryC
 
     boolean existsByPaperIdAndUserId(Long paperId, Long userId);
 
+    boolean existsByTeamId(Long teamId);
+
 }

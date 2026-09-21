@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `competition_chat_message` (
   KEY `idx_chat_comp_priv` (`competition_id`,`channel_type`,`sender_id`,`receiver_id`),
   KEY `idx_chat_created_at` (`created_at`),
   CONSTRAINT `fk_chat_competition` FOREIGN KEY (`competition_id`) REFERENCES `competition` (`id`),
-  CONSTRAINT `fk_chat_team` FOREIGN KEY (`team_id`) REFERENCES `competition_team` (`id`),
+  CONSTRAINT `fk_chat_team` FOREIGN KEY (`team_id`) REFERENCES `competition_team` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_chat_sender` FOREIGN KEY (`sender_id`) REFERENCES `user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -191,6 +191,67 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'email_log' AND INDEX_NAME = 'idx_email_log_message_id'
     ) THEN
         ALTER TABLE `email_log` ADD INDEX `idx_email_log_message_id` (`message_id`);
+    END IF;
+
+    -- 3.8 sys_setting 表：确保注册强制邮箱验证默认配置项写入 (system.auth.require_email_verification)
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_setting'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.auth.require_email_verification'
+    ) THEN
+        INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+        VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'AUTH', 'system.auth.require_email_verification', 'true', 'BOOLEAN', 1, '注册是否强制邮箱验证', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+    END IF;
+
+    -- 3.9 competition_chat_message 外键平滑升级为 ON DELETE CASCADE (解决管理员与队长删除战队时触发外键阻断)
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_chat_message'
+    ) THEN
+        SET @fk_chat_team_name = NULL;
+        SELECT CONSTRAINT_NAME INTO @fk_chat_team_name
+        FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'competition_chat_message'
+          AND COLUMN_NAME = 'team_id'
+          AND REFERENCED_TABLE_NAME = 'competition_team'
+        LIMIT 1;
+
+        IF @fk_chat_team_name IS NOT NULL THEN
+            SET @drop_fk_sql = CONCAT('ALTER TABLE `competition_chat_message` DROP FOREIGN KEY `', @fk_chat_team_name, '`');
+            PREPARE stmt_drop FROM @drop_fk_sql;
+            EXECUTE stmt_drop;
+            DEALLOCATE PREPARE stmt_drop;
+
+            ALTER TABLE `competition_chat_message`
+            ADD CONSTRAINT `fk_chat_team` FOREIGN KEY (`team_id`) REFERENCES `competition_team` (`id`) ON DELETE CASCADE;
+        END IF;
+    END IF;
+
+    -- 3.10 competition_team_invitation 外键平滑升级为 ON DELETE CASCADE
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_team_invitation'
+    ) THEN
+        SET @fk_inv_team_name = NULL;
+        SELECT CONSTRAINT_NAME INTO @fk_inv_team_name
+        FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'competition_team_invitation'
+          AND COLUMN_NAME = 'team_id'
+          AND REFERENCED_TABLE_NAME = 'competition_team'
+        LIMIT 1;
+
+        IF @fk_inv_team_name IS NOT NULL THEN
+            SET @drop_inv_sql = CONCAT('ALTER TABLE `competition_team_invitation` DROP FOREIGN KEY `', @fk_inv_team_name, '`');
+            PREPARE stmt_drop_inv FROM @drop_inv_sql;
+            EXECUTE stmt_drop_inv;
+            DEALLOCATE PREPARE stmt_drop_inv;
+
+            ALTER TABLE `competition_team_invitation`
+            ADD CONSTRAINT `fk_invitation_team` FOREIGN KEY (`team_id`) REFERENCES `competition_team` (`id`) ON DELETE CASCADE;
+        END IF;
     END IF;
 
 END //

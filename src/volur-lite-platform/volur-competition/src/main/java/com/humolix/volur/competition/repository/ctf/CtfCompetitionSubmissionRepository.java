@@ -17,4 +17,6 @@ public interface CtfCompetitionSubmissionRepository extends JpaRepository<CtfCom
 
     List<CtfCompetitionSubmission> findByCompetitionIdAndTeamIdOrderByCreatedAtDesc(Long competitionId, Long teamId);
 
+    boolean existsByTeamId(Long teamId);
+
 }

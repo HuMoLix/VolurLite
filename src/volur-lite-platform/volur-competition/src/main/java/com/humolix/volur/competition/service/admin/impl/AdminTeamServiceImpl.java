@@ -9,9 +9,14 @@ import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.AdminTeamDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminTeamListVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
+import com.humolix.volur.competition.repository.CompetitionChatMessageRepository;
 import com.humolix.volur.competition.repository.CompetitionConfigRepository;
 import com.humolix.volur.competition.repository.CompetitionMemberRepository;
+import com.humolix.volur.competition.repository.CompetitionTeamInvitationRepository;
 import com.humolix.volur.competition.repository.CompetitionTeamRepository;
+import com.humolix.volur.competition.repository.awdp.AwdPlusCompetitionPatchRepository;
+import com.humolix.volur.competition.repository.ctf.CtfCompetitionSubmissionRepository;
+import com.humolix.volur.competition.repository.theory.TheoryCompetitionAnswerRepository;
 import com.humolix.volur.competition.service.admin.AdminTeamService;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
@@ -44,6 +49,11 @@ public class AdminTeamServiceImpl implements AdminTeamService {
     private final CompetitionTeamRepository teamRepository;
     private final CompetitionMemberRepository memberRepository;
     private final CompetitionConfigRepository configRepository;
+    private final CompetitionChatMessageRepository chatMessageRepository;
+    private final CompetitionTeamInvitationRepository teamInvitationRepository;
+    private final CtfCompetitionSubmissionRepository ctfSubmissionRepository;
+    private final TheoryCompetitionAnswerRepository theoryAnswerRepository;
+    private final AwdPlusCompetitionPatchRepository awdPlusPatchRepository;
     private final CompetitionMapper competitionMapper;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -200,8 +210,24 @@ public class AdminTeamServiceImpl implements AdminTeamService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteTeam(Long teamId) {
+        CompetitionTeam team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "队伍不存在"));
+
+        // 1. 安全前置校验：若队伍已存在赛题提交/作答记录，禁止物理删除以保证比赛成绩与日志数据完整性
+        if (ctfSubmissionRepository.existsByTeamId(teamId)
+                || theoryAnswerRepository.existsByTeamId(teamId)
+                || awdPlusPatchRepository.existsByTeamId(teamId)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "该战队已有赛题作答或提交记录，无法直接删除！如需取消参赛资格，请在审核操作中将其驳回");
+        }
+
+        // 2. 级联清理队伍附属数据（邀请、聊天工单、队员关系）
+        teamInvitationRepository.deleteByTeamId(teamId);
+        chatMessageRepository.deleteByTeamId(teamId);
         memberRepository.deleteByTeamId(teamId);
-        teamRepository.deleteById(teamId);
+
+        // 3. 删除队伍主体
+        teamRepository.delete(team);
+        log.info("[Admin-Team] 管理员删除了战队 ID: {}, 战队名称: {}", teamId, team.getTeamName());
     }
 
 }

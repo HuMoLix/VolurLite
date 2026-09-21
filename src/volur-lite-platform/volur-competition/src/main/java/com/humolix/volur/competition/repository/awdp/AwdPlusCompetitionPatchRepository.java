@@ -13,4 +13,6 @@ public interface AwdPlusCompetitionPatchRepository extends JpaRepository<AwdPlus
 
     List<AwdPlusCompetitionPatch> findByCompetitionIdAndChallengeId(Long competitionId, Long challengeId);
 
+    boolean existsByTeamId(Long teamId);
+
 }

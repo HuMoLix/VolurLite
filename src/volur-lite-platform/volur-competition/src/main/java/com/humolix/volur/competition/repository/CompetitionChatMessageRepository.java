@@ -189,5 +189,9 @@ public interface CompetitionChatMessageRepository extends JpaRepository<Competit
             @Param("userId") Long userId,
             @Param("otherUserId") Long otherUserId);
 
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM CompetitionChatMessage m WHERE m.team.id = :teamId")
+    void deleteByTeamId(@Param("teamId") Long teamId);
+
 }
 
