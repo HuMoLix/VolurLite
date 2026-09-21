@@ -1,11 +1,15 @@
 package com.humolix.volur.competition.service;
 
+import com.humolix.volur.competition.domain.dto.AdminTeamUpdateDTO;
+import com.humolix.volur.competition.domain.dto.BatchTeamAuditDTO;
+import com.humolix.volur.competition.domain.dto.BatchTeamDeleteDTO;
 import com.humolix.volur.competition.domain.dto.TeamAuditRequestDTO;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionMember;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.enums.MemberRole;
 import com.humolix.volur.competition.domain.enums.MemberStatus;
+import com.humolix.volur.competition.domain.enums.OrganizationType;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.CompetitionChatMessageRepository;
@@ -216,4 +220,77 @@ class AdminTeamServiceImplTest {
                 () -> adminTeamService.deleteTeam(teamId));
     }
 
+    @Test
+    @DisplayName("修改队伍：成功修改队伍名称、描述、所属机构及机构类型")
+    void testUpdateTeam_success() {
+        AdminTeamUpdateDTO dto = new AdminTeamUpdateDTO();
+        dto.setTeamName("苍鹰突击队");
+        dto.setDescription("新口号");
+        dto.setOrganization("清华大学");
+        dto.setOrganizationType(OrganizationType.SCHOOL);
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(teamRepository.existsByCompetitionIdAndTeamNameAndIdNot(competitionId, "苍鹰突击队", teamId)).thenReturn(false);
+
+        adminTeamService.updateTeam(teamId, dto);
+
+        assertEquals("苍鹰突击队", team.getTeamName());
+        assertEquals("新口号", team.getDescription());
+        assertEquals("清华大学", team.getOrganization());
+        assertEquals(OrganizationType.SCHOOL, team.getOrganizationType());
+        verify(teamRepository).save(team);
+    }
+
+    @Test
+    @DisplayName("修改队伍：新队名与同比赛下其他队伍重名时抛出 BusinessException")
+    void testUpdateTeam_duplicateName_throwsBusinessException() {
+        AdminTeamUpdateDTO dto = new AdminTeamUpdateDTO();
+        dto.setTeamName("已存在的战队");
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(teamRepository.existsByCompetitionIdAndTeamNameAndIdNot(competitionId, "已存在的战队", teamId)).thenReturn(true);
+
+        com.humolix.volur.framework.common.exception.BusinessException ex =
+                assertThrows(com.humolix.volur.framework.common.exception.BusinessException.class,
+                        () -> adminTeamService.updateTeam(teamId, dto));
+
+        assertTrue(ex.getMessage().contains("已存在"));
+        verify(teamRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("批量审核队伍：成功批量审核通过并广播通知")
+    void testBatchAuditTeams() {
+        BatchTeamAuditDTO dto = new BatchTeamAuditDTO();
+        dto.setTeamIds(List.of(teamId));
+        dto.setStatus(TeamStatus.AUDIT_PASSED);
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(memberRepository.findByTeamId(teamId)).thenReturn(List.of(captainMember));
+
+        adminTeamService.batchAuditTeams(competitionId, dto);
+
+        assertEquals(TeamStatus.AUDIT_PASSED, team.getStatus());
+        verify(teamRepository).save(team);
+        verify(eventPublisher, atLeastOnce()).publishEvent(any(SendNotificationEvent.class));
+    }
+
+    @Test
+    @DisplayName("批量删除队伍：成功批量级联删除队伍")
+    void testBatchDeleteTeams() {
+        BatchTeamDeleteDTO dto = new BatchTeamDeleteDTO();
+        dto.setTeamIds(List.of(teamId));
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(ctfSubmissionRepository.existsByTeamId(teamId)).thenReturn(false);
+        when(theoryAnswerRepository.existsByTeamId(teamId)).thenReturn(false);
+        when(awdPlusPatchRepository.existsByTeamId(teamId)).thenReturn(false);
+
+        adminTeamService.batchDeleteTeams(competitionId, dto.getTeamIds());
+
+        verify(teamInvitationRepository).deleteByTeamId(teamId);
+        verify(chatMessageRepository).deleteByTeamId(teamId);
+        verify(memberRepository).deleteByTeamId(teamId);
+        verify(teamRepository).delete(team);
+    }
 }

@@ -1,5 +1,8 @@
 package com.humolix.volur.competition.controller.v1.admin;
 
+import com.humolix.volur.competition.domain.dto.AdminTeamUpdateDTO;
+import com.humolix.volur.competition.domain.dto.BatchTeamAuditDTO;
+import com.humolix.volur.competition.domain.dto.BatchTeamDeleteDTO;
 import com.humolix.volur.competition.domain.dto.TeamAuditRequestDTO;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.AdminTeamDetailVO;
@@ -51,6 +54,37 @@ public class AdminCompetitionTeamController {
             @Valid @RequestBody TeamAuditRequestDTO request) {
         teamService.auditTeam(teamId, request);
         return ApiResponseEntity.success("队伍资质审核成功");
+    }
+
+    @Operation(summary = "管理员更新参赛队伍基本信息")
+    @Syslog(module = "COMPETITION", value = "管理员更新队伍信息", recordParams = true)
+    @PutMapping("/{teamId}")
+    public ApiResponse<Void> updateTeam(
+            @PathVariable Long competitionId,
+            @PathVariable Long teamId,
+            @Valid @RequestBody AdminTeamUpdateDTO request) {
+        teamService.updateTeam(teamId, request);
+        return ApiResponseEntity.success("修改队伍信息成功");
+    }
+
+    @Operation(summary = "批量审核参赛队伍资质（通过/驳回）")
+    @Syslog(module = "COMPETITION", value = "批量审核参赛队伍资质", recordParams = true)
+    @PostMapping("/batch-audit")
+    public ApiResponse<Void> batchAuditTeams(
+            @PathVariable Long competitionId,
+            @Valid @RequestBody BatchTeamAuditDTO request) {
+        teamService.batchAuditTeams(competitionId, request);
+        return ApiResponseEntity.success("批量审核队伍成功");
+    }
+
+    @Operation(summary = "批量删除参赛队伍")
+    @Syslog(module = "COMPETITION", value = "批量删除参赛队伍", recordParams = true)
+    @PostMapping("/batch-delete")
+    public ApiResponse<Void> batchDeleteTeams(
+            @PathVariable Long competitionId,
+            @Valid @RequestBody BatchTeamDeleteDTO request) {
+        teamService.batchDeleteTeams(competitionId, request.getTeamIds());
+        return ApiResponseEntity.success("批量删除队伍成功");
     }
 
     @Operation(summary = "删除参赛队伍")

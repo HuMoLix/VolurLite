@@ -379,6 +379,26 @@ export interface TeamAuditRequestDTO {
   auditReason?: string
 }
 
+/** 管理员修改队伍信息 DTO */
+export interface AdminTeamUpdateDTO {
+  teamName: string
+  description?: string
+  organization?: string
+  organizationType?: OrganizationType
+}
+
+/** 批量审核队伍 DTO */
+export interface BatchTeamAuditDTO {
+  teamIds: (number | string)[]
+  status: TeamStatus
+  auditReason?: string
+}
+
+/** 批量删除队伍 DTO */
+export interface BatchTeamDeleteDTO {
+  teamIds: (number | string)[]
+}
+
 /** 挂载 CTF 赛题 DTO */
 export interface CtfChallengeMountRequestDTO {
   challengeId: number | string

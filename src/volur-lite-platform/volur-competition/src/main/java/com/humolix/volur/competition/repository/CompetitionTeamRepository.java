@@ -18,6 +18,8 @@ public interface CompetitionTeamRepository extends JpaRepository<CompetitionTeam
 
     boolean existsByCompetitionIdAndTeamName(Long competitionId, String teamName);
 
+    boolean existsByCompetitionIdAndTeamNameAndIdNot(Long competitionId, String teamName, Long id);
+
     boolean existsByCompetitionIdAndCaptain_Id(Long competitionId, Long captainId);
 
     Optional<CompetitionTeam> findByCompetitionIdAndCaptain_Id(Long competitionId, Long captainId);

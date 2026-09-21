@@ -1,5 +1,7 @@
 package com.humolix.volur.competition.service.admin.impl;
 
+import com.humolix.volur.competition.domain.dto.AdminTeamUpdateDTO;
+import com.humolix.volur.competition.domain.dto.BatchTeamAuditDTO;
 import com.humolix.volur.competition.domain.dto.TeamAuditRequestDTO;
 import com.humolix.volur.competition.domain.entity.CompetitionConfig;
 import com.humolix.volur.competition.domain.entity.CompetitionMember;
@@ -228,6 +230,61 @@ public class AdminTeamServiceImpl implements AdminTeamService {
         // 3. 删除队伍主体
         teamRepository.delete(team);
         log.info("[Admin-Team] 管理员删除了战队 ID: {}, 战队名称: {}", teamId, team.getTeamName());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateTeam(Long teamId, AdminTeamUpdateDTO request) {
+        CompetitionTeam team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "队伍不存在"));
+
+        String newTeamName = request.getTeamName().trim();
+        // 校验同比赛下是否与其他队伍重名（排除自身）
+        if (teamRepository.existsByCompetitionIdAndTeamNameAndIdNot(team.getCompetition().getId(), newTeamName, teamId)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "该竞赛中已存在同名战队「" + newTeamName + "」，无法修改为该名称");
+        }
+
+        team.setTeamName(newTeamName);
+        if (request.getDescription() != null) {
+            team.setDescription(request.getDescription().trim());
+        }
+        if (request.getOrganization() != null) {
+            team.setOrganization(request.getOrganization().trim());
+        }
+        if (request.getOrganizationType() != null) {
+            team.setOrganizationType(request.getOrganizationType());
+        }
+        teamRepository.save(team);
+        log.info("[Admin-Team] 管理员更新了战队 ID: {} 的基本信息, 新名称: {}", teamId, newTeamName);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchAuditTeams(Long competitionId, BatchTeamAuditDTO request) {
+        if (request.getTeamIds() == null || request.getTeamIds().isEmpty()) {
+            return;
+        }
+        TeamAuditRequestDTO auditRequest = new TeamAuditRequestDTO();
+        auditRequest.setStatus(request.getStatus());
+        auditRequest.setAuditReason(request.getAuditReason());
+
+        for (Long teamId : request.getTeamIds()) {
+            auditTeam(teamId, auditRequest);
+        }
+        log.info("[Admin-Team] 管理员批量审核了竞赛 {} 下的 {} 支战队，状态: {}",
+                competitionId, request.getTeamIds().size(), request.getStatus());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void batchDeleteTeams(Long competitionId, List<Long> teamIds) {
+        if (teamIds == null || teamIds.isEmpty()) {
+            return;
+        }
+        for (Long teamId : teamIds) {
+            deleteTeam(teamId);
+        }
+        log.info("[Admin-Team] 管理员批量删除了竞赛 {} 下的 {} 支战队", competitionId, teamIds.size());
     }
 
 }

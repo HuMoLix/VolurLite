@@ -16,6 +16,9 @@ import type {
   AdminTeamListVO,
   AdminTeamDetailVO,
   TeamAuditRequestDTO,
+  AdminTeamUpdateDTO,
+  BatchTeamAuditDTO,
+  BatchTeamDeleteDTO,
   CtfChallengeMountRequestDTO,
   CtfChallengeBatchMountRequestDTO,
   CtfCompetitionChallengeVO,
@@ -415,6 +418,40 @@ export function auditAdminTeamApi(
   data: TeamAuditRequestDTO
 ): Promise<ApiResponse<void>> {
   return request.post<void>(`/admin/competitions/${competitionId}/teams/${teamId}/audit`, data)
+}
+
+/**
+ * 管理员修改队伍基本信息（如修改队伍名称）
+ * 对应后端: PUT /api/v1/admin/competitions/{competitionId}/teams/{teamId}
+ */
+export function updateAdminTeamApi(
+  competitionId: number | string,
+  teamId: number | string,
+  data: AdminTeamUpdateDTO
+): Promise<ApiResponse<void>> {
+  return request.put<void>(`/admin/competitions/${competitionId}/teams/${teamId}`, data)
+}
+
+/**
+ * 批量审核参赛队伍资质
+ * 对应后端: POST /api/v1/admin/competitions/{competitionId}/teams/batch-audit
+ */
+export function batchAuditAdminTeamsApi(
+  competitionId: number | string,
+  data: BatchTeamAuditDTO
+): Promise<ApiResponse<void>> {
+  return request.post<void>(`/admin/competitions/${competitionId}/teams/batch-audit`, data)
+}
+
+/**
+ * 批量删除参赛队伍
+ * 对应后端: POST /api/v1/admin/competitions/{competitionId}/teams/batch-delete
+ */
+export function batchDeleteAdminTeamsApi(
+  competitionId: number | string,
+  data: BatchTeamDeleteDTO
+): Promise<ApiResponse<void>> {
+  return request.post<void>(`/admin/competitions/${competitionId}/teams/batch-delete`, data)
 }
 
 /**

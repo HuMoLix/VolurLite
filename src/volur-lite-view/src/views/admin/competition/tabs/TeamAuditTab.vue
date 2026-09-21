@@ -79,13 +79,15 @@
       :columns="columns"
       :data="teams"
       :loading="loading"
-      :scroll-x="970"
+      :scroll-x="1060"
       :row-key="(row: AdminTeamListVO) => row.id"
+      :checked-row-keys="checkedRowKeys"
       table-class="teams-audit-table"
       standalone-pagination
       :page="pagination.page"
       :page-size="pagination.pageSize"
       :item-count="pagination.total"
+      @update:checked-row-keys="handleCheckedRowKeysChange"
       @update:page="handlePageChange"
       @update:page-size="handlePageSizeChange"
     >
@@ -133,6 +135,55 @@
         </n-space>
       </template>
 
+      <!-- Table Header Extra: 批量操作快捷栏 -->
+      <template #table-header>
+        <div v-if="checkedRowKeys.length > 0" class="bulk-actions-bar">
+          <div class="bulk-info">
+            已勾选 <span class="highlight-count">{{ checkedRowKeys.length }}</span> 支队伍
+          </div>
+          <n-space :size="8" align="center">
+            <n-button
+              size="small"
+              class="theme-primary-btn"
+              :loading="batchOperating"
+              @click="handleBatchApprove"
+            >
+              <template #icon>
+                <n-icon :component="CheckmarkOutline" />
+              </template>
+              批量通过
+            </n-button>
+            <n-button
+              size="small"
+              type="warning"
+              secondary
+              :loading="batchOperating"
+              @click="openBatchRejectModal"
+            >
+              <template #icon>
+                <n-icon :component="CloseOutline" />
+              </template>
+              批量驳回
+            </n-button>
+            <n-button
+              size="small"
+              type="error"
+              secondary
+              :loading="batchOperating"
+              @click="handleBatchDelete"
+            >
+              <template #icon>
+                <n-icon :component="TrashOutline" />
+              </template>
+              批量删除
+            </n-button>
+            <n-button size="small" quaternary @click="checkedRowKeys = []">
+              取消选择
+            </n-button>
+          </n-space>
+        </div>
+      </template>
+
       <template #empty>
         <div style="padding: 24px; text-align: center; color: #888;">
           当前比赛暂无报名的参赛队伍
@@ -140,7 +191,7 @@
       </template>
     </VolurTableCard>
 
-    <!-- Reject Reason Modal -->
+    <!-- Reject Reason Modal (Single Team) -->
     <n-modal
       v-model:show="showRejectModal"
       preset="card"
@@ -174,401 +225,162 @@
       </template>
     </n-modal>
 
-    <!-- Team Full Details Modal -->
+    <!-- Batch Reject Reason Modal -->
     <n-modal
-      v-model:show="showDetailModal"
+      v-model:show="showBatchRejectModal"
       preset="card"
-      class="team-form-modal team-detail-modal"
-      style="width: 1040px; max-width: 96vw; border-radius: 12px;"
-      :title="`参赛队伍详情 - ${detailTeam?.teamName || ''}`"
-      :bordered="false"
+      :title="`批量驳回报名 (已选择 ${checkedRowKeys.length} 支队伍)`"
+      style="width: 480px;"
     >
-      <n-spin :show="detailLoading">
-        <div v-if="detailTeam" class="team-detail-content">
-          <!-- 历史审核驳回原因展示 (若有) -->
-          <div
-            v-if="detailTeam.status === 'AUDIT_REJECTED' && detailTeam.auditReason"
-            class="reject-alert-banner"
+      <div class="reject-modal-content">
+        <n-form label-placement="top">
+          <n-form-item label="统一驳回原因 (所选各队伍队长可见)" required>
+            <n-input
+              v-model:value="batchRejectReason"
+              type="textarea"
+              placeholder="请输入批量驳回的原因，例如：未按期提交资格审核凭据..."
+              :rows="4"
+            />
+          </n-form-item>
+        </n-form>
+      </div>
+      <template #footer>
+        <n-space justify="end" :size="12">
+          <n-button @click="showBatchRejectModal = false">取消</n-button>
+          <n-button
+            type="error"
+            :loading="batchOperating"
+            :disabled="!batchRejectReason.trim()"
+            @click="handleConfirmBatchReject"
           >
-            <n-icon :component="CloseCircleOutline" class="alert-icon" />
-            <div class="alert-text">
-              <strong>历史审核驳回原因：</strong>{{ detailTeam.auditReason }}
-            </div>
-          </div>
-
-          <!-- Top Team Overview Card: 队伍基础信息展示卡片 (管理审核视图，全宽纯文本卡片，不使用表单输入框与双栏排版) -->
-          <div class="team-overview-card">
-            <div class="team-overview-top">
-              <div class="team-avatar-box">
-                <UserAvatar
-                  :size="52"
-                  :src="detailTeamDisplayAvatarUrl"
-                  :username="detailTeam.teamName || 'Team'"
-                  :editable="false"
-                />
-              </div>
-
-              <div class="team-main-meta">
-                <div class="team-name-line">
-                  <h3 class="team-name">{{ detailTeam.teamName }}</h3>
-                </div>
-
-                <div class="team-info-chips">
-                  <div class="info-chip">
-                    <span class="chip-label">所属单位:</span>
-                    <span class="chip-value">{{ detailTeam.organization || '—' }}</span>
-                  </div>
-                  <span class="meta-sep">|</span>
-                  <div class="info-chip">
-                    <span class="chip-label">单位类型:</span>
-                    <span class="chip-value">{{ getOrganizationTypeLabel(detailTeam.organizationType) }}</span>
-                  </div>
-                  <span class="meta-sep">|</span>
-                  <div class="info-chip">
-                    <span class="chip-label">队长:</span>
-                    <span class="chip-value font-medium">{{ detailTeam.captainUsername }}</span>
-                  </div>
-                  <span class="meta-sep">|</span>
-                  <div class="info-chip">
-                    <span class="chip-label">报名时间:</span>
-                    <span class="chip-value">{{ formatDateTime(detailTeam.createdAt) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 队伍简介 -->
-            <div class="team-desc-line">
-              <span class="desc-label">队伍简介:</span>
-              <span class="desc-content">{{ detailTeam.description || '暂无简介' }}</span>
-            </div>
-          </div>
-
-          <!-- 2. 战队成员名单 (Roster Header & Table) -->
-          <div class="roster-header">
-            <div class="roster-title-area">
-              <h4 class="roster-title">参赛成员</h4>
-              <span class="roster-count">
-                当前成员: <strong>{{ detailMembersOnly.length }}</strong> /
-                限制: {{ compMinMembers }} ~ {{ compMaxMembers }} 人
-                <span class="total-limit-text">
-                  （上限: {{ compMaxMembers }} 人）
-                </span>
-              </span>
-            </div>
-          </div>
-
-          <div class="table-scroll-container">
-            <n-table :bordered="true" :single-line="false" size="small" class="roster-table">
-              <thead>
-                <tr>
-                  <th style="width: 140px;">姓名 / 账号</th>
-                  <th style="width: 75px; text-align: center;">性别</th>
-                  <th style="width: 85px; text-align: center;">角色</th>
-
-                  <!-- 学校单位: 学号 / 企业及其他单位: 工号 -->
-                  <th style="width: 130px;">
-                    {{ isSchoolOrganization ? '学号' : '工号' }}
-                  </th>
-
-                  <th style="width: 135px;">手机号</th>
-                  <th style="width: 165px;">邮箱</th>
-                  <th style="width: 175px;">身份证</th>
-
-                  <!-- 学校单位: 学院 / 企业及其他单位: 部门 -->
-                  <th style="width: 140px;">
-                    {{ isSchoolOrganization ? '学院' : '部门' }}
-                  </th>
-
-                  <!-- 学校单位: 班级 / 企业及其他单位: 职位 -->
-                  <th style="width: 120px;">
-                    {{ isSchoolOrganization ? '班级' : '职位' }}
-                  </th>
-
-                  <th style="width: 95px; text-align: center;">加入状态</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(row, idx) in detailMembersOnly"
-                  :key="idx"
-                  :class="{ 'captain-row': row.role === 'CAPTAIN' }"
-                >
-                  <!-- 1. 姓名 / 账号 -->
-                  <td>
-                    <div class="member-profile-cell">
-                      <AppAvatar
-                        round
-                        :size="24"
-                        :src="row.avatarUrl"
-                        :name="row.realName || row.username"
-                      />
-                      <div class="member-name-block">
-                        <span class="real-name">{{ row.realName || row.username }}</span>
-                        <span v-if="row.realName && row.username" class="user-handle">@{{ row.username }}</span>
-                      </div>
-                    </div>
-                  </td>
-
-                  <!-- 2. 性别 -->
-                  <td style="text-align: center;">
-                    <span v-if="row.gender && row.gender !== 'UNKNOWN'" class="gender-text">
-                      {{ row.gender === 'MALE' ? '男' : '女' }}
-                    </span>
-                    <span v-else class="text-muted">—</span>
-                  </td>
-
-                  <!-- 3. 角色 (普通文字样式，非胶囊) -->
-                  <td style="text-align: center;">
-                    <span
-                      class="role-text"
-                      :class="row.role === 'CAPTAIN' ? 'role-captain' : 'role-member'"
-                    >
-                      {{ row.role === 'CAPTAIN' ? '队长' : '队员' }}
-                    </span>
-                  </td>
-
-                  <!-- 4. 学号 / 工号 -->
-                  <td>
-                    <span class="code-text">{{ row.employeeNumber || '—' }}</span>
-                  </td>
-
-                  <!-- 5. 手机号 -->
-                  <td>
-                    <span class="code-text">{{ row.phone || '—' }}</span>
-                  </td>
-
-                  <!-- 6. 邮箱 -->
-                  <td>
-                    <span class="email-text" :title="row.email">{{ row.email || '—' }}</span>
-                  </td>
-
-                  <!-- 7. 身份证 -->
-                  <td>
-                    <span v-if="row.idCard" class="id-card-badge">{{ row.idCard }}</span>
-                    <span v-else class="text-muted">未填写</span>
-                  </td>
-
-                  <!-- 8. 学院 / 部门 -->
-                  <td>
-                    <span class="college-text" :title="row.department">{{ row.department || '—' }}</span>
-                  </td>
-
-                  <!-- 9. 班级 / 职位 -->
-                  <td>
-                    <span class="college-text" :title="row.position">{{ row.position || '—' }}</span>
-                  </td>
-
-                  <!-- 10. 加入状态 -->
-                  <td style="text-align: center;">
-                    <n-tag
-                      size="small"
-                      :type="getMemberStatusTag(row).type"
-                      round
-                    >
-                      {{ getMemberStatusTag(row).label }}
-                    </n-tag>
-                  </td>
-                </tr>
-              </tbody>
-            </n-table>
-          </div>
-
-          <!-- 领队/指导老师名册 (当存在领队时展示) -->
-          <div v-if="detailLeadersOnly.length > 0" class="leaders-section">
-            <div class="roster-header leader-roster-header">
-              <div class="roster-title-area">
-                <h4 class="roster-title">领队/指导老师</h4>
-                <span class="roster-count">
-                  当前领队: <strong>{{ detailLeadersOnly.length }}</strong> /
-                  上限: {{ compMaxLeaders }} 人
-                </span>
-              </div>
-            </div>
-
-            <div class="table-scroll-container">
-              <n-table :bordered="true" :single-line="false" size="small" class="roster-table">
-                <thead>
-                  <tr>
-                    <th style="width: 140px;">姓名 / 账号</th>
-                    <th style="width: 75px; text-align: center;">性别</th>
-                    <th style="width: 85px; text-align: center;">角色</th>
-
-                    <!-- 学校单位: 学号 / 企业及其他单位: 工号 -->
-                    <th style="width: 130px;">
-                      {{ isSchoolOrganization ? '学号' : '工号' }}
-                    </th>
-
-                    <th style="width: 135px;">手机号</th>
-                    <th style="width: 165px;">邮箱</th>
-                    <th style="width: 175px;">身份证</th>
-
-                    <!-- 学校单位: 学院 / 企业及其他单位: 部门 -->
-                    <th style="width: 140px;">
-                      {{ isSchoolOrganization ? '学院' : '部门' }}
-                    </th>
-
-                    <!-- 学校单位: 班级 / 企业及其他单位: 职位 -->
-                    <th style="width: 120px;">
-                      {{ isSchoolOrganization ? '班级' : '职位' }}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, idx) in detailLeadersOnly" :key="'leader-' + idx">
-                    <!-- 1. 姓名 / 账号 -->
-                    <td>
-                      <div class="member-profile-cell">
-                        <AppAvatar
-                          round
-                          :size="24"
-                          :src="row.avatarUrl"
-                          :name="row.realName || row.username"
-                        />
-                        <div class="member-name-block">
-                          <span class="real-name">{{ row.realName || row.username }}</span>
-                          <span v-if="row.realName && row.username" class="user-handle">@{{ row.username }}</span>
-                        </div>
-                      </div>
-                    </td>
-
-                    <!-- 2. 性别 -->
-                    <td style="text-align: center;">
-                      <span v-if="row.gender && row.gender !== 'UNKNOWN'" class="gender-text">
-                        {{ row.gender === 'MALE' ? '男' : '女' }}
-                      </span>
-                      <span v-else class="text-muted">—</span>
-                    </td>
-
-                    <!-- 3. 角色 (普通文字样式) -->
-                    <td style="text-align: center;">
-                      <span class="role-text role-leader">
-                        指导老师
-                      </span>
-                    </td>
-
-                    <!-- 4. 学号 / 工号 -->
-                    <td>
-                      <span class="code-text">{{ row.employeeNumber || '—' }}</span>
-                    </td>
-
-                    <!-- 5. 手机号 -->
-                    <td>
-                      <span class="code-text">{{ row.phone || '—' }}</span>
-                    </td>
-
-                    <!-- 6. 邮箱 -->
-                    <td>
-                      <span class="email-text" :title="row.email">{{ row.email || '—' }}</span>
-                    </td>
-
-                    <!-- 7. 身份证 -->
-                    <td>
-                      <span v-if="row.idCard" class="id-card-badge">{{ row.idCard }}</span>
-                      <span v-else class="text-muted">未填写</span>
-                    </td>
-
-                    <!-- 8. 学院 / 部门 -->
-                    <td>
-                      <span class="college-text" :title="row.department">{{ row.department || '—' }}</span>
-                    </td>
-
-                    <!-- 9. 班级 / 职位 -->
-                    <td>
-                      <span class="college-text" :title="row.position">{{ row.position || '—' }}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </n-table>
-            </div>
-          </div>
-
-          <!-- 3. 底部操作栏 (Modal Actions) -->
-          <div class="modal-actions">
-            <div class="actions-left">
-              <span class="status-indicator">
-                当前审核状态：
-                <n-tag size="small" :type="getTeamStatusTag(detailTeam.status)" round>
-                  {{ getTeamStatusLabel(detailTeam.status) }}
-                </n-tag>
-                <span class="meta-divider" style="margin: 0 8px; color: #d1d1d6;">|</span>
-                <span>队长：<strong>{{ detailTeam.captainUsername }}</strong></span>
-                <span class="meta-divider" style="margin: 0 8px; color: #d1d1d6;">|</span>
-                <span>报名时间：{{ new Date(detailTeam.createdAt).toLocaleString() }}</span>
-              </span>
-            </div>
-            <div class="actions-right">
-              <n-button @click="showDetailModal = false">关闭</n-button>
-              <n-button
-                v-if="detailTeam.status !== 'AUDIT_REJECTED'"
-                type="error"
-                secondary
-                @click="handleRejectFromDetail"
-              >
-                驳回报名
-              </n-button>
-              <n-button
-                v-if="detailTeam.status !== 'AUDIT_PASSED'"
-                class="theme-primary-btn"
-                @click="handleApproveFromDetail"
-              >
-                通过资质审核
-              </n-button>
-            </div>
-          </div>
-        </div>
-      </n-spin>
+            确认批量驳回
+          </n-button>
+        </n-space>
+      </template>
     </n-modal>
+
+    <!-- Edit Team Modal (Admin Update Team Info) -->
+    <n-modal
+      v-model:show="showEditModal"
+      preset="card"
+      :title="`修改队伍信息 - ${editingTeam?.teamName || ''}`"
+      style="width: 520px;"
+    >
+      <div v-if="editingTeam" class="edit-modal-content">
+        <n-form label-placement="top" :model="editForm">
+          <n-form-item label="队伍名称" required>
+            <n-input
+              v-model:value="editForm.teamName"
+              placeholder="请输入队伍名称 (2-32 字符)"
+              maxlength="32"
+              show-count
+            />
+          </n-form-item>
+
+          <n-form-item label="所属单位">
+            <n-input
+              v-model:value="editForm.organization"
+              placeholder="请输入学校或企事业单位全称"
+              maxlength="64"
+            />
+          </n-form-item>
+
+          <n-form-item label="单位类型">
+            <n-select
+              v-model:value="editForm.organizationType"
+              :options="organizationTypeOptions"
+              placeholder="请选择单位类型"
+            />
+          </n-form-item>
+
+          <n-form-item label="队伍简介">
+            <n-input
+              v-model:value="editForm.description"
+              type="textarea"
+              placeholder="简要描述队伍口号或特色 (选填，不超过200字符)"
+              :rows="3"
+              maxlength="200"
+              show-count
+            />
+          </n-form-item>
+        </n-form>
+      </div>
+      <template #footer>
+        <n-space justify="end" :size="12">
+          <n-button @click="showEditModal = false">取消</n-button>
+          <n-button
+            type="primary"
+            class="theme-primary-btn"
+            :loading="submittingEdit"
+            :disabled="!editForm.teamName.trim()"
+            @click="handleConfirmEdit"
+          >
+            保存修改
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <!-- Team Full Details Modal (Extracted into reusable admin component) -->
+    <AdminTeamDetailModal
+      v-model:show="showDetailModal"
+      :comp-id="compId"
+      :team-id="selectedTeamId"
+      @audit-success="fetchTeams"
+      @update-success="fetchTeams"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, h, onMounted, watch } from 'vue'
+import { ref, reactive, h, onMounted, watch } from 'vue'
 import {
   NCard,
   NButton,
   NIcon,
-  NSpin,
   NInput,
   NSelect,
   NSwitch,
   NTag,
   NModal,
-  NTable,
   NForm,
   NFormItem,
   NSpace,
   useMessage,
   useDialog,
   type DataTableColumns,
-  type SelectOption
+  type SelectOption,
+  type DataTableRowKey
 } from 'naive-ui'
 import { VolurTableCard } from '@/public/volurEx'
-import AppAvatar from '@/components/common/AppAvatar.vue'
-import UserAvatar from '@/components/common/UserAvatar.vue'
-import { formatAvatarUrl } from '@/utils/imageCache'
+import AdminTeamDetailModal from '@/views/competition/components/admin/AdminTeamDetailModal.vue'
 import {
   PeopleOutline,
   TimeOutline,
   CheckmarkCircleOutline,
   CloseCircleOutline,
   SearchOutline,
-  RefreshOutline
+  RefreshOutline,
+  CheckmarkOutline,
+  CloseOutline,
+  TrashOutline
 } from '@vicons/ionicons5'
 import type {
   AdminTeamListVO,
-  AdminTeamDetailVO,
-  CompetitionMemberVO,
   TeamAuditRequestDTO,
   AdminCompetitionDetailVO,
-  TeamStatus
+  TeamStatus,
+  OrganizationType
 } from '@/types/competition'
 import {
   listAdminTeamsApi,
   getAdminTeamDetailApi,
   auditAdminTeamApi,
   deleteAdminTeamApi,
-  updateCompetitionApi
+  updateCompetitionApi,
+  updateAdminTeamApi,
+  batchAuditAdminTeamsApi,
+  batchDeleteAdminTeamsApi
 } from '@/api/competition'
 
 interface Props {
@@ -593,6 +405,10 @@ const teams = ref<AdminTeamListVO[]>([])
 const searchKeyword = ref<string>('')
 const selectedStatus = ref<TeamStatus | null>(null)
 
+// Checkbox Selection State
+const checkedRowKeys = ref<DataTableRowKey[]>([])
+const batchOperating = ref<boolean>(false)
+
 const statData = reactive({
   total: 0,
   pending: 0,
@@ -606,92 +422,35 @@ const pagination = reactive({
   total: 0
 })
 
-// Reject Modal State
+// Single Reject Modal State
 const showRejectModal = ref<boolean>(false)
 const rejectingTeam = ref<AdminTeamListVO | null>(null)
 const rejectReason = ref<string>('')
 const submittingReject = ref<boolean>(false)
 
-// Detail Modal State
+// Batch Reject Modal State
+const showBatchRejectModal = ref<boolean>(false)
+const batchRejectReason = ref<string>('')
+
+// Edit Team Modal State (Admin Rename and Update)
+const showEditModal = ref<boolean>(false)
+const editingTeam = ref<AdminTeamListVO | null>(null)
+const submittingEdit = ref<boolean>(false)
+const editForm = reactive<{
+  teamName: string
+  description: string
+  organization: string
+  organizationType: OrganizationType
+}>({
+  teamName: '',
+  description: '',
+  organization: '',
+  organizationType: 'SCHOOL'
+})
+
+// Detail Modal State (AdminTeamDetailModal)
 const showDetailModal = ref<boolean>(false)
-const detailLoading = ref<boolean>(false)
-const detailTeam = ref<AdminTeamDetailVO | null>(null)
-
-const detailTeamDisplayAvatarUrl = computed(() => {
-  return formatAvatarUrl(detailTeam.value?.avatarUrl)
-})
-
-const detailMembersOnly = computed<CompetitionMemberVO[]>(() => {
-  if (!detailTeam.value?.members) return []
-  return detailTeam.value.members
-    .filter(m => m.role !== 'LEADER')
-    .sort((a, b) => (a.role === 'CAPTAIN' ? -1 : b.role === 'CAPTAIN' ? 1 : 0))
-})
-
-const detailLeadersOnly = computed<CompetitionMemberVO[]>(() => {
-  if (!detailTeam.value?.members) return []
-  return detailTeam.value.members.filter(m => m.role === 'LEADER')
-})
-
-const organizationTypeMap: Record<string, string> = {
-  SCHOOL: '学校',
-  ENTERPRISE: '企业单位',
-  MILITARY: '军工',
-  ENERGY: '能源',
-  FINANCE: '金融',
-  RESEARCH: '科研院所',
-  OTHER: '其他'
-}
-
-function getOrganizationTypeLabel(type?: string | null): string {
-  if (!type) return '学校'
-  const upper = String(type).trim().toUpperCase()
-  return organizationTypeMap[upper] || type
-}
-
-const isSchoolOrganization = computed(() => {
-  const orgType = detailTeam.value?.organizationType
-  if (!orgType) return true
-  const normalized = String(orgType).trim().toUpperCase()
-  return normalized === 'SCHOOL' || normalized === '学校'
-})
-
-function formatDateTime(val?: string | null): string {
-  if (!val) return '-'
-  try {
-    const d = new Date(val)
-    if (isNaN(d.getTime())) return val
-    const pad = (n: number) => (n < 10 ? '0' + n : n)
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-  } catch {
-    return val
-  }
-}
-
-const compMinMembers = computed(() => {
-  return props.initialData?.minTeamMembers ?? 1
-})
-
-const compMaxMembers = computed(() => {
-  return props.initialData?.maxTeamMembers ?? 4
-})
-
-const compMaxLeaders = computed(() => {
-  return props.initialData?.maxLeaders ?? 1
-})
-
-function getMemberStatusTag(row: CompetitionMemberVO): { type: 'success' | 'warning' | 'default' | 'info'; label: string } {
-  if (row.role === 'CAPTAIN' || row.status === 'INVITED_ACCEPTED') {
-    return { type: 'success', label: '已加入' }
-  }
-  if (row.status === 'INVITED') {
-    return { type: 'warning', label: '待确认' }
-  }
-  if (row.status === 'NOT_PARTICIPATE') {
-    return { type: 'default', label: '已拒绝' }
-  }
-  return { type: 'info', label: '待加入' }
-}
+const selectedTeamId = ref<string | number | null>(null)
 
 const statusFilterOptions: SelectOption[] = [
   { label: '全部状态', value: '' },
@@ -700,7 +459,22 @@ const statusFilterOptions: SelectOption[] = [
   { label: '已驳回 (AUDIT_REJECTED)', value: 'AUDIT_REJECTED' }
 ]
 
+const organizationTypeOptions: SelectOption[] = [
+  { label: '学校 (SCHOOL)', value: 'SCHOOL' },
+  { label: '企业单位 (ENTERPRISE)', value: 'ENTERPRISE' },
+  { label: '科研院所 (RESEARCH)', value: 'RESEARCH' },
+  { label: '军工 (MILITARY)', value: 'MILITARY' },
+  { label: '能源 (ENERGY)', value: 'ENERGY' },
+  { label: '金融 (FINANCE)', value: 'FINANCE' },
+  { label: '其他 (OTHER)', value: 'OTHER' }
+]
+
 const columns: DataTableColumns<AdminTeamListVO> = [
+  {
+    type: 'selection',
+    fixed: 'left',
+    width: 48
+  },
   {
     title: '战队名称',
     key: 'teamName',
@@ -747,7 +521,7 @@ const columns: DataTableColumns<AdminTeamListVO> = [
   {
     title: '操作',
     key: 'actions',
-    width: 240,
+    width: 260,
     fixed: 'right',
     render(row) {
       return h('div', { style: 'display: flex; gap: 6px;' }, [
@@ -779,6 +553,17 @@ const columns: DataTableColumns<AdminTeamListVO> = [
               }
             )
           : null,
+        h(
+          NButton,
+          {
+            size: 'tiny',
+            quaternary: true,
+            onClick: () => openEditTeamModal(row)
+          },
+          {
+            default: () => '编辑'
+          }
+        ),
         h(
           NButton,
           {
@@ -853,6 +638,7 @@ async function fetchTeams() {
 
 function handleSearch() {
   pagination.page = 1
+  checkedRowKeys.value = []
   fetchTeams()
 }
 
@@ -860,6 +646,7 @@ function handleReset() {
   searchKeyword.value = ''
   selectedStatus.value = null
   pagination.page = 1
+  checkedRowKeys.value = []
   fetchTeams()
 }
 
@@ -872,6 +659,10 @@ function handlePageSizeChange(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
   fetchTeams()
+}
+
+function handleCheckedRowKeysChange(keys: DataTableRowKey[]) {
+  checkedRowKeys.value = keys
 }
 
 async function handleToggleAuditSwitch(val: boolean) {
@@ -918,10 +709,6 @@ async function handleConfirmReject() {
     }
     await auditAdminTeamApi(props.compId, rejectingTeam.value.id, req)
     message.success(`队伍「${rejectingTeam.value.teamName}」已驳回`)
-    if (detailTeam.value && String(detailTeam.value.id) === String(rejectingTeam.value.id)) {
-      detailTeam.value.status = 'AUDIT_REJECTED'
-      detailTeam.value.auditReason = rejectReason.value.trim()
-    }
     showRejectModal.value = false
     fetchTeams()
   } catch (error: any) {
@@ -931,47 +718,54 @@ async function handleConfirmReject() {
   }
 }
 
-async function handleApproveFromDetail() {
-  if (!detailTeam.value) return
-  try {
-    const req: TeamAuditRequestDTO = {
-      status: 'AUDIT_PASSED'
+// Admin Edit Team
+function openEditTeamModal(row: AdminTeamListVO) {
+  editingTeam.value = row
+  editForm.teamName = row.teamName || ''
+  editForm.description = ''
+  editForm.organization = ''
+  editForm.organizationType = 'SCHOOL'
+  showEditModal.value = true
+
+  // Fetch full details to pre-populate form
+  getAdminTeamDetailApi(props.compId, row.id).then((res) => {
+    if (res.data) {
+      editForm.teamName = res.data.teamName || ''
+      editForm.description = res.data.description || ''
+      editForm.organization = res.data.organization || ''
+      editForm.organizationType = res.data.organizationType || 'SCHOOL'
     }
-    await auditAdminTeamApi(props.compId, detailTeam.value.id, req)
-    message.success(`队伍「${detailTeam.value.teamName}」资质已审核通过`)
-    detailTeam.value.status = 'AUDIT_PASSED'
+  }).catch(() => {})
+}
+
+async function handleConfirmEdit() {
+  if (!editingTeam.value) return
+  const trimmedName = editForm.teamName.trim()
+  if (!trimmedName || trimmedName.length < 2 || trimmedName.length > 32) {
+    message.warning('队伍名称长度必须在 2 到 32 个字符之间')
+    return
+  }
+  submittingEdit.value = true
+  try {
+    await updateAdminTeamApi(props.compId, editingTeam.value.id, {
+      teamName: trimmedName,
+      description: editForm.description ? editForm.description.trim() : undefined,
+      organization: editForm.organization ? editForm.organization.trim() : undefined,
+      organizationType: editForm.organizationType
+    })
+    message.success('队伍信息已成功更新')
+    showEditModal.value = false
     fetchTeams()
   } catch (error: any) {
-    message.error(error.message || '审核操作失败')
-  }
-}
-
-function handleRejectFromDetail() {
-  if (!detailTeam.value) return
-  openRejectModal({
-    id: detailTeam.value.id,
-    competitionId: detailTeam.value.competitionId,
-    teamName: detailTeam.value.teamName,
-    captainId: detailTeam.value.captainId,
-    captainUsername: detailTeam.value.captainUsername,
-    memberCount: detailTeam.value.members?.length || 1,
-    status: detailTeam.value.status,
-    auditReason: detailTeam.value.auditReason,
-    createdAt: detailTeam.value.createdAt
-  })
-}
-
-async function openDetailModal(row: AdminTeamListVO) {
-  showDetailModal.value = true
-  detailLoading.value = true
-  try {
-    const res = await getAdminTeamDetailApi(props.compId, row.id)
-    detailTeam.value = res.data
-  } catch (error: any) {
-    message.error(error.message || '获取队伍详细资料失败')
+    message.error(error.message || '修改队伍信息失败')
   } finally {
-    detailLoading.value = false
+    submittingEdit.value = false
   }
+}
+
+function openDetailModal(row: AdminTeamListVO) {
+  selectedTeamId.value = row.id
+  showDetailModal.value = true
 }
 
 function handleDeleteTeam(row: AdminTeamListVO) {
@@ -987,6 +781,89 @@ function handleDeleteTeam(row: AdminTeamListVO) {
         fetchTeams()
       } catch (error: any) {
         message.error(error.message || '删除战队失败')
+      }
+    }
+  })
+}
+
+// Batch Actions
+function handleBatchApprove() {
+  if (checkedRowKeys.value.length === 0) return
+  dialog.info({
+    title: '批量通过审核',
+    content: `确定要将选中的 ${checkedRowKeys.value.length} 支队伍批量审核通过吗？通过后成员将获得正式参赛资格。`,
+    positiveText: '确认通过',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      batchOperating.value = true
+      try {
+        await batchAuditAdminTeamsApi(props.compId, {
+          teamIds: checkedRowKeys.value,
+          status: 'AUDIT_PASSED'
+        })
+        message.success(`已成功批量通过 ${checkedRowKeys.value.length} 支队伍`)
+        checkedRowKeys.value = []
+        fetchTeams()
+      } catch (error: any) {
+        message.error(error.message || '批量审核通过失败')
+      } finally {
+        batchOperating.value = false
+      }
+    }
+  })
+}
+
+function openBatchRejectModal() {
+  if (checkedRowKeys.value.length === 0) return
+  batchRejectReason.value = ''
+  showBatchRejectModal.value = true
+}
+
+async function handleConfirmBatchReject() {
+  if (checkedRowKeys.value.length === 0) return
+  const reason = batchRejectReason.value.trim()
+  if (!reason) {
+    message.warning('请输入批量驳回原因')
+    return
+  }
+  batchOperating.value = true
+  try {
+    await batchAuditAdminTeamsApi(props.compId, {
+      teamIds: checkedRowKeys.value,
+      status: 'AUDIT_REJECTED',
+      auditReason: reason
+    })
+    message.success(`已成功批量驳回 ${checkedRowKeys.value.length} 支队伍`)
+    checkedRowKeys.value = []
+    showBatchRejectModal.value = false
+    fetchTeams()
+  } catch (error: any) {
+    message.error(error.message || '批量驳回失败')
+  } finally {
+    batchOperating.value = false
+  }
+}
+
+function handleBatchDelete() {
+  if (checkedRowKeys.value.length === 0) return
+  dialog.warning({
+    title: '批量彻底删除队伍',
+    content: `确定要彻底删除选中的 ${checkedRowKeys.value.length} 支队伍吗？此操作不可恢复，队伍及队员参赛报名信息将被完全解除！`,
+    positiveText: '确认批量删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      batchOperating.value = true
+      try {
+        await batchDeleteAdminTeamsApi(props.compId, {
+          teamIds: checkedRowKeys.value
+        })
+        message.success(`已成功删除 ${checkedRowKeys.value.length} 支队伍`)
+        checkedRowKeys.value = []
+        fetchTeams()
+      } catch (error: any) {
+        message.error(error.message || '批量删除队伍失败')
+      } finally {
+        batchOperating.value = false
       }
     }
   })
@@ -1134,26 +1011,25 @@ function getTeamStatusLabel(status?: string) {
     }
   }
 
-  .teams-table-card {
-    .filter-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      gap: 12px;
+  .bulk-actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--v-bg-card-alt, #fafafc);
+    border: 1px solid var(--v-border-base, #e5e4e7);
+    border-radius: 6px;
+    margin-bottom: 12px;
 
-      .filter-left {
-        display: flex;
-        align-items: center;
-        gap: 12px;
+    .bulk-info {
+      font-size: 13px;
+      color: #444444;
+
+      .highlight-count {
+        font-weight: 700;
+        color: var(--v-text-primary, #111111);
+        margin: 0 4px;
       }
-    }
-
-    .pagination-footer {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 20px;
     }
   }
 
@@ -1176,6 +1052,17 @@ function getTeamStatusLabel(status?: string) {
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+
+  .theme-primary-btn {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: none;
+    font-weight: 500;
+
+    &:hover {
+      background-color: #222222 !important;
+    }
   }
 
   @media (max-width: 768px) {
@@ -1207,504 +1094,85 @@ function getTeamStatusLabel(status?: string) {
         justify-content: center;
       }
     }
-  }
-}
 
-.team-detail-content {
-  display: flex;
-  flex-direction: column;
-  min-height: 200px;
-
-  .reject-alert-banner {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: rgba(208, 48, 80, 0.06);
-    border: 1px solid rgba(208, 48, 80, 0.2);
-    border-radius: 6px;
-    font-size: 13px;
-    color: #d03050;
-    margin-bottom: 16px;
-
-    .alert-icon {
-      font-size: 16px;
-      flex-shrink: 0;
-    }
-
-    .alert-text {
-      line-height: 1.4;
-    }
-  }
-
-  .team-overview-card {
-    background: var(--v-bg-card-alt, #fafafc);
-    border: 1px solid var(--v-border-base, #e5e4e7);
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin-bottom: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    .team-overview-top {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-
-      .team-avatar-box {
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .team-main-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        flex: 1;
-        min-width: 0;
-
-        .team-name-line {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-
-          .team-name {
-            margin: 0;
-            font-size: 17px;
-            font-weight: 700;
-            color: var(--v-text-primary, #111111);
-          }
-        }
-
-        .team-info-chips {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-          font-size: 13px;
-          color: #444444;
-
-          .info-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-
-            .chip-label {
-              color: #666666;
-            }
-
-            .chip-value {
-              color: var(--v-text-primary, #111111);
-
-              &.font-medium {
-                font-weight: 600;
-              }
-            }
-          }
-
-          .meta-sep {
-            color: #d1d1d6;
-            font-size: 12px;
-          }
-        }
-      }
-    }
-
-    .team-desc-line {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      padding-top: 10px;
-      border-top: 1px dashed var(--v-border-base, #e5e4e7);
-      font-size: 13px;
-      line-height: 1.5;
-
-      .desc-label {
-        flex-shrink: 0;
-        font-weight: 500;
-        color: #666666;
-      }
-
-      .desc-content {
-        color: #333333;
-        word-break: break-word;
-      }
-    }
-  }
-
-  .roster-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--v-border-base, #e5e4e7);
-
-    .roster-title-area {
-      display: flex;
-      align-items: baseline;
-      gap: 12px;
-      flex-wrap: wrap;
-
-      .roster-title {
-        margin: 0;
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--v-text-primary, #111111);
-      }
-
-      .roster-count {
-        font-size: 12px;
-        color: #444444;
-
-        strong {
-          color: var(--v-text-primary, #111111);
-        }
-
-        .total-limit-text {
-          color: #666666;
-          margin-left: 4px;
-        }
-      }
-    }
-  }
-
-  .table-scroll-container {
-    overflow-x: auto;
-    max-height: 480px;
-    overflow-y: auto;
-    margin-bottom: 16px;
-    border: 1px solid var(--v-border-base, #e5e4e7);
-    border-radius: 6px;
-
-    .roster-table {
-      min-width: 1240px;
-
-      th {
-        font-weight: 600;
-        background: var(--v-bg-card-alt, #fafafc);
-        color: #444444;
-        white-space: nowrap;
-        padding: 8px 10px;
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        border-bottom: 1px solid var(--v-border-base, #e5e4e7);
-      }
-
-      td {
-        padding: 6px 8px;
-        vertical-align: middle;
-      }
-
-      .role-text {
-        font-size: 13px;
-        display: inline-block;
-
-        &.role-captain {
-          font-weight: 600;
-          color: var(--v-text-primary, #111111);
-        }
-
-        &.role-member {
-          font-weight: 400;
-          color: #555555;
-        }
-
-        &.role-leader {
-          font-weight: 500;
-          color: #444444;
-        }
-      }
-
-      tr.captain-row {
-        background-color: rgba(0, 0, 0, 0.015);
-      }
-    }
-  }
-
-  .leaders-section {
-    margin-top: 8px;
-    margin-bottom: 16px;
-
-    .leader-roster-header {
-      border-bottom-style: dashed;
-    }
-  }
-
-  .member-profile-cell {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    .member-name-block {
-      display: flex;
+    .bulk-actions-bar {
       flex-direction: column;
-      line-height: 1.3;
-
-      .real-name {
-        font-weight: 600;
-        font-size: 13px;
-        color: var(--v-text-primary, #111111);
-      }
-
-      .user-handle {
-        font-size: 11px;
-        color: #777777;
-      }
-    }
-  }
-
-  .code-text {
-    font-family: var(--v-font-mono, 'Fira Code', monospace);
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--v-text-primary, #111111);
-  }
-
-  .email-text {
-    font-size: 12px;
-    color: #444444;
-    word-break: break-all;
-  }
-
-  .id-card-badge {
-    font-family: var(--v-font-mono, 'Fira Code', monospace);
-    font-size: 12px;
-    background: var(--v-bg-muted, rgba(0, 0, 0, 0.04));
-    padding: 2px 6px;
-    border-radius: 4px;
-    display: inline-block;
-    color: var(--v-text-primary, #111111);
-  }
-
-  .gender-text {
-    font-size: 13px;
-    color: #444444;
-  }
-
-  .college-text {
-    font-size: 12px;
-    color: #444444;
-  }
-
-  .date-text {
-    font-size: 12px;
-    color: #555555;
-  }
-
-  .text-muted {
-    color: #999999;
-    font-size: 12px;
-  }
-
-  .modal-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-top: 16px;
-
-    .actions-left {
-      display: flex;
-      align-items: center;
-
-      .status-indicator {
-        font-size: 13px;
-        color: #444444;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-    }
-
-    .actions-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .theme-primary-btn {
-      background-color: #000000 !important;
-      color: #ffffff !important;
-      border: none;
-      font-weight: 500;
-
-      &:hover {
-        background-color: #222222 !important;
-      }
+      align-items: flex-start;
+      gap: 10px;
     }
   }
 }
 
-// Dark Mode Support
+// Dark Theme Overrides
 html.dark,
 [data-theme='dark'] {
-  .team-detail-content {
-    .reject-alert-banner {
-      background: rgba(208, 48, 80, 0.15);
-      border-color: rgba(208, 48, 80, 0.35);
-      color: #f87171;
-    }
-
-    .team-overview-card {
+  .team-audit-tab {
+    .audit-config-card {
       background: var(--v-bg-muted, #12141c);
       border-color: var(--v-border-base, rgba(255, 255, 255, 0.09));
 
-      .team-overview-top {
-        .team-main-meta {
-          .team-name-line {
-            .team-name {
-              color: var(--v-text-primary, #f8fafc);
-            }
+      .audit-config-inner {
+        .config-left {
+          .config-title {
+            color: var(--v-text-primary, #f8fafc);
           }
-
-          .team-info-chips {
-            color: #94a3b8;
-
-            .info-chip {
-              .chip-label {
-                color: #64748b;
-              }
-
-              .chip-value {
-                color: var(--v-text-primary, #f8fafc);
-              }
-            }
-
-            .meta-sep {
-              color: rgba(255, 255, 255, 0.2);
-            }
+          .config-desc {
+            color: var(--v-text-desc, #94a3b8);
           }
         }
-      }
-
-      .team-desc-line {
-        border-top-color: rgba(255, 255, 255, 0.09);
-
-        .desc-label {
-          color: #64748b;
-        }
-
-        .desc-content {
-          color: #cbd5e1;
+        .config-right {
+          .label {
+            color: var(--v-text-primary, #f8fafc);
+          }
+          .field-hint {
+            color: var(--v-text-muted, #64748b);
+          }
         }
       }
     }
 
-    .roster-header {
-      border-color: var(--v-border-base, rgba(255, 255, 255, 0.09));
+    .stat-ribbon {
+      .stat-mini-card {
+        background: var(--v-bg-card, #12141c);
+        border-color: var(--v-border-base, rgba(255, 255, 255, 0.09));
 
-      .roster-title {
-        color: var(--v-text-primary, #f8fafc);
-      }
-
-      .roster-count {
-        color: var(--v-text-desc, #94a3b8);
-
-        strong {
+        .stat-icon-wrapper.primary {
+          background: rgba(255, 255, 255, 0.08);
           color: var(--v-text-primary, #f8fafc);
         }
 
-        .total-limit-text {
-          color: var(--v-text-muted, #64748b);
+        .stat-info {
+          .stat-value {
+            color: var(--v-text-primary, #f8fafc);
+          }
+          .stat-label {
+            color: var(--v-text-desc, #94a3b8);
+          }
         }
       }
     }
 
-    .table-scroll-container {
+    .bulk-actions-bar {
+      background: var(--v-bg-muted, #12141c);
       border-color: var(--v-border-base, rgba(255, 255, 255, 0.09));
 
-      .roster-table {
-        th {
-          background: var(--v-bg-muted, #12141c);
-          color: var(--v-text-desc, #94a3b8);
-          border-bottom-color: var(--v-border-base, rgba(255, 255, 255, 0.09));
-        }
+      .bulk-info {
+        color: #94a3b8;
 
-        tr.captain-row {
-          background-color: rgba(255, 255, 255, 0.03);
-        }
-
-        .role-text {
-          &.role-captain {
-            color: #f8fafc;
-          }
-
-          &.role-member {
-            color: #94a3b8;
-          }
-
-          &.role-leader {
-            color: #cbd5e1;
-          }
-        }
-      }
-    }
-
-    .member-profile-cell {
-      .member-name-block {
-        .real-name {
+        .highlight-count {
           color: #f8fafc;
         }
-
-        .user-handle {
-          color: #64748b;
-        }
       }
     }
 
-    .code-text {
-      color: #f8fafc;
-    }
+    .theme-primary-btn {
+      background-color: var(--v-btn-primary-bg, #ffffff) !important;
+      color: var(--v-btn-primary-text, #0b0c10) !important;
 
-    .id-card-badge {
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--v-text-primary, #f8fafc);
-    }
-
-    .email-text,
-    .college-text,
-    .gender-text {
-      color: var(--v-text-desc, #94a3b8);
-    }
-
-    .date-text {
-      color: var(--v-text-muted, #64748b);
-    }
-
-    .text-muted {
-      color: #64748b;
-    }
-
-    .modal-actions {
-      .actions-left .status-indicator {
-        color: var(--v-text-desc, #94a3b8);
-      }
-
-      .meta-divider {
-        color: rgba(255, 255, 255, 0.2);
-      }
-
-      .theme-primary-btn {
-        background-color: var(--v-btn-primary-bg, #ffffff) !important;
-        color: var(--v-btn-primary-text, #0b0c10) !important;
-
-        &:hover {
-          background-color: var(--v-btn-primary-hover, #e2e8f0) !important;
-        }
+      &:hover {
+        background-color: var(--v-btn-primary-hover, #e2e8f0) !important;
       }
     }
   }
-}
-</style>
-
-<style lang="scss">
-.team-detail-modal {
-  border-radius: 12px !important;
 }
 </style>
