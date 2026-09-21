@@ -1,6 +1,7 @@
 package com.humolix.volur.verification;
 
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
@@ -113,7 +114,7 @@ public class EmailServiceVerificationTest {
         when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(true);
         when(captchaService.verifyCaptcha(eq("c_123"), eq("valid_code"), eq(CaptchaScene.REGISTER))).thenReturn(true);
         when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
-        when(systemSettingService.getBoolean("system.auth.require_email_verification", false)).thenReturn(false);
+        when(systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true)).thenReturn(false);
         when(systemSettingService.getSettingValue(eq("system.mail.from_address"), anyString())).thenReturn("noreply@volur.local");
 
         EmailCaptchaRequestDTO request = new EmailCaptchaRequestDTO();

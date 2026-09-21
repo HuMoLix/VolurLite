@@ -167,7 +167,7 @@
         />
       </n-form-item>
 
-      <n-form-item path="emailCaptcha" :label="t('auth.email_verification')">
+      <n-form-item v-if="isEmailVerificationRequired" path="emailCaptcha" :label="t('auth.email_verification')">
         <div class="auth-form__email-code-wrapper">
           <n-input
             v-model:value="registerForm.emailCaptcha"
@@ -297,6 +297,7 @@ async function handlePuzzleSuccess(ticketVO: CaptchaTicketVO) {
 const isLogin = computed(() => mode.value === 'login')
 const isForgot = computed(() => mode.value === 'forgot')
 const isRegisterEnabled = computed(() => systemStore.isRegistrationEnabled)
+const isEmailVerificationRequired = computed(() => systemStore.isEmailVerificationRequired)
 const isCaptchaEnabled = computed(() => systemStore.isCaptchaEnabled)
 
 const loginForm = reactive({
@@ -386,7 +387,9 @@ const registerRules = computed<FormRules>(() => ({
       trigger: ['blur', 'input']
     }
   ],
-  emailCaptcha: [{ required: true, message: t('auth.email_code_required') }]
+  emailCaptcha: isEmailVerificationRequired.value
+    ? [{ required: true, message: t('auth.email_code_required') }]
+    : []
 }))
 
 const forgotRules = computed<FormRules>(() => ({
@@ -554,7 +557,13 @@ async function handleAction() {
         loading.value = false
       }
     } else {
-      await doRegister()
+      if (!isEmailVerificationRequired.value && isCaptchaEnabled.value) {
+        puzzleScene.value = 'REGISTER'
+        pendingAction.value = 'REGISTER'
+        showPuzzleModal.value = true
+      } else {
+        await doRegister()
+      }
     }
   })
 }
@@ -566,8 +575,8 @@ async function doRegister(ticket?: string) {
       username: registerForm.username.trim(),
       password: registerForm.password,
       email: registerForm.email.trim(),
-      emailCaptcha: registerForm.emailCaptcha.trim(),
-      captchaTicket: ticket || undefined
+      emailCaptcha: isEmailVerificationRequired.value ? registerForm.emailCaptcha.trim() : undefined,
+      captchaTicket: ticket || captchaTicket.value || undefined
     })
     message.success(t('auth.account_created_success'))
     toggleMode()

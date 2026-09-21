@@ -162,6 +162,7 @@ const settingsForm = reactive({
   icpNumber: '',
   defaultLocale: 'zh_CN',
   registrationEnabled: true,
+  requireEmailVerification: true,
   // Captcha
   captchaEnabled: true,
   captchaTolerance: 8,
@@ -206,6 +207,7 @@ async function fetchSettings() {
         if (item.key === 'system.general.platform_desc') settingsForm.platformDesc = item.value
         if (item.key === 'system.general.icp_number') settingsForm.icpNumber = item.value
         if (item.key === 'system.auth.registration_enabled') settingsForm.registrationEnabled = item.value === 'true'
+        if (item.key === 'system.auth.require_email_verification') settingsForm.requireEmailVerification = item.value !== 'false'
         if (item.key === 'system.general.default_locale') settingsForm.defaultLocale = item.value
         if (item.key === 'system.captcha.enabled') settingsForm.captchaEnabled = item.value === 'true'
         if (item.key === 'system.captcha.tolerance_px') settingsForm.captchaTolerance = Number(item.value) || 8
@@ -253,6 +255,7 @@ async function handleSaveSettings() {
       { key: 'system.general.platform_desc', value: settingsForm.platformDesc },
       { key: 'system.general.icp_number', value: settingsForm.icpNumber },
       { key: 'system.auth.registration_enabled', value: String(settingsForm.registrationEnabled) },
+      { key: 'system.auth.require_email_verification', value: String(settingsForm.requireEmailVerification) },
       { key: 'system.general.default_locale', value: settingsForm.defaultLocale },
       { key: 'system.captcha.enabled', value: String(settingsForm.captchaEnabled) },
       { key: 'system.captcha.tolerance_px', value: String(settingsForm.captchaTolerance) },

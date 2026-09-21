@@ -355,8 +355,8 @@
         </n-table>
       </div>
 
-      <!-- 领队/指导老师切换文本行: 仅在编辑模式下显示（编辑已有战队时） -->
-      <div v-if="isEditing && props.mode !== 'create'" class="leader-toggle-link-wrapper">
+      <!-- 领队/指导老师切换文本行: 编辑态下且赛事允许配置领队时显示 (创建与修改态均支持) -->
+      <div v-if="isEditing && (competition?.maxLeaders ?? 1) > 0" class="leader-toggle-link-wrapper">
         <span class="leader-toggle-link" @click="toggleLeadersSection">
           {{ showLeadersSection ? t('competition.hide_leader_link', '收起领队/指导老师') : t('competition.add_leader_link', '添加领队/指导老师') }}
         </span>

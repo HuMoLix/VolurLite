@@ -29,7 +29,9 @@
     "locale_zh_cn": "简体中文 (zh_CN)",
     "locale_en_us": "English (en_US)",
     "registration_enabled": "Allow User Registration",
-    "registration_hint": "When enabled, visitors can register accounts on the front end; when disabled, accounts can only be created by admins"
+    "registration_hint": "When enabled, visitors can register accounts on the front end; when disabled, accounts can only be created by admins",
+    "require_email_verification": "Require Email Verification for Registration",
+    "require_email_verification_hint": "When enabled, users must verify an email code to register; when disabled, registration relies directly on CAPTCHA"
   },
   "captcha": {
     "enabled": "Global CAPTCHA Switch",

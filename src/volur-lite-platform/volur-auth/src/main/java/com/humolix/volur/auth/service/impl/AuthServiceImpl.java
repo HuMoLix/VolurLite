@@ -130,7 +130,7 @@ public class AuthServiceImpl implements AuthService {
             throw new UserOrEmailExistException();
         }
 
-        String whitelistStr = systemSettingService.getSettingValue("system.auth.email_whitelist_suffixes", "");
+        String whitelistStr = systemSettingService.getSettingValue(SystemSettingKeys.AUTH_EMAIL_WHITELIST_SUFFIXES, "");
         if (StringUtils.hasText(whitelistStr)) {
             String emailDomain = normalizedEmail.substring(normalizedEmail.lastIndexOf("@") + 1);
             boolean isWhitelisted = Arrays.stream(whitelistStr.split(","))
@@ -144,11 +144,14 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        boolean requireEmailVerification = systemSettingService.getBoolean("system.auth.require_email_verification", false);
-        String emailCaptcha = request.getEmailCaptcha();
+        boolean requireEmailVerification = systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true);
 
-        if (requireEmailVerification || StringUtils.hasText(emailCaptcha)) {
-            if (!emailService.verifyCode(normalizedEmail, emailCaptcha)) {
+        if (requireEmailVerification) {
+            String emailCaptcha = request.getEmailCaptcha();
+            if (!StringUtils.hasText(emailCaptcha)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱验证码不能为空");
+            }
+            if (!emailService.verifyCode(normalizedEmail, emailCaptcha.trim())) {
                 throw new InvalidCaptchaException("邮箱验证码错误或已过期");
             }
         } else {

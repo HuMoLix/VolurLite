@@ -46,6 +46,13 @@
           <span class="field-hint">{{ t('admin.system.general.registration_hint') }}</span>
         </div>
       </n-form-item>
+
+      <n-form-item :label="t('admin.system.general.require_email_verification')" path="requireEmailVerification">
+        <div class="switch-row">
+          <n-switch v-model:value="form.requireEmailVerification" />
+          <span class="field-hint">{{ t('admin.system.general.require_email_verification_hint') }}</span>
+        </div>
+      </n-form-item>
     </n-form>
   </div>
 </template>
@@ -68,6 +75,7 @@ interface GeneralSettings {
   icpNumber: string
   defaultLocale: string
   registrationEnabled: boolean
+  requireEmailVerification: boolean
 }
 
 defineProps<{

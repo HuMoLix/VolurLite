@@ -131,6 +131,7 @@ public class SystemSettingInitializer implements ApplicationRunner {
     private void ensureDefaultSettings() {
         initDefaultIfAbsent(SystemSettingKeys.CAPTCHA_ENABLED, "true", "CAPTCHA", "BOOLEAN", true, "人机验证是否开启");
         initDefaultIfAbsent(SystemSettingKeys.AUTH_REGISTRATION_ENABLED, "true", "AUTH", "BOOLEAN", true, "是否开放用户注册");
+        initDefaultIfAbsent(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, "true", "AUTH", "BOOLEAN", true, "注册是否强制邮箱验证");
         initDefaultIfAbsent(SystemSettingKeys.GENERAL_PLATFORM_NAME, "Volur Lite", "GENERAL", "STRING", true, "平台全称");
         initDefaultIfAbsent(SystemSettingKeys.GENERAL_DEFAULT_LOCALE, "zh_CN", "GENERAL", "STRING", true, "系统默认语言");
         initDefaultIfAbsent(SystemSettingKeys.MAINTENANCE_ENABLED, "false", "MAINTENANCE", "BOOLEAN", true, "全站维护模式开关");

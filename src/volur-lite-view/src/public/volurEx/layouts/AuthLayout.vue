@@ -86,9 +86,13 @@ function toggleLanguage() {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  background-color: var(--v-bg-base);
+  background-color: #ffffff;
   color: var(--v-text-primary);
   transition: background-color 0.25s ease, color 0.25s ease;
+
+  @include theme-dark {
+    background-color: var(--v-bg-base);
+  }
 }
 
 .top-bar {

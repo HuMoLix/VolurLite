@@ -29,7 +29,9 @@
     "locale_zh_cn": "简体中文 (zh_CN)",
     "locale_en_us": "English (en_US)",
     "registration_enabled": "开放新用户注册",
-    "registration_hint": "开启后允许普通访客在前台注册新账号；关闭时仅限管理员在后台创建"
+    "registration_hint": "开启后允许普通访客在前台注册新账号；关闭时仅限管理员在后台创建",
+    "require_email_verification": "注册强制邮箱验证",
+    "require_email_verification_hint": "开启后新用户注册必须验证邮箱验证码；关闭后前台直接采用人机验证保障注册安全"
   },
   "captcha": {
     "enabled": "全站人机验证总开关",

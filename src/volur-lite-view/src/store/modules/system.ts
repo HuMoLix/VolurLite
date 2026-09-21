@@ -35,6 +35,10 @@ export const useSystemStore = defineStore('system', () => {
     return settings.value['system.auth.registration_enabled'] !== 'false'
   })
 
+  const isEmailVerificationRequired = computed<boolean>(() => {
+    return settings.value['system.auth.require_email_verification'] !== 'false'
+  })
+
   const isCaptchaEnabled = computed<boolean>(() => {
     return settings.value['system.captcha.enabled'] !== 'false'
   })
@@ -114,6 +118,7 @@ export const useSystemStore = defineStore('system', () => {
     icpNumber,
     defaultLocale,
     isRegistrationEnabled,
+    isEmailVerificationRequired,
     isCaptchaEnabled,
     isMaintenanceMode,
     maintenanceNotice,

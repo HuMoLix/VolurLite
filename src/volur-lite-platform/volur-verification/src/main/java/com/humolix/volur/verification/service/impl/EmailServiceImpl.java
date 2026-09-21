@@ -112,7 +112,7 @@ public class EmailServiceImpl implements EmailService {
             throw new BusinessException(HttpStatus.CONFLICT, "该邮箱已被注册");
         }
 
-        if (systemSettingService.getBoolean("system.auth.require_email_verification", false)) {
+        if (systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true)) {
             String whitelistStr = systemSettingService.getSettingValue("system.auth.email_whitelist_suffixes", "");
             if (StringUtils.hasText(whitelistStr)) {
                 String[] whitelist = whitelistStr.split(",");
