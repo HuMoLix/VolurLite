@@ -87,6 +87,32 @@
 
 ---
 
+### 1.3 Git 提交规范与版本控制 (Git Commit Specification)
+代码仓库统一遵循 **Angular / Conventional Commits** 提交信息规范。单次提交保持原子性，信息描述直击变更核心：
+
+1. **提交标准格式**：
+   ```
+   <type>(<scope>): <subject>
+   ```
+2. **Type 类别语义定义（强制小写）**：
+   - **`feat`**：新增功能 (Feature)，如新 API、新前端组件/视图或全新业务流程；
+   - **`fix`**：缺陷修复 (Bug Fix)，如修复接口 500 异常、外键约束冲突、样式溢出等；
+   - **`refactor`**：代码重构 (Refactoring)，既不新增功能也不修复 Bug 的代码结构与抽象优化；
+   - **`comment` / `docs`**：注释与文档变更 (Documentation / Comments)，包括 `GEMINI.md`、`agent/volur-design-md` 施工记录、JavaDoc / TSDoc 等；
+   - **`style`**：代码格式变动（空格、标点、缩进等，不影响程序语义）；
+   - **`test`**：测试用例的新增、补齐或维护（单元测试、Mock 测试等）；
+   - **`perf`**：性能提升（SQL 查询优化、缓存策略调优、高并发与虚拟线程调优等）；
+   - **`chore`**：日常维护、工程构建配置、依赖升级与运维脚本变动。
+3. **Scope 影响范围标准**：
+   - 后端模块：`competition`、`auth`、`system`、`challenge`、`user`、`verification`、`notification`、`container`、`framework`、`logging`；
+   - 前端模块：`view`、`volurEx`、`router`、`store`、`locale`；
+   - 数据库与运维：`scripts`、`db`；
+   - 规范与审计：`agent`、`docs`。
+4. **Subject 规范**：
+   - 精炼直击核心，句尾严禁使用句号。
+
+---
+
 ## 2. 详细规范说明导航
 
 关于更详尽的设计约束、反模式对照与正确代码范例，请参阅：
@@ -104,3 +130,4 @@
 4. **开发记录与审计溯源要求**：当每次 Agent 对项目文件进行修改或重构完成之后，必须在 `agent/volur-design-md` 文件夹中使用 Markdown 形式记录完整的施工与修改文档，详细阐述变更背景、改动点、安全隐患修复说明及影响范围，以便开发者进行溯源分析和审计。
 5. **自动化脚本与批量任务操作规范 (Scripting for Batch Operations)**：当且仅当需要 Agent 进行跨多文件的大批量、高重复性作业时，方可使用 Python、C 或 Go 编写自动化脚本。所有脚本必须统一存放在 `agent/volur-design-scripts` 文件夹中，且**必须严格遵守 [`agent/volur-design-scripts/Script-rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-scripts/Script-rules.md) 的约束要求**（仅供 Agent内部消费、杜绝冗余注释与文档字符串、禁止输出装饰性 UI/无用打印、输出直击核心）。严禁在针对性单文件任务中滥用脚本。
 6. **实体与数据库变更强制同步迁移脚本**：当涉及新增/变更实体类（Entity）、新增/修改数据库表字段、表结构或索引约束时，必须在同一变更周期内同步修改 [`scripts/upgrade/upgrade_to_latest.sql`](file:///Users/humolix/Documents/Dev/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql)，严格编写具备幂等性的增量 DDL 与数据清洗回填逻辑，严禁遗漏迁移脚本而直接提交实体变更。
+7. **执行 Git 提交时**：严格遵循 Conventional Commits 提交规范（`feat`/`fix`/`refactor`/`comment`/`docs`/`test` 等），准确标识模块 Scope，提交信息精炼直接，严禁无意义的模糊描述。
