@@ -27,6 +27,13 @@ import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
 import com.humolix.volur.notification.domain.enums.NotificationType;
 import com.humolix.volur.notification.event.SendNotificationEvent;
 import com.alibaba.fastjson2.JSON;
+import com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO;
+import com.humolix.volur.competition.domain.entity.CompetitionMember;
+import com.humolix.volur.competition.domain.enums.MemberRole;
+import com.humolix.volur.competition.domain.enums.MemberStatus;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.Gender;
+import com.humolix.volur.user.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,8 +47,11 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -58,6 +68,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
     private final AwdPlusCompetitionPatchRepository awdPlusPatchRepository;
     private final CompetitionMapper competitionMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserRepository userRepository;
 
     @Override
     public PageResponse<AdminTeamListVO> listTeams(Long competitionId, Integer page, Integer size, TeamStatus status, String keyword) {
@@ -254,6 +265,153 @@ public class AdminTeamServiceImpl implements AdminTeamService {
         if (request.getOrganizationType() != null) {
             team.setOrganizationType(request.getOrganizationType());
         }
+
+        // 处理参赛成员更新 (全信息更新 & 支持修改队长)
+        if (request.getMembers() != null) {
+            if (request.getMembers().isEmpty()) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "参赛成员名册不能为空，至少需保留1名队长");
+            }
+
+            List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
+            Map<Long, CompetitionMember> regularMemberMap = allMembers.stream()
+                    .filter(m -> m.getRole() != MemberRole.LEADER)
+                    .collect(Collectors.toMap(CompetitionMember::getId, m -> m));
+
+            // 识别指定的队长：若有多个只保留第一个作为队长；若未指定则默认第1个为队长
+            int captainIndex = -1;
+            for (int i = 0; i < request.getMembers().size(); i++) {
+                if (request.getMembers().get(i).getRole() == MemberRole.CAPTAIN) {
+                    captainIndex = i;
+                    break;
+                }
+            }
+            if (captainIndex == -1) {
+                captainIndex = 0;
+            }
+
+            Set<Long> processedMemberIds = new HashSet<>();
+            User newCaptainUser = null;
+
+            for (int i = 0; i < request.getMembers().size(); i++) {
+                AdminTeamMemberDTO memberDTO = request.getMembers().get(i);
+                boolean isCaptain = (i == captainIndex);
+
+                if (memberDTO.getId() != null && regularMemberMap.containsKey(memberDTO.getId())) {
+                    CompetitionMember existing = regularMemberMap.get(memberDTO.getId());
+                    processedMemberIds.add(existing.getId());
+
+                    if (StringUtils.hasText(memberDTO.getRealName())) existing.setRealName(memberDTO.getRealName().trim());
+                    if (memberDTO.getGender() != null) existing.setGender(memberDTO.getGender());
+                    existing.setPhone(memberDTO.getPhone() != null ? memberDTO.getPhone().trim() : null);
+                    existing.setIdCard(memberDTO.getIdCard() != null ? memberDTO.getIdCard().trim().toUpperCase() : null);
+                    existing.setEmployeeNumber(memberDTO.getEmployeeNumber() != null ? memberDTO.getEmployeeNumber().trim() : null);
+                    existing.setDepartment(memberDTO.getDepartment() != null ? memberDTO.getDepartment().trim() : null);
+                    existing.setPosition(memberDTO.getPosition() != null ? memberDTO.getPosition().trim() : null);
+
+                    if (StringUtils.hasText(memberDTO.getEmail())) {
+                        String email = memberDTO.getEmail().trim().toLowerCase();
+                        existing.setEmail(email);
+                        userRepository.findByEmail(email).ifPresent(existing::setUser);
+                    }
+
+                    existing.setRole(isCaptain ? MemberRole.CAPTAIN : MemberRole.MEMBER);
+                    memberRepository.save(existing);
+
+                    if (isCaptain && existing.getUser() != null) {
+                        newCaptainUser = existing.getUser();
+                    }
+                } else {
+                    User memberUser = null;
+                    if (StringUtils.hasText(memberDTO.getEmail())) {
+                        memberUser = userRepository.findByEmail(memberDTO.getEmail().trim().toLowerCase()).orElse(null);
+                    }
+                    CompetitionMember newMember = CompetitionMember.builder()
+                            .competition(team.getCompetition())
+                            .team(team)
+                            .user(memberUser)
+                            .role(isCaptain ? MemberRole.CAPTAIN : MemberRole.MEMBER)
+                            .status(MemberStatus.INVITED_ACCEPTED)
+                            .realName(memberDTO.getRealName() != null ? memberDTO.getRealName().trim() : null)
+                            .gender(memberDTO.getGender() != null ? memberDTO.getGender() : Gender.MALE)
+                            .phone(memberDTO.getPhone() != null ? memberDTO.getPhone().trim() : null)
+                            .email(memberDTO.getEmail() != null ? memberDTO.getEmail().trim().toLowerCase() : null)
+                            .idCard(memberDTO.getIdCard() != null ? memberDTO.getIdCard().trim().toUpperCase() : null)
+                            .employeeNumber(memberDTO.getEmployeeNumber() != null ? memberDTO.getEmployeeNumber().trim() : null)
+                            .department(memberDTO.getDepartment() != null ? memberDTO.getDepartment().trim() : null)
+                            .position(memberDTO.getPosition() != null ? memberDTO.getPosition().trim() : null)
+                            .build();
+                    CompetitionMember savedNew = memberRepository.save(newMember);
+                    if (isCaptain && memberUser != null) {
+                        newCaptainUser = memberUser;
+                    }
+                }
+            }
+
+            // 删除被移除的队员
+            for (CompetitionMember m : regularMemberMap.values()) {
+                if (!processedMemberIds.contains(m.getId())) {
+                    memberRepository.delete(m);
+                }
+            }
+
+            if (newCaptainUser != null) {
+                team.setCaptain(newCaptainUser);
+            }
+        }
+
+        // 处理指导老师 / 领队更新
+        if (request.getLeaders() != null) {
+            List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
+            Map<Long, CompetitionMember> leaderMap = allMembers.stream()
+                    .filter(m -> m.getRole() == MemberRole.LEADER)
+                    .collect(Collectors.toMap(CompetitionMember::getId, m -> m));
+
+            Set<Long> processedLeaderIds = new HashSet<>();
+            for (AdminTeamMemberDTO leaderDTO : request.getLeaders()) {
+                if (leaderDTO.getId() != null && leaderMap.containsKey(leaderDTO.getId())) {
+                    CompetitionMember leader = leaderMap.get(leaderDTO.getId());
+                    processedLeaderIds.add(leader.getId());
+
+                    if (StringUtils.hasText(leaderDTO.getRealName())) leader.setRealName(leaderDTO.getRealName().trim());
+                    if (leaderDTO.getGender() != null) leader.setGender(leaderDTO.getGender());
+                    leader.setPhone(leaderDTO.getPhone() != null ? leaderDTO.getPhone().trim() : null);
+                    leader.setEmail(leaderDTO.getEmail() != null ? leaderDTO.getEmail().trim().toLowerCase() : null);
+                    leader.setIdCard(leaderDTO.getIdCard() != null ? leaderDTO.getIdCard().trim().toUpperCase() : null);
+                    leader.setEmployeeNumber(leaderDTO.getEmployeeNumber() != null ? leaderDTO.getEmployeeNumber().trim() : null);
+                    leader.setDepartment(leaderDTO.getDepartment() != null ? leaderDTO.getDepartment().trim() : null);
+                    leader.setPosition(leaderDTO.getPosition() != null ? leaderDTO.getPosition().trim() : null);
+                    memberRepository.save(leader);
+                } else {
+                    User leaderUser = null;
+                    if (StringUtils.hasText(leaderDTO.getEmail())) {
+                        leaderUser = userRepository.findByEmail(leaderDTO.getEmail().trim().toLowerCase()).orElse(null);
+                    }
+                    CompetitionMember newLeader = CompetitionMember.builder()
+                            .competition(team.getCompetition())
+                            .team(team)
+                            .user(leaderUser)
+                            .role(MemberRole.LEADER)
+                            .status(MemberStatus.INVITED_ACCEPTED)
+                            .realName(leaderDTO.getRealName() != null ? leaderDTO.getRealName().trim() : null)
+                            .gender(leaderDTO.getGender() != null ? leaderDTO.getGender() : Gender.MALE)
+                            .phone(leaderDTO.getPhone() != null ? leaderDTO.getPhone().trim() : null)
+                            .email(leaderDTO.getEmail() != null ? leaderDTO.getEmail().trim().toLowerCase() : null)
+                            .idCard(leaderDTO.getIdCard() != null ? leaderDTO.getIdCard().trim().toUpperCase() : null)
+                            .employeeNumber(leaderDTO.getEmployeeNumber() != null ? leaderDTO.getEmployeeNumber().trim() : null)
+                            .department(leaderDTO.getDepartment() != null ? leaderDTO.getDepartment().trim() : null)
+                            .position(leaderDTO.getPosition() != null ? leaderDTO.getPosition().trim() : null)
+                            .build();
+                    memberRepository.save(newLeader);
+                }
+            }
+
+            for (CompetitionMember l : leaderMap.values()) {
+                if (!processedLeaderIds.contains(l.getId())) {
+                    memberRepository.delete(l);
+                }
+            }
+        }
+
         teamRepository.save(team);
         log.info("[Admin-Team] 管理员更新了战队 ID: {} 的基本信息, 新名称: {}", teamId, newTeamName);
     }

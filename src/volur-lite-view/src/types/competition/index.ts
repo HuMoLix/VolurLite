@@ -379,12 +379,28 @@ export interface TeamAuditRequestDTO {
   auditReason?: string
 }
 
+/** 管理员修改队伍成员信息 DTO */
+export interface AdminTeamMemberDTO {
+  id?: number | string
+  realName?: string
+  gender?: 'MALE' | 'FEMALE'
+  role?: MemberRole
+  phone?: string
+  email?: string
+  idCard?: string
+  employeeNumber?: string
+  department?: string
+  position?: string
+}
+
 /** 管理员修改队伍信息 DTO */
 export interface AdminTeamUpdateDTO {
   teamName: string
   description?: string
   organization?: string
   organizationType?: OrganizationType
+  members?: AdminTeamMemberDTO[]
+  leaders?: AdminTeamMemberDTO[]
 }
 
 /** 批量审核队伍 DTO */

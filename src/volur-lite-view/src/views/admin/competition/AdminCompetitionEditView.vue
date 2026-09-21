@@ -102,8 +102,8 @@
             />
           </n-tab-pane>
 
-          <!-- Tab: 队伍审核 -->
-          <n-tab-pane name="teams" :tab="t('admin.competitions.tab_teams')">
+          <!-- Tab: 队伍管理 -->
+          <n-tab-pane name="teams" :tab="t('admin.competitions.tab_teams', '队伍管理')">
             <div v-if="!isEdit" class="tab-disabled-state">
               <n-alert type="warning" title="功能暂未就绪">
                 {{ t('admin.competitions.tip_create_first') }}

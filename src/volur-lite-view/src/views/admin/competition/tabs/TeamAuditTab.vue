@@ -259,73 +259,12 @@
       </template>
     </n-modal>
 
-    <!-- Edit Team Modal (Admin Update Team Info) -->
-    <n-modal
-      v-model:show="showEditModal"
-      preset="card"
-      :title="`修改队伍信息 - ${editingTeam?.teamName || ''}`"
-      style="width: 520px;"
-    >
-      <div v-if="editingTeam" class="edit-modal-content">
-        <n-form label-placement="top" :model="editForm">
-          <n-form-item label="队伍名称" required>
-            <n-input
-              v-model:value="editForm.teamName"
-              placeholder="请输入队伍名称 (2-32 字符)"
-              maxlength="32"
-              show-count
-            />
-          </n-form-item>
-
-          <n-form-item label="所属单位">
-            <n-input
-              v-model:value="editForm.organization"
-              placeholder="请输入学校或企事业单位全称"
-              maxlength="64"
-            />
-          </n-form-item>
-
-          <n-form-item label="单位类型">
-            <n-select
-              v-model:value="editForm.organizationType"
-              :options="organizationTypeOptions"
-              placeholder="请选择单位类型"
-            />
-          </n-form-item>
-
-          <n-form-item label="队伍简介">
-            <n-input
-              v-model:value="editForm.description"
-              type="textarea"
-              placeholder="简要描述队伍口号或特色 (选填，不超过200字符)"
-              :rows="3"
-              maxlength="200"
-              show-count
-            />
-          </n-form-item>
-        </n-form>
-      </div>
-      <template #footer>
-        <n-space justify="end" :size="12">
-          <n-button @click="showEditModal = false">取消</n-button>
-          <n-button
-            type="primary"
-            class="theme-primary-btn"
-            :loading="submittingEdit"
-            :disabled="!editForm.teamName.trim()"
-            @click="handleConfirmEdit"
-          >
-            保存修改
-          </n-button>
-        </n-space>
-      </template>
-    </n-modal>
-
     <!-- Team Full Details Modal (Extracted into reusable admin component) -->
     <AdminTeamDetailModal
       v-model:show="showDetailModal"
       :comp-id="compId"
       :team-id="selectedTeamId"
+      @reject="openRejectModal"
       @audit-success="fetchTeams"
       @update-success="fetchTeams"
     />
@@ -367,18 +306,16 @@ import {
 } from '@vicons/ionicons5'
 import type {
   AdminTeamListVO,
+  AdminTeamDetailVO,
   TeamAuditRequestDTO,
   AdminCompetitionDetailVO,
-  TeamStatus,
-  OrganizationType
+  TeamStatus
 } from '@/types/competition'
 import {
   listAdminTeamsApi,
-  getAdminTeamDetailApi,
   auditAdminTeamApi,
   deleteAdminTeamApi,
   updateCompetitionApi,
-  updateAdminTeamApi,
   batchAuditAdminTeamsApi,
   batchDeleteAdminTeamsApi
 } from '@/api/competition'
@@ -432,22 +369,6 @@ const submittingReject = ref<boolean>(false)
 const showBatchRejectModal = ref<boolean>(false)
 const batchRejectReason = ref<string>('')
 
-// Edit Team Modal State (Admin Rename and Update)
-const showEditModal = ref<boolean>(false)
-const editingTeam = ref<AdminTeamListVO | null>(null)
-const submittingEdit = ref<boolean>(false)
-const editForm = reactive<{
-  teamName: string
-  description: string
-  organization: string
-  organizationType: OrganizationType
-}>({
-  teamName: '',
-  description: '',
-  organization: '',
-  organizationType: 'SCHOOL'
-})
-
 // Detail Modal State (AdminTeamDetailModal)
 const showDetailModal = ref<boolean>(false)
 const selectedTeamId = ref<string | number | null>(null)
@@ -457,16 +378,6 @@ const statusFilterOptions: SelectOption[] = [
   { label: '待审核 (AUDIT_DRAFT)', value: 'AUDIT_DRAFT' },
   { label: '已通过 (AUDIT_PASSED)', value: 'AUDIT_PASSED' },
   { label: '已驳回 (AUDIT_REJECTED)', value: 'AUDIT_REJECTED' }
-]
-
-const organizationTypeOptions: SelectOption[] = [
-  { label: '学校 (SCHOOL)', value: 'SCHOOL' },
-  { label: '企业单位 (ENTERPRISE)', value: 'ENTERPRISE' },
-  { label: '科研院所 (RESEARCH)', value: 'RESEARCH' },
-  { label: '军工 (MILITARY)', value: 'MILITARY' },
-  { label: '能源 (ENERGY)', value: 'ENERGY' },
-  { label: '金融 (FINANCE)', value: 'FINANCE' },
-  { label: '其他 (OTHER)', value: 'OTHER' }
 ]
 
 const columns: DataTableColumns<AdminTeamListVO> = [
@@ -553,17 +464,6 @@ const columns: DataTableColumns<AdminTeamListVO> = [
               }
             )
           : null,
-        h(
-          NButton,
-          {
-            size: 'tiny',
-            quaternary: true,
-            onClick: () => openEditTeamModal(row)
-          },
-          {
-            default: () => '编辑'
-          }
-        ),
         h(
           NButton,
           {
@@ -693,8 +593,18 @@ async function handleApprove(row: AdminTeamListVO) {
   }
 }
 
-function openRejectModal(row: AdminTeamListVO) {
-  rejectingTeam.value = row
+function openRejectModal(row: AdminTeamListVO | AdminTeamDetailVO) {
+  rejectingTeam.value = {
+    id: row.id,
+    competitionId: row.competitionId,
+    teamName: row.teamName,
+    captainId: row.captainId,
+    captainUsername: row.captainUsername,
+    memberCount: 'memberCount' in row ? (row.memberCount || 1) : (row.members?.length || 1),
+    status: row.status,
+    auditReason: row.auditReason,
+    createdAt: row.createdAt
+  }
   rejectReason.value = ''
   showRejectModal.value = true
 }
@@ -715,51 +625,6 @@ async function handleConfirmReject() {
     message.error(error.message || '驳回失败')
   } finally {
     submittingReject.value = false
-  }
-}
-
-// Admin Edit Team
-function openEditTeamModal(row: AdminTeamListVO) {
-  editingTeam.value = row
-  editForm.teamName = row.teamName || ''
-  editForm.description = ''
-  editForm.organization = ''
-  editForm.organizationType = 'SCHOOL'
-  showEditModal.value = true
-
-  // Fetch full details to pre-populate form
-  getAdminTeamDetailApi(props.compId, row.id).then((res) => {
-    if (res.data) {
-      editForm.teamName = res.data.teamName || ''
-      editForm.description = res.data.description || ''
-      editForm.organization = res.data.organization || ''
-      editForm.organizationType = res.data.organizationType || 'SCHOOL'
-    }
-  }).catch(() => {})
-}
-
-async function handleConfirmEdit() {
-  if (!editingTeam.value) return
-  const trimmedName = editForm.teamName.trim()
-  if (!trimmedName || trimmedName.length < 2 || trimmedName.length > 32) {
-    message.warning('队伍名称长度必须在 2 到 32 个字符之间')
-    return
-  }
-  submittingEdit.value = true
-  try {
-    await updateAdminTeamApi(props.compId, editingTeam.value.id, {
-      teamName: trimmedName,
-      description: editForm.description ? editForm.description.trim() : undefined,
-      organization: editForm.organization ? editForm.organization.trim() : undefined,
-      organizationType: editForm.organizationType
-    })
-    message.success('队伍信息已成功更新')
-    showEditModal.value = false
-    fetchTeams()
-  } catch (error: any) {
-    message.error(error.message || '修改队伍信息失败')
-  } finally {
-    submittingEdit.value = false
   }
 }
 

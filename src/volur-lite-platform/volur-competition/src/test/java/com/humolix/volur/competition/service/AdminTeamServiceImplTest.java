@@ -24,6 +24,7 @@ import com.humolix.volur.competition.service.admin.impl.AdminTeamServiceImpl;
 import com.humolix.volur.notification.domain.enums.NotificationType;
 import com.humolix.volur.notification.event.SendNotificationEvent;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,9 @@ class AdminTeamServiceImplTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private AdminTeamServiceImpl adminTeamService;
@@ -238,6 +242,43 @@ class AdminTeamServiceImplTest {
         assertEquals("新口号", team.getDescription());
         assertEquals("清华大学", team.getOrganization());
         assertEquals(OrganizationType.SCHOOL, team.getOrganizationType());
+        verify(teamRepository).save(team);
+    }
+
+    @Test
+    @DisplayName("修改队伍：更新成员全量信息并修改指定队长")
+    void testUpdateTeam_withMembersAndCaptainChange() {
+        AdminTeamUpdateDTO dto = new AdminTeamUpdateDTO();
+        dto.setTeamName("战狼小队");
+
+        // 将原队员 regularMember 设为队长，原队长 captainMember 设为队员
+        com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO m1 = new com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO();
+        m1.setId(regularMember.getId());
+        m1.setRole(MemberRole.CAPTAIN);
+        m1.setRealName("新队长张三");
+        m1.setPhone("13900001111");
+
+        com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO m2 = new com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO();
+        m2.setId(captainMember.getId());
+        m2.setRole(MemberRole.MEMBER);
+        m2.setRealName("原队长李四");
+
+        dto.setMembers(List.of(m1, m2));
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(teamRepository.existsByCompetitionIdAndTeamNameAndIdNot(competitionId, "战狼小队", teamId)).thenReturn(false);
+        when(memberRepository.findByTeamId(teamId)).thenReturn(List.of(captainMember, regularMember));
+
+        adminTeamService.updateTeam(teamId, dto);
+
+        assertEquals(MemberRole.CAPTAIN, regularMember.getRole());
+        assertEquals("新队长张三", regularMember.getRealName());
+        assertEquals("13900001111", regularMember.getPhone());
+        assertEquals(MemberRole.MEMBER, captainMember.getRole());
+        assertEquals("原队长李四", captainMember.getRealName());
+        assertEquals(regularMember.getUser(), team.getCaptain());
+        verify(memberRepository).save(regularMember);
+        verify(memberRepository).save(captainMember);
         verify(teamRepository).save(team);
     }
 
