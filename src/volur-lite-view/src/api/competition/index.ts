@@ -14,6 +14,7 @@ import type {
   CompetitionCreateRequestDTO,
   CompetitionUpdateRequestDTO,
   AdminTeamListVO,
+  AdminTeamStatsVO,
   AdminTeamDetailVO,
   TeamAuditRequestDTO,
   AdminTeamUpdateDTO,
@@ -395,6 +396,16 @@ export function listAdminTeamsApi(
     `/admin/competitions/${competitionId}/teams`,
     { params }
   )
+}
+
+/**
+ * 获取指定竞赛报名队伍统计概览
+ * 对应后端: GET /api/v1/admin/competitions/{competitionId}/teams/stats
+ */
+export function getAdminTeamStatsApi(
+  competitionId: number | string
+): Promise<ApiResponse<AdminTeamStatsVO>> {
+  return request.get<AdminTeamStatsVO>(`/admin/competitions/${competitionId}/teams/stats`)
 }
 
 /**

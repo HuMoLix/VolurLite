@@ -6,6 +6,7 @@ import com.humolix.volur.competition.domain.dto.TeamAuditRequestDTO;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.AdminTeamDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminTeamListVO;
+import com.humolix.volur.competition.domain.vo.AdminTeamStatsVO;
 import com.humolix.volur.framework.common.api.PageResponse;
 
 import java.util.List;
@@ -13,6 +14,8 @@ import java.util.List;
 public interface AdminTeamService {
 
     PageResponse<AdminTeamListVO> listTeams(Long competitionId, Integer page, Integer size, TeamStatus status, String keyword);
+
+    AdminTeamStatsVO getTeamStats(Long competitionId);
 
     AdminTeamDetailVO getTeam(Long teamId);
 

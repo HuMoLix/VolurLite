@@ -10,6 +10,7 @@ import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.AdminTeamDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminTeamListVO;
+import com.humolix.volur.competition.domain.vo.AdminTeamStatsVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.CompetitionChatMessageRepository;
 import com.humolix.volur.competition.repository.CompetitionConfigRepository;
@@ -94,6 +95,21 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             vo.setMemberCount((int) count);
             return vo;
         }));
+    }
+
+    @Override
+    public AdminTeamStatsVO getTeamStats(Long competitionId) {
+        long total = teamRepository.countByCompetitionId(competitionId);
+        long pending = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_DRAFT);
+        long approved = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_PASSED);
+        long rejected = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_REJECTED);
+
+        return AdminTeamStatsVO.builder()
+                .total(total)
+                .pending(pending)
+                .approved(approved)
+                .rejected(rejected)
+                .build();
     }
 
     @Override
@@ -277,24 +293,20 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                     .filter(m -> m.getRole() != MemberRole.LEADER)
                     .collect(Collectors.toMap(CompetitionMember::getId, m -> m));
 
-            // 识别指定的队长：若有多个只保留第一个作为队长；若未指定则默认第1个为队长
-            int captainIndex = -1;
-            for (int i = 0; i < request.getMembers().size(); i++) {
-                if (request.getMembers().get(i).getRole() == MemberRole.CAPTAIN) {
-                    captainIndex = i;
-                    break;
-                }
-            }
-            if (captainIndex == -1) {
-                captainIndex = 0;
+            // 严格校验是否且仅有唯一一个队长角色的成员
+            long captainCount = request.getMembers().stream()
+                    .filter(m -> m.getRole() == MemberRole.CAPTAIN)
+                    .count();
+            if (captainCount != 1) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST,
+                        "参赛队伍必须且只能包含 1 名队长，当前指定了 " + captainCount + " 名队长");
             }
 
             Set<Long> processedMemberIds = new HashSet<>();
             User newCaptainUser = null;
 
-            for (int i = 0; i < request.getMembers().size(); i++) {
-                AdminTeamMemberDTO memberDTO = request.getMembers().get(i);
-                boolean isCaptain = (i == captainIndex);
+            for (AdminTeamMemberDTO memberDTO : request.getMembers()) {
+                boolean isCaptain = (memberDTO.getRole() == MemberRole.CAPTAIN);
 
                 if (memberDTO.getId() != null && regularMemberMap.containsKey(memberDTO.getId())) {
                     CompetitionMember existing = regularMemberMap.get(memberDTO.getId());

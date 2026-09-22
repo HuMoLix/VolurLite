@@ -126,7 +126,7 @@
 
       <template #filter-right>
         <n-space align="center" :size="12" class="tab-filter-right">
-          <n-button quaternary :loading="loading" @click="() => fetchTeams()">
+          <n-button quaternary :loading="loading" @click="handleManualRefresh">
             <template #icon>
               <n-icon :component="RefreshOutline" />
             </template>
@@ -265,8 +265,8 @@
       :comp-id="compId"
       :team-id="selectedTeamId"
       @reject="openRejectModal"
-      @audit-success="fetchTeams"
-      @update-success="fetchTeams"
+      @audit-success="handleDetailModalSuccess"
+      @update-success="handleDetailModalSuccess"
     />
   </div>
 </template>
@@ -313,6 +313,7 @@ import type {
 } from '@/types/competition'
 import {
   listAdminTeamsApi,
+  getAdminTeamStatsApi,
   auditAdminTeamApi,
   deleteAdminTeamApi,
   updateCompetitionApi,
@@ -375,9 +376,9 @@ const selectedTeamId = ref<string | number | null>(null)
 
 const statusFilterOptions: SelectOption[] = [
   { label: '全部状态', value: '' },
-  { label: '待审核 (AUDIT_DRAFT)', value: 'AUDIT_DRAFT' },
-  { label: '已通过 (AUDIT_PASSED)', value: 'AUDIT_PASSED' },
-  { label: '已驳回 (AUDIT_REJECTED)', value: 'AUDIT_REJECTED' }
+  { label: '待审核', value: 'AUDIT_DRAFT' },
+  { label: '已通过', value: 'AUDIT_PASSED' },
+  { label: '已驳回', value: 'AUDIT_REJECTED' }
 ]
 
 const columns: DataTableColumns<AdminTeamListVO> = [
@@ -506,8 +507,23 @@ watch(
 onMounted(() => {
   if (props.compId) {
     fetchTeams()
+    fetchStats()
   }
 })
+
+async function fetchStats() {
+  try {
+    const res = await getAdminTeamStatsApi(props.compId)
+    if (res.data) {
+      statData.total = res.data.total ?? 0
+      statData.pending = res.data.pending ?? 0
+      statData.approved = res.data.approved ?? 0
+      statData.rejected = res.data.rejected ?? 0
+    }
+  } catch (error) {
+    console.error('Fetch team stats error:', error)
+  }
+}
 
 async function fetchTeams() {
   loading.value = true
@@ -519,21 +535,24 @@ async function fetchTeams() {
       keyword: searchKeyword.value.trim() ? searchKeyword.value.trim() : undefined
     })
 
-    const list = res.data?.list || []
-    teams.value = list
+    teams.value = res.data?.list || []
     pagination.total = res.data?.total || 0
-
-    // Refresh stats
-    statData.total = pagination.total
-    statData.pending = list.filter(t => t.status === 'AUDIT_DRAFT').length
-    statData.approved = list.filter(t => t.status === 'AUDIT_PASSED').length
-    statData.rejected = list.filter(t => t.status === 'AUDIT_REJECTED').length
   } catch (error: any) {
     console.error('Fetch teams error:', error)
     message.error(error.message || '获取参赛队伍列表失败')
   } finally {
     loading.value = false
   }
+}
+
+function handleManualRefresh() {
+  fetchTeams()
+  fetchStats()
+}
+
+function handleDetailModalSuccess() {
+  fetchTeams()
+  fetchStats()
 }
 
 function handleSearch() {
@@ -588,6 +607,7 @@ async function handleApprove(row: AdminTeamListVO) {
     await auditAdminTeamApi(props.compId, row.id, req)
     message.success(`队伍「${row.teamName}」资质已审核通过`)
     fetchTeams()
+    fetchStats()
   } catch (error: any) {
     message.error(error.message || '审核操作失败')
   }
@@ -621,6 +641,7 @@ async function handleConfirmReject() {
     message.success(`队伍「${rejectingTeam.value.teamName}」已驳回`)
     showRejectModal.value = false
     fetchTeams()
+    fetchStats()
   } catch (error: any) {
     message.error(error.message || '驳回失败')
   } finally {
@@ -644,6 +665,7 @@ function handleDeleteTeam(row: AdminTeamListVO) {
         await deleteAdminTeamApi(props.compId, row.id)
         message.success('战队已成功删除')
         fetchTeams()
+        fetchStats()
       } catch (error: any) {
         message.error(error.message || '删除战队失败')
       }
@@ -669,6 +691,7 @@ function handleBatchApprove() {
         message.success(`已成功批量通过 ${checkedRowKeys.value.length} 支队伍`)
         checkedRowKeys.value = []
         fetchTeams()
+        fetchStats()
       } catch (error: any) {
         message.error(error.message || '批量审核通过失败')
       } finally {
@@ -702,6 +725,7 @@ async function handleConfirmBatchReject() {
     checkedRowKeys.value = []
     showBatchRejectModal.value = false
     fetchTeams()
+    fetchStats()
   } catch (error: any) {
     message.error(error.message || '批量驳回失败')
   } finally {
@@ -725,6 +749,7 @@ function handleBatchDelete() {
         message.success(`已成功删除 ${checkedRowKeys.value.length} 支队伍`)
         checkedRowKeys.value = []
         fetchTeams()
+        fetchStats()
       } catch (error: any) {
         message.error(error.message || '批量删除队伍失败')
       } finally {

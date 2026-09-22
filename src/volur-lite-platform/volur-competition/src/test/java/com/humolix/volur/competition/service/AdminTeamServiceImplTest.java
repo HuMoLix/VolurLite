@@ -300,6 +300,56 @@ class AdminTeamServiceImplTest {
     }
 
     @Test
+    @DisplayName("修改队伍：成员列表中无队长或包含多个队长时抛出 BusinessException")
+    void testUpdateTeam_whenCaptainCountNotOne_throwsBusinessException() {
+        AdminTeamUpdateDTO dto = new AdminTeamUpdateDTO();
+        dto.setTeamName("新战队");
+
+        com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO m1 = new com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO();
+        m1.setId(10L);
+        m1.setRole(MemberRole.MEMBER); // 0 个队长
+
+        dto.setMembers(List.of(m1));
+
+        when(teamRepository.findById(teamId)).thenReturn(Optional.of(team));
+        when(teamRepository.existsByCompetitionIdAndTeamNameAndIdNot(competitionId, "新战队", teamId)).thenReturn(false);
+        when(memberRepository.findByTeamId(teamId)).thenReturn(List.of(captainMember));
+
+        com.humolix.volur.framework.common.exception.BusinessException ex1 =
+                assertThrows(com.humolix.volur.framework.common.exception.BusinessException.class,
+                        () -> adminTeamService.updateTeam(teamId, dto));
+        assertTrue(ex1.getMessage().contains("必须且只能包含 1 名队长"));
+
+        // 2 个队长测试
+        com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO m2 = new com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO();
+        m2.setId(11L);
+        m2.setRole(MemberRole.CAPTAIN);
+        m1.setRole(MemberRole.CAPTAIN);
+        dto.setMembers(List.of(m1, m2));
+
+        com.humolix.volur.framework.common.exception.BusinessException ex2 =
+                assertThrows(com.humolix.volur.framework.common.exception.BusinessException.class,
+                        () -> adminTeamService.updateTeam(teamId, dto));
+        assertTrue(ex2.getMessage().contains("必须且只能包含 1 名队长"));
+    }
+
+    @Test
+    @DisplayName("获取队伍统计：各状态统计数精确计算并返回 AdminTeamStatsVO")
+    void testGetTeamStats_success() {
+        when(teamRepository.countByCompetitionId(competitionId)).thenReturn(10L);
+        when(teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_DRAFT)).thenReturn(3L);
+        when(teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_PASSED)).thenReturn(5L);
+        when(teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_REJECTED)).thenReturn(2L);
+
+        com.humolix.volur.competition.domain.vo.AdminTeamStatsVO stats = adminTeamService.getTeamStats(competitionId);
+
+        assertEquals(10L, stats.getTotal());
+        assertEquals(3L, stats.getPending());
+        assertEquals(5L, stats.getApproved());
+        assertEquals(2L, stats.getRejected());
+    }
+
+    @Test
     @DisplayName("批量审核队伍：成功批量审核通过并广播通知")
     void testBatchAuditTeams() {
         BatchTeamAuditDTO dto = new BatchTeamAuditDTO();

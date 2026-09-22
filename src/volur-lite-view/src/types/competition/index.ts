@@ -355,6 +355,14 @@ export interface AdminTeamListVO {
   createdAt: string
 }
 
+/** 管理端竞赛参赛队伍统计概览 VO */
+export interface AdminTeamStatsVO {
+  total: number
+  pending: number
+  approved: number
+  rejected: number
+}
+
 /** 管理端参赛队伍详情 VO */
 export interface AdminTeamDetailVO {
   id: number | string

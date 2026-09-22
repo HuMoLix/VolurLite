@@ -379,7 +379,7 @@
                   <th style="width: 120px;">
                     {{ editForm.organizationType !== 'SCHOOL' ? '职位' : '班级' }}
                   </th>
-                  <th style="width: 125px; text-align: center;">操作</th>
+                  <th style="width: 70px; text-align: center;">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -407,15 +407,14 @@
                     />
                   </td>
 
-                  <!-- 角色 (队长状态标识) -->
+                  <!-- 角色 (下拉选择队长/队员) -->
                   <td style="text-align: center;">
-                    <n-tag
+                    <n-select
+                      v-model:value="row.role"
                       size="small"
-                      :type="row.role === 'CAPTAIN' ? 'primary' : 'default'"
-                      round
-                    >
-                      {{ row.role === 'CAPTAIN' ? '队长' : '队员' }}
-                    </n-tag>
+                      :options="memberRoleOptions"
+                      style="width: 85px; margin: 0 auto;"
+                    />
                   </td>
 
                   <!-- 学号 / 工号 -->
@@ -478,32 +477,20 @@
                     />
                   </td>
 
-                  <!-- 操作: 设为队长 & 删除行 -->
+                  <!-- 操作: 删除行 -->
                   <td style="text-align: center;">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                      <n-button
-                        v-if="row.role !== 'CAPTAIN'"
-                        size="tiny"
-                        quaternary
-                        type="primary"
-                        title="将该队员设为新队长"
-                        @click="setAsCaptain(idx)"
-                      >
-                        设为队长
-                      </n-button>
-                      <n-button
-                        size="tiny"
-                        quaternary
-                        type="error"
-                        :disabled="editMembers.length <= 1"
-                        title="删除该成员"
-                        @click="removeMemberRow(idx)"
-                      >
-                        <template #icon>
-                          <n-icon :component="TrashOutline" />
-                        </template>
-                      </n-button>
-                    </div>
+                    <n-button
+                      size="tiny"
+                      quaternary
+                      type="error"
+                      :disabled="editMembers.length <= 1"
+                      title="删除该成员"
+                      @click="removeMemberRow(idx)"
+                    >
+                      <template #icon>
+                        <n-icon :component="TrashOutline" />
+                      </template>
+                    </n-button>
                   </td>
                 </tr>
               </tbody>
@@ -640,8 +627,7 @@
                 通过资质审核
               </n-button>
               <n-button
-                secondary
-                type="primary"
+                class="theme-primary-btn"
                 @click="enterEditMode"
               >
                 <template #icon>
@@ -824,6 +810,11 @@ const genderOptions: SelectOption[] = [
   { label: '女', value: 'FEMALE' }
 ]
 
+const memberRoleOptions: SelectOption[] = [
+  { label: '队长', value: 'CAPTAIN' },
+  { label: '队员', value: 'MEMBER' }
+]
+
 watch(
   () => [props.show, props.teamId],
   async ([newShow, newTeamId]) => {
@@ -912,13 +903,6 @@ function cancelEditMode() {
   isEditing.value = false
 }
 
-// 设为队长
-function setAsCaptain(targetIdx: number) {
-  editMembers.value.forEach((m, i) => {
-    m.role = i === targetIdx ? 'CAPTAIN' : 'MEMBER'
-  })
-}
-
 function addMemberRow() {
   if (editMembers.value.length >= props.compMaxMembers) return
   editMembers.value.push({
@@ -976,6 +960,17 @@ async function handleSaveAll() {
 
   if (editMembers.value.length === 0) {
     message.warning('参赛成员名册不能为空')
+    return
+  }
+
+  // 校验是否且仅有唯一一个队长角色的成员
+  const captainCount = editMembers.value.filter(m => m.role === 'CAPTAIN').length
+  if (captainCount === 0) {
+    message.warning('参赛队伍必须指定 1 名队长，请在成员角色列表中选择一名队长')
+    return
+  }
+  if (captainCount > 1) {
+    message.warning(`参赛队伍只能且必须包含 1 名队长，当前指定了 ${captainCount} 名队长，请调整设置`)
     return
   }
 

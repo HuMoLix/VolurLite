@@ -7,6 +7,7 @@ import com.humolix.volur.competition.domain.dto.TeamAuditRequestDTO;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.AdminTeamDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminTeamListVO;
+import com.humolix.volur.competition.domain.vo.AdminTeamStatsVO;
 import com.humolix.volur.competition.service.admin.AdminTeamService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
@@ -35,6 +36,12 @@ public class AdminCompetitionTeamController {
             @RequestParam(required = false) TeamStatus status,
             @RequestParam(required = false) String keyword) {
         return ApiResponseEntity.ok("获取报名队伍列表成功", teamService.listTeams(competitionId, page, size, status, keyword));
+    }
+
+    @Operation(summary = "获取竞赛报名队伍统计概览")
+    @GetMapping("/stats")
+    public ApiResponse<AdminTeamStatsVO> getTeamStats(@PathVariable Long competitionId) {
+        return ApiResponseEntity.ok("获取报名队伍统计数据成功", teamService.getTeamStats(competitionId));
     }
 
     @Operation(summary = "获取指定参赛队伍详情")
