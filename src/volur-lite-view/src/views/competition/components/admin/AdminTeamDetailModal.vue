@@ -107,7 +107,7 @@
                   </th>
                   <th style="width: 135px;">手机号</th>
                   <th style="width: 165px;">邮箱</th>
-                  <th style="width: 175px;">身份证</th>
+                  <th style="width: 200px; min-width: 200px;">身份证</th>
                   <th style="width: 140px;">
                     {{ isSchoolOrganization ? '学院' : '部门' }}
                   </th>
@@ -172,8 +172,8 @@
                     <span class="email-text" :title="row.email">{{ row.email || '—' }}</span>
                   </td>
 
-                  <!-- 身份证 -->
-                  <td>
+                  <!-- 身份证 (延伸宽度不换行) -->
+                  <td style="white-space: nowrap;">
                     <span v-if="row.idCard" class="id-card-badge">{{ row.idCard }}</span>
                     <span v-else class="text-muted">未填写</span>
                   </td>
@@ -227,7 +227,7 @@
                     </th>
                     <th style="width: 135px;">手机号</th>
                     <th style="width: 165px;">邮箱</th>
-                    <th style="width: 175px;">身份证</th>
+                    <th style="width: 200px; min-width: 200px;">身份证</th>
                     <th style="width: 140px;">
                       {{ isSchoolOrganization ? '学院' : '部门' }}
                     </th>
@@ -270,7 +270,7 @@
                     <td>
                       <span class="email-text" :title="row.email">{{ row.email || '—' }}</span>
                     </td>
-                    <td>
+                    <td style="white-space: nowrap;">
                       <span v-if="row.idCard" class="id-card-badge">{{ row.idCard }}</span>
                       <span v-else class="text-muted">未填写</span>
                     </td>
@@ -372,7 +372,7 @@
                   </th>
                   <th style="width: 135px;">手机号</th>
                   <th style="width: 165px;">邮箱</th>
-                  <th style="width: 175px;">身份证</th>
+                  <th style="width: 200px; min-width: 200px;">身份证</th>
                   <th style="width: 130px;">
                     {{ editForm.organizationType !== 'SCHOOL' ? '部门' : '学院' }}
                   </th>
@@ -447,13 +447,14 @@
                     />
                   </td>
 
-                  <!-- 身份证 -->
-                  <td>
+                  <!-- 身份证 (延伸宽度不换行) -->
+                  <td style="white-space: nowrap;">
                     <n-input
                       v-model:value="row.idCard"
                       size="small"
                       placeholder="身份证"
                       maxlength="32"
+                      style="min-width: 185px;"
                     />
                   </td>
 
@@ -532,7 +533,7 @@
                     </th>
                     <th style="width: 135px;">手机号</th>
                     <th style="width: 165px;">邮箱</th>
-                    <th style="width: 175px;">身份证</th>
+                    <th style="width: 200px; min-width: 200px;">身份证</th>
                     <th style="width: 130px;">
                       {{ editForm.organizationType !== 'SCHOOL' ? '部门' : '学院' }}
                     </th>
@@ -562,8 +563,14 @@
                     <td>
                       <n-input v-model:value="row.email" size="small" placeholder="邮箱" maxlength="128" />
                     </td>
-                    <td>
-                      <n-input v-model:value="row.idCard" size="small" placeholder="身份证" maxlength="32" />
+                    <td style="white-space: nowrap;">
+                      <n-input
+                        v-model:value="row.idCard"
+                        size="small"
+                        placeholder="身份证"
+                        maxlength="32"
+                        style="min-width: 185px;"
+                      />
                     </td>
                     <td>
                       <n-input v-model:value="row.department" size="small" placeholder="部门/学院" maxlength="64" />
@@ -1073,23 +1080,21 @@ function getTeamStatusTag(status?: TeamStatus): 'default' | 'error' | 'primary' 
       return 'error'
     case 'AUDIT_DRAFT':
     case 'PENDING_AUDIT':
-      return 'warning'
     default:
-      return 'default'
+      return 'warning'
   }
 }
 
 function getTeamStatusLabel(status?: TeamStatus): string {
   switch (status) {
     case 'AUDIT_PASSED':
-      return '资质已通过'
+      return '已通过'
     case 'AUDIT_REJECTED':
-      return '已被驳回'
+      return '已驳回'
     case 'AUDIT_DRAFT':
     case 'PENDING_AUDIT':
-      return '待审核'
     default:
-      return '未知状态'
+      return '未审核'
   }
 }
 
@@ -1311,7 +1316,7 @@ function formatDateTime(val?: string) {
     border-radius: 6px;
 
     .roster-table {
-      min-width: 1100px;
+      min-width: 1200px;
 
       th {
         font-weight: 600;
@@ -1331,6 +1336,8 @@ function formatDateTime(val?: string) {
       }
 
       &.edit-mode-table {
+        min-width: 1260px;
+
         td {
           padding: 4px 6px;
         }
@@ -1397,6 +1404,7 @@ function formatDateTime(val?: string) {
   .code-text {
     font-family: var(--v-font-mono, monospace);
     font-size: 12px;
+    white-space: nowrap;
   }
 
   .email-text {
@@ -1409,8 +1417,12 @@ function formatDateTime(val?: string) {
     font-family: var(--v-font-mono, monospace);
     font-size: 12px;
     background: rgba(0, 0, 0, 0.04);
-    padding: 2px 4px;
+    padding: 2px 6px;
     border-radius: 4px;
+    white-space: nowrap;
+    display: inline-block;
+    word-break: keep-all;
+    letter-spacing: 0.5px;
   }
 
   .gender-text,
