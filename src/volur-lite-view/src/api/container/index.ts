@@ -45,10 +45,10 @@ export function extendInstanceApi(challengeId: number | string): Promise<ApiResp
 
 /**
  * 管理端：获取容器集群与运行统计数据
- * 对应后端: GET /api/v1/admin/containers/statistics
+ * 对应后端: GET /api/v1/admin/containers/stats
  */
 export function getAdminContainerStatisticsApi(): Promise<ApiResponse<AdminContainerStatisticsVO>> {
-  return request.get<AdminContainerStatisticsVO>('/admin/containers/statistics')
+  return request.get<AdminContainerStatisticsVO>('/admin/containers/stats')
 }
 
 /**

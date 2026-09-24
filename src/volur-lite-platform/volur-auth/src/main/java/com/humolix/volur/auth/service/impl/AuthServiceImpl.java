@@ -12,7 +12,7 @@ import com.humolix.volur.auth.exception.UserOrEmailExistException;
 import com.humolix.volur.auth.exception.TokenAlreadyBlacklistedException;
 import com.humolix.volur.auth.exception.TokenInvalidException;
 import com.humolix.volur.auth.exception.InvalidCaptchaException;
-import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.framework.security.util.RequestUtil;
 import com.humolix.volur.notification.domain.enums.SecurityEventType;
 import com.humolix.volur.notification.event.SecurityNotificationEvent;
 import com.humolix.volur.user.repository.UserProfileRepository;
@@ -23,7 +23,7 @@ import com.humolix.volur.auth.security.util.SecurityUtils;
 import com.humolix.volur.auth.service.AuthService;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
-import com.humolix.volur.verification.service.CaptchaService;
+import com.humolix.volur.verification.sdk.CaptchaSDK;
 import com.humolix.volur.verification.service.EmailService;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.auth.service.TokenService;
@@ -32,12 +32,13 @@ import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.exception.MaintenanceModeException;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.framework.common.util.SpringContextHolder;
+import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
+import com.humolix.volur.framework.cache.redis.RedisOps;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -64,19 +65,19 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final Sm3PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
-    private final CaptchaService captchaService;
+    private final CaptchaSDK captchaSDK;
     private final EmailService emailService;
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
     private final SystemSettingService systemSettingService;
+    private final VolurCacheTemplate cacheTemplate;
+    private final RedisOps redisOps;
     private final StringRedisTemplate redisTemplate;
-    private final Optional<CacheManager> cacheManager;
 
     private static final String VREDIS_AUTH_LOGIN_ATTEMPTS_KEY_PREFIX = "vredis:auth:login_attempts:";
     private static final String VREDIS_AUTH_LOGIN_LOCK_KEY_PREFIX = "vredis:auth:login_lock:";
     private static final String VREDIS_AUTH_PASSWORD_RESET_KEY_PREFIX = "vredis:verification:password_reset:";
     private static final String VREDIS_AUTH_CHANGE_PASSWORD_KEY_PREFIX = "vredis:auth:change_password:";
-    private static final String CACHE_USER_DETAILS = "user_details";
 
     private void evictUserCache(User user) {
         if (user != null) {
@@ -85,34 +86,15 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void evictUserCache(String username, String email) {
-        if (cacheManager.isPresent()) {
-            Cache cache = cacheManager.get().getCache(CACHE_USER_DETAILS);
-            if (cache != null) {
-                if (StringUtils.hasText(username)) {
-                    cache.evict(username.trim());
-                    cache.evict(username.trim().toLowerCase());
-                }
-                if (StringUtils.hasText(email)) {
-                    cache.evict(email.trim());
-                    cache.evict(email.trim().toLowerCase());
-                }
-            }
+        if (StringUtils.hasText(username)) {
+            String u = username.trim();
+            cacheTemplate.evict(CacheNames.USER_DETAILS, u);
+            cacheTemplate.evict(CacheNames.USER_DETAILS, u.toLowerCase());
         }
-    }
-
-    private void checkCaptchaIfEnabled(String captchaId, String captchaCode, String captchaTicket, CaptchaScene scene) throws InvalidCaptchaException {
-        if (systemSettingService.getBoolean("system.captcha.enabled", false)) {
-            if (StringUtils.hasText(captchaTicket)) {
-                if (!captchaService.verifyTicket(captchaTicket, scene)) {
-                    throw new InvalidCaptchaException("人机验证凭证已失效，请重新验证");
-                }
-            } else if (StringUtils.hasText(captchaId) && StringUtils.hasText(captchaCode)) {
-                if (!captchaService.verifyCaptcha(captchaId, captchaCode, scene)) {
-                    throw new InvalidCaptchaException("图形验证码错误或已过期");
-                }
-            } else {
-                throw new InvalidCaptchaException("请先完成人机安全验证");
-            }
+        if (StringUtils.hasText(email)) {
+            String e = email.trim();
+            cacheTemplate.evict(CacheNames.USER_DETAILS, e);
+            cacheTemplate.evict(CacheNames.USER_DETAILS, e.toLowerCase());
         }
     }
 
@@ -123,45 +105,34 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(HttpStatus.FORBIDDEN, "系统已关闭注册功能");
         }
 
-        String normalizedUsername = request.getUsername().trim();
-        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        String username = request.getUsername();
+        String email = request.getEmail();
 
-        if (userRepository.existsByUsername(normalizedUsername) || userRepository.existsByEmail(normalizedEmail)) {
+        if (userRepository.existsByUsername(username) || (StringUtils.hasText(email) && userRepository.existsByEmail(email))) {
             throw new UserOrEmailExistException();
-        }
-
-        String whitelistStr = systemSettingService.getSettingValue(SystemSettingKeys.AUTH_EMAIL_WHITELIST_SUFFIXES, "");
-        if (StringUtils.hasText(whitelistStr)) {
-            String emailDomain = normalizedEmail.substring(normalizedEmail.lastIndexOf("@") + 1);
-            boolean isWhitelisted = Arrays.stream(whitelistStr.split(","))
-                    .map(String::trim)
-                    .map(String::toLowerCase)
-                    .filter(StringUtils::hasText)
-                    .map(suffix -> suffix.startsWith("@") ? suffix.substring(1) : suffix)
-                    .anyMatch(allowedDomain -> emailDomain.equals(allowedDomain) || emailDomain.endsWith("." + allowedDomain));
-            if (!isWhitelisted) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "不支持该邮箱后缀注册，仅限: " + whitelistStr);
-            }
         }
 
         boolean requireEmailVerification = systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true);
 
         if (requireEmailVerification) {
+            if (!StringUtils.hasText(email)) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱不能为空");
+            }
             String emailCaptcha = request.getEmailCaptcha();
             if (!StringUtils.hasText(emailCaptcha)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱验证码不能为空");
             }
-            if (!emailService.verifyCode(normalizedEmail, emailCaptcha.trim())) {
+            if (!emailService.verifyCode(email, emailCaptcha)) {
                 throw new InvalidCaptchaException("邮箱验证码错误或已过期");
             }
         } else {
-            checkCaptchaIfEnabled(request.getCaptchaId(), request.getCaptchaCode(), request.getCaptchaTicket(), CaptchaScene.REGISTER);
+            captchaSDK.verify(request.getCaptcha(), username, CaptchaScene.REGISTER);
         }
 
         User user = User.builder()
-                .username(normalizedUsername)
+                .username(username)
                 .password(passwordEncoder.encode(request.getPassword()))
-                .email(normalizedEmail)
+                .email(email)
                 .role(UserRole.USER)
                 .status(true)
                 .build();
@@ -174,7 +145,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         UserProfile userProfile = UserProfile.builder()
-                .user(savedUser)
+                .id(savedUser.getId())
                 .isHidden(false)
                 .build();
 
@@ -185,14 +156,14 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthenticateResponseVO authenticate(AuthenticateRequestDTO request) {
-        checkCaptchaIfEnabled(request.getCaptchaId(), request.getCaptchaCode(), request.getCaptchaTicket(), CaptchaScene.LOGIN);
+        String username = request.getUsername();
+        String lusername = username.toLowerCase();
 
-        String rawAccount = request.getUsername().trim();
-        String normalizedAccount = rawAccount.toLowerCase();
+        captchaSDK.verify(request.getCaptcha(), username, CaptchaScene.LOGIN);
 
         int maxAttempts = systemSettingService.getInt("system.auth.max_login_attempts", 5);
-        String lockKey = VREDIS_AUTH_LOGIN_LOCK_KEY_PREFIX + normalizedAccount;
-        String attemptsKey = VREDIS_AUTH_LOGIN_ATTEMPTS_KEY_PREFIX + normalizedAccount;
+        String lockKey = VREDIS_AUTH_LOGIN_LOCK_KEY_PREFIX + lusername;
+        String attemptsKey = VREDIS_AUTH_LOGIN_ATTEMPTS_KEY_PREFIX + lusername;
 
         if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "密码错误次数过多，账号已锁定15分钟");
@@ -200,7 +171,7 @@ public class AuthServiceImpl implements AuthService {
 
         try {
             Authentication authenticationToken = new UsernamePasswordAuthenticationToken(
-                    rawAccount, request.getPassword()
+                    lusername, request.getPassword()
             );
             Authentication authentication = authenticationManager.authenticate(authenticationToken);
 
@@ -226,6 +197,8 @@ public class AuthServiceImpl implements AuthService {
             String accessToken = jwtUtil.generateAccessToken(authentication, jti);
             String refreshToken = jwtUtil.generateRefreshToken(authentication, jti, rememberMe);
 
+            // 2. 认证成功：通知 CaptchaSDK 削减风控计数并清理尝试记录
+            captchaSDK.recordSuccess(username, CaptchaScene.LOGIN);
             redisTemplate.delete(attemptsKey);
 
             return AuthenticateResponseVO.builder()
@@ -234,13 +207,15 @@ public class AuthServiceImpl implements AuthService {
                     .build();
 
         } catch (AuthenticationException ex) {
-            Long attempts = redisTemplate.opsForValue().increment(attemptsKey);
-            if (attempts != null && attempts >= maxAttempts) {
+            // 3. 认证失败：通知 CaptchaSDK 累加失败计数并自适应跃迁风控
+            captchaSDK.recordFailure(username, CaptchaScene.LOGIN);
+
+            long attempts = redisOps.incr(attemptsKey, 1, Duration.ofMinutes(30));
+            if (attempts >= maxAttempts) {
                 redisTemplate.opsForValue().set(lockKey, "LOCKED", Duration.ofMinutes(15));
                 redisTemplate.delete(attemptsKey);
                 throw new BusinessException(HttpStatus.FORBIDDEN, "密码错误次数过多，账号已锁定15分钟");
             } else {
-                redisTemplate.expire(attemptsKey, Duration.ofMinutes(30));
                 throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
             }
         }
@@ -287,7 +262,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void processForgotPassword(ForgotPasswordRequestDTO request) {
-        checkCaptchaIfEnabled(request.getCaptchaId(), request.getCaptchaCode(), request.getCaptchaTicket(), CaptchaScene.RESET_PASSWORD);
+        captchaSDK.verify(request.getCaptcha(), request.getUsername(), CaptchaScene.RESET_PASSWORD);
         processForgotPassword(request.getEmail(), request.getUsername());
     }
 
@@ -324,7 +299,7 @@ public class AuthServiceImpl implements AuthService {
                 this,
                 user.getId(),
                 SecurityEventType.PASSWORD_RESET,
-                RequestHolder.getClientIp(),
+                RequestUtil.getClientIp(),
                 "通过重置令牌重置密码"
         ));
     }
@@ -332,11 +307,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void resetPassword(ResetPasswordRequestDTO request) {
-        String normalizedEmail = request.getEmail().trim().toLowerCase();
-        if (!emailService.verifyCode(normalizedEmail, request.getCode().trim())) {
+        if (!emailService.verifyCode(request.getEmail(), request.getCode())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "验证码错误或已过期");
         }
-        User user = userRepository.findByEmail(normalizedEmail)
+        User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "绑定的用户不存在"));
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userRepository.save(user);
@@ -347,7 +321,7 @@ public class AuthServiceImpl implements AuthService {
                 this,
                 user.getId(),
                 SecurityEventType.PASSWORD_RESET,
-                RequestHolder.getClientIp(),
+                RequestUtil.getClientIp(),
                 "通过邮箱验证码重置密码"
         ));
     }
@@ -355,9 +329,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void sendChangePasswordEmail(EmailCaptchaRequestDTO request) {
         User user = SecurityUtils.getCurrentUser();
-        String normalizedEmail = request.getEmail().trim().toLowerCase();
-        String normalizedUsername = request.getUsername() != null ? request.getUsername().trim() : "";
-        if (user == null || !user.getEmail().equalsIgnoreCase(normalizedEmail) || !user.getUsername().equals(normalizedUsername)) {
+        String email = request.getEmail();
+        String username = request.getUsername() != null ? request.getUsername() : "";
+        if (user == null || !user.getEmail().equalsIgnoreCase(email) || !user.getUsername().equals(username)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱或用户名与当前账号不符");
         }
         emailService.sendChangePasswordEmail(request);
@@ -366,12 +340,12 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public String verifyChangePasswordCode(VerifyChangePasswordCodeRequestDTO request) {
         User user = SecurityUtils.getCurrentUser();
-        String normalizedEmail = request.getEmail().trim().toLowerCase();
-        String normalizedUsername = request.getUsername() != null ? request.getUsername().trim() : "";
-        if (user == null || !user.getEmail().equalsIgnoreCase(normalizedEmail) || !user.getUsername().equals(normalizedUsername)) {
+        String email = request.getEmail();
+        String username = request.getUsername() != null ? request.getUsername() : "";
+        if (user == null || !user.getEmail().equalsIgnoreCase(email) || !user.getUsername().equals(username)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱或用户名与当前账号不符");
         }
-        if (!emailService.verifyCode(normalizedEmail, request.getCode().trim())) {
+        if (!emailService.verifyCode(email, request.getCode())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "验证码错误或已过期");
         }
         String token = IdUtil.fastSimpleUUID();
@@ -383,7 +357,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changePassword(ChangePasswordRequestDTO request) {
-        String redisKey = VREDIS_AUTH_CHANGE_PASSWORD_KEY_PREFIX + request.getToken().trim();
+        String redisKey = VREDIS_AUTH_CHANGE_PASSWORD_KEY_PREFIX + request.getToken();
         String userIdStr = redisTemplate.opsForValue().get(redisKey);
         if (userIdStr == null) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "Token已过期或无效");
@@ -418,7 +392,7 @@ public class AuthServiceImpl implements AuthService {
                 this,
                 user.getId(),
                 SecurityEventType.PASSWORD_CHANGED,
-                RequestHolder.getClientIp(),
+                RequestUtil.getClientIp(),
                 "修改账号密码成功"
         ));
     }
@@ -461,9 +435,7 @@ public class AuthServiceImpl implements AuthService {
         mailRequest.setEmail(user.getEmail());
         mailRequest.setUsername(user.getUsername());
         if (request != null) {
-            mailRequest.setCaptchaId(request.getCaptchaId());
-            mailRequest.setCaptchaCode(request.getCaptchaCode());
-            mailRequest.setCaptchaTicket(request.getCaptchaTicket());
+            mailRequest.setCaptcha(request.getCaptcha());
         }
         emailService.sendDeleteAccountEmail(mailRequest);
     }
@@ -475,12 +447,12 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(Objects.requireNonNull(userId))
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 
-        if (!user.getUsername().equals(request.getUsername().trim())) {
+        if (!user.getUsername().equals(request.getUsername())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "确认用户名不匹配");
         }
 
-        String normalizedEmail = user.getEmail().trim().toLowerCase();
-        if (!emailService.verifyCode(normalizedEmail, request.getCode().trim())) {
+        String email = user.getEmail().trim().toLowerCase();
+        if (!emailService.verifyCode(email, request.getCode())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱验证码错误或已过期");
         }
 
@@ -500,10 +472,11 @@ public class AuthServiceImpl implements AuthService {
         if (user.getPhone() != null) {
             user.setPhone(null);
         }
-        if (user.getUserProfile() != null) {
-            user.getUserProfile().setIsHidden(true);
-            user.getUserProfile().setBio(null);
-        }
+        userProfileRepository.findById(user.getId()).ifPresent(p -> {
+            p.setIsHidden(true);
+            p.setBio(null);
+            userProfileRepository.save(p);
+        });
 
         userRepository.save(user);
         tokenService.forceLogoutUser(user.getId());
@@ -518,7 +491,7 @@ public class AuthServiceImpl implements AuthService {
                 this,
                 user.getId(),
                 SecurityEventType.ACCOUNT_DELETED,
-                RequestHolder.getClientIp(),
+                RequestUtil.getClientIp(),
                 "用户通过邮箱 2FA 注销账号"
         ));
     }

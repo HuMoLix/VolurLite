@@ -3,7 +3,7 @@ package com.humolix.volur.verification.service.admin.impl;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.SortUtils;
-import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.framework.security.util.RequestUtil;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.verification.domain.dto.AdminEmailQueryDTO;
@@ -60,7 +60,7 @@ public class AdminEmailServiceImpl implements AdminEmailService {
             List<Predicate> predicates = new ArrayList<>();
 
             if (StringUtils.hasText(queryDTO.getKeyword())) {
-                String keywordLike = "%" + queryDTO.getKeyword().trim() + "%";
+                String keywordLike = "%" + queryDTO.getKeyword() + "%";
                 Predicate recipientLike = cb.like(root.get("recipient"), keywordLike);
                 Predicate subjectLike = cb.like(root.get("subject"), keywordLike);
                 Predicate senderLike = cb.like(root.get("sender"), keywordLike);
@@ -68,11 +68,11 @@ public class AdminEmailServiceImpl implements AdminEmailService {
             }
 
             if (StringUtils.hasText(queryDTO.getType())) {
-                predicates.add(cb.equal(root.get("type"), queryDTO.getType().trim().toUpperCase()));
+                predicates.add(cb.equal(root.get("type"), queryDTO.getType().toUpperCase()));
             }
 
             if (StringUtils.hasText(queryDTO.getStatus())) {
-                predicates.add(cb.equal(root.get("status"), queryDTO.getStatus().trim().toUpperCase()));
+                predicates.add(cb.equal(root.get("status"), queryDTO.getStatus().toUpperCase()));
             }
 
             if (queryDTO.getStartTime() != null) {
@@ -127,13 +127,13 @@ public class AdminEmailServiceImpl implements AdminEmailService {
         String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
 
         boolean isHtml = sendDTO.getHtml() == null || Boolean.TRUE.equals(sendDTO.getHtml());
-        String ip = RequestHolder.getRemoteIp();
+        String ip = RequestUtil.getRemoteIp();
 
         MailMessageBO message = MailMessageBO.builder()
                 .from(from)
                 .senderName(senderName)
-                .to(sendDTO.getRecipient().trim())
-                .subject(sendDTO.getSubject().trim())
+                .to(sendDTO.getRecipient())
+                .subject(sendDTO.getSubject())
                 .content(sendDTO.getContent())
                 .fallbackContent(sendDTO.getContent())
                 .html(isHtml)

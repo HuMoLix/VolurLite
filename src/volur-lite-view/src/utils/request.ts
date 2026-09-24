@@ -2,6 +2,7 @@ import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse 
 import type { ApiResponse } from '@/types/common/api'
 import type { AuthenticateResponseVO } from '@/types/auth'
 import { getAccessToken, getRefreshToken, setAccessToken, clearAuthStorage } from './auth'
+import { getDeviceTokenHeader } from './fingerprint'
 
 export function safeJsonParse(data: any): any {
   if (typeof data !== 'string') {
@@ -43,6 +44,16 @@ service.interceptors.request.use(
     const token = getAccessToken()
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    if (config.headers) {
+      try {
+        const deviceHeader = getDeviceTokenHeader()
+        if (deviceHeader) {
+          config.headers['X-Device-Fingerprint'] = deviceHeader
+        }
+      } catch {
+        // 非浏览器或异常环境静默忽略
+      }
     }
     return config
   },

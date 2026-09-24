@@ -14,9 +14,8 @@
   },
   "tabs": {
     "general": "平台基础设置",
-    "captcha": "人机验证与风控",
     "mail": "邮件服务配置 (SMTP)",
-    "maintenance": "平台运维与风控"
+    "maintenance": "平台运维模式"
   },
   "general": {
     "platform_name": "平台全称",
@@ -31,7 +30,10 @@
     "registration_enabled": "开放新用户注册",
     "registration_hint": "开启后允许普通访客在前台注册新账号；关闭时仅限管理员在后台创建",
     "require_email_verification": "注册强制邮箱验证",
-    "require_email_verification_hint": "开启后新用户注册必须验证邮箱验证码；关闭后前台直接采用人机验证保障注册安全"
+    "require_email_verification_hint": "开启后新用户注册必须验证邮箱验证码；关闭后前台直接采用人机验证保障注册安全",
+    "email_whitelist_suffixes": "注册邮箱白名单后缀",
+    "email_whitelist_suffixes_placeholder": "如：edu.cn,humolix.com（留空则不限制）",
+    "email_whitelist_suffixes_hint": "仅允许匹配指定后缀的邮箱进行注册，多个后缀请使用英文逗号分隔；留空则允许任意合法邮箱注册"
   },
   "captcha": {
     "enabled": "全站人机验证总开关",

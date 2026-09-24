@@ -18,7 +18,7 @@
       <n-layout-content content-style="padding: 24px;" class="app-content">
         <router-view v-slot="{ Component, route: currentRoute }">
           <transition name="fade-fast">
-            <component :is="Component" :key="currentRoute.fullPath" />
+            <component :is="Component" :key="currentRoute.path" />
           </transition>
         </router-view>
       </n-layout-content>

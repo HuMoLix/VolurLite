@@ -75,10 +75,10 @@ export function getBroadcastDetailApi(id: number | string): Promise<ApiResponse<
 
 /**
  * 管理端：获取全站广播统计指标
- * 对应后端: GET /api/v1/admin/broadcasts/statistics
+ * 对应后端: GET /api/v1/admin/broadcasts/stats
  */
 export function getAdminBroadcastStatisticsApi(): Promise<ApiResponse<AdminBroadcastStatisticsVO>> {
-  return request.get<AdminBroadcastStatisticsVO>('/admin/broadcasts/statistics')
+  return request.get<AdminBroadcastStatisticsVO>('/admin/broadcasts/stats')
 }
 
 /**

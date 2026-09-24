@@ -14,6 +14,7 @@ public class AdminImagePullRequestDTO {
 
     @NotBlank(message = "镜像名称与版本不能为空 (例如 ubuntu:22.04 或 volur/ctf-web:v1)")
     @Schema(description = "Docker 镜像名称 (含Tag)")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String image;
 
 }

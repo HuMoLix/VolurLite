@@ -31,7 +31,7 @@ public class AdminImageController {
     private final AdminImageService adminImageService;
 
     @Operation(summary = "获取镜像概览统计数据")
-    @GetMapping("/statistics")
+    @GetMapping("/stats")
     public ApiResponse<AdminClusterImageStatisticsVO> getStatistics() {
         return ApiResponseEntity.ok("获取镜像统计数据成功", adminImageService.getStatistics());
     }

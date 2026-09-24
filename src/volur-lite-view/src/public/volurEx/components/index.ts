@@ -28,3 +28,4 @@ export type { VolurChatDrawerProps } from './VolurChatDrawer.vue'
 
 export { default as VolurBroadcastModal } from './VolurBroadcastModal.vue'
 
+export * from './captcha'

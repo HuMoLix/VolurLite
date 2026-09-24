@@ -19,10 +19,12 @@ public class AdminImageTransferDTO {
 
     @NotBlank(message = "源节点IP不能为空")
     @Schema(description = "镜像当前所在的源节点IP", requiredMode = Schema.RequiredMode.REQUIRED)
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String sourceNodeIp;
 
     @NotBlank(message = "目标转移节点IP不能为空")
     @Schema(description = "转移目的节点IP", requiredMode = Schema.RequiredMode.REQUIRED)
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String targetNodeIp;
 
 }

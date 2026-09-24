@@ -38,6 +38,10 @@
     "logs": "系统日志",
     "tasks": "任务管理",
     "emails": "邮件管理",
+    "risk_management": "风控管理",
+    "risk_settings": "风控设置",
+    "risk_rules": "策略设置",
+    "risk_ip": "IP管理",
     "system": "系统设置"
   }
 }

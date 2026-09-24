@@ -11,6 +11,7 @@ import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.AdminTeamDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminTeamListVO;
 import com.humolix.volur.competition.domain.vo.AdminTeamStatsVO;
+import com.humolix.volur.competition.domain.vo.CompetitionMemberVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.CompetitionChatMessageRepository;
 import com.humolix.volur.competition.repository.CompetitionConfigRepository;
@@ -33,12 +34,16 @@ import com.humolix.volur.competition.domain.entity.CompetitionMember;
 import com.humolix.volur.competition.domain.enums.MemberRole;
 import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.Gender;
+import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -70,12 +75,16 @@ public class AdminTeamServiceImpl implements AdminTeamService {
     private final CompetitionMapper competitionMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
 
     @Override
     public PageResponse<AdminTeamListVO> listTeams(Long competitionId, Integer page, Integer size, TeamStatus status, String keyword) {
         Pageable pageable = SortUtils.createPageable(page, size, CompetitionTeam.class, null, null, "createdAt", org.springframework.data.domain.Sort.Direction.DESC);
 
         Specification<CompetitionTeam> spec = (root, query, cb) -> {
+            if (Long.class != query.getResultType() && long.class != query.getResultType()) {
+                root.fetch("captain", JoinType.LEFT);
+            }
             List<Predicate> predicates = new ArrayList<>();
             if (competitionId != null) {
                 predicates.add(cb.equal(root.get("competition").get("id"), competitionId));
@@ -89,10 +98,19 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return PageResponse.of(teamRepository.findAll(spec, pageable).map(team -> {
+        Page<CompetitionTeam> teamPage = teamRepository.findAll(spec, pageable);
+        List<Long> teamIds = teamPage.getContent().stream().map(CompetitionTeam::getId).toList();
+        Map<Long, Integer> memberCountMap = new HashMap<>();
+        if (!teamIds.isEmpty()) {
+            List<Object[]> memberCounts = memberRepository.countMembersByTeamIdsAndStatus(teamIds, MemberStatus.INVITED_ACCEPTED);
+            for (Object[] row : memberCounts) {
+                memberCountMap.put((Long) row[0], ((Number) row[1]).intValue());
+            }
+        }
+
+        return PageResponse.of(teamPage.map(team -> {
             AdminTeamListVO vo = competitionMapper.toAdminTeamListVO(team);
-            long count = memberRepository.countByTeamIdAndStatus(team.getId(), MemberStatus.INVITED_ACCEPTED);
-            vo.setMemberCount((int) count);
+            vo.setMemberCount(memberCountMap.getOrDefault(team.getId(), 0));
             return vo;
         }));
     }
@@ -114,10 +132,12 @@ public class AdminTeamServiceImpl implements AdminTeamService {
 
     @Override
     public AdminTeamDetailVO getTeam(Long teamId) {
-        CompetitionTeam team = teamRepository.findById(teamId)
+        CompetitionTeam team = teamRepository.findByIdWithCompetitionAndCaptain(teamId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "队伍不存在"));
 
-        List<CompetitionMember> members = memberRepository.findByTeamId(teamId);
+        List<CompetitionMember> members = memberRepository.findByTeamIdWithUserAndProfile(teamId);
+        List<CompetitionMemberVO> memberVOs = competitionMapper.toMemberVOList(members);
+        populateMemberAvatars(memberVOs, members);
 
         return AdminTeamDetailVO.builder()
                 .id(team.getId())
@@ -132,7 +152,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                 .captainUsername(team.getCaptain() != null ? team.getCaptain().getUsername() : null)
                 .status(team.getStatus())
                 .auditReason(team.getAuditReason())
-                .members(competitionMapper.toMemberVOList(members))
+                .members(memberVOs)
                 .createdAt(team.getCreatedAt())
                 .build();
     }
@@ -454,7 +474,27 @@ public class AdminTeamServiceImpl implements AdminTeamService {
         for (Long teamId : teamIds) {
             deleteTeam(teamId);
         }
-        log.info("[Admin-Team] 管理员批量删除了竞赛 {} 下的 {} 支战队", competitionId, teamIds.size());
+    }
+
+    private void populateMemberAvatars(List<com.humolix.volur.competition.domain.vo.CompetitionMemberVO> memberVOs, List<CompetitionMember> members) {
+        if (memberVOs == null || memberVOs.isEmpty()) {
+            return;
+        }
+        List<Long> userIds = members.stream()
+                .map(m -> m.getUser() != null ? m.getUser().getId() : null)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (userIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> avatarMap = userProfileRepository.findAllById(userIds).stream()
+                .filter(p -> StringUtils.hasText(p.getAvatarUrl()))
+                .collect(Collectors.toMap(UserProfile::getId, UserProfile::getAvatarUrl, (a, b) -> a));
+        memberVOs.forEach(vo -> {
+            if (vo.getUserId() != null) {
+                vo.setAvatarUrl(avatarMap.get(vo.getUserId()));
+            }
+        });
     }
 
 }

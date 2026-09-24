@@ -1,5 +1,6 @@
 package com.humolix.volur.auth.domain.dto;
 
+import com.humolix.volur.framework.common.annotation.Trimmed;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -13,6 +14,7 @@ import lombok.NoArgsConstructor;
 public class ForgotPasswordResetRequestDTO {
 
     @NotBlank(message = "重置令牌不能为空")
+    @Trimmed
     private String token;
 
     @NotBlank(message = "新密码不能为空")

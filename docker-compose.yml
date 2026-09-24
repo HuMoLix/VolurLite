@@ -64,7 +64,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - SERVER_PORT=8080
       - VOLUR_MYSQL_HOST=volur-mysql
       - VOLUR_MYSQL_USER=${VOLUR_MYSQL_USER:-root}

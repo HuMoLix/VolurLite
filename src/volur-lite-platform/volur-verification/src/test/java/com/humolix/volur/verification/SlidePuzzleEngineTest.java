@@ -46,7 +46,7 @@ public class SlidePuzzleEngineTest {
 
     @Test
     public void testAntiDowngradeRiskResolution() {
-        RiskEvaluationEngine riskEngine = new RiskEvaluationEngine(null, null);
+        RiskEvaluationEngine riskEngine = new RiskEvaluationEngine(null, null, null, null);
 
         // 注册场景要求最低为 SLIDE_PUZZLE，即使用户请求 LINE 也必须被强制提升到 SLIDE_PUZZLE
         CaptchaType resolved = riskEngine.resolveEscalatedType(CaptchaType.LINE, RiskLevel.LOW, CaptchaScene.REGISTER);

@@ -21,7 +21,10 @@ import com.humolix.volur.challenge.repository.ctf.CtfChallengeCategoryRepository
 import com.humolix.volur.challenge.repository.ctf.CtfChallengeRepository;
 import com.humolix.volur.challenge.service.admin.ctf.AdminCtfChallengeService;
 import com.humolix.volur.challenge.util.InMemoryMultipartFile;
+import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.framework.common.api.PageResponse;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.thread.VolurThreadManager;
@@ -89,6 +92,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
     }
 
     @Override
+    @Cacheable(cacheNames = CacheNames.CTF_CHALLENGE_DETAIL, key = "#id", sync = true)
     public CtfChallengeDetailVO getChallenge(Long id) {
         CtfChallenge challenge = challengeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "题目不存在"));
@@ -167,6 +171,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = CacheNames.CTF_CHALLENGE_DETAIL, key = "#id")
     public void updateChallenge(Long id, CtfChallengeUpdateRequestDTO request) {
         CtfChallenge challenge = challengeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "题目不存在"));
@@ -234,6 +239,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = CacheNames.CTF_CHALLENGE_DETAIL, key = "#id")
     public void deleteChallenge(Long id) {
         challengeRepository.deleteById(id);
     }

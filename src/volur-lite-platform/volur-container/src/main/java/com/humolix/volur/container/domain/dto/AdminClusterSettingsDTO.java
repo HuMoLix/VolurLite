@@ -17,6 +17,7 @@ public class AdminClusterSettingsDTO {
 
     @NotBlank(message = "集群编排类型不能为空")
     @Schema(description = "容器集群调度类型(DOCKER_SWARM/K3S)")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String containerType;
 
     @NotNull(message = "起始端口不能为空")
@@ -33,30 +34,38 @@ public class AdminClusterSettingsDTO {
 
     @NotBlank(message = "公网主机地址不能为空")
     @Schema(description = "靶机外部可访问域名或IP")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String publicHost;
 
     @Schema(description = "Docker Swarm API 管理地址")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String dockerSwarmApiUrl;
 
     @Schema(description = "Docker Swarm 覆盖网络名称")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String dockerSwarmNetwork;
 
     @Schema(description = "Docker Swarm TLS 客户端证书目录")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String dockerSwarmCertPath;
 
     @Schema(description = "Docker Swarm 容器是否允许访问外网 (Outbound/Egress)")
     private Boolean dockerSwarmOutboundEnabled;
 
     @Schema(description = "K3s 集群 API Server 地址")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String k3sMasterUrl;
 
     @Schema(description = "K3s 靶机命名空间 Namespace")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String k3sNamespace;
 
     @Schema(description = "K3s kubeconfig 配置文件绝对路径")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String k3sKubeconfigPath;
 
     @Schema(description = "K3s 集群 Node Token 注册令牌")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String k3sToken;
 
     @Schema(description = "是否开启多节点资源隔离(题目容器仅调度至Worker资源节点)")
@@ -66,6 +75,7 @@ public class AdminClusterSettingsDTO {
     private Boolean registryEnabled;
 
     @Schema(description = "私有镜像仓库Registry内部网络连接地址")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String registryInternalUrl;
 
     @Schema(description = "私有镜像仓库Registry宿主机对外暴露端口")

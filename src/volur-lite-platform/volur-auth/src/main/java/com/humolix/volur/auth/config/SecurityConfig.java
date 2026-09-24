@@ -5,6 +5,7 @@ import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.exception.SecurityAccessDeniedHandler;
 import com.humolix.volur.auth.security.exception.SecurityAuthenticationEntryPoint;
 import com.humolix.volur.auth.security.filter.MaintenanceModeFilter;
+import com.humolix.volur.auth.security.filter.RiskIpFilter;
 import com.humolix.volur.auth.security.jwt.JwtAuthFilter;
 import com.humolix.volur.auth.security.util.SecurityWhitelistMatcher;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +22,13 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import com.humolix.volur.framework.security.util.RequestUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
@@ -40,9 +42,13 @@ public class SecurityConfig {
     private final Sm3PasswordEncoder sm3PasswordEncoder;
     private final JwtAuthFilter jwtAuthFilter;
     private final MaintenanceModeFilter maintenanceModeFilter;
+    private final RiskIpFilter riskIpFilter;
     private final SecurityAccessDeniedHandler securityAccessDeniedHandler;
     private final SecurityAuthenticationEntryPoint securityAuthenticationEntryPoint;
     private final SecurityWhitelistMatcher whitelistMatcher;
+
+    @Value("${volur.security.cors.allowed-origins:}")
+    private List<String> additionalAllowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -58,25 +64,29 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
+        return request -> {
+            String origin = request.getHeader("Origin");
+            if (RequestUtil.isOriginAllowed(origin, request, additionalAllowedOrigins)) {
+                CorsConfiguration configuration = new CorsConfiguration();
+                configuration.setAllowedOrigins(List.of(origin));
+                configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+                configuration.setAllowedHeaders(List.of("*"));
+                configuration.setAllowCredentials(false);
+                configuration.setMaxAge(3600L);
+                return configuration;
+            }
+            return null;
+        };
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -102,6 +112,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(securityAccessDeniedHandler)
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(riskIpFilter, JwtAuthFilter.class)
                 .addFilterAfter(maintenanceModeFilter, JwtAuthFilter.class);
         return http.build();
     }

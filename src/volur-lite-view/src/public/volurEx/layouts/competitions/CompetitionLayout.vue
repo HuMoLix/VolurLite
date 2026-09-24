@@ -335,10 +335,9 @@ const userDropdownOptions: DropdownOption[] = [
   }
 ]
 
-function toggleLanguage() {
+async function toggleLanguage() {
   const newLocale = locale.value === 'zh_CN' ? 'en_US' : 'zh_CN'
-  locale.value = newLocale
-  localStorage.setItem('locale', newLocale)
+  await appStore.switchLanguage(newLocale)
 }
 
 function toggleTheme() {

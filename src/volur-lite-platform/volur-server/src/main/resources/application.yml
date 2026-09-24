@@ -1,11 +1,17 @@
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    accept-count: 200
+    max-connections: 10000
 
 spring:
   application:
     name: volur-server
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  threads:
+    virtual:
+      enabled: true
   main:
     allow-bean-definition-overriding: true
     banner-mode: console
@@ -24,20 +30,47 @@ spring:
     time-zone: GMT+8
     default-property-inclusion: non_null
 
-# SpringDoc OpenAPI Configuration
 springdoc:
   api-docs:
-    enabled: true
+    enabled: false
     path: /v3/api-docs
   swagger-ui:
-    enabled: true
+    enabled: false
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
     doc-expansion: none
   show-actuator: false
 
-# Volur Custom Business Configurations
+# Actuator Configuration (Health & Info only, high-risk endpoints strictly disabled across all profiles)
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: health,info
+        exclude: heapdump,env,threaddump,beans,mappings,configprops,shutdown
+  endpoint:
+    health:
+      enabled: true
+      show-details: always
+    info:
+      enabled: true
+    heapdump:
+      enabled: false
+    env:
+      enabled: false
+    threaddump:
+      enabled: false
+    beans:
+      enabled: false
+    mappings:
+      enabled: false
+    configprops:
+      enabled: false
+    shutdown:
+      enabled: false
+
 volur:
   jwt:
     secret: "${VOLUR_JWT_SECRET:VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}"
@@ -59,4 +92,15 @@ volur:
   captcha:
     puzzle:
       custom-path: "${VOLUR_CAPTCHA_PUZZLE_CUSTOM_PATH:}" # Optional external custom background images directory
+    crypto:
+      rsa-private-key: "${VOLUR_CAPTCHA_RSA_PRIVATE_KEY:}"
+      rsa-public-key: "${VOLUR_CAPTCHA_RSA_PUBLIC_KEY:}"
+      anti-replay-window-ms: ${VOLUR_CAPTCHA_ANTI_REPLAY_WINDOW_MS:120000}
+  cache:
+    enabled: ${VOLUR_CACHE_ENABLED:true}
+    invalidation:
+      enabled: true
+      topic: "${VOLUR_CACHE_TOPIC:vredis:topic:cache:evict}"
+    l2:
+      key-prefix: "${VOLUR_CACHE_KEY_PREFIX:vcache:}"
 

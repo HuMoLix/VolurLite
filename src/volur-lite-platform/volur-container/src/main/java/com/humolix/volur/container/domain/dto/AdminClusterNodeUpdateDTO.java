@@ -19,11 +19,13 @@ public class AdminClusterNodeUpdateDTO {
     @NotBlank(message = "节点名称不能为空")
     @Size(min = 2, max = 64, message = "节点名称长度在2-64个字符之间")
     @Schema(description = "节点标识名称")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String nodeName;
 
     @NotBlank(message = "节点IP地址不能为空")
     @Size(min = 7, max = 64, message = "IP地址长度格式不正确")
     @Schema(description = "节点 IP 地址")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String ipAddress;
 
     @NotNull(message = "SSH端口不能为空")
@@ -35,6 +37,7 @@ public class AdminClusterNodeUpdateDTO {
     @NotBlank(message = "SSH登录用户名不能为空")
     @Size(min = 1, max = 64, message = "SSH用户名长度在1-64个字符之间")
     @Schema(description = "SSH 登录用户名")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String sshUser = "root";
 
     @Schema(description = "SSH 连接凭据密码 (留空则不修改)")
@@ -45,6 +48,7 @@ public class AdminClusterNodeUpdateDTO {
 
     @NotBlank(message = "节点角色不能为空")
     @Schema(description = "节点角色 (MASTER 或 WORKER)")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String role;
 
     @Schema(description = "是否作为题目资源节点")

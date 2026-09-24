@@ -66,7 +66,29 @@ CREATE TABLE IF NOT EXISTS `competition_operation_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------
--- 3. 存储过程执行表结构增量与字段迁移 (幂等执行)
+-- 3. 新增数据表：智能风控与 IP 治理规则表 (基于 IP 封禁与白名单机制)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `risk_ip_rule` (
+  `id` bigint NOT NULL,
+  `ip` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `rule_type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `source_type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'MANUAL',
+  `reason` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'ACTIVE',
+  `expires_at` timestamp NULL DEFAULT NULL,
+  `operator_id` bigint DEFAULT NULL,
+  `operator_name` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `operator_ip` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_risk_ip_rule_ip_type_status` (`ip`,`rule_type`,`status`),
+  KEY `idx_risk_ip_rule_status_expires` (`status`,`expires_at`),
+  KEY `idx_risk_ip_rule_created_at` (`created_at` DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------------------
+-- 4. 存储过程执行表结构增量与字段迁移 (幂等执行)
 -- ------------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS `migrate_volur_schema_20260921`;
 

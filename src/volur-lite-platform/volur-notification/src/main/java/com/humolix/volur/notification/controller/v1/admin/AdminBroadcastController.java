@@ -27,7 +27,7 @@ public class AdminBroadcastController {
     private final AdminBroadcastService adminBroadcastService;
 
     @Operation(summary = "获取全站广播统计指标")
-    @GetMapping("/statistics")
+    @GetMapping("/stats")
     public ApiResponse<AdminBroadcastStatisticsVO> getStatistics() {
         return ApiResponseEntity.ok("获取广播统计数据成功", adminBroadcastService.getStatistics());
     }

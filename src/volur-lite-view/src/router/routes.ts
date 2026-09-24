@@ -1,5 +1,9 @@
 import type { RouteRecordRaw } from 'vue-router'
-import { AppLayout, AuthLayout, AdminLayout } from '@/public/volurEx'
+
+// 采用异步动态按需加载布局，彻底解耦根入口 Barrel Export 雪崩
+const AppLayout = () => import('@/public/volurEx/layouts/AppLayout.vue')
+const AuthLayout = () => import('@/public/volurEx/layouts/AuthLayout.vue')
+const AdminLayout = () => import('@/public/volurEx/layouts/AdminLayout.vue')
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -274,6 +278,48 @@ export const routes: RouteRecordRaw[] = [
         name: 'AdminEmails',
         component: () => import('@/views/admin/email/AdminEmailView.vue'),
         meta: { title: '邮件管理', titleKey: 'admin.emails.title' }
+      },
+      {
+        path: 'risk',
+        children: [
+          {
+            path: '',
+            redirect: '/admin/risk/settings'
+          },
+          {
+            path: 'settings',
+            name: 'AdminRiskSettings',
+            component: () => import('@/views/admin/risk/AdminRiskSettingsView.vue'),
+            meta: {
+              title: '风控设置',
+              titleKey: 'admin.risk.settings.title',
+              parentTitle: '风控管理',
+              parentTitleKey: 'layout.menu.risk_management'
+            }
+          },
+          {
+            path: 'rules',
+            name: 'AdminRiskRules',
+            component: () => import('@/views/admin/risk/AdminRiskRulesView.vue'),
+            meta: {
+              title: '策略设置',
+              titleKey: 'admin.risk.policy.title',
+              parentTitle: '风控管理',
+              parentTitleKey: 'layout.menu.risk_management'
+            }
+          },
+          {
+            path: 'ip',
+            name: 'AdminRiskIp',
+            component: () => import('@/views/admin/risk/AdminRiskIpView.vue'),
+            meta: {
+              title: 'IP管理',
+              titleKey: 'admin.risk.ip.title',
+              parentTitle: '风控管理',
+              parentTitleKey: 'layout.menu.risk_management'
+            }
+          }
+        ]
       },
       {
         path: 'system',

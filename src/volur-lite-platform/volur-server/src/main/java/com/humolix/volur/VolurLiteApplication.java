@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 @SpringBootApplication
 public class VolurLiteApplication {
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         SpringApplication.run(VolurLiteApplication.class, args);
     }
 

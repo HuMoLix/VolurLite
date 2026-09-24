@@ -13,10 +13,10 @@ import type { AdminAsyncTaskSubmitVO } from '@/types/task'
 
 /**
  * 获取 Docker 镜像概览统计数据
- * 对应后端: GET /api/v1/admin/images/statistics
+ * 对应后端: GET /api/v1/admin/images/stats
  */
 export function getAdminImageStatisticsApi(): Promise<ApiResponse<AdminClusterImageStatisticsVO>> {
-  return request.get<AdminClusterImageStatisticsVO>('/admin/images/statistics')
+  return request.get<AdminClusterImageStatisticsVO>('/admin/images/stats')
 }
 
 /**

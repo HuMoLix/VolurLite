@@ -65,10 +65,10 @@ export function updateUserAvatarApi(data: UpdateAvatarRequestDTO): Promise<ApiRe
 
 /**
  * 管理端：获取系统用户统计数据
- * 对应后端: GET /api/v1/admin/users/statistics
+ * 对应后端: GET /api/v1/admin/users/stats
  */
 export function getAdminUserStatisticsApi(): Promise<ApiResponse<AdminUserStatisticsVO>> {
-  return request.get<AdminUserStatisticsVO>('/admin/users/statistics')
+  return request.get<AdminUserStatisticsVO>('/admin/users/stats')
 }
 
 /**

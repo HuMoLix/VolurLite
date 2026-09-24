@@ -59,7 +59,7 @@ public class SuperAdminInitializer implements ApplicationRunner {
             User savedUser = userRepository.saveAndFlush(newSuperAdmin);
 
             UserProfile profile = UserProfile.builder()
-                    .user(savedUser)
+                    .id(savedUser.getId())
                     .org("Volur Lite")
                     .bio("Volur Lite System Super Administrator")
                     .isHidden(false)

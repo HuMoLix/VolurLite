@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,5 +36,16 @@ public interface CompetitionTeamRepository extends JpaRepository<CompetitionTeam
             "JOIN FETCH m.user " +
             "WHERE t.id = :id")
     Optional<CompetitionTeam> findByIdWithMembers(@Param("id") Long id);
+
+    @Query("SELECT t FROM CompetitionTeam t " +
+            "JOIN FETCH t.competition c " +
+            "JOIN FETCH t.captain cap " +
+            "WHERE t.id = :id")
+    Optional<CompetitionTeam> findByIdWithCompetitionAndCaptain(@Param("id") Long id);
+
+    @Query("SELECT t.competition.id, COUNT(t.id) FROM CompetitionTeam t " +
+            "WHERE t.competition.id IN :competitionIds " +
+            "GROUP BY t.competition.id")
+    List<Object[]> countTeamsByCompetitionIds(@Param("competitionIds") Collection<Long> competitionIds);
 
 }

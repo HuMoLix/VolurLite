@@ -3,7 +3,7 @@ import { routes } from './routes'
 import { getAccessToken } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
 import { useSystemStore } from '@/store/modules/system'
-import i18n from '@/i18n'
+import i18n, { loadLocaleForRouteAsync, defaultLocale } from '@/i18n'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,6 +14,13 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
+  const currentLocale = (i18n.global as any).locale?.value || defaultLocale
+  try {
+    await loadLocaleForRouteAsync(currentLocale, to.path)
+  } catch (err) {
+    console.error('[router] 路由多语言按需加载失败', err)
+  }
+
   const token = getAccessToken()
   const userStore = useUserStore()
   const systemStore = useSystemStore()

@@ -14,9 +14,8 @@
   },
   "tabs": {
     "general": "General Settings",
-    "captcha": "CAPTCHA & Security",
     "mail": "Mail Service (SMTP)",
-    "maintenance": "Maintenance & Rate Limit"
+    "maintenance": "Platform Maintenance"
   },
   "general": {
     "platform_name": "Platform Name",
@@ -31,7 +30,10 @@
     "registration_enabled": "Allow User Registration",
     "registration_hint": "When enabled, visitors can register accounts on the front end; when disabled, accounts can only be created by admins",
     "require_email_verification": "Require Email Verification for Registration",
-    "require_email_verification_hint": "When enabled, users must verify an email code to register; when disabled, registration relies directly on CAPTCHA"
+    "require_email_verification_hint": "When enabled, users must verify an email code to register; when disabled, registration relies directly on CAPTCHA",
+    "email_whitelist_suffixes": "Registration Email Whitelist Suffixes",
+    "email_whitelist_suffixes_placeholder": "e.g. edu.cn,humolix.com (leave empty for no restriction)",
+    "email_whitelist_suffixes_hint": "Only allow emails matching specified domain suffixes to register, separated by comma. Leave blank to allow any valid email."
   },
   "captcha": {
     "enabled": "Global CAPTCHA Switch",

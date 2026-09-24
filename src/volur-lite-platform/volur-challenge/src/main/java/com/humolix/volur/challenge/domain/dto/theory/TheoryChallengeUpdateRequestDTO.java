@@ -1,6 +1,7 @@
 package com.humolix.volur.challenge.domain.dto.theory;
 
 import com.humolix.volur.challenge.domain.enums.TheoryType;
+import com.humolix.volur.framework.common.annotation.Trimmed;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,8 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TheoryChallengeUpdateRequestDTO {
 
+    @Trimmed
     private String name;
 
+    @Trimmed
     private String category;
 
     private TheoryType type;
@@ -20,6 +23,7 @@ public class TheoryChallengeUpdateRequestDTO {
 
     private String options;
 
+    @Trimmed
     private String standardAnswer;
 
     private String explanation;

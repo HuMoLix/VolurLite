@@ -29,7 +29,7 @@ public class AdminLogController {
     }
 
     @Operation(summary = "获取系统日志统计指标")
-    @GetMapping("/statistics")
+    @GetMapping("/stats")
     public ApiResponse<AdminLogStatisticsVO> getStatistics() {
         return ApiResponseEntity.ok("获取日志统计指标成功", adminLogService.getStatistics());
     }

@@ -1,6 +1,9 @@
 package com.humolix.volur.auth.domain.dto;
 
-import jakarta.validation.constraints.Email;
+import com.humolix.volur.framework.common.annotation.Trimmed;
+import com.humolix.volur.framework.common.validation.annotation.Email;
+import com.humolix.volur.verification.domain.dto.CaptchaVerifyRequestDTO;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -16,6 +19,7 @@ public class RegisterRequestDTO {
     @NotBlank(message = "用户名不能为空")
     @Size(min = 3, max = 32, message = "用户名长度必须在3到32个字符之间")
     @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "用户名只能包含字母、数字、下划线和连字符")
+    @Trimmed
     private String username;
 
     @NotBlank(message = "密码不能为空")
@@ -26,16 +30,14 @@ public class RegisterRequestDTO {
     )
     private String password;
 
-    @NotBlank(message = "邮箱不能为空")
-    @Email(message = "邮箱格式不正确")
+    @Email(message = "邮箱格式不正确或邮件地址不合法")
+    @Trimmed(toLowerCase = true)
     private String email;
 
-    private String captchaId;
+    @Valid
+    private CaptchaVerifyRequestDTO captcha;
 
-    private String captchaCode;
-
-    private String captchaTicket;
-
+    @Trimmed
     private String emailCaptcha;
 
 }

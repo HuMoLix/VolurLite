@@ -1,9 +1,8 @@
 <template>
   <div class="auth-view-container">
     <AuthForm
-      :initial-mode="currentMode"
+      v-model:mode="currentMode"
       @success="handleAuthSuccess"
-      @mode-change="handleModeChange"
     />
   </div>
 </template>
@@ -13,34 +12,34 @@ import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import AuthForm from '@/components/auth/AuthForm.vue'
 
+type AuthMode = 'login' | 'register' | 'forgot'
+
 const router = useRouter()
 const route = useRoute()
 
-const currentMode = computed<'login' | 'register' | 'forgot'>(() => {
-  if (route.name === 'Register' || route.path.endsWith('/register')) {
-    return 'register'
+const currentMode = computed<AuthMode>({
+  get() {
+    if (route.name === 'Register' || route.path.endsWith('/register') || route.query.mode === 'register') {
+      return 'register'
+    }
+    if (route.name === 'ForgotPassword' || route.path.endsWith('/forgot') || route.query.mode === 'forgot') {
+      return 'forgot'
+    }
+    return 'login'
+  },
+  set(val) {
+    const targetPath = val === 'register' ? '/auth/register' : val === 'forgot' ? '/auth/forgot' : '/auth/login'
+    if (route.path !== targetPath) {
+      router.push({
+        path: targetPath,
+        query: route.query.redirect ? { redirect: route.query.redirect } : {}
+      })
+    }
   }
-  if (route.name === 'ForgotPassword' || route.path.endsWith('/forgot')) {
-    return 'forgot'
-  }
-  const queryMode = route.query.mode as string
-  if (queryMode === 'register' || queryMode === 'forgot') {
-    return queryMode
-  }
-  return 'login'
 })
 
-function handleModeChange(mode: string) {
-  router.replace({
-    query: {
-      ...route.query,
-      mode: mode === 'login' ? undefined : mode
-    }
-  })
-}
-
-function handleAuthSuccess(mode: 'login' | 'register') {
-  if (mode === 'login') {
+function handleAuthSuccess(type: AuthMode) {
+  if (type === 'login') {
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)
   }

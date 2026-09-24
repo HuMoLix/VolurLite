@@ -76,6 +76,8 @@ export const useSystemStore = defineStore('system', () => {
         if (!savedLocale && settings.value['system.general.default_locale']) {
           const sysLocale = settings.value['system.general.default_locale']
           const targetLocale = sysLocale === 'zh' ? 'zh_CN' : (sysLocale === 'en' ? 'en_US' : sysLocale)
+          const { loadLocaleMessagesAsync } = await import('@/i18n')
+          await loadLocaleMessagesAsync(targetLocale)
           ;(i18n.global as any).locale.value = targetLocale
         }
 

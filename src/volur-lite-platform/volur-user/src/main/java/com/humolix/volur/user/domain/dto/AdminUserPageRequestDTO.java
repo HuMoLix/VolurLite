@@ -1,5 +1,6 @@
 package com.humolix.volur.user.domain.dto;
 
+import com.humolix.volur.framework.common.annotation.Trimmed;
 import com.humolix.volur.framework.domain.dto.PageRequestDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -17,9 +18,11 @@ import java.time.Instant;
 public class AdminUserPageRequestDTO extends PageRequestDTO {
 
     @Schema(description = "检索关键字（支持模糊匹配用户名/邮箱/所属机构）", example = "admin")
+    @Trimmed
     private String keyword;
 
     @Schema(description = "用户角色（USER/ADMIN/SUPER_ADMIN 等）", example = "USER")
+    @Trimmed
     private String role;
 
     @Schema(description = "账号状态（true: 启用, false: 禁用）", example = "true")

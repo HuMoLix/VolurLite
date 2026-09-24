@@ -2,7 +2,7 @@ package com.humolix.volur.verification.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.framework.security.util.RequestUtil;
 import com.humolix.volur.verification.captcha.manager.CaptchaProviderManager;
 import com.humolix.volur.verification.captcha.provider.CaptchaProvider;
 import com.humolix.volur.verification.domain.dto.CaptchaVerifyDTO;
@@ -48,7 +48,7 @@ public class CaptchaServiceImpl implements CaptchaService {
 
     @Override
     public CaptchaResponseVO generateCaptcha(String oldCaptchaId, String ticket) {
-        String ip = RequestHolder.getRemoteIp();
+        String ip = RequestUtil.getRemoteIp();
         checkRateLimit(ip);
 
         // 1. 若携带了滑动验证码 Ticket，核销 Ticket 并适度降低风险计数
@@ -91,7 +91,7 @@ public class CaptchaServiceImpl implements CaptchaService {
 
     @Override
     public CaptchaResponseVO generateChallenge(String sceneStr, String typeStr, String oldCaptchaId) {
-        String ip = RequestHolder.getRemoteIp();
+        String ip = RequestUtil.getRemoteIp();
         checkRateLimit(ip);
 
         CaptchaScene scene = CaptchaScene.fromString(sceneStr);
@@ -127,7 +127,7 @@ public class CaptchaServiceImpl implements CaptchaService {
         }
 
         CaptchaScene effectiveScene = scene != null ? scene : CaptchaScene.DEFAULT;
-        String ip = RequestHolder.getRemoteIp();
+        String ip = RequestUtil.getRemoteIp();
 
         for (CaptchaType type : CaptchaType.values()) {
             CaptchaProvider provider = providerManager.getProvider(type);
@@ -157,7 +157,7 @@ public class CaptchaServiceImpl implements CaptchaService {
 
         String ticket = IdUtil.fastSimpleUUID();
         String ticketKey = VREDIS_VERIFICATION_CAPTCHA_TICKET_KEY_PREFIX + scene.name() + ":" + ticket;
-        String ip = RequestHolder.getRemoteIp();
+        String ip = RequestUtil.getRemoteIp();
 
         // 写入结构化紧凑载荷: scene#verifiedType#ip#timestamp
         String payload = scene.name() + "#" + matchedType.name() + "#" + (ip != null ? ip : "") + "#" + System.currentTimeMillis();

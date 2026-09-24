@@ -27,7 +27,7 @@ public class AdminEmailController {
     private final AdminEmailService adminEmailService;
 
     @Operation(summary = "获取邮件发信统计指标")
-    @GetMapping("/statistics")
+    @GetMapping("/stats")
     public ApiResponse<AdminEmailStatisticsVO> getStatistics() {
         return ApiResponseEntity.ok("获取邮件统计指标成功", adminEmailService.getStatistics());
     }

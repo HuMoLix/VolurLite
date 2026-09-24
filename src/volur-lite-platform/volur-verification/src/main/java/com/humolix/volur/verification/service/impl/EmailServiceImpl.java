@@ -1,22 +1,21 @@
 package com.humolix.volur.verification.service.impl;
 
 import cn.hutool.core.util.IdUtil;
-import cn.hutool.core.util.RandomUtil;
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.framework.security.util.RequestUtil;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.repository.UserRepository;
+import com.humolix.volur.verification.domain.bo.SendEmailBO;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
-import com.humolix.volur.verification.domain.entity.EmailLog;
 import com.humolix.volur.verification.mail.bo.MailMessageBO;
-import com.humolix.volur.verification.mail.dispatcher.FailoverMailDispatcher;
 import com.humolix.volur.verification.mail.executor.MailTaskExecutor;
-import com.humolix.volur.verification.repository.EmailLogRepository;
+import com.humolix.volur.verification.mail.service.MailTransportService;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.risk.limiter.RedisSlidingWindowRateLimiter;
-import com.humolix.volur.verification.service.CaptchaService;
+import com.humolix.volur.verification.sdk.CaptchaSDK;
 import com.humolix.volur.verification.service.EmailService;
+import com.humolix.volur.verification.service.EmailVerificationCodeService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
-    private static final String VREDIS_EMAIL_CODE_KEY_PREFIX = "vredis:verification:email_code:";
     private static final String VREDIS_EMAIL_SEND_LIMIT_KEY_PREFIX = "vredis:verification:email_send_limit:";
     private static final String VREDIS_EMAIL_DAILY_CAP_KEY_PREFIX = "vredis:verification:email_daily_cap:";
     private static final String VREDIS_EMAIL_IP_LIMIT_KEY_PREFIX = "vredis:verification:email_ip_limit:";
@@ -55,11 +53,6 @@ public class EmailServiceImpl implements EmailService {
     private static final int MAX_EMAILS_PER_EMAIL_DAY = 5;
     private static final String DEFAULT_FRONTEND_URL = "http://localhost:5173";
 
-    private static final Set<String> DISPOSABLE_EMAIL_DOMAINS = Set.of(
-            "tempmail.com", "mailinator.com", "guerrillamail.com", "10minutemail.com",
-            "throwawaymail.com", "sharklasers.com", "getairmail.com", "yopmail.com"
-    );
-
     private static final String TEMPLATE_NAME = "verification_email";
     private static final String RESET_TEMPLATE_NAME = "reset_password_email";
     private static final String CHANGE_PASSWORD_TEMPLATE_NAME = "change_password_email";
@@ -69,13 +62,13 @@ public class EmailServiceImpl implements EmailService {
     private final Map<String, String> templateCache = new ConcurrentHashMap<>();
 
     private final SystemSettingService systemSettingService;
-    private final CaptchaService captchaService;
+    private final CaptchaSDK captchaSDK;
+    private final MailTransportService mailTransportService;
+    private final EmailVerificationCodeService emailVerificationCodeService;
     private final UserRepository userRepository;
-    private final FailoverMailDispatcher mailDispatcher;
     private final MailTaskExecutor mailTaskExecutor;
     private final RedisSlidingWindowRateLimiter rateLimiter;
     private final StringRedisTemplate redisTemplate;
-    private final EmailLogRepository emailLogRepository;
 
     @PostConstruct
     @Override
@@ -93,9 +86,62 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void sendEmail(SendEmailBO bo) {
+        String normalizedEmail = bo.getTo().toLowerCase().trim();
+
+        // 1. 多阶梯防刷限频判定
+        if (bo.isCheckRateLimit()) {
+            checkMultiTierSendLimit(normalizedEmail);
+        }
+
+        // 2. 邮件内容解析：优先使用模板渲染，若无指定模板则使用传入内容
+        String htmlContent;
+        String fallbackContent;
+        if (StringUtils.hasText(bo.getTemplateName())) {
+            htmlContent = buildTemplate(bo.getTemplateName(), bo.getTemplateParams());
+        } else {
+            htmlContent = bo.getContent() != null ? bo.getContent() : "";
+        }
+        fallbackContent = htmlContent;
+
+        // 3. 读取系统发件人配置
+        String from = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS, "");
+        if (!StringUtils.hasText(from)) {
+            throw new IllegalStateException("发件人邮箱地址 (system.mail.from_address) 未配置或为空，无法发送邮件");
+        }
+        from = from.trim();
+        String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
+
+        String effectiveType = StringUtils.hasText(bo.getType()) ? bo.getType() : "SYSTEM";
+        String operatorIp = StringUtils.hasText(bo.getOperatorIp()) ? bo.getOperatorIp() : RequestUtil.getRemoteIp();
+
+        MailMessageBO message = MailMessageBO.builder()
+                .from(from)
+                .senderName(senderName)
+                .to(normalizedEmail)
+                .subject(bo.getSubject())
+                .content(htmlContent)
+                .fallbackContent(fallbackContent)
+                .html(true)
+                .type(effectiveType)
+                .operatorId(bo.getOperatorId())
+                .operatorIp(operatorIp)
+                .build();
+
+        // 4. 执行投递 (异步任务线程池 或 底层直接投递)
+        if (bo.isAsync()) {
+            mailTaskExecutor.executeAsyncMail(message);
+        } else {
+            mailTransportService.sendEmail(message.getTo(), message.getSubject(), message.getContent(), message.getType());
+        }
+    }
+
+    @Override
     public void sendVerificationEmail(EmailCaptchaRequestDTO request) {
-        checkCaptchaIfEnabled(request, CaptchaScene.REGISTER);
-        sendVerificationEmail(request.getEmail(), request.getUsername(), false);
+        if (request != null) {
+            captchaSDK.verify(request.getCaptcha(), request.getEmail(), CaptchaScene.REGISTER);
+            sendVerificationEmail(request.getEmail(), request.getUsername(), false);
+        }
     }
 
     @Override
@@ -106,138 +152,87 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendVerificationEmail(String email, String username, boolean skipExistenceCheck) {
         String normalizedEmail = email.toLowerCase().trim();
-        validateEmailDomain(normalizedEmail);
 
         if (!skipExistenceCheck && userRepository.existsByEmail(normalizedEmail)) {
             throw new BusinessException(HttpStatus.CONFLICT, "该邮箱已被注册");
         }
 
-        if (systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true)) {
-            String whitelistStr = systemSettingService.getSettingValue("system.auth.email_whitelist_suffixes", "");
-            if (StringUtils.hasText(whitelistStr)) {
-                String[] whitelist = whitelistStr.split(",");
-                boolean isWhitelisted = Arrays.stream(whitelist)
-                        .map(String::trim)
-                        .map(String::toLowerCase)
-                        .anyMatch(suffix -> normalizedEmail.endsWith(suffix.startsWith("@") ? suffix : "@" + suffix));
-                if (!isWhitelisted) {
-                    throw new BusinessException(HttpStatus.BAD_REQUEST, "不支持该邮箱后缀注册，仅限: " + whitelistStr);
-                }
-            }
-        }
+        String code = emailVerificationCodeService.generateAndStoreCode(normalizedEmail);
+        String safeUsername = username != null ? HtmlUtils.htmlEscape(username) : "";
+        String safeCode = HtmlUtils.htmlEscape(code);
 
-        sendVerificationCodeEmail(normalizedEmail, username, "[VolurCTF] 账户注册——邮箱验证", TEMPLATE_NAME);
+        sendEmail(SendEmailBO.builder()
+                .to(normalizedEmail)
+                .subject("[VolurCTF] 账户注册——邮箱验证")
+                .templateName(TEMPLATE_NAME)
+                .templateParams(Map.of(
+                        "username", safeUsername,
+                        "code", safeCode,
+                        "expirationMinutes", String.valueOf(VERIFY_CODE_EXPIRATION_SECONDS / 60)
+                ))
+                .type("REGISTER_CAPTCHA")
+                .build());
     }
 
     @Override
     public void sendChangePasswordEmail(EmailCaptchaRequestDTO request) {
-        checkCaptchaIfEnabled(request, CaptchaScene.CHANGE_PASSWORD);
-        sendChangePasswordEmail(request.getEmail(), request.getUsername());
+        if (request != null) {
+            captchaSDK.verify(request.getCaptcha(), request.getEmail(), CaptchaScene.CHANGE_PASSWORD);
+            sendChangePasswordEmail(request.getEmail(), request.getUsername());
+        }
     }
 
     @Override
     public void sendChangePasswordEmail(String email, String username) {
         String normalizedEmail = email.toLowerCase().trim();
-        validateEmailDomain(normalizedEmail);
-        sendVerificationCodeEmail(normalizedEmail, username, "[Volur Lite] 修改密码——安全验证", CHANGE_PASSWORD_TEMPLATE_NAME);
+        String code = emailVerificationCodeService.generateAndStoreCode(normalizedEmail);
+        String safeUsername = username != null ? HtmlUtils.htmlEscape(username) : "";
+        String safeCode = HtmlUtils.htmlEscape(code);
+
+        sendEmail(SendEmailBO.builder()
+                .to(normalizedEmail)
+                .subject("[Volur Lite] 修改密码——安全验证")
+                .templateName(CHANGE_PASSWORD_TEMPLATE_NAME)
+                .templateParams(Map.of(
+                        "username", safeUsername,
+                        "code", safeCode,
+                        "expirationMinutes", String.valueOf(VERIFY_CODE_EXPIRATION_SECONDS / 60)
+                ))
+                .type("CHANGE_PASSWORD")
+                .build());
     }
 
     @Override
     public void sendDeleteAccountEmail(EmailCaptchaRequestDTO request) {
-        checkCaptchaIfEnabled(request, CaptchaScene.CHANGE_PASSWORD);
-        sendDeleteAccountEmail(request.getEmail(), request.getUsername());
+        if (request != null) {
+            captchaSDK.verify(request.getCaptcha(), request.getEmail(), CaptchaScene.CHANGE_PASSWORD);
+            sendDeleteAccountEmail(request.getEmail(), request.getUsername());
+        }
     }
 
     @Override
     public void sendDeleteAccountEmail(String email, String username) {
         String normalizedEmail = email.toLowerCase().trim();
-        validateEmailDomain(normalizedEmail);
-        sendVerificationCodeEmail(normalizedEmail, username, "[Volur Lite] 注销账号——安全验证", DELETE_ACCOUNT_TEMPLATE_NAME);
-    }
-
-    private void checkCaptchaIfEnabled(EmailCaptchaRequestDTO request, CaptchaScene scene) {
-        if (systemSettingService.getBoolean("system.captcha.enabled", false)) {
-            if (request == null) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "请先完成人机安全验证");
-            }
-            if (StringUtils.hasText(request.getCaptchaTicket())) {
-                if (!captchaService.verifyTicket(request.getCaptchaTicket(), scene)) {
-                    throw new BusinessException(HttpStatus.BAD_REQUEST, "人机验证凭证已失效，请重新验证");
-                }
-            } else if (StringUtils.hasText(request.getCaptchaId()) && StringUtils.hasText(request.getCaptchaCode())) {
-                if (!captchaService.verifyCaptcha(request.getCaptchaId(), request.getCaptchaCode(), scene)) {
-                    throw new BusinessException(HttpStatus.BAD_REQUEST, "图形验证码错误或已过期");
-                }
-            } else {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "请先完成人机安全验证");
-            }
-        }
-    }
-
-    private void validateEmailDomain(String email) {
-        int atIndex = email.lastIndexOf("@");
-        if (atIndex <= 0 || atIndex >= email.length() - 1) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱格式不合法");
-        }
-        String domain = email.substring(atIndex + 1).toLowerCase().trim();
-        if (DISPOSABLE_EMAIL_DOMAINS.contains(domain)) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "禁止使用临时一次性邮箱");
-        }
-    }
-
-    private void sendVerificationCodeEmail(String email, String username, String subject, String templateName) {
-        checkMultiTierSendLimit(email);
-
-        String code = generateVerificationCode();
-        String verifyCodeKey = VREDIS_EMAIL_CODE_KEY_PREFIX + email;
-        redisTemplate.opsForValue().set(verifyCodeKey, code, Duration.ofSeconds(VERIFY_CODE_EXPIRATION_SECONDS));
-        log.info("[Volur-Verification] 生成邮件验证码 -> 邮箱: {}, 验证码: {}", email, code);
-
+        String code = emailVerificationCodeService.generateAndStoreCode(normalizedEmail);
         String safeUsername = username != null ? HtmlUtils.htmlEscape(username) : "";
         String safeCode = HtmlUtils.htmlEscape(code);
 
-        String htmlContent = buildTemplate(templateName, Map.of(
-                "username", safeUsername,
-                "code", safeCode,
-                "expirationMinutes", String.valueOf(VERIFY_CODE_EXPIRATION_SECONDS / 60)
-        ));
-        String simpleContent = "您的验证码是: " + code + "\n有效期为 " + (VERIFY_CODE_EXPIRATION_SECONDS / 60) + " 分钟";
-
-        String from = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS, "");
-        if (!StringUtils.hasText(from)) {
-            throw new IllegalStateException("发件人邮箱地址 (system.mail.from_address) 未配置或为空，无法发送邮件");
-        }
-        from = from.trim();
-        String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
-
-        String emailType = "SYSTEM";
-        if (TEMPLATE_NAME.equals(templateName)) {
-            emailType = "REGISTER_CAPTCHA";
-        } else if (CHANGE_PASSWORD_TEMPLATE_NAME.equals(templateName)) {
-            emailType = "CHANGE_PASSWORD";
-        } else if (DELETE_ACCOUNT_TEMPLATE_NAME.equals(templateName)) {
-            emailType = "DELETE_ACCOUNT";
-        }
-
-        MailMessageBO message = MailMessageBO.builder()
-                .from(from)
-                .senderName(senderName)
-                .to(email.trim())
-                .subject(subject)
-                .content(htmlContent)
-                .fallbackContent(simpleContent)
-                .html(true)
-                .type(emailType)
-                .operatorIp(RequestHolder.getRemoteIp())
-                .build();
-
-        mailTaskExecutor.executeAsyncMail(message);
+        sendEmail(SendEmailBO.builder()
+                .to(normalizedEmail)
+                .subject("[Volur Lite] 注销账号——安全验证")
+                .templateName(DELETE_ACCOUNT_TEMPLATE_NAME)
+                .templateParams(Map.of(
+                        "username", safeUsername,
+                        "code", safeCode,
+                        "expirationMinutes", String.valueOf(VERIFY_CODE_EXPIRATION_SECONDS / 60)
+                ))
+                .type("DELETE_ACCOUNT")
+                .build());
     }
 
     @Override
     public void sendResetPasswordEmail(String email, String username) {
         String normalizedEmail = email.toLowerCase().trim();
-        checkMultiTierSendLimit(normalizedEmail);
 
         String resetToken = IdUtil.fastSimpleUUID();
         redisTemplate.opsForValue().set(VREDIS_PASSWORD_RESET_KEY_PREFIX + resetToken, normalizedEmail, Duration.ofMinutes(PASSWORD_RESET_EXPIRE_MINUTES));
@@ -245,7 +240,7 @@ public class EmailServiceImpl implements EmailService {
         String frontendUrl = systemSettingService.getSettingValue("system.general.frontend_url", "");
         if (!StringUtils.hasText(frontendUrl)) {
             try {
-                frontendUrl = RequestHolder.getDomainUrl();
+                frontendUrl = RequestUtil.getDomainUrl();
             } catch (Exception ex) {
                 frontendUrl = DEFAULT_FRONTEND_URL;
             }
@@ -256,118 +251,31 @@ public class EmailServiceImpl implements EmailService {
         String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
 
         String safeUsername = username != null ? HtmlUtils.htmlEscape(username) : "";
-        String htmlContent = buildTemplate(RESET_TEMPLATE_NAME, Map.of(
-                "username", safeUsername,
-                "resetLink", resetLink
-        ));
-        String simpleContent = "请点击以下链接重置密码: " + resetLink + " (有效期15分钟)";
 
-        String from = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS, "");
-        if (!StringUtils.hasText(from)) {
-            throw new IllegalStateException("发件人邮箱地址 (system.mail.from_address) 未配置或为空，无法发送邮件");
-        }
-        from = from.trim();
-        String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
-
-        MailMessageBO message = MailMessageBO.builder()
-                .from(from)
-                .senderName(senderName)
+        sendEmail(SendEmailBO.builder()
                 .to(normalizedEmail)
                 .subject("[VolurCTF] 找回密码")
-                .content(htmlContent)
-                .fallbackContent(simpleContent)
-                .html(true)
+                .templateName(RESET_TEMPLATE_NAME)
+                .templateParams(Map.of(
+                        "username", safeUsername,
+                        "resetLink", resetLink
+                ))
                 .type("RESET_PASSWORD")
-                .operatorIp(RequestHolder.getRemoteIp())
-                .build();
-
-        mailTaskExecutor.executeAsyncMail(message);
+                .build());
     }
 
     @Override
     public boolean verifyCode(String email, String code) {
-        if (!StringUtils.hasText(email) || !StringUtils.hasText(code)) {
-            return false;
-        }
-        String key = VREDIS_EMAIL_CODE_KEY_PREFIX + email.toLowerCase().trim();
-        String storedCode = redisTemplate.opsForValue().get(key);
-        if (storedCode == null) {
-            return false;
-        }
-        boolean matches = storedCode.equalsIgnoreCase(code.trim());
-        if (matches) {
-            redisTemplate.delete(key);
-        }
-        return matches;
-    }
-
-    @Override
-    public void sendEmail(String to, String subject, String content) {
-        String normalizedTo = to != null ? to.trim() : "";
-        String from = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_FROM_ADDRESS, "");
-        if (!StringUtils.hasText(from)) {
-            throw new IllegalStateException("发件人邮箱地址 (system.mail.from_address) 未配置或为空，无法发送邮件");
-        }
-        from = from.trim();
-        String senderName = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SENDER_NAME, "");
-        String type = "[VolurCTF] SMTP 服务测试邮件".equals(subject) ? "TEST" : "SYSTEM";
-        String ip = RequestHolder.getRemoteIp();
-
-        if ("[VolurCTF] SMTP 服务测试邮件".equals(subject)) {
-            content = buildTemplate(TEST_TEMPLATE_NAME, Map.of());
-        }
-
-        MailMessageBO message = MailMessageBO.builder()
-                .from(from)
-                .senderName(senderName)
-                .to(normalizedTo)
-                .subject(subject)
-                .content(content)
-                .fallbackContent(content)
-                .html(true)
-                .type(type)
-                .operatorIp(ip)
-                .build();
-
-        try {
-            mailDispatcher.dispatch(message);
-            emailLogRepository.save(EmailLog.builder()
-                    .recipient(normalizedTo)
-                    .subject(subject)
-                    .content(content)
-                    .type(type)
-                    .status("SUCCESS")
-                    .sender(from)
-                    .operatorIp(ip)
-                    .build());
-        } catch (Exception e) {
-            log.error("[Volur-Verification] 发送邮件至 {} 失败", normalizedTo, e);
-            emailLogRepository.save(EmailLog.builder()
-                    .recipient(normalizedTo)
-                    .subject(subject)
-                    .content(content)
-                    .type(type)
-                    .status("FAILED")
-                    .errorMessage(e.getMessage())
-                    .sender(from)
-                    .operatorIp(ip)
-                    .build());
-            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "邮件发送失败: " + e.getMessage());
-        }
+        return emailVerificationCodeService.verifyCode(email, code);
     }
 
     @Override
     public void testSmtpConnection() {
-        try {
-            mailDispatcher.testConnection();
-        } catch (Exception ex) {
-            log.error("[Volur-Verification] 邮件服务连通性测试失败", ex);
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "邮件服务测试失败: " + ex.getMessage(), ex);
-        }
+        mailTransportService.testSmtpConnection();
     }
 
     private void checkMultiTierSendLimit(String email) {
-        String ip = RequestHolder.getRemoteIp();
+        String ip = RequestUtil.getRemoteIp();
 
         // 1. IP 级别限流 (每小时最多 10 封)
         String ipLimitKey = VREDIS_EMAIL_IP_LIMIT_KEY_PREFIX + ip;
@@ -431,10 +339,6 @@ public class EmailServiceImpl implements EmailService {
         } catch (IOException ex) {
             throw new IOException("读取邮件模板文件失败: " + templatePath, ex);
         }
-    }
-
-    private String generateVerificationCode() {
-        return RandomUtil.randomNumbers(6);
     }
 
 }

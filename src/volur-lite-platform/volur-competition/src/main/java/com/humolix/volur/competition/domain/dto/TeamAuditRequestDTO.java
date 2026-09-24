@@ -14,6 +14,7 @@ public class TeamAuditRequestDTO {
     @NotNull(message = "审核状态不能为空")
     private TeamStatus status;
 
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String auditReason;
 
 }

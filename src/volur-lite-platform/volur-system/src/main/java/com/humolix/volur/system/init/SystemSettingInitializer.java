@@ -132,6 +132,7 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.CAPTCHA_ENABLED, "true", "CAPTCHA", "BOOLEAN", true, "人机验证是否开启");
         initDefaultIfAbsent(SystemSettingKeys.AUTH_REGISTRATION_ENABLED, "true", "AUTH", "BOOLEAN", true, "是否开放用户注册");
         initDefaultIfAbsent(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, "true", "AUTH", "BOOLEAN", true, "注册是否强制邮箱验证");
+        initDefaultIfAbsent(SystemSettingKeys.AUTH_EMAIL_WHITELIST_SUFFIXES, "", "AUTH", "STRING", false, "允许注册的邮箱域名白名单后缀(逗号分隔，留空不限制)");
         initDefaultIfAbsent(SystemSettingKeys.GENERAL_PLATFORM_NAME, "Volur Lite", "GENERAL", "STRING", true, "平台全称");
         initDefaultIfAbsent(SystemSettingKeys.GENERAL_DEFAULT_LOCALE, "zh_CN", "GENERAL", "STRING", true, "系统默认语言");
         initDefaultIfAbsent(SystemSettingKeys.MAINTENANCE_ENABLED, "false", "MAINTENANCE", "BOOLEAN", true, "全站维护模式开关");
@@ -157,6 +158,22 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.MAIL_WEBHOOK_ENABLED, "false", "MAIL", "BOOLEAN", false, "邮件投递 Webhook 回调追踪开关");
         initDefaultIfAbsent(SystemSettingKeys.MAIL_WEBHOOK_SECRET, "", "MAIL", "STRING", false, "邮件投递 Webhook 验签密钥/Token");
         initDefaultIfAbsent(SystemSettingKeys.MAIL_WEBHOOK_FALLBACK_STRATEGY, "AUTO_DELIVERED", "MAIL", "STRING", false, "Webhook未启用或超时备用策略(AUTO_DELIVERED/KEEP_SENT)");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_ENABLED, "true", "RISK", "BOOLEAN", false, "全局风控引擎总开关");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_IP_FILTER_ENABLED, "true", "RISK", "BOOLEAN", false, "IP 封禁与拦截总开关");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_DEFAULT_BAN_DURATION_MINUTES, "1440", "RISK", "INTEGER", false, "默认封禁时长 (分钟)");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_BAN_NOTICE_MESSAGE, "您的 IP 存在异常访问行为，已被系统安全机制拦截。如需解封请联系平台管理员。", "RISK", "STRING", true, "IP封禁拦截提示文案");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_BYPASS_LOOPBACK, "true", "RISK", "BOOLEAN", false, "是否放行本地回环及私网穿透 IP");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_FAILURES_MEDIUM_THRESHOLD, "5", "RISK", "INTEGER", false, "连续失败升中风险阈值");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_FAILURES_HIGH_THRESHOLD, "10", "RISK", "INTEGER", false, "连续失败升高风险阈值");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_FAILURES_BAN_THRESHOLD, "20", "RISK", "INTEGER", false, "连续失败触发自动封禁 IP 阈值");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_VELOCITY_MEDIUM_THRESHOLD, "12", "RISK", "INTEGER", false, "1分钟突发请求速率超限阈值");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_ACCOUNT_FAILURES_MEDIUM_THRESHOLD, "4", "RISK", "INTEGER", false, "单账号全网失败升中风险阈值");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_ACCOUNT_FAILURES_HIGH_THRESHOLD, "8", "RISK", "INTEGER", false, "单账号全网失败升高风险阈值");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_RECOVERY_STEP_COUNT, "6", "RISK", "INTEGER", false, "单次人机验证通过扣减风险失败计数步长");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_FINGERPRINT_ENABLED, "true", "RISK", "BOOLEAN", false, "设备与Canvas指纹多维风控开关");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_HEADLESS_PENALTY_ENABLED, "true", "RISK", "BOOLEAN", false, "无头浏览器与自动化脚本严控惩罚开关");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_TLS_CHECK_ENABLED, "true", "RISK", "BOOLEAN", false, "原生Nginx TLS握手特征一致性核验开关");
+        initDefaultIfAbsent(SystemSettingKeys.RISK_DEVICE_RATE_LIMIT_MAX, "100", "RISK", "INTEGER", false, "单设备跨IP滑动窗口最大请求次数");
     }
 
     private void initDefaultIfAbsent(String key, String defaultValue, String group, String type, boolean isPublic, String desc) {
@@ -183,6 +200,7 @@ public class SystemSettingInitializer implements ApplicationRunner {
         if (key.startsWith("system.challenge.")) return "CHALLENGE";
         if (key.startsWith("system.maintenance.")) return "MAINTENANCE";
         if (key.startsWith("system.security.")) return "SECURITY";
+        if (key.startsWith("system.risk.")) return "RISK";
         if (key.startsWith("system.storage.")) return "STORAGE";
         return "GENERAL";
     }

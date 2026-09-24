@@ -1,7 +1,7 @@
 package com.humolix.volur.system.service.impl;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.domain.dto.SystemSettingUpdateDTO;
 import com.humolix.volur.system.domain.entity.SystemSettingEntity;
@@ -10,7 +10,6 @@ import com.humolix.volur.system.domain.vo.SystemSettingVO;
 import com.humolix.volur.system.mapper.SystemMapper;
 import com.humolix.volur.system.repository.SystemSettingRepository;
 import com.humolix.volur.system.service.SystemSettingService;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringBootVersion;
@@ -21,7 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,26 +33,13 @@ public class SystemSettingServiceImpl implements SystemSettingService {
 
     public static final String VREDIS_SYSTEM_SETTING_KEY_PREFIX = "vredis:system:setting:";
     public static final String VREDIS_SYSTEM_SETTING_TOPIC = "vredis:topic:system:setting";
-    private static final String NULL_VALUE_PLACEHOLDER = "__NULL__";
-
-    private static final Duration L2_CACHE_TTL = Duration.ofDays(7);
-    private static final Duration L2_NULL_CACHE_TTL = Duration.ofMinutes(1);
+    private static final String PUBLIC_SETTINGS_MAP_CACHE_KEY = "__PUBLIC_SETTINGS_MAP__";
 
     private final Environment environment;
     private final StringRedisTemplate redisTemplate;
     private final SystemSettingRepository systemSettingRepository;
     private final SystemMapper systemMapper;
-
-    private Cache<String, String> localCache;
-
-    @PostConstruct
-    public void initLocalCache() {
-        this.localCache = Caffeine.newBuilder()
-                .maximumSize(2000)
-                .expireAfterWrite(Duration.ofMinutes(30))
-                .recordStats()
-                .build();
-    }
+    private final VolurCacheTemplate cacheTemplate;
 
     @Override
     public String getSettingValue(String key, String defaultValue) {
@@ -61,13 +47,16 @@ public class SystemSettingServiceImpl implements SystemSettingService {
             return defaultValue;
         }
 
-        String cachedVal = localCache.get(key, this::loadFromL2OrDb);
-
-        if (NULL_VALUE_PLACEHOLDER.equals(cachedVal) || cachedVal == null) {
+        String cachedVal = cacheTemplate.getOrLoad(CacheNames.SYSTEM_SETTING, key, () -> {
+            Optional<SystemSettingEntity> entityOpt = systemSettingRepository.findBySettingKey(key);
+            if (entityOpt.isPresent() && StringUtils.hasText(entityOpt.get().getSettingValue())) {
+                return entityOpt.get().getSettingValue();
+            }
             String envVal = environment.getProperty("volur.setting." + key.toLowerCase().replace('_', '-'));
-            return StringUtils.hasText(envVal) ? envVal : defaultValue;
-        }
-        return cachedVal;
+            return StringUtils.hasText(envVal) ? envVal : null;
+        });
+
+        return cachedVal != null ? cachedVal : defaultValue;
     }
 
     @Override
@@ -87,56 +76,20 @@ public class SystemSettingServiceImpl implements SystemSettingService {
         }
     }
 
-    private String loadFromL2OrDb(String key) {
-        String redisKey = VREDIS_SYSTEM_SETTING_KEY_PREFIX + key;
-
-        try {
-            String redisVal = redisTemplate.opsForValue().get(redisKey);
-            if (StringUtils.hasText(redisVal)) {
-                return redisVal;
-            }
-        } catch (Exception ex) {
-            log.error("Redis read error for key: {}", key, ex);
-        }
-
-        Optional<SystemSettingEntity> entityOpt = systemSettingRepository.findBySettingKey(key);
-        if (entityOpt.isPresent() && StringUtils.hasText(entityOpt.get().getSettingValue())) {
-            String dbVal = entityOpt.get().getSettingValue();
-            try {
-                redisTemplate.opsForValue().set(redisKey, dbVal, L2_CACHE_TTL);
-            } catch (Exception ex) {
-                log.error("Failed to write Redis cache for key: {}", key, ex);
-            }
-            return dbVal;
-        }
-
-        String envVal = environment.getProperty("volur.setting." + key.toLowerCase().replace('_', '-'));
-        if (StringUtils.hasText(envVal)) {
-            try {
-                redisTemplate.opsForValue().set(redisKey, envVal, L2_CACHE_TTL);
-            } catch (Exception ex) {
-                log.error("Failed to write Redis cache for env key: {}", key, ex);
-            }
-            return envVal;
-        }
-
-        try {
-            redisTemplate.opsForValue().set(redisKey, NULL_VALUE_PLACEHOLDER, L2_NULL_CACHE_TTL);
-        } catch (Exception ignored) {
-        }
-        return NULL_VALUE_PLACEHOLDER;
-    }
-
     @Override
     public Map<String, String> getPublicSettingsMap() {
-        Map<String, String> map = systemSettingRepository.findByIsPublicTrue().stream()
-                .filter(setting -> setting.getSettingKey().startsWith("system."))
-                .collect(Collectors.toMap(
-                        SystemSettingEntity::getSettingKey,
-                        setting -> getSettingValue(setting.getSettingKey(), setting.getSettingValue()),
-                        (existing, replacing) -> replacing
-                ));
+        @SuppressWarnings("unchecked")
+        Map<String, String> cachedMap = cacheTemplate.getOrLoad(CacheNames.SYSTEM_SETTING, PUBLIC_SETTINGS_MAP_CACHE_KEY, () -> {
+            return systemSettingRepository.findByIsPublicTrue().stream()
+                    .filter(setting -> setting.getSettingKey().startsWith("system."))
+                    .collect(Collectors.toMap(
+                            SystemSettingEntity::getSettingKey,
+                            setting -> getSettingValue(setting.getSettingKey(), setting.getSettingValue()),
+                            (existing, replacing) -> replacing
+                    ));
+        });
 
+        Map<String, String> map = new HashMap<>(cachedMap != null ? cachedMap : Map.of());
         String maintenanceEnabled = String.valueOf(getBoolean(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_ENABLED, false));
         String maintenanceNotice = getSettingValue(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, "系统正在全站维护升级中，暂不可用，请稍后访问。");
         map.put(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_ENABLED, maintenanceEnabled);
@@ -244,25 +197,18 @@ public class SystemSettingServiceImpl implements SystemSettingService {
 
     @Override
     public void evictCache(String key) {
-        String redisKey = VREDIS_SYSTEM_SETTING_KEY_PREFIX + key;
-        try {
-            redisTemplate.delete(redisKey);
-            redisTemplate.convertAndSend(VREDIS_SYSTEM_SETTING_TOPIC, key);
-        } catch (Exception ex) {
-            log.error("Failed to evict Redis cache / publish topic for key: {}", key, ex);
+        if ("*".equals(key)) {
+            cacheTemplate.evictAll(CacheNames.SYSTEM_SETTING);
+        } else {
+            cacheTemplate.evict(CacheNames.SYSTEM_SETTING, key);
+            cacheTemplate.evict(CacheNames.SYSTEM_SETTING, PUBLIC_SETTINGS_MAP_CACHE_KEY);
         }
-        evictLocalCache(key);
     }
 
     @Override
     public void evictLocalCache(String key) {
-        if (localCache != null) {
-            if ("*".equals(key)) {
-                localCache.invalidateAll();
-            } else {
-                localCache.invalidate(key);
-            }
-        }
+        // 由 VolurCache 与 CacheEvictListener 自动在集群范围内单向监听广播并清理本机 L1
+        evictCache(key);
     }
 
 }

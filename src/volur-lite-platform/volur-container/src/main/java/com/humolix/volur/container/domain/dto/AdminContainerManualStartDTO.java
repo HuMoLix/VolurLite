@@ -15,12 +15,15 @@ import java.util.List;
 public class AdminContainerManualStartDTO implements Serializable {
 
     @Schema(description = "Docker 镜像名称与 Tag (例如 'nginx:alpine' 或 'vulhub/activemq:5.11.1')")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String imageName;
 
     @Schema(description = "自定义容器/服务名称 (Container name)")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String containerName;
 
     @Schema(description = "指定部署运行的目标 Worker 节点 IP (若不指定或单节点集群则运行在可用资源节点)")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String nodeIp;
 
     @Deprecated
@@ -34,6 +37,7 @@ public class AdminContainerManualStartDTO implements Serializable {
     private Integer durationMinutes;
 
     @Schema(description = "自定义动态 Flag (可选，若不填写则按规则自动注入)")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String customFlag;
 
     @Schema(description = "是否允许容器访问外网 (Outbound/Egress，若未指定则跟随系统集群默认配置)")

@@ -27,7 +27,9 @@ import com.humolix.volur.notification.domain.enums.NotificationType;
 import com.humolix.volur.notification.event.SendNotificationEvent;
 import com.humolix.volur.notification.service.NotificationService;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.Gender;
+import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +56,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
     private final CompetitionChatMessageRepository chatMessageRepository;
     private final CompetitionTeamInvitationRepository teamInvitationRepository;
     private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
     private final CompetitionMapper competitionMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationService notificationService;
@@ -124,7 +127,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         User captain = userRepository.findById(captainUserId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 
-        if (captain.getEmail() == null || !captain.getEmail().equalsIgnoreCase(captainRow.getEmail().trim())) {
+        if (captain.getEmail() == null || !captain.getEmail().equalsIgnoreCase(captainRow.getEmail())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "队长邮箱必须为当前登录账号绑定的邮箱 (" + captain.getEmail() + ")");
         }
 
@@ -136,7 +139,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         Set<String> seenStudentNumbers = new HashSet<>();
 
         for (TeamMemberSignupDTO m : memberList) {
-            String empNo = m.getEmployeeNumber() != null ? m.getEmployeeNumber().trim() : "";
+            String empNo = m.getEmployeeNumber() != null ? m.getEmployeeNumber() : "";
             if (!StringUtils.hasText(empNo)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员工号不能为空" : "成员学号不能为空");
             }
@@ -144,17 +147,17 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, (isEnterprise ? "填写的成员工号重复: " : "填写的成员学号重复: ") + empNo);
             }
 
-            String dept = m.getDepartment() != null ? m.getDepartment().trim() : "";
+            String dept = m.getDepartment() != null ? m.getDepartment() : "";
             if (!StringUtils.hasText(dept)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员部门不能为空" : "成员学院不能为空");
             }
 
-            String pos = m.getPosition() != null ? m.getPosition().trim() : "";
+            String pos = m.getPosition() != null ? m.getPosition() : "";
             if (!StringUtils.hasText(pos)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员职位不能为空" : "成员班级不能为空");
             }
 
-            String phone = m.getPhone() != null ? m.getPhone().trim() : "";
+            String phone = m.getPhone() != null ? m.getPhone() : "";
             if (!StringUtils.hasText(phone)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "成员手机号不能为空");
             }
@@ -162,7 +165,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员手机号重复: " + phone);
             }
 
-            String email = m.getEmail() != null ? m.getEmail().trim().toLowerCase() : "";
+            String email = m.getEmail() != null ? m.getEmail() : "";
             if (!StringUtils.hasText(email)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "成员邮箱不能为空");
             }
@@ -170,7 +173,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + email);
             }
 
-            String idCard = m.getIdCard() != null ? m.getIdCard().trim().toUpperCase() : "";
+            String idCard = m.getIdCard() != null ? m.getIdCard().toUpperCase() : "";
             if (!StringUtils.hasText(idCard)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "成员身份证号不能为空");
             }
@@ -189,7 +192,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "领队手机号不能为空");
             }
             if (StringUtils.hasText(l.getEmail()) && captain.getEmail() != null
-                    && captain.getEmail().equalsIgnoreCase(l.getEmail().trim())) {
+                    && captain.getEmail().equalsIgnoreCase(l.getEmail())) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "不能填写队长自身的邮箱作为指导老师/领队");
             }
         }
@@ -200,7 +203,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         OrganizationType orgType = request.getOrganizationType() != null ? request.getOrganizationType() : OrganizationType.SCHOOL;
         CompetitionTeam team = CompetitionTeam.builder()
                 .competition(competition)
-                .teamName(request.getTeamName().trim())
+                .teamName(request.getTeamName())
                 .avatarUrl(StringUtils.hasText(request.getAvatarUrl()) ? request.getAvatarUrl() : "/api/v1/uploads/avatar/default_team.png")
                 .description(request.getDescription())
                 .organization(request.getOrganization())
@@ -217,14 +220,14 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .user(captain)
                 .role(MemberRole.CAPTAIN)
                 .status(MemberStatus.INVITED_ACCEPTED)
-                .realName(captainRow.getRealName().trim())
+                .realName(captainRow.getRealName())
                 .gender(captainRow.getGender() != null ? captainRow.getGender() : Gender.MALE)
-                .phone(captainRow.getPhone().trim())
+                .phone(captainRow.getPhone())
                 .email(captain.getEmail())
-                .idCard(captainRow.getIdCard().trim().toUpperCase())
-                .employeeNumber(StringUtils.hasText(captainRow.getEmployeeNumber()) ? captainRow.getEmployeeNumber().trim() : null)
-                .department(StringUtils.hasText(captainRow.getDepartment()) ? captainRow.getDepartment().trim() : null)
-                .position(StringUtils.hasText(captainRow.getPosition()) ? captainRow.getPosition().trim() : null)
+                .idCard(captainRow.getIdCard() != null ? captainRow.getIdCard().toUpperCase() : null)
+                .employeeNumber(captainRow.getEmployeeNumber())
+                .department(captainRow.getDepartment())
+                .position(captainRow.getPosition())
                 .build();
         memberRepository.save(captainMember);
 
@@ -232,7 +235,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         for (TeamLeadersSignupDTO l : leaderList) {
             User leaderUser = null;
             if (StringUtils.hasText(l.getEmail())) {
-                leaderUser = userRepository.findByEmail(l.getEmail().trim().toLowerCase()).orElse(null);
+                leaderUser = userRepository.findByEmail(l.getEmail()).orElse(null);
             }
             CompetitionMember leaderMember = CompetitionMember.builder()
                     .competition(competition)
@@ -240,21 +243,21 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                     .user(leaderUser)
                     .role(MemberRole.LEADER)
                     .status(MemberStatus.INVITED_ACCEPTED)
-                    .realName(l.getRealName().trim())
+                    .realName(l.getRealName())
                     .gender(l.getGender() != null ? l.getGender() : Gender.MALE)
-                    .phone(l.getPhone().trim())
-                    .email(StringUtils.hasText(l.getEmail()) ? l.getEmail().trim().toLowerCase() : null)
-                    .idCard(StringUtils.hasText(l.getIdCard()) ? l.getIdCard().trim().toUpperCase() : null)
-                    .employeeNumber(StringUtils.hasText(l.getEmployeeNumber()) ? l.getEmployeeNumber().trim() : null)
-                    .department(StringUtils.hasText(l.getDepartment()) ? l.getDepartment().trim() : null)
-                    .position(StringUtils.hasText(l.getPosition()) ? l.getPosition().trim() : null)
+                    .phone(l.getPhone())
+                    .email(l.getEmail())
+                    .idCard(StringUtils.hasText(l.getIdCard()) ? l.getIdCard().toUpperCase() : null)
+                    .employeeNumber(l.getEmployeeNumber())
+                    .department(l.getDepartment())
+                    .position(l.getPosition())
                     .build();
             memberRepository.save(leaderMember);
         }
 
         Instant expireTime = Instant.now().plus(24, ChronoUnit.HOURS);
         for (TeamMemberSignupDTO m : members) {
-            User memberUser = verifiedMemberUsers.get(m.getEmail().trim().toLowerCase());
+            User memberUser = verifiedMemberUsers.get(m.getEmail());
             saveInvitedMemberAndNotify(competition, savedTeam, captain, memberUser, m, expireTime);
         }
 
@@ -326,7 +329,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             Set<String> seenStudentNumbers = new HashSet<>();
 
             for (TeamMemberSignupDTO m : memberList) {
-                String empNo = m.getEmployeeNumber() != null ? m.getEmployeeNumber().trim() : "";
+                String empNo = m.getEmployeeNumber() != null ? m.getEmployeeNumber() : "";
                 if (!StringUtils.hasText(empNo)) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员工号不能为空" : "成员学号不能为空");
                 }
@@ -334,17 +337,17 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, (isEnterprise ? "填写的成员工号重复: " : "填写的成员学号重复: ") + empNo);
                 }
 
-                String dept = m.getDepartment() != null ? m.getDepartment().trim() : "";
+                String dept = m.getDepartment() != null ? m.getDepartment() : "";
                 if (!StringUtils.hasText(dept)) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员部门不能为空" : "成员学院不能为空");
                 }
 
-                String pos = m.getPosition() != null ? m.getPosition().trim() : "";
+                String pos = m.getPosition() != null ? m.getPosition() : "";
                 if (!StringUtils.hasText(pos)) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, isEnterprise ? "成员职位不能为空" : "成员班级不能为空");
                 }
 
-                String phone = m.getPhone() != null ? m.getPhone().trim() : "";
+                String phone = m.getPhone() != null ? m.getPhone() : "";
                 if (!StringUtils.hasText(phone)) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "成员手机号不能为空");
                 }
@@ -352,7 +355,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员手机号重复: " + phone);
                 }
 
-                String email = m.getEmail() != null ? m.getEmail().trim().toLowerCase() : "";
+                String email = m.getEmail() != null ? m.getEmail() : "";
                 if (!StringUtils.hasText(email)) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "成员邮箱不能为空");
                 }
@@ -360,7 +363,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "填写的成员邮箱重复: " + email);
                 }
 
-                String idCard = m.getIdCard() != null ? m.getIdCard().trim().toUpperCase() : "";
+                String idCard = m.getIdCard() != null ? m.getIdCard().toUpperCase() : "";
                 if (!StringUtils.hasText(idCard)) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "成员身份证号不能为空");
                 }
@@ -375,13 +378,13 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             // 更新队长自身的登记明细
             CompetitionMember captainMember = memberRepository.findByCompetitionIdAndTeamIdAndUserId(competitionId, team.getId(), captainUserId).orElse(null);
             if (captainMember != null) {
-                if (StringUtils.hasText(captainRow.getRealName())) captainMember.setRealName(captainRow.getRealName().trim());
+                if (StringUtils.hasText(captainRow.getRealName())) captainMember.setRealName(captainRow.getRealName());
                 if (captainRow.getGender() != null) captainMember.setGender(captainRow.getGender());
-                if (StringUtils.hasText(captainRow.getPhone())) captainMember.setPhone(captainRow.getPhone().trim());
-                if (StringUtils.hasText(captainRow.getIdCard())) captainMember.setIdCard(captainRow.getIdCard().trim().toUpperCase());
-                captainMember.setEmployeeNumber(StringUtils.hasText(captainRow.getEmployeeNumber()) ? captainRow.getEmployeeNumber().trim() : null);
-                captainMember.setDepartment(StringUtils.hasText(captainRow.getDepartment()) ? captainRow.getDepartment().trim() : null);
-                captainMember.setPosition(StringUtils.hasText(captainRow.getPosition()) ? captainRow.getPosition().trim() : null);
+                if (StringUtils.hasText(captainRow.getPhone())) captainMember.setPhone(captainRow.getPhone());
+                if (StringUtils.hasText(captainRow.getIdCard())) captainMember.setIdCard(captainRow.getIdCard().toUpperCase());
+                captainMember.setEmployeeNumber(captainRow.getEmployeeNumber());
+                captainMember.setDepartment(captainRow.getDepartment());
+                captainMember.setPosition(captainRow.getPosition());
                 memberRepository.save(captainMember);
             }
 
@@ -406,17 +409,17 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
             // 更新或创建普通队员
             for (TeamMemberSignupDTO m : members) {
-                User user = verifiedMemberUsers.get(m.getEmail().trim().toLowerCase());
+                User user = verifiedMemberUsers.get(m.getEmail());
                 CompetitionMember existing = currentMemberMap.get(user.getId());
                 if (existing != null) {
-                    existing.setRealName(m.getRealName().trim());
+                    existing.setRealName(m.getRealName());
                     existing.setGender(m.getGender() != null ? m.getGender() : Gender.MALE);
-                    existing.setPhone(StringUtils.hasText(m.getPhone()) ? m.getPhone().trim() : null);
-                    existing.setEmail(m.getEmail().trim().toLowerCase());
-                    existing.setIdCard(StringUtils.hasText(m.getIdCard()) ? m.getIdCard().trim().toUpperCase() : null);
-                    existing.setEmployeeNumber(StringUtils.hasText(m.getEmployeeNumber()) ? m.getEmployeeNumber().trim() : null);
-                    existing.setDepartment(StringUtils.hasText(m.getDepartment()) ? m.getDepartment().trim() : null);
-                    existing.setPosition(StringUtils.hasText(m.getPosition()) ? m.getPosition().trim() : null);
+                    existing.setPhone(m.getPhone());
+                    existing.setEmail(m.getEmail());
+                    existing.setIdCard(StringUtils.hasText(m.getIdCard()) ? m.getIdCard().toUpperCase() : null);
+                    existing.setEmployeeNumber(m.getEmployeeNumber());
+                    existing.setDepartment(m.getDepartment());
+                    existing.setPosition(m.getPosition());
                     existing.setRole(MemberRole.MEMBER);
                     memberRepository.save(existing);
                 } else {
@@ -440,7 +443,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "领队手机号不能为空");
                 }
                 if (StringUtils.hasText(l.getEmail()) && captain.getEmail() != null
-                        && captain.getEmail().equalsIgnoreCase(l.getEmail().trim())) {
+                        && captain.getEmail().equalsIgnoreCase(l.getEmail())) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "不能填写队长自身的邮箱作为指导老师/领队");
                 }
             }
@@ -452,7 +455,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
             for (TeamLeadersSignupDTO l : leaderList) {
                 User leaderUser = null;
                 if (StringUtils.hasText(l.getEmail())) {
-                    leaderUser = userRepository.findByEmail(l.getEmail().trim().toLowerCase()).orElse(null);
+                    leaderUser = userRepository.findByEmail(l.getEmail()).orElse(null);
                 }
                 CompetitionMember leaderMember = CompetitionMember.builder()
                         .competition(competition)
@@ -460,14 +463,14 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                         .user(leaderUser)
                         .role(MemberRole.LEADER)
                         .status(MemberStatus.INVITED_ACCEPTED)
-                        .realName(l.getRealName().trim())
+                        .realName(l.getRealName())
                         .gender(l.getGender() != null ? l.getGender() : Gender.MALE)
-                        .phone(l.getPhone().trim())
-                        .email(StringUtils.hasText(l.getEmail()) ? l.getEmail().trim().toLowerCase() : null)
-                        .idCard(StringUtils.hasText(l.getIdCard()) ? l.getIdCard().trim().toUpperCase() : null)
-                        .employeeNumber(StringUtils.hasText(l.getEmployeeNumber()) ? l.getEmployeeNumber().trim() : null)
-                        .department(StringUtils.hasText(l.getDepartment()) ? l.getDepartment().trim() : null)
-                        .position(StringUtils.hasText(l.getPosition()) ? l.getPosition().trim() : null)
+                        .phone(l.getPhone())
+                        .email(l.getEmail())
+                        .idCard(StringUtils.hasText(l.getIdCard()) ? l.getIdCard().toUpperCase() : null)
+                        .employeeNumber(l.getEmployeeNumber())
+                        .department(l.getDepartment())
+                        .position(l.getPosition())
                         .build();
                 memberRepository.save(leaderMember);
             }
@@ -799,7 +802,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         }
 
         CompetitionTeam team = member.getTeam();
-        List<CompetitionMember> members = memberRepository.findByTeamId(team.getId());
+        List<CompetitionMember> members = memberRepository.findByTeamIdWithUserAndProfile(team.getId());
         // 稳定排序：队长 (CAPTAIN) 始终置顶，普通队员居中，领队随后，同角色按 ID 升序
         members.sort(Comparator.comparingInt((CompetitionMember m) -> {
             if (m.getRole() == MemberRole.CAPTAIN) return 0;
@@ -808,6 +811,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         }).thenComparing(CompetitionMember::getId));
 
         List<CompetitionMemberVO> memberVOs = competitionMapper.toMemberVOList(members);
+        populateMemberAvatars(memberVOs, members);
 
         return MyTeamInfoVO.builder()
                 .teamId(team.getId())
@@ -833,7 +837,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         Map<String, User> resultMap = new HashMap<>();
 
         for (TeamMemberSignupDTO input : memberInputs) {
-            String email = input.getEmail() != null ? input.getEmail().trim().toLowerCase() : "";
+            String email = input.getEmail() != null ? input.getEmail() : "";
             if (!StringUtils.hasText(email)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, roleLabel + "邮箱不能为空");
             }
@@ -893,14 +897,14 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .user(invitee)
                 .role(role)
                 .status(MemberStatus.INVITED)
-                .realName(input.getRealName().trim())
+                .realName(input.getRealName())
                 .gender(input.getGender() != null ? input.getGender() : Gender.MALE)
-                .phone(input.getPhone() != null ? input.getPhone().trim() : null)
-                .email(input.getEmail().trim().toLowerCase())
-                .idCard(input.getIdCard() != null ? input.getIdCard().trim().toUpperCase() : null)
-                .employeeNumber(StringUtils.hasText(input.getEmployeeNumber()) ? input.getEmployeeNumber().trim() : null)
-                .department(StringUtils.hasText(input.getDepartment()) ? input.getDepartment().trim() : null)
-                .position(StringUtils.hasText(input.getPosition()) ? input.getPosition().trim() : null)
+                .phone(input.getPhone())
+                .email(input.getEmail())
+                .idCard(input.getIdCard() != null ? input.getIdCard().toUpperCase() : null)
+                .employeeNumber(input.getEmployeeNumber())
+                .department(input.getDepartment())
+                .position(input.getPosition())
                 .build();
         memberRepository.save(member);
 
@@ -946,13 +950,13 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
         for (TeamMemberSignupDTO m : memberList) {
             if (StringUtils.hasText(m.getPhone())) {
-                phones.add(m.getPhone().trim());
+                phones.add(m.getPhone());
             }
             if (StringUtils.hasText(m.getIdCard())) {
-                idCards.add(m.getIdCard().trim().toUpperCase());
+                idCards.add(m.getIdCard().toUpperCase());
             }
             if (StringUtils.hasText(m.getEmail())) {
-                emails.add(m.getEmail().trim().toLowerCase());
+                emails.add(m.getEmail());
             }
         }
 
@@ -974,10 +978,10 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         }
 
         for (TeamMemberSignupDTO input : memberList) {
-            String inputPhone = input.getPhone() != null ? input.getPhone().trim() : "";
-            String inputIdCard = input.getIdCard() != null ? input.getIdCard().trim().toUpperCase() : "";
-            String inputEmail = input.getEmail() != null ? input.getEmail().trim().toLowerCase() : "";
-            String inputName = StringUtils.hasText(input.getRealName()) ? input.getRealName().trim() : "未命名成员";
+            String inputPhone = input.getPhone() != null ? input.getPhone() : "";
+            String inputIdCard = input.getIdCard() != null ? input.getIdCard().toUpperCase() : "";
+            String inputEmail = input.getEmail() != null ? input.getEmail() : "";
+            String inputName = StringUtils.hasText(input.getRealName()) ? input.getRealName() : "未命名成员";
             boolean isInputLeader = input.getRole() == MemberRole.LEADER;
 
             for (CompetitionMember existing : conflicts) {
@@ -1024,6 +1028,27 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 }
             }
         }
+    }
+
+    private void populateMemberAvatars(List<CompetitionMemberVO> memberVOs, List<CompetitionMember> members) {
+        if (memberVOs == null || memberVOs.isEmpty()) {
+            return;
+        }
+        List<Long> userIds = members.stream()
+                .map(m -> m.getUser() != null ? m.getUser().getId() : null)
+                .filter(Objects::nonNull)
+                .toList();
+        if (userIds.isEmpty()) {
+            return;
+        }
+        Map<Long, String> avatarMap = userProfileRepository.findAllById(userIds).stream()
+                .filter(p -> StringUtils.hasText(p.getAvatarUrl()))
+                .collect(Collectors.toMap(UserProfile::getId, UserProfile::getAvatarUrl, (a, b) -> a));
+        memberVOs.forEach(vo -> {
+            if (vo.getUserId() != null) {
+                vo.setAvatarUrl(avatarMap.get(vo.getUserId()));
+            }
+        });
     }
 
 }

@@ -1,5 +1,6 @@
 package com.humolix.volur.competition.domain.dto;
 
+import com.humolix.volur.framework.common.annotation.Trimmed;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,8 +14,10 @@ import java.util.Map;
 public class TeamRegisterRequestDTO {
 
     @NotBlank(message = "队伍名称不能为空")
+    @Trimmed
     private String teamName;
 
+    @Trimmed
     private String avatarUrl;
 
     /**

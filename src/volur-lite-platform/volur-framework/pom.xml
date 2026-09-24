@@ -62,6 +62,13 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
+        <!-- Micrometer Core for Cache Metrics (Optional) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- MapStruct -->
         <dependency>
             <groupId>org.mapstruct</groupId>

@@ -104,5 +104,11 @@ const localeOptions = computed<SelectOption[]>(() => [
     font-size: 12px;
     color: #444444;
   }
+
+  .field-hint-feedback {
+    font-size: 12px;
+    color: #444444;
+    line-height: 1.4;
+  }
 }
 </style>

@@ -31,24 +31,6 @@
           style="max-width: 480px;"
         />
       </n-form-item>
-
-      <n-form-item :label="t('admin.system.maintenance.rate_limit_window')" path="rateLimitWindow">
-        <n-input-number
-          v-model:value="form.rateLimitWindow"
-          :min="10"
-          :max="600"
-          style="width: 200px;"
-        />
-      </n-form-item>
-
-      <n-form-item :label="t('admin.system.maintenance.rate_limit_max_requests')" path="rateLimitMaxRequests">
-        <n-input-number
-          v-model:value="form.rateLimitMaxRequests"
-          :min="10"
-          :max="10000"
-          style="width: 200px;"
-        />
-      </n-form-item>
     </n-form>
   </div>
 </template>
@@ -59,7 +41,6 @@ import {
   NForm,
   NFormItem,
   NInput,
-  NInputNumber,
   NSwitch,
   NAlert
 } from 'naive-ui'
@@ -67,8 +48,6 @@ import {
 interface MaintenanceSettings {
   maintenanceMode: boolean
   maintenanceNotice: string
-  rateLimitWindow: number
-  rateLimitMaxRequests: number
 }
 
 defineProps<{

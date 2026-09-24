@@ -31,7 +31,7 @@ public class AdminCompetitionLogController {
     }
 
     @Operation(summary = "获取单场比赛日志统计指标快照")
-    @GetMapping("/statistics")
+    @GetMapping("/stats")
     public ApiResponse<AdminCompetitionLogStatisticsVO> getStatistics(
             @PathVariable Long competitionId) {
         return ApiResponseEntity.ok("获取比赛日志统计指标成功", logService.getStatistics(competitionId));

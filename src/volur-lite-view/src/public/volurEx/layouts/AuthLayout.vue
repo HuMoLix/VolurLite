@@ -73,10 +73,9 @@ const logoUrl = computed(() => {
   return systemStore.getSetting('PLATFORM_LOGO', '/long-logo.svg')
 })
 
-function toggleLanguage() {
+async function toggleLanguage() {
   const next = locale.value === 'zh_CN' ? 'en_US' : 'zh_CN'
-  locale.value = next
-  localStorage.setItem('locale', next)
+  await appStore.switchLanguage(next)
 }
 </script>
 

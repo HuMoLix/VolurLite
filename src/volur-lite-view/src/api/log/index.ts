@@ -14,10 +14,10 @@ export function getAdminLogListApi(
 
 /**
  * 管理端：获取系统日志统计数据
- * 对应后端: GET /api/v1/admin/logs/statistics
+ * 对应后端: GET /api/v1/admin/logs/stats
  */
 export function getAdminLogStatisticsApi(): Promise<ApiResponse<AdminLogStatisticsVO>> {
-  return request.get<AdminLogStatisticsVO>('/admin/logs/statistics')
+  return request.get<AdminLogStatisticsVO>('/admin/logs/stats')
 }
 
 /**

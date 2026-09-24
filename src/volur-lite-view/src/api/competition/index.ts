@@ -707,13 +707,13 @@ export function getAdminCompetitionLogListApi(
 
 /**
  * 获取单场比赛操作日志统计数据
- * 对应后端: GET /api/v1/admin/competitions/{competitionId}/logs/statistics
+ * 对应后端: GET /api/v1/admin/competitions/{competitionId}/logs/stats
  */
 export function getAdminCompetitionLogStatisticsApi(
   competitionId: number | string
 ): Promise<ApiResponse<AdminCompetitionLogStatisticsVO>> {
   return request.get<AdminCompetitionLogStatisticsVO>(
-    `/admin/competitions/${competitionId}/logs/statistics`
+    `/admin/competitions/${competitionId}/logs/stats`
   )
 }
 

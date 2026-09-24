@@ -12,6 +12,15 @@
             <naive-provider>
               <router-view />
               <VolurBroadcastModal />
+              <!-- 全局多语言异步加载全屏遮罩 -->
+              <transition name="lang-mask-fade">
+                <div v-if="appStore.isLangSwitching" class="global-lang-loading-mask">
+                  <div class="lang-loading-card">
+                    <n-spin size="large" />
+                    <span class="lang-loading-text">{{ appStore.langSwitchingText }}</span>
+                  </div>
+                </div>
+              </transition>
             </naive-provider>
           </n-message-provider>
         </n-notification-provider>
@@ -22,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
 import {
   NConfigProvider,
   NLoadingBarProvider,
@@ -30,6 +39,7 @@ import {
   NNotificationProvider,
   NMessageProvider,
   NGlobalStyle,
+  NSpin,
   darkTheme,
   zhCN,
   dateZhCN,
@@ -40,8 +50,12 @@ import {
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import NaiveProvider from '@/components/common/NaiveProvider.vue'
-import { VolurBroadcastModal } from '@/public/volurEx'
 import { useAppStore } from '@/store/modules/app'
+
+// 精准异步懒加载广播弹窗，避开 volurEx 根入口 Barrel Export 雪崩
+const VolurBroadcastModal = defineAsyncComponent(
+  () => import('@/public/volurEx/components/VolurBroadcastModal.vue')
+)
 import { useSystemStore } from '@/store/modules/system'
 import { useUserStore } from '@/store/modules/user'
 import { useNotificationStore } from '@/store/modules/notification'
@@ -146,3 +160,62 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
 <style>
 /* Base app styles handled by styles/index.scss */
 </style>
+
+<style lang="scss" scoped>
+.global-lang-loading-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  user-select: none;
+
+  @include theme-dark {
+    background-color: rgba(11, 12, 16, 0.88);
+  }
+}
+
+.lang-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.05);
+
+  @include theme-dark {
+    background: rgba(21, 24, 33, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.lang-loading-text {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: #444444;
+
+  @include theme-dark {
+    color: #e2e8f0;
+  }
+}
+
+.lang-mask-fade-enter-active,
+.lang-mask-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.lang-mask-fade-enter-from,
+.lang-mask-fade-leave-to {
+  opacity: 0;
+}
+</style>
+

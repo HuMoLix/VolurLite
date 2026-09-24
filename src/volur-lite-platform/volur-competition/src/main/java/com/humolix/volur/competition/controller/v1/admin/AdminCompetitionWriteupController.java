@@ -32,16 +32,8 @@ public class AdminCompetitionWriteupController {
             @PathVariable Long competitionId,
             @RequestParam(required = false) String keyword) {
 
-        List<CompetitionWriteup> list = writeupRepository.findByCompetitionIdOrderByCreatedAtDesc(competitionId);
-        if (StringUtils.hasText(keyword)) {
-            String kw = keyword.trim().toLowerCase();
-            list = list.stream().filter(w ->
-                    (w.getTeamName() != null && w.getTeamName().toLowerCase().contains(kw)) ||
-                    (w.getUsername() != null && w.getUsername().toLowerCase().contains(kw)) ||
-                    (w.getFileName() != null && w.getFileName().toLowerCase().contains(kw))
-            ).toList();
-        }
-
+        String kw = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        List<CompetitionWriteup> list = writeupRepository.searchByCompetitionIdAndKeyword(competitionId, kw);
         List<CompetitionWriteupVO> voList = list.stream().map(this::toVO).toList();
         return ApiResponseEntity.ok("获取队伍 Writeup 列表成功", voList);
     }

@@ -38,6 +38,10 @@
     "logs": "System Logs",
     "tasks": "Task Management",
     "emails": "Email Management",
+    "risk_management": "Risk Management",
+    "risk_settings": "Risk Settings",
+    "risk_rules": "Policy Settings",
+    "risk_ip": "IP Management",
     "system": "System Settings"
   }
 }

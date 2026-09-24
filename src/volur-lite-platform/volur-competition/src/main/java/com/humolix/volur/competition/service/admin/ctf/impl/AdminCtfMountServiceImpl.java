@@ -12,6 +12,8 @@ import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.repository.CompetitionRepository;
 import com.humolix.volur.competition.repository.ctf.CtfCompetitionChallengeRepository;
 import com.humolix.volur.competition.service.admin.ctf.AdminCtfMountService;
+import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +30,7 @@ public class AdminCtfMountServiceImpl implements AdminCtfMountService {
     private final CtfChallengeRepository rawChallengeRepository;
     private final CtfCompetitionChallengeRepository compChallengeRepository;
     private final CompetitionMapper competitionMapper;
+    private final VolurCacheTemplate cacheTemplate;
 
     @Override
     public List<CtfCompetitionChallengeVO> listMountedChallenges(Long competitionId) {
@@ -69,6 +72,7 @@ public class AdminCtfMountServiceImpl implements AdminCtfMountService {
                 .build();
 
         compChallengeRepository.save(compChal);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "ctf:challenges:" + competitionId);
     }
 
     @Override
@@ -98,12 +102,17 @@ public class AdminCtfMountServiceImpl implements AdminCtfMountService {
         if (request.getSortOrder() != null) compChal.setSortOrder(request.getSortOrder());
         if (request.getIsVisible() != null) compChal.setIsVisible(request.getIsVisible());
         compChallengeRepository.save(compChal);
+
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "ctf:challenges:" + competitionId);
+        cacheTemplate.evict(CacheNames.CTF_CHALLENGE_DETAIL, "comp:" + competitionId + ":chal:" + competitionChallengeId);
     }
 
     @Override
     @Transactional
     public void unmountChallenge(Long competitionId, Long competitionChallengeId) {
         compChallengeRepository.deleteById(competitionChallengeId);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "ctf:challenges:" + competitionId);
+        cacheTemplate.evict(CacheNames.CTF_CHALLENGE_DETAIL, "comp:" + competitionId + ":chal:" + competitionChallengeId);
     }
 
 }

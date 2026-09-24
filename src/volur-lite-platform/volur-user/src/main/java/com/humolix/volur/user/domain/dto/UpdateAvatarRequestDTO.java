@@ -1,5 +1,6 @@
 package com.humolix.volur.user.domain.dto;
 
+import com.humolix.volur.framework.common.annotation.Trimmed;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,6 +14,7 @@ import java.io.Serializable;
 public class UpdateAvatarRequestDTO implements Serializable {
 
     @NotBlank(message = "头像URL不能为空")
+    @Trimmed
     private String avatarUrl;
 
 }

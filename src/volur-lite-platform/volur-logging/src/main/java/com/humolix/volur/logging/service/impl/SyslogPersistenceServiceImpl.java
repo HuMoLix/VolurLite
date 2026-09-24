@@ -4,9 +4,9 @@ import com.humolix.volur.framework.common.thread.VolurThreadManager;
 import com.humolix.volur.logging.domain.entity.Syslog;
 import com.humolix.volur.logging.repository.SyslogRepository;
 import com.humolix.volur.logging.service.SyslogPersistenceService;
-import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -21,7 +21,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SyslogPersistenceServiceImpl implements SyslogPersistenceService {
+public class SyslogPersistenceServiceImpl implements SyslogPersistenceService, SmartLifecycle {
 
     public static final String VREDIS_LOGGING_SYSLOG_BUFFER_KEY = "vredis:logging:syslog:buffer";
     private static final int BATCH_SIZE = 50;
@@ -30,6 +30,8 @@ public class SyslogPersistenceServiceImpl implements SyslogPersistenceService {
     private final VolurThreadManager volurThreadManager;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
+
+    private volatile boolean running = false;
 
     @Override
     public void saveLogAsync(Syslog syslog) {
@@ -118,10 +120,30 @@ public class SyslogPersistenceServiceImpl implements SyslogPersistenceService {
         }
     }
 
-    @PreDestroy
-    public void onShutdown() {
+    @Override
+    public void start() {
+        this.running = true;
+    }
+
+    @Override
+    public void stop() {
+        if (!this.running) {
+            return;
+        }
+        this.running = false;
         log.info("[Syslog] 服务优雅停机，正在执行 Redis 系统日志缓冲区收尾落库...");
         drainBuffer();
+    }
+
+    @Override
+    public boolean isRunning() {
+        return this.running;
+    }
+
+    @Override
+    public int getPhase() {
+        // 赋予大于 LettuceConnectionFactory(phase=0) 的高优先级，确保在 Redis 连接池关闭前执行收尾
+        return Integer.MAX_VALUE - 1000;
     }
 
 }

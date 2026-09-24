@@ -60,7 +60,7 @@ public interface CompetitionMapper {
 
     @Mapping(source = "member.user.id", target = "userId")
     @Mapping(source = "member.user.username", target = "username")
-    @Mapping(source = "member.user.userProfile.avatarUrl", target = "avatarUrl")
+    @Mapping(target = "avatarUrl", ignore = true)
     @Mapping(source = "member.realName", target = "realName")
     @Mapping(source = "member.gender", target = "gender")
     @Mapping(source = "member.phone", target = "phone")

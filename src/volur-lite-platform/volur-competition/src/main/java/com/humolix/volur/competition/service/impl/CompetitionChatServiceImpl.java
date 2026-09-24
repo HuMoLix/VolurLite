@@ -24,7 +24,9 @@ import com.humolix.volur.competition.websocket.redis.CompetitionChatRedisPublish
 import com.humolix.volur.framework.common.api.CursorResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.UserRole;
+import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +60,7 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
     private final CompetitionTeamRepository teamRepository;
     private final CompetitionMemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
     private final CompetitionChatMapper chatMapper;
     private final CompetitionChatRedisPublisher redisPublisher;
     private final StringRedisTemplate stringRedisTemplate;
@@ -175,7 +178,9 @@ public class CompetitionChatServiceImpl implements CompetitionChatService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "不支持的聊天频道类型");
         }
 
-        String avatarUrl = sender.getUserProfile() != null ? sender.getUserProfile().getAvatarUrl() : null;
+        String avatarUrl = userProfileRepository.findById(sender.getId())
+                .map(UserProfile::getAvatarUrl)
+                .orElse(null);
 
         CompetitionChatMessage message = CompetitionChatMessage.builder()
                 .competition(competition)

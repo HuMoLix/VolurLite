@@ -24,7 +24,7 @@ public class AdminAsyncTaskController {
     private final AdminAsyncTaskService adminAsyncTaskService;
 
     @Operation(summary = "获取异步任务统计看板数据")
-    @GetMapping("/statistics")
+    @GetMapping("/stats")
     public ApiResponse<AdminAsyncTaskStatisticsVO> getStatistics() {
         return ApiResponseEntity.ok("获取任务统计数据成功", adminAsyncTaskService.getStatistics());
     }

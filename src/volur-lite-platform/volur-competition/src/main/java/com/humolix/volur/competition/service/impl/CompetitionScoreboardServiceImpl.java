@@ -18,6 +18,8 @@ import com.humolix.volur.competition.repository.awd.AwdCompetitionLogRepository;
 import com.humolix.volur.competition.repository.ctf.CtfCompetitionSolvedRepository;
 import com.humolix.volur.competition.repository.theory.TheoryCompetitionAnswerRepository;
 import com.humolix.volur.competition.service.CompetitionScoreboardService;
+import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,9 +39,18 @@ public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardSe
     private final CtfCompetitionSolvedRepository ctfSolvedRepository;
     private final TheoryCompetitionAnswerRepository theoryAnswerRepository;
     private final AwdCompetitionLogRepository awdLogRepository;
+    private final VolurCacheTemplate cacheTemplate;
 
     @Override
     public CtfScoreboardVO getCtfScoreboard(Long competitionId) {
+        return cacheTemplate.getOrLoad(
+                CacheNames.COMPETITION_STATUS,
+                "scoreboard:ctf:" + competitionId,
+                () -> computeCtfScoreboard(competitionId)
+        );
+    }
+
+    private CtfScoreboardVO computeCtfScoreboard(Long competitionId) {
         Competition comp = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
 
@@ -98,6 +109,14 @@ public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardSe
 
     @Override
     public CompositeScoreboardVO getCompositeScoreboard(Long competitionId) {
+        return cacheTemplate.getOrLoad(
+                CacheNames.COMPETITION_STATUS,
+                "scoreboard:composite:" + competitionId,
+                () -> computeCompositeScoreboard(competitionId)
+        );
+    }
+
+    private CompositeScoreboardVO computeCompositeScoreboard(Long competitionId) {
         Competition comp = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
 

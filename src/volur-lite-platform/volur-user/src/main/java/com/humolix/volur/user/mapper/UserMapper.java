@@ -28,7 +28,7 @@ public interface UserMapper {
         if (user == null) {
             return null;
         }
-        return toUserSummaryVO(user, user.getUserProfile());
+        return toUserSummaryVO(user, null);
     }
 
     List<UserSummaryVO> toUserSummaryVOList(List<User> users);
@@ -56,7 +56,7 @@ public interface UserMapper {
         if (user == null) {
             return null;
         }
-        return toUserProfileResponseVO(user, user.getUserProfile());
+        return toUserProfileResponseVO(user, null);
     }
 
     @Mapping(source = "user.id", target = "id")
@@ -82,7 +82,7 @@ public interface UserMapper {
         if (user == null) {
             return null;
         }
-        return toAdminUserDetailsVO(user, user.getUserProfile());
+        return toAdminUserDetailsVO(user, null);
     }
 
     List<AdminUserDetailsVO> toAdminUserDetailsVOList(List<User> users);

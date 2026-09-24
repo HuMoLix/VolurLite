@@ -864,7 +864,11 @@ async function doSendPwdCode(ticket?: string) {
     await sendChangePasswordEmailCodeApi({
       email: profile.value!.email,
       username: profile.value!.username,
-      captchaTicket: ticket || undefined
+      captcha: ticket ? {
+        captchaTicket: ticket,
+        scene: 'CHANGE_PASSWORD',
+        account: profile.value!.username
+      } : undefined
     })
     message.success(t('profile.code_sent_success'))
     pwdCodeCountdown.value = 60
@@ -958,7 +962,11 @@ async function doSendDeleteCode(ticket?: string) {
     await sendDeleteAccountEmailCodeApi({
       email: profile.value!.email,
       username: profile.value!.username,
-      captchaTicket: ticket || undefined
+      captcha: ticket ? {
+        captchaTicket: ticket,
+        scene: 'CHANGE_PASSWORD',
+        account: profile.value!.username
+      } : undefined
     })
     message.success(t('profile.code_sent_success'))
     delCodeCountdown.value = 60

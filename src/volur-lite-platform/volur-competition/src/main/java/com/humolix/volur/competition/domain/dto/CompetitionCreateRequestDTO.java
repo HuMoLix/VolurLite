@@ -17,9 +17,11 @@ import java.util.List;
 public class CompetitionCreateRequestDTO {
 
     @NotBlank(message = "竞赛标题不能为空")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String title;
 
     @NotBlank(message = "竞赛短链接不能为空")
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String slug;
 
     @NotNull(message = "竞赛类型不能为空")
@@ -27,6 +29,7 @@ public class CompetitionCreateRequestDTO {
 
     private String description;
 
+    @com.humolix.volur.framework.common.annotation.Trimmed
     private String bannerUrl;
 
     private CompetitionStatus status;

@@ -4,6 +4,9 @@ import type {
   CaptchaResponseVO,
   CaptchaTicketVO,
   CaptchaVerifyDTO,
+  CaptchaChallengeDecisionVO,
+  CaptchaGenerateRequestDTO,
+  CaptchaOtpRequestDTO,
   EmailCaptchaRequestDTO,
   EmailLogVO,
   AdminEmailStatisticsVO,
@@ -24,14 +27,21 @@ export function getCaptchaChallengeApi(params?: {
 }
 
 /**
- * 获取通用图形验证码
- * 对应后端: GET /api/v1/captcha
+ * 获取自适应人机验证挑战/验证码 (主入口，支持魔改 RC4 + RSA 场景加密)
+ * 对应后端: POST /api/v1/captcha
  */
 export function getCaptchaApi(
-  params?: string | { oldCaptchaId?: string; ticket?: string }
+  data: CaptchaGenerateRequestDTO
 ): Promise<ApiResponse<CaptchaResponseVO>> {
-  const query = typeof params === 'string' ? { oldCaptchaId: params } : params
-  return request.get<CaptchaResponseVO>('/captcha', { params: query })
+  return request.post<CaptchaResponseVO>('/captcha', data)
+}
+
+/**
+ * 获取自适应人机验证 RSA 公钥 (用于客户端场景加密与动态轮换)
+ * 对应后端: GET /api/v1/captcha/public-key
+ */
+export function getCaptchaPublicKeyApi(): Promise<ApiResponse<{ publicKey: string }>> {
+  return request.get<{ publicKey: string }>('/captcha/public-key')
 }
 
 /**
@@ -40,6 +50,25 @@ export function getCaptchaApi(
  */
 export function verifyCaptchaTicketApi(data: CaptchaVerifyDTO): Promise<ApiResponse<CaptchaTicketVO>> {
   return request.post<CaptchaTicketVO>('/captcha/verify-ticket', data)
+}
+
+/**
+ * 预检探测人机验证挑战模式与风控决策
+ * 对应后端: GET /api/v1/captcha/decision
+ */
+export function getCaptchaDecisionApi(params?: {
+  scene?: string
+  account?: string
+}): Promise<ApiResponse<CaptchaChallengeDecisionVO>> {
+  return request.get<CaptchaChallengeDecisionVO>('/captcha/decision', { params })
+}
+
+/**
+ * 极高风控场景下请求下发带外动态安全码 (OTP)
+ * 对应后端: POST /api/v1/captcha/send-otp
+ */
+export function sendCaptchaOtpApi(data: CaptchaOtpRequestDTO): Promise<ApiResponse<void>> {
+  return request.post<void>('/captcha/send-otp', data)
 }
 
 /**
@@ -52,10 +81,10 @@ export function sendRegisterEmailCodeApi(data: EmailCaptchaRequestDTO): Promise<
 
 /**
  * 管理端：获取邮件发信统计指标
- * 对应后端: GET /api/v1/admin/emails/statistics
+ * 对应后端: GET /api/v1/admin/emails/stats
  */
 export function getAdminEmailStatisticsApi(): Promise<ApiResponse<AdminEmailStatisticsVO>> {
-  return request.get<AdminEmailStatisticsVO>('/admin/emails/statistics')
+  return request.get<AdminEmailStatisticsVO>('/admin/emails/stats')
 }
 
 /**

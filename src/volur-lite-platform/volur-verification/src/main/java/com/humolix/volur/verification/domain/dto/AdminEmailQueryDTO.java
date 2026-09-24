@@ -1,5 +1,6 @@
 package com.humolix.volur.verification.domain.dto;
 
+import com.humolix.volur.framework.common.annotation.Trimmed;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,10 +20,13 @@ public class AdminEmailQueryDTO {
 
     private String sortOrder;
 
+    @Trimmed
     private String keyword;
 
+    @Trimmed
     private String type;
 
+    @Trimmed
     private String status;
 
     private Instant startTime;

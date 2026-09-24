@@ -1,7 +1,6 @@
 package com.humolix.volur.user.domain.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
 import com.humolix.volur.user.domain.enums.Gender;
 import com.humolix.volur.user.domain.enums.UserRole;
@@ -56,11 +55,6 @@ public class User implements Serializable {
     @Column(name = "role", nullable = false, length = 32, columnDefinition = "VARCHAR(32) DEFAULT 'USER'")
     @Builder.Default
     private UserRole role = UserRole.USER;
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
-    @ToString.Exclude
-    private UserProfile userProfile;
 
     @Column(name = "last_login_ip", length = 45, columnDefinition = "VARCHAR(45)")
     private String lastLoginIp;

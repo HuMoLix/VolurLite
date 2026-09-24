@@ -1,6 +1,7 @@
 package com.humolix.volur.auth.security.service;
 
 import com.humolix.volur.auth.security.entity.UserDetails;
+import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,13 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserDetailsService implements org.springframework.security.core.userdetails.UserDetailsService {
 
-    private static final String CACHE_USER_DETAILS = "user_details";
-
     private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CACHE_USER_DETAILS, key = "#username", unless = "#result == null")
+    @Cacheable(cacheNames = CacheNames.USER_DETAILS, key = "#username", sync = true)
     @NullMarked
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.findByUsernameOrEmail(username)

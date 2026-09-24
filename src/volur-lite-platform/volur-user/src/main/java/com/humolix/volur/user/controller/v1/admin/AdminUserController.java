@@ -29,7 +29,7 @@ public class AdminUserController {
     private final AdminUserService adminUserService;
 
     @Operation(summary = "获取用户统计数据")
-    @GetMapping("/statistics")
+    @GetMapping("/stats")
     public ApiResponse<AdminUserStatisticsVO> getUserStatistics() {
         return ApiResponseEntity.ok("获取用户统计数据成功", adminUserService.getUserStatistics());
     }

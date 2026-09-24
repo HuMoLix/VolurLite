@@ -1,6 +1,6 @@
 package com.humolix.volur.framework.security;
 
-import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.framework.security.util.RequestUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -8,7 +8,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-public class RequestHolderIpTest {
+public class RequestUtilIpTest {
 
     @AfterEach
     public void tearDown() {
@@ -26,7 +26,7 @@ public class RequestHolderIpTest {
         request.setRemoteAddr("172.18.0.1");
         setRequest(request);
 
-        Assertions.assertEquals("124.64.23.71", RequestHolder.getRemoteIp());
+        Assertions.assertEquals("124.64.23.71", RequestUtil.getRemoteIp());
     }
 
     @Test
@@ -39,7 +39,7 @@ public class RequestHolderIpTest {
         setRequest(request);
 
         // 必须准确回溯出公网真实客户端 124.64.23.71
-        Assertions.assertEquals("124.64.23.71", RequestHolder.getRemoteIp());
+        Assertions.assertEquals("124.64.23.71", RequestUtil.getRemoteIp());
     }
 
     @Test
@@ -51,7 +51,7 @@ public class RequestHolderIpTest {
         setRequest(request);
 
         // 自右向左标准回溯跳过 172.18.0.1 内部私网代理后，命中直连公网真实客户端 203.0.113.88，阻断伪造的 8.8.8.8
-        Assertions.assertEquals("203.0.113.88", RequestHolder.getRemoteIp());
+        Assertions.assertEquals("203.0.113.88", RequestUtil.getRemoteIp());
     }
 
     @Test
@@ -63,7 +63,7 @@ public class RequestHolderIpTest {
         request.setRemoteAddr("172.18.0.1");
         setRequest(request);
 
-        Assertions.assertEquals("32.185.229.115", RequestHolder.getRemoteIp());
+        Assertions.assertEquals("32.185.229.115", RequestUtil.getRemoteIp());
     }
 
     @Test
@@ -74,7 +74,7 @@ public class RequestHolderIpTest {
         request.setRemoteAddr("172.18.0.1");
         setRequest(request);
 
-        Assertions.assertEquals("114.119.153.91", RequestHolder.getRemoteIp());
+        Assertions.assertEquals("114.119.153.91", RequestUtil.getRemoteIp());
     }
 
     @Test
@@ -84,13 +84,13 @@ public class RequestHolderIpTest {
         requestA.addHeader("X-Forwarded-For", "192.168.1.101, 172.18.0.1");
         requestA.setRemoteAddr("172.18.0.1");
         setRequest(requestA);
-        Assertions.assertEquals("192.168.1.101", RequestHolder.getRemoteIp(), "选手 A 必须被独立识别为 192.168.1.101");
+        Assertions.assertEquals("192.168.1.101", RequestUtil.getRemoteIp(), "选手 A 必须被独立识别为 192.168.1.101");
 
         MockHttpServletRequest requestB = new MockHttpServletRequest();
         requestB.addHeader("X-Forwarded-For", "192.168.1.102, 172.18.0.1");
         requestB.setRemoteAddr("172.18.0.1");
         setRequest(requestB);
-        Assertions.assertEquals("192.168.1.102", RequestHolder.getRemoteIp(), "选手 B 必须被独立识别为 192.168.1.102");
+        Assertions.assertEquals("192.168.1.102", RequestUtil.getRemoteIp(), "选手 B 必须被独立识别为 192.168.1.102");
     }
 
     @Test
@@ -99,7 +99,7 @@ public class RequestHolderIpTest {
         request.setRemoteAddr("127.0.0.1");
         setRequest(request);
 
-        Assertions.assertEquals("127.0.0.1", RequestHolder.getRemoteIp());
+        Assertions.assertEquals("127.0.0.1", RequestUtil.getRemoteIp());
     }
 
 }

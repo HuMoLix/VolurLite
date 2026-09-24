@@ -24,19 +24,6 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     Optional<User> findByPhone(String phone);
 
-    @Query("SELECT u FROM User u " +
-            "LEFT JOIN FETCH u.userProfile up " +
-            "WHERE u.id = :id")
-    Optional<User> findDetailById(@Param("id") Long id);
-
-    @Query("SELECT u FROM User u LEFT JOIN FETCH u.userProfile WHERE u.id = :id")
-    Optional<User> findByIdWithProfileAndRole(@Param("id") Long id);
-
-    @Query("SELECT u FROM User u " +
-            "LEFT JOIN FETCH u.userProfile p " +
-            "WHERE u.username = :username")
-    Optional<User> findByUsernameWithProfile(@Param("username") String username);
-
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);

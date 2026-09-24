@@ -37,7 +37,7 @@ public class CaptchaRiskFlowTest {
         providerManager = Mockito.mock(CaptchaProviderManager.class);
         rateLimiter = Mockito.mock(RedisSlidingWindowRateLimiter.class);
         redisTemplate = Mockito.mock(StringRedisTemplate.class);
-        riskEngine = new RiskEvaluationEngine(rateLimiter, redisTemplate);
+        riskEngine = new RiskEvaluationEngine(rateLimiter, redisTemplate, null, null);
         captchaService = new CaptchaServiceImpl(providerManager, riskEngine, rateLimiter, redisTemplate);
 
         MockHttpServletRequest request = new MockHttpServletRequest();

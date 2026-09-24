@@ -26,7 +26,7 @@ public class AdminContainerController {
     private final AdminContainerService adminContainerService;
 
     @Operation(summary = "获取容器集群与运行统计数据")
-    @GetMapping("/statistics")
+    @GetMapping("/stats")
     public ApiResponse<AdminContainerStatisticsVO> getStatistics() {
         return ApiResponseEntity.ok("获取容器统计数据成功", adminContainerService.getStatistics());
     }

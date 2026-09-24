@@ -16,8 +16,6 @@ import com.humolix.volur.user.mapper.UserMapper;
 import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.user.service.admin.AdminUserService;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -56,21 +54,25 @@ public class AdminUserServiceImpl implements AdminUserService {
             List<Predicate> predicates = new ArrayList<>();
 
             if (StringUtils.hasText(request.getKeyword())) {
-                String cleanKeyword = request.getKeyword().trim();
+                String cleanKeyword = request.getKeyword();
                 if (cleanKeyword.length() > 50) {
                     cleanKeyword = cleanKeyword.substring(0, 50);
                 }
                 String pattern = "%" + cleanKeyword.toLowerCase() + "%";
-                Join<User, UserProfile> profileJoin = root.join("userProfile", JoinType.LEFT);
                 Predicate usernameLike = cb.like(cb.lower(root.get("username")), pattern);
                 Predicate emailLike = cb.like(cb.lower(root.get("email")), pattern);
-                Predicate orgLike = cb.like(cb.lower(profileJoin.get("org")), pattern);
-                predicates.add(cb.or(usernameLike, emailLike, orgLike));
+
+                List<Long> orgUserIds = userProfileRepository.findUserIdsByOrgLike(cleanKeyword);
+                if (!orgUserIds.isEmpty()) {
+                    predicates.add(cb.or(usernameLike, emailLike, root.get("id").in(orgUserIds)));
+                } else {
+                    predicates.add(cb.or(usernameLike, emailLike));
+                }
             }
 
             if (StringUtils.hasText(request.getRole())) {
                 try {
-                    UserRole userRole = UserRole.valueOf(request.getRole().trim().toUpperCase());
+                    UserRole userRole = UserRole.valueOf(request.getRole().toUpperCase());
                     predicates.add(cb.equal(root.get("role"), userRole));
                 } catch (IllegalArgumentException ignored) {
                 }
@@ -92,7 +94,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         };
 
         Page<User> entityPage = userRepository.findAll(spec, pageable);
-        return entityPage.map(userMapper::toAdminUserDetailsVO);
+        List<Long> userIds = entityPage.getContent().stream().map(User::getId).toList();
+        java.util.Map<Long, UserProfile> profileMap = userProfileRepository.findAllById(userIds).stream()
+                .collect(java.util.stream.Collectors.toMap(UserProfile::getId, p -> p));
+        return entityPage.map(u -> userMapper.toAdminUserDetailsVO(u, profileMap.get(u.getId())));
     }
 
     @Override
@@ -112,9 +117,10 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     public AdminUserDetailsVO getUserDetails(Long id) {
-        User user = userRepository.findByIdWithProfileAndRole(id)
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
-        return userMapper.toAdminUserDetailsVO(user);
+        UserProfile profile = userProfileRepository.findById(id).orElse(null);
+        return userMapper.toAdminUserDetailsVO(user, profile);
     }
 
     @Override
@@ -154,7 +160,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         User savedUser = userRepository.saveAndFlush(user);
 
         UserProfile profile = UserProfile.builder()
-                .user(savedUser)
+                .id(savedUser.getId())
                 .isHidden(false)
                 .build();
         userProfileRepository.save(profile);
@@ -216,8 +222,9 @@ public class AdminUserServiceImpl implements AdminUserService {
             user.setStatus(request.getStatus());
         }
 
-        UserProfile profile = user.getUserProfile();
-        if (profile != null) {
+        if (request.getOrg() != null || request.getBio() != null) {
+            UserProfile profile = userProfileRepository.findById(id)
+                    .orElseGet(() -> UserProfile.builder().id(id).isHidden(false).build());
             if (request.getOrg() != null) profile.setOrg(request.getOrg());
             if (request.getBio() != null) profile.setBio(request.getBio());
             userProfileRepository.save(profile);

@@ -6,9 +6,14 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.net.URI;
+import java.util.Collection;
 import java.util.Optional;
 
-public class RequestHolder {
+/**
+ * 全局 HTTP 请求与安全上下文工具类
+ */
+public class RequestUtil {
 
     public static HttpServletRequest getCurrentRequest() {
         return Optional.ofNullable(RequestContextHolder.getRequestAttributes())
@@ -32,10 +37,24 @@ public class RequestHolder {
         return getRemoteIp();
     }
 
+    public static String getClientIp(HttpServletRequest request) {
+        return resolveClientIp(request);
+    }
+
     public static String getRemoteIp() {
         try {
             HttpServletRequest request = getCurrentRequest();
+            return resolveClientIp(request);
+        } catch (Exception e) {
+            return "127.0.0.1";
+        }
+    }
 
+    public static String resolveClientIp(HttpServletRequest request) {
+        if (request == null) {
+            return "127.0.0.1";
+        }
+        try {
             // 1. 优先提取不可伪造的 CDN/WAF 高信任度真实客户端 IP (Cloudflare CF-Connecting-IP, True-Client-IP)
             String cfIp = cleanIp(request.getHeader("CF-Connecting-IP"));
             if (isValidIp(cfIp)) {
@@ -84,7 +103,7 @@ public class RequestHolder {
         }
 
         // 探测链路中是否存在公网 IP (判断当前是否处于公网多层反代/FRP穿透环境)
-        boolean hasPublicIp = ipList.stream().anyMatch(RequestHolder::isPublicIp);
+        boolean hasPublicIp = ipList.stream().anyMatch(RequestUtil::isPublicIp);
 
         if (hasPublicIp) {
             // 公网/FRP 穿透拓扑：从右向左回溯，跳过所有内部私网/中继代理(Docker网桥、FRP本地中继)，
@@ -104,10 +123,10 @@ public class RequestHolder {
                     return candidate;
                 }
             }
-            return ipList.get(0);
+            return ipList.getFirst();
         }
 
-        return ipList.get(0);
+        return ipList.getFirst();
     }
 
     private static boolean isPublicIp(String ip) {
@@ -231,6 +250,188 @@ public class RequestHolder {
     public static boolean isJsonRequest() {
         String contentType = getCurrentRequest().getContentType();
         return contentType != null && contentType.toLowerCase().contains("application/json");
+    }
+
+    /**
+     * 获取前端上报的设备指纹特征或设备 Token (X-Device-Fingerprint)
+     */
+    public static String getDeviceFingerprint() {
+        String token = getHeader("X-Device-Fingerprint");
+        if (!StringUtils.hasText(token)) {
+            return null;
+        }
+        return token.trim();
+    }
+
+    /**
+     * 获取 Nginx 原生透传的 TLS 协商协议版本 (X-TLS-Protocol)
+     */
+    public static String getTlsProtocol() {
+        return cleanHeader(getHeader("X-TLS-Protocol"));
+    }
+
+    /**
+     * 获取 Nginx 原生透传的 TLS 协商加密套件 (X-TLS-Cipher)
+     */
+    public static String getTlsCipher() {
+        return cleanHeader(getHeader("X-TLS-Cipher"));
+    }
+
+    /**
+     * 获取 Nginx 原生透传的客户端支持加密套件序列 (X-TLS-Ciphers)
+     */
+    public static String getTlsCiphers() {
+        return cleanHeader(getHeader("X-TLS-Ciphers"));
+    }
+
+    /**
+     * 获取 Nginx 原生透传的客户端支持椭圆曲线序列 (X-TLS-Curves)
+     */
+    public static String getTlsCurves() {
+        return cleanHeader(getHeader("X-TLS-Curves"));
+    }
+
+    /**
+     * 获取 Nginx 原生透传的 ALPN 应用层协商协议 (X-TLS-ALPN, 如 h2 / http/1.1)
+     */
+    public static String getTlsAlpn() {
+        return cleanHeader(getHeader("X-TLS-ALPN"));
+    }
+
+    /**
+     * 获取当前请求的 Origin 请求头
+     */
+    public static String getOrigin() {
+        return getHeader("Origin");
+    }
+
+    /**
+     * 获取指定请求的 Origin 请求头
+     */
+    public static String getOrigin(HttpServletRequest request) {
+        return request != null ? request.getHeader("Origin") : null;
+    }
+
+    /**
+     * 从 Origin 完整 URL 中解析出纯 Host 主机名 (过滤协议、端口、IPv6 方括号与 "null")
+     */
+    public static String extractOriginHost(String origin) {
+        if (!StringUtils.hasText(origin) || "null".equalsIgnoreCase(origin)) {
+            return null;
+        }
+        try {
+            URI uri = URI.create(origin);
+            String host = uri.getHost();
+            if (StringUtils.hasText(host)) {
+                if (host.startsWith("[") && host.endsWith("]")) {
+                    return host.substring(1, host.length() - 1);
+                }
+                return host;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    /**
+     * 获取当前请求实际访问的目标 Host（自适应兼容 Nginx 反代透传的 X-Forwarded-Host、Host 头与 getServerName）
+     */
+    public static String getRequestHost() {
+        try {
+            return extractRequestHost(getCurrentRequest());
+        } catch (Exception e) {
+            return "localhost";
+        }
+    }
+
+    /**
+     * 获取指定请求实际访问的目标 Host（自适应兼容 Nginx 反代透传的 X-Forwarded-Host、Host 头与 getServerName）
+     */
+    public static String extractRequestHost(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        String forwardedHost = request.getHeader("X-Forwarded-Host");
+        if (StringUtils.hasText(forwardedHost)) {
+            return extractHost(forwardedHost);
+        }
+        String hostHeader = request.getHeader("Host");
+        if (StringUtils.hasText(hostHeader)) {
+            return extractHost(hostHeader);
+        }
+        return request.getServerName();
+    }
+
+    /**
+     * 清洗 Host 字符串，剔除端口号、多级代理逗号及 IPv6 方括号
+     */
+    public static String extractHost(String hostHeader) {
+        if (!StringUtils.hasText(hostHeader)) {
+            return null;
+        }
+        String host = hostHeader.trim();
+        if (host.contains(",")) {
+            host = host.split(",")[0].trim();
+        }
+        if (host.startsWith("[")) {
+            int closingBracket = host.indexOf(']');
+            if (closingBracket != -1) {
+                return host.substring(1, closingBracket);
+            }
+        }
+        int colonIdx = host.indexOf(':');
+        if (colonIdx != -1) {
+            return host.substring(0, colonIdx);
+        }
+        return host;
+    }
+
+    /**
+     * 判定来源 Origin 是否合法放行（支持本地开发、生产同 Host 自适应以及追加白名单）
+     *
+     * @param origin 跨域请求发起方 Origin
+     * @param request 当前 HTTP 请求
+     * @param additionalOrigins 额外配置的受信 Origin/Host 集合
+     * @return true 若允许跨域放行
+     */
+    public static boolean isOriginAllowed(String origin, HttpServletRequest request, Collection<String> additionalOrigins) {
+        if (!StringUtils.hasText(origin) || request == null) {
+            return false;
+        }
+        String originHost = extractOriginHost(origin);
+        if (!StringUtils.hasText(originHost)) {
+            return false;
+        }
+        // 1. 本地开发环境放行
+        if ("localhost".equalsIgnoreCase(originHost)
+                || "127.0.0.1".equals(originHost)
+                || "::1".equals(originHost)) {
+            return true;
+        }
+        // 2. 生产环境：Origin 的 Host 与请求实际访问的 Host 完全自适应一致时放行
+        String requestHost = extractRequestHost(request);
+        if (StringUtils.hasText(requestHost) && originHost.equalsIgnoreCase(requestHost)) {
+            return true;
+        }
+        // 3. 检查额外配置的白名单
+        if (additionalOrigins != null && !additionalOrigins.isEmpty()) {
+            for (String allowed : additionalOrigins) {
+                if (StringUtils.hasText(allowed)) {
+                    String trimmed = allowed.trim();
+                    if (trimmed.equalsIgnoreCase(origin) || trimmed.equalsIgnoreCase(originHost)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String cleanHeader(String val) {
+        if (!StringUtils.hasText(val) || "-".equals(val.trim())) {
+            return null;
+        }
+        return val.trim();
     }
 
 }

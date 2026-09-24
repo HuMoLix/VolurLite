@@ -19,7 +19,7 @@
       <n-layout-content content-style="padding: 24px;" class="admin-content">
         <router-view v-slot="{ Component, route: currentRoute }">
           <transition name="fade-fast" mode="out-in">
-            <component :is="Component" :key="currentRoute.fullPath" />
+            <component :is="Component" :key="currentRoute.path" />
           </transition>
         </router-view>
       </n-layout-content>
@@ -60,7 +60,11 @@ import {
   ServerOutline,
   HardwareChipOutline,
   LayersOutline,
-  TimeOutline
+  TimeOutline,
+  ShieldHalfOutline,
+  OptionsOutline,
+  FlashOutline,
+  GlobeOutline
 } from '@vicons/ionicons5'
 import { useAppStore } from '@/store/modules/app'
 import { useI18n } from 'vue-i18n'
@@ -74,6 +78,7 @@ const activeKey = computed(() => {
   const name = (route.name as string) || ''
   if (name.startsWith('AdminCompetition')) return 'AdminCompetitions'
   if (name.startsWith('AdminCtfChallenge')) return 'AdminCtfChallenges'
+  if (name.startsWith('AdminRisk')) return name
   return name || 'AdminDashboard'
 })
 
@@ -166,6 +171,28 @@ const menuOptions = computed<MenuOption[]>(() => [
     label: () => t('layout.menu.emails'),
     key: 'AdminEmails',
     icon: () => h(NIcon, null, { default: () => h(MailOutline) })
+  },
+  {
+    label: () => t('layout.menu.risk_management'),
+    key: 'AdminRiskGroup',
+    icon: () => h(NIcon, null, { default: () => h(ShieldHalfOutline) }),
+    children: [
+      {
+        label: () => t('layout.menu.risk_settings'),
+        key: 'AdminRiskSettings',
+        icon: () => h(NIcon, null, { default: () => h(OptionsOutline) })
+      },
+      {
+        label: () => t('layout.menu.risk_rules'),
+        key: 'AdminRiskRules',
+        icon: () => h(NIcon, null, { default: () => h(FlashOutline) })
+      },
+      {
+        label: () => t('layout.menu.risk_ip'),
+        key: 'AdminRiskIp',
+        icon: () => h(NIcon, null, { default: () => h(GlobeOutline) })
+      }
+    ]
   },
   {
     label: () => t('layout.menu.system'),

@@ -8,10 +8,10 @@ import type {
 
 /**
  * 获取异步任务全局统计指标看板数据
- * 对应后端: GET /api/v1/admin/tasks/statistics
+ * 对应后端: GET /api/v1/admin/tasks/stats
  */
 export function getAdminTaskStatisticsApi(): Promise<ApiResponse<AdminAsyncTaskStatisticsVO>> {
-  return request.get<AdminAsyncTaskStatisticsVO>('/admin/tasks/statistics')
+  return request.get<AdminAsyncTaskStatisticsVO>('/admin/tasks/stats')
 }
 
 /**

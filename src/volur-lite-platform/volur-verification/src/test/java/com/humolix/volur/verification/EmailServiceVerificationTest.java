@@ -4,13 +4,15 @@ import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.repository.UserRepository;
+import com.humolix.volur.verification.domain.dto.CaptchaVerifyRequestDTO;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
-import com.humolix.volur.verification.mail.dispatcher.FailoverMailDispatcher;
 import com.humolix.volur.verification.mail.executor.MailTaskExecutor;
+import com.humolix.volur.verification.mail.service.MailTransportService;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.risk.limiter.RedisSlidingWindowRateLimiter;
-import com.humolix.volur.verification.service.CaptchaService;
+import com.humolix.volur.verification.sdk.CaptchaSDK;
 import com.humolix.volur.verification.service.EmailService;
+import com.humolix.volur.verification.service.EmailVerificationCodeService;
 import com.humolix.volur.verification.service.impl.EmailServiceImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,14 +30,14 @@ import static org.mockito.Mockito.*;
 public class EmailServiceVerificationTest {
 
     private SystemSettingService systemSettingService;
-    private CaptchaService captchaService;
+    private CaptchaSDK captchaSDK;
+    private MailTransportService mailTransportService;
+    private EmailVerificationCodeService emailVerificationCodeService;
     private UserRepository userRepository;
-    private FailoverMailDispatcher mailDispatcher;
     private MailTaskExecutor mailTaskExecutor;
     private RedisSlidingWindowRateLimiter rateLimiter;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
-    private com.humolix.volur.verification.repository.EmailLogRepository emailLogRepository;
 
     private EmailService emailService;
 
@@ -43,14 +45,14 @@ public class EmailServiceVerificationTest {
     @SuppressWarnings("unchecked")
     public void setup() {
         systemSettingService = Mockito.mock(SystemSettingService.class);
-        captchaService = Mockito.mock(CaptchaService.class);
+        captchaSDK = Mockito.mock(CaptchaSDK.class);
+        mailTransportService = Mockito.mock(MailTransportService.class);
+        emailVerificationCodeService = Mockito.mock(EmailVerificationCodeService.class);
         userRepository = Mockito.mock(UserRepository.class);
-        mailDispatcher = Mockito.mock(FailoverMailDispatcher.class);
         mailTaskExecutor = Mockito.mock(MailTaskExecutor.class);
         rateLimiter = Mockito.mock(RedisSlidingWindowRateLimiter.class);
         redisTemplate = Mockito.mock(StringRedisTemplate.class);
         valueOperations = Mockito.mock(ValueOperations.class);
-        emailLogRepository = Mockito.mock(com.humolix.volur.verification.repository.EmailLogRepository.class);
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(rateLimiter.tryAcquire(anyString(), anyInt(), any(Duration.class))).thenReturn(true);
@@ -58,26 +60,25 @@ public class EmailServiceVerificationTest {
 
         emailService = new EmailServiceImpl(
                 systemSettingService,
-                captchaService,
+                captchaSDK,
+                mailTransportService,
+                emailVerificationCodeService,
                 userRepository,
-                mailDispatcher,
                 mailTaskExecutor,
                 rateLimiter,
-                redisTemplate,
-                emailLogRepository
+                redisTemplate
         );
     }
 
     @Test
     public void testSendVerificationEmailFailsWhenCaptchaIsInvalidBeforeCheckingUserExistence() {
-        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(true);
-        when(captchaService.verifyCaptcha(eq("c_123"), eq("wrong_code"), eq(CaptchaScene.REGISTER))).thenReturn(false);
+        doThrow(new BusinessException(HttpStatus.BAD_REQUEST, "图形验证码错误或已过期"))
+                .when(captchaSDK).verify(any(), eq("user@example.com"), eq(CaptchaScene.REGISTER));
 
         EmailCaptchaRequestDTO request = new EmailCaptchaRequestDTO();
         request.setEmail("user@example.com");
         request.setUsername("testuser");
-        request.setCaptchaId("c_123");
-        request.setCaptchaCode("wrong_code");
+        request.setCaptcha(new CaptchaVerifyRequestDTO("c_123", "wrong_code", null, null, CaptchaScene.REGISTER, "testuser"));
 
         BusinessException ex = Assertions.assertThrows(BusinessException.class, () -> emailService.sendVerificationEmail(request));
         Assertions.assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
@@ -89,52 +90,50 @@ public class EmailServiceVerificationTest {
 
     @Test
     public void testSendVerificationEmailFailsWhenUserAlreadyExistsAfterCaptchaValid() {
-        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(true);
-        when(captchaService.verifyCaptcha(eq("c_123"), eq("valid_code"), eq(CaptchaScene.REGISTER))).thenReturn(true);
+        doNothing().when(captchaSDK).verify(any(), eq("user@example.com"), eq(CaptchaScene.REGISTER));
         when(userRepository.existsByEmail("user@example.com")).thenReturn(true);
 
         EmailCaptchaRequestDTO request = new EmailCaptchaRequestDTO();
         request.setEmail("user@example.com");
         request.setUsername("testuser");
-        request.setCaptchaId("c_123");
-        request.setCaptchaCode("valid_code");
+        request.setCaptcha(new CaptchaVerifyRequestDTO("c_123", "valid_code", null, null, CaptchaScene.REGISTER, "testuser"));
 
         BusinessException ex = Assertions.assertThrows(BusinessException.class, () -> emailService.sendVerificationEmail(request));
         Assertions.assertEquals(HttpStatus.CONFLICT, ex.getStatus());
         Assertions.assertEquals("该邮箱已被注册", ex.getMessage());
 
         // Verify captcha was checked
-        verify(captchaService).verifyCaptcha(eq("c_123"), eq("valid_code"), eq(CaptchaScene.REGISTER));
+        verify(captchaSDK).verify(any(), eq("user@example.com"), eq(CaptchaScene.REGISTER));
         // Verify existence was checked
         verify(userRepository).existsByEmail("user@example.com");
     }
 
     @Test
     public void testSendVerificationEmailSuccessWhenCaptchaValidAndEmailNew() {
-        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(true);
-        when(captchaService.verifyCaptcha(eq("c_123"), eq("valid_code"), eq(CaptchaScene.REGISTER))).thenReturn(true);
+        doNothing().when(captchaSDK).verify(any(), eq("user@example.com"), eq(CaptchaScene.REGISTER));
         when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
         when(systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true)).thenReturn(false);
         when(systemSettingService.getSettingValue(eq("system.mail.from_address"), anyString())).thenReturn("noreply@volur.local");
+        when(emailVerificationCodeService.generateAndStoreCode("user@example.com")).thenReturn("123456");
 
         EmailCaptchaRequestDTO request = new EmailCaptchaRequestDTO();
         request.setEmail("user@example.com");
         request.setUsername("testuser");
-        request.setCaptchaId("c_123");
-        request.setCaptchaCode("valid_code");
+        request.setCaptcha(new CaptchaVerifyRequestDTO("c_123", "valid_code", null, null, CaptchaScene.REGISTER, "testuser"));
 
         Assertions.assertDoesNotThrow(() -> emailService.sendVerificationEmail(request));
 
-        verify(captchaService).verifyCaptcha(eq("c_123"), eq("valid_code"), eq(CaptchaScene.REGISTER));
+        verify(captchaSDK).verify(any(), eq("user@example.com"), eq(CaptchaScene.REGISTER));
         verify(userRepository).existsByEmail("user@example.com");
         verify(mailTaskExecutor).executeAsyncMail(any());
     }
 
     @Test
     public void testSendVerificationEmailThrowsWhenFromAddressNotConfigured() {
-        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(false);
+        doNothing().when(captchaSDK).verify(any(), any(), any());
         when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
         when(systemSettingService.getSettingValue(eq("system.mail.from_address"), anyString())).thenReturn("");
+        when(emailVerificationCodeService.generateAndStoreCode("user@example.com")).thenReturn("123456");
 
         EmailCaptchaRequestDTO request = new EmailCaptchaRequestDTO();
         request.setEmail("user@example.com");
@@ -144,4 +143,53 @@ public class EmailServiceVerificationTest {
         Assertions.assertTrue(ex.getMessage().contains("system.mail.from_address"));
     }
 
+    @Test
+    public void testSendEmail_unifiedPipeline_async() {
+        when(systemSettingService.getSettingValue(eq("system.mail.from_address"), anyString())).thenReturn("noreply@volur.local");
+
+        com.humolix.volur.verification.domain.bo.SendEmailBO bo = com.humolix.volur.verification.domain.bo.SendEmailBO.builder()
+                .to("athlete@volur.local")
+                .subject("开赛通知")
+                .content("<p>比赛已开始</p>")
+                .type("COMPETITION")
+                .checkRateLimit(true)
+                .async(true)
+                .build();
+
+        Assertions.assertDoesNotThrow(() -> emailService.sendEmail(bo));
+        verify(mailTaskExecutor).executeAsyncMail(argThat(msg ->
+                "athlete@volur.local".equals(msg.getTo())
+                        && "开赛通知".equals(msg.getSubject())
+                        && "COMPETITION".equals(msg.getType())
+        ));
+    }
+
+    @Test
+    public void testSendEmail_syncWithoutRateLimit() {
+        when(systemSettingService.getSettingValue(eq("system.mail.from_address"), anyString())).thenReturn("noreply@volur.local");
+
+        com.humolix.volur.verification.domain.bo.SendEmailBO bo = com.humolix.volur.verification.domain.bo.SendEmailBO.builder()
+                .to("admin@volur.local")
+                .subject("系统警报")
+                .content("磁盘空间不足")
+                .type("ALERT")
+                .checkRateLimit(false)
+                .async(false)
+                .build();
+
+        Assertions.assertDoesNotThrow(() -> emailService.sendEmail(bo));
+        verify(mailTransportService).sendEmail(eq("admin@volur.local"), eq("系统警报"), eq("磁盘空间不足"), eq("ALERT"));
+    }
+
+    @Test
+    public void testSendEmail_convenienceOverloads() {
+        when(systemSettingService.getSettingValue(eq("system.mail.from_address"), anyString())).thenReturn("noreply@volur.local");
+
+        Assertions.assertDoesNotThrow(() -> emailService.sendEmail("user@volur.local", "普通通知", "这是一封纯文本测试邮件"));
+        verify(mailTaskExecutor).executeAsyncMail(argThat(msg ->
+                "user@volur.local".equals(msg.getTo()) && "普通通知".equals(msg.getSubject())
+        ));
+    }
+
 }
+

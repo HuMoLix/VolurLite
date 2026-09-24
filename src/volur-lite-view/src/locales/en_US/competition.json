@@ -71,7 +71,7 @@
   "team_pending_audit": "Team Audit Pending: Your registration was submitted and is awaiting administrator approval.",
   "team_audit_rejected": "Team Audit Rejected: Registration was rejected. Please contact the organizers.",
   "team_registered_waiting": "Registration approved! The competition has not started yet. Please wait for the start time to enter.",
-  "flag_input_placeholder": "Enter Flag (e.g. flag{...})",
+  "flag_input_placeholder": "Enter Flag (e.g. flag{'{'}...{'}'})",
   "submit_flag": "Submit Flag",
   "flag_correct": "Congratulations! Flag is correct, points awarded!",
   "flag_wrong": "Incorrect Flag, please try again!",

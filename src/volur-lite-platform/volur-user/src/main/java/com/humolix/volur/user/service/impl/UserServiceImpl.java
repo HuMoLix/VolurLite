@@ -3,7 +3,6 @@ package com.humolix.volur.user.service.impl;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.service.StorageService;
 import com.humolix.volur.system.domain.vo.StorageResponseVO;
-import com.humolix.volur.system.service.StorageService;
 import com.humolix.volur.user.domain.dto.UpdateUserProfileRequestDTO;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.entity.UserProfile;
@@ -33,32 +32,31 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserSummaryVO getCurrentUser(Long userId) {
-        User user = userRepository.findByIdWithProfileAndRole(userId)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
-        return userMapper.toUserSummaryVO(user);
+        UserProfile profile = userProfileRepository.findById(userId).orElse(null);
+        return userMapper.toUserSummaryVO(user, profile);
     }
 
     @Override
     public UserProfileResponseVO getUserProfileById(Long userId) {
-        User user = userRepository.findByIdWithProfileAndRole(userId)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
-        return userMapper.toUserProfileResponseVO(user);
+        UserProfile profile = userProfileRepository.findById(userId).orElse(null);
+        return userMapper.toUserProfileResponseVO(user, profile);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public UserProfileResponseVO updateUserProfile(Long userId, UpdateUserProfileRequestDTO request) {
-        User user = userRepository.findByIdWithProfileAndRole(userId)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 
-        UserProfile profile = user.getUserProfile();
-        if (profile == null) {
-            profile = UserProfile.builder()
-                    .user(user)
-                    .isHidden(false)
-                    .build();
-            user.setUserProfile(profile);
-        }
+        UserProfile profile = userProfileRepository.findById(userId)
+                .orElseGet(() -> UserProfile.builder()
+                        .id(userId)
+                        .isHidden(false)
+                        .build());
 
         if (request.getGender() != null) {
             user.setGender(request.getGender());
@@ -67,13 +65,13 @@ public class UserServiceImpl implements UserService {
             user.setBirthday(request.getBirthday());
         }
         if (request.getOrg() != null) {
-            profile.setOrg(request.getOrg().trim());
+            profile.setOrg(request.getOrg());
         }
         if (request.getMajor() != null) {
-            profile.setMajor(request.getMajor().trim());
+            profile.setMajor(request.getMajor());
         }
         if (request.getBio() != null) {
-            profile.setBio(request.getBio().trim());
+            profile.setBio(request.getBio());
         }
         if (request.getEmailPrivacy() != null) {
             profile.setEmailPrivacy(request.getEmailPrivacy());
@@ -98,21 +96,18 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "头像地址不能为空");
         }
 
-        User user = userRepository.findByIdWithProfileAndRole(userId)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
-
-        UserProfile profile = user.getUserProfile();
-        if (profile == null) {
-            profile = UserProfile.builder()
-                    .user(user)
-                    .isHidden(false)
-                    .build();
-            user.setUserProfile(profile);
+        if (!userRepository.existsById(userId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "用户不存在");
         }
+
+        UserProfile profile = userProfileRepository.findById(userId)
+                .orElseGet(() -> UserProfile.builder()
+                        .id(userId)
+                        .isHidden(false)
+                        .build());
 
         profile.setAvatarUrl(avatarUrl.trim());
         userProfileRepository.save(profile);
-        userRepository.save(user);
 
         return profile.getAvatarUrl();
     }
@@ -124,10 +119,11 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "头像文件不能为空");
         }
 
-        User user = userRepository.findByIdWithProfileAndRole(userId)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        if (!userRepository.existsById(userId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "用户不存在");
+        }
 
-        UserProfile profile = user.getUserProfile();
+        UserProfile profile = userProfileRepository.findById(userId).orElse(null);
         String oldAvatarUrl = profile != null ? profile.getAvatarUrl() : null;
 
         // 校验新上传文件与旧头像文件的 MD5 摘要值，若完全相同则取消冗余上传

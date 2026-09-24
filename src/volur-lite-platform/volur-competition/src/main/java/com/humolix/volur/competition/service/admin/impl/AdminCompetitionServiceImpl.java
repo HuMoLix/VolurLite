@@ -5,11 +5,14 @@ import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionConfig;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.enums.CompetitionType;
+import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionListVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.*;
 import com.humolix.volur.competition.service.admin.AdminCompetitionService;
+import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.SortUtils;
@@ -17,6 +20,7 @@ import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -27,7 +31,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -36,8 +42,10 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
     private final CompetitionRepository competitionRepository;
     private final CompetitionConfigRepository configRepository;
     private final CompetitionTeamRepository teamRepository;
+    private final CompetitionMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final CompetitionMapper competitionMapper;
+    private final VolurCacheTemplate cacheTemplate;
 
     @Override
     public PageResponse<AdminCompetitionListVO> listCompetitions(Integer page, Integer size, String keyword) {
@@ -56,12 +64,37 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return PageResponse.of(competitionRepository.findAll(spec, pageable).map(comp -> {
-            if (comp.refreshStatus()) {
-                competitionRepository.save(comp);
+        Page<Competition> compPage = competitionRepository.findAll(spec, pageable);
+
+        // 1. 批量检测并保存状态变更，消除遍历中的多次单条写库
+        List<Competition> updatedComps = compPage.getContent().stream()
+                .filter(Competition::refreshStatus)
+                .toList();
+        if (!updatedComps.isEmpty()) {
+            competitionRepository.saveAll(updatedComps);
+        }
+
+        // 2. 批量聚合查询队伍数与有效参赛人数，消除循环内的 N+1 查询并修复 0 队/0 人问题
+        List<Long> compIds = compPage.getContent().stream().map(Competition::getId).toList();
+        Map<Long, Long> teamCountMap = new HashMap<>();
+        Map<Long, Long> participantCountMap = new HashMap<>();
+
+        if (!compIds.isEmpty()) {
+            List<Object[]> teamCounts = teamRepository.countTeamsByCompetitionIds(compIds);
+            for (Object[] row : teamCounts) {
+                teamCountMap.put((Long) row[0], ((Number) row[1]).longValue());
             }
+
+            List<Object[]> participantCounts = memberRepository.countParticipantsByCompetitionIds(compIds, MemberStatus.NOT_PARTICIPATE);
+            for (Object[] row : participantCounts) {
+                participantCountMap.put((Long) row[0], ((Number) row[1]).longValue());
+            }
+        }
+
+        return PageResponse.of(compPage.map(comp -> {
             AdminCompetitionListVO vo = competitionMapper.toAdminListVO(comp);
-            vo.setTeamCount(teamRepository.countByCompetitionIdAndStatus(comp.getId(), null));
+            vo.setTeamCount(teamCountMap.getOrDefault(comp.getId(), 0L));
+            vo.setParticipantCount(participantCountMap.getOrDefault(comp.getId(), 0L));
             return vo;
         }));
     }
@@ -205,11 +238,23 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
 
             configRepository.save(config);
         }
+
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:id:" + id);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:slug:" + comp.getSlug());
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "about:" + id);
     }
 
     @Override
     @Transactional
     public void deleteCompetition(Long id) {
+        competitionRepository.findById(id).ifPresent(comp -> {
+            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:id:" + id);
+            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:slug:" + comp.getSlug());
+            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "about:" + id);
+            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "scoreboard:ctf:" + id);
+            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "scoreboard:composite:" + id);
+            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "announcements:" + id);
+        });
         competitionRepository.deleteById(id);
     }
 
@@ -220,6 +265,9 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛配置不存在"));
         config.setIsScoreboardFrozen(frozen);
         configRepository.save(config);
+
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "scoreboard:ctf:" + id);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "scoreboard:composite:" + id);
     }
 
     @Override
@@ -229,6 +277,9 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
         comp.setStatus(CompetitionStatus.ARCHIVED);
         competitionRepository.save(comp);
+
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:id:" + id);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:slug:" + comp.getSlug());
     }
 
     @Override
@@ -238,6 +289,9 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
         comp.setStatus(CompetitionStatus.DRAFT);
         competitionRepository.save(comp);
+
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:id:" + id);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:slug:" + comp.getSlug());
     }
 
     @Scheduled(fixedRate = 60000)
@@ -249,6 +303,8 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
         for (Competition comp : activeComps) {
             if (comp.refreshStatus()) {
                 competitionRepository.save(comp);
+                cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:id:" + comp.getId());
+                cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:slug:" + comp.getSlug());
             }
         }
     }

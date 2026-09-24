@@ -10,19 +10,20 @@ import com.humolix.volur.auth.service.impl.AuthServiceImpl;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
+import com.humolix.volur.verification.domain.dto.CaptchaVerifyRequestDTO;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
-import com.humolix.volur.verification.service.CaptchaService;
+import com.humolix.volur.verification.sdk.CaptchaSDK;
 import com.humolix.volur.verification.service.EmailService;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
+import com.humolix.volur.framework.cache.redis.RedisOps;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
-
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -32,12 +33,14 @@ import static org.mockito.Mockito.when;
 public class AuthVerificationCrossValidationTest {
 
     private AuthService authService;
-    private CaptchaService captchaService;
+    private CaptchaSDK captchaSDK;
     private EmailService emailService;
     private UserRepository userRepository;
     private UserProfileRepository userProfileRepository;
     private SystemSettingService systemSettingService;
     private StringRedisTemplate redisTemplate;
+    private VolurCacheTemplate cacheTemplate;
+    private RedisOps redisOps;
 
     @BeforeEach
     public void setup() {
@@ -45,11 +48,13 @@ public class AuthVerificationCrossValidationTest {
         JwtUtil jwtUtil = Mockito.mock(JwtUtil.class);
         Sm3PasswordEncoder passwordEncoder = new Sm3PasswordEncoder();
         TokenService tokenService = Mockito.mock(TokenService.class);
-        captchaService = Mockito.mock(CaptchaService.class);
+        captchaSDK = Mockito.mock(CaptchaSDK.class);
         emailService = Mockito.mock(EmailService.class);
         userRepository = Mockito.mock(UserRepository.class);
         userProfileRepository = Mockito.mock(UserProfileRepository.class);
         systemSettingService = Mockito.mock(SystemSettingService.class);
+        cacheTemplate = Mockito.mock(VolurCacheTemplate.class);
+        redisOps = Mockito.mock(RedisOps.class);
         redisTemplate = Mockito.mock(StringRedisTemplate.class);
 
         authService = new AuthServiceImpl(
@@ -57,28 +62,29 @@ public class AuthVerificationCrossValidationTest {
                 jwtUtil,
                 passwordEncoder,
                 tokenService,
-                captchaService,
+                captchaSDK,
                 emailService,
                 userRepository,
                 userProfileRepository,
                 systemSettingService,
-                redisTemplate,
-                Optional.empty()
+                cacheTemplate,
+                redisOps,
+                redisTemplate
         );
     }
 
     @Test
     public void testRegisterRequiresValidCaptchaTicketWhenCaptchaEnabled() {
         when(systemSettingService.getBoolean("system.auth.registration_enabled", true)).thenReturn(true);
-        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(true);
         when(systemSettingService.getBoolean(eq(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION), anyBoolean())).thenReturn(false);
-        when(captchaService.verifyTicket(eq("invalid_ticket"), eq(CaptchaScene.REGISTER))).thenReturn(false);
+        Mockito.doThrow(new InvalidCaptchaException("人机验证凭证已失效，请重新验证"))
+                .when(captchaSDK).verify(any(), eq("testuser"), eq(CaptchaScene.REGISTER));
 
         RegisterRequestDTO request = new RegisterRequestDTO();
         request.setUsername("testuser");
         request.setPassword("Password123#");
         request.setEmail("testuser@volur.local");
-        request.setCaptchaTicket("invalid_ticket");
+        request.setCaptcha(new CaptchaVerifyRequestDTO(null, null, "invalid_ticket", null, CaptchaScene.REGISTER, "testuser"));
 
         Assertions.assertThrows(InvalidCaptchaException.class, () -> authService.register(request));
     }
@@ -86,9 +92,8 @@ public class AuthVerificationCrossValidationTest {
     @Test
     public void testRegisterPassesWhenCaptchaTicketIsValid() {
         when(systemSettingService.getBoolean("system.auth.registration_enabled", true)).thenReturn(true);
-        when(systemSettingService.getBoolean("system.captcha.enabled", false)).thenReturn(true);
-        when(captchaService.verifyTicket(eq("valid_slide_ticket"), eq(CaptchaScene.REGISTER))).thenReturn(true);
         when(systemSettingService.getBoolean(eq(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION), anyBoolean())).thenReturn(false);
+        Mockito.doNothing().when(captchaSDK).verify(any(), eq("testuser"), eq(CaptchaScene.REGISTER));
         when(userRepository.existsByUsername("testuser")).thenReturn(false);
         when(userRepository.existsByEmail("testuser@volur.local")).thenReturn(false);
         when(userRepository.saveAndFlush(any())).thenAnswer(invocation -> {
@@ -101,9 +106,25 @@ public class AuthVerificationCrossValidationTest {
         request.setUsername("testuser");
         request.setPassword("Password123#");
         request.setEmail("testuser@volur.local");
-        request.setCaptchaTicket("valid_slide_ticket");
+        request.setCaptcha(new CaptchaVerifyRequestDTO(null, null, "valid_slide_ticket", null, CaptchaScene.REGISTER, "testuser"));
 
         Assertions.assertDoesNotThrow(() -> authService.register(request));
+    }
+
+    @Test
+    public void testRegisterFailsWhenEmailVerificationRequiredAndEmailMissing() {
+        when(systemSettingService.getBoolean("system.auth.registration_enabled", true)).thenReturn(true);
+        when(systemSettingService.getBoolean(eq(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION), anyBoolean())).thenReturn(true);
+        when(userRepository.existsByUsername("testuser")).thenReturn(false);
+
+        RegisterRequestDTO request = new RegisterRequestDTO();
+        request.setUsername("testuser");
+        request.setPassword("Password123#");
+        request.setEmail(null);
+
+        BusinessException ex = Assertions.assertThrows(BusinessException.class, () -> authService.register(request));
+        Assertions.assertEquals("邮箱不能为空", ex.getMessage());
+        Assertions.assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
     }
 
     @Test

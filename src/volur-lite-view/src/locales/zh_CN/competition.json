@@ -71,7 +71,7 @@
   "team_pending_audit": "队伍审核中：您的战队已提交报名，等待管理员审核通过后方可参赛。",
   "team_audit_rejected": "队伍审核未通过：未能通过主办方审核，请联系管理员。",
   "team_registered_waiting": "🎉 报名审核通过！比赛尚未开始，请等待竞赛开启后进入竞赛。",
-  "flag_input_placeholder": "请输入获得的 Flag (如 flag{...})",
+  "flag_input_placeholder": "请输入获得的 Flag (如 flag{'{'}...{'}'})",
   "submit_flag": "提交 Flag",
   "flag_correct": "恭喜！Flag 验证正确，积分已成功累加！",
   "flag_wrong": "Flag 错误，请核对后再试！",

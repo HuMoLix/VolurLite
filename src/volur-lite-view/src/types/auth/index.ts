@@ -2,13 +2,13 @@
  * 认证模块类型定义 (对应 com.humolix.volur.auth)
  */
 
-/** 用户登录请求 DTO */
+import type { CaptchaVerifyRequestDTO } from '@/types/verification'
+
+/** 用户登录请求 DTO (对应 com.humolix.volur.auth.domain.dto.AuthenticateRequestDTO) */
 export interface AuthenticateRequestDTO {
   username: string
   password: string
-  captchaId?: string
-  captchaCode?: string
-  captchaTicket?: string
+  captcha?: CaptchaVerifyRequestDTO
   rememberMe?: boolean
 }
 
@@ -30,10 +30,8 @@ export interface RegisterRequestDTO {
   username: string
   password: string
   email: string
+  captcha?: CaptchaVerifyRequestDTO
   emailCaptcha?: string
-  captchaId?: string
-  captchaCode?: string
-  captchaTicket?: string
 }
 
 /** 刷新 Token 请求 DTO */
@@ -45,9 +43,7 @@ export interface RefreshTokenRequestDTO {
 export interface ForgotPasswordRequestDTO {
   email: string
   username: string
-  captchaId?: string
-  captchaCode?: string
-  captchaTicket?: string
+  captcha?: CaptchaVerifyRequestDTO
 }
 
 /** 凭借 Token 重置密码请求 DTO (对应 com.humolix.volur.auth.domain.dto.ForgotPasswordResetRequestDTO) */
@@ -81,7 +77,5 @@ export interface ChangePasswordRequestDTO {
 export interface DeleteAccountRequestDTO {
   code: string
   username: string
-  captchaId?: string
-  captchaCode?: string
-  captchaTicket?: string
+  captcha?: CaptchaVerifyRequestDTO
 }

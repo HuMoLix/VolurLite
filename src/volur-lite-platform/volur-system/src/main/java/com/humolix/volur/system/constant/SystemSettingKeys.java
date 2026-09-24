@@ -86,4 +86,26 @@ public final class SystemSettingKeys {
     public static final String STORAGE_OSS_SECRET_KEY = "system.storage.oss_secret_key";
     public static final String STORAGE_OSS_BUCKET = "system.storage.oss_bucket";
 
+    // ========== 8. 智能风控与 IP 治理 (Risk & IP Governance) ==========
+    public static final String RISK_ENABLED = "system.risk.enabled";
+    public static final String RISK_IP_FILTER_ENABLED = "system.risk.ip_filter_enabled";
+    public static final String RISK_DEFAULT_BAN_DURATION_MINUTES = "system.risk.default_ban_duration_minutes";
+    public static final String RISK_BAN_NOTICE_MESSAGE = "system.risk.ban_notice_message";
+    public static final String RISK_BYPASS_LOOPBACK = "system.risk.bypass_loopback";
+
+    // 策略与阈值配置
+    public static final String RISK_FAILURES_MEDIUM_THRESHOLD = "system.risk.policy.failures_medium_threshold";
+    public static final String RISK_FAILURES_HIGH_THRESHOLD = "system.risk.policy.failures_high_threshold";
+    public static final String RISK_FAILURES_BAN_THRESHOLD = "system.risk.policy.failures_ban_threshold";
+    public static final String RISK_VELOCITY_MEDIUM_THRESHOLD = "system.risk.policy.velocity_medium_threshold";
+    public static final String RISK_ACCOUNT_FAILURES_MEDIUM_THRESHOLD = "system.risk.policy.account_failures_medium_threshold";
+    public static final String RISK_ACCOUNT_FAILURES_HIGH_THRESHOLD = "system.risk.policy.account_failures_high_threshold";
+    public static final String RISK_RECOVERY_STEP_COUNT = "system.risk.policy.recovery_step_count";
+
+    // 设备环境指纹与原生 TLS 协议风控
+    public static final String RISK_FINGERPRINT_ENABLED = "system.risk.fingerprint.enabled";
+    public static final String RISK_HEADLESS_PENALTY_ENABLED = "system.risk.headless_penalty.enabled";
+    public static final String RISK_TLS_CHECK_ENABLED = "system.risk.tls_check.enabled";
+    public static final String RISK_DEVICE_RATE_LIMIT_MAX = "system.risk.device_rate_limit_max";
+
 }

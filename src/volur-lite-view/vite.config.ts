@@ -11,6 +11,16 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+
+    host: '127.0.0.1',
+    allowedHosts: [
+      'test-platform.volurctf.com'
+    ],
+
+    hmr: {
+      clientPort: 443
+    },
+
     open: false,
     cors: true,
     proxy: {

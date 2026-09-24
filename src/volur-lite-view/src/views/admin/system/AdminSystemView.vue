@@ -71,17 +71,12 @@
           <GeneralSettingsTab :form="settingsForm" />
         </n-tab-pane>
 
-        <!-- Tab 2: 人机验证与风控 -->
-        <n-tab-pane name="captcha" :tab="t('admin.system.tabs.captcha')">
-          <CaptchaSettingsTab :form="settingsForm" />
-        </n-tab-pane>
-
-        <!-- Tab 3: 发信与 SMTP 设置 -->
+        <!-- Tab 2: 发信与 SMTP 设置 -->
         <n-tab-pane name="mail" :tab="t('admin.system.tabs.mail')">
           <MailSettingsTab :form="settingsForm" />
         </n-tab-pane>
 
-        <!-- Tab 4: 平台运维与风控 -->
+        <!-- Tab 3: 平台运维与系统限流 -->
         <n-tab-pane name="maintenance" :tab="t('admin.system.tabs.maintenance')">
           <MaintenanceSettingsTab :form="settingsForm" />
         </n-tab-pane>
@@ -131,7 +126,6 @@ import type { SystemSettingVO, SystemSettingUpdateDTO, AdminSystemOverviewVO } f
 
 // Tab Components
 import GeneralSettingsTab from './tabs/GeneralSettingsTab.vue'
-import CaptchaSettingsTab from './tabs/CaptchaSettingsTab.vue'
 import MailSettingsTab from './tabs/MailSettingsTab.vue'
 import MaintenanceSettingsTab from './tabs/MaintenanceSettingsTab.vue'
 
@@ -163,12 +157,6 @@ const settingsForm = reactive({
   defaultLocale: 'zh_CN',
   registrationEnabled: true,
   requireEmailVerification: true,
-  // Captcha
-  captchaEnabled: true,
-  captchaTolerance: 8,
-  captchaTicketTtl: 300,
-  captchaMaxAttempts: 5,
-  forceCaptchaOnReset: true,
   // Mail
   smtpHost: 'smtp.example.com',
   smtpPort: 465,
@@ -182,9 +170,7 @@ const settingsForm = reactive({
   webhookFallbackStrategy: 'AUTO_DELIVERED',
   // Maintenance
   maintenanceMode: false,
-  maintenanceNotice: '平台底层正在维护，请稍后访问。',
-  rateLimitWindow: 60,
-  rateLimitMaxRequests: 120
+  maintenanceNotice: '平台底层正在维护，请稍后访问。'
 })
 
 async function fetchOverview() {
@@ -209,11 +195,6 @@ async function fetchSettings() {
         if (item.key === 'system.auth.registration_enabled') settingsForm.registrationEnabled = item.value === 'true'
         if (item.key === 'system.auth.require_email_verification') settingsForm.requireEmailVerification = item.value !== 'false'
         if (item.key === 'system.general.default_locale') settingsForm.defaultLocale = item.value
-        if (item.key === 'system.captcha.enabled') settingsForm.captchaEnabled = item.value === 'true'
-        if (item.key === 'system.captcha.tolerance_px') settingsForm.captchaTolerance = Number(item.value) || 8
-        if (item.key === 'system.captcha.ticket_ttl_seconds') settingsForm.captchaTicketTtl = Number(item.value) || 300
-        if (item.key === 'system.captcha.max_attempts') settingsForm.captchaMaxAttempts = Number(item.value) || 5
-        if (item.key === 'system.captcha.force_reset_captcha') settingsForm.forceCaptchaOnReset = item.value === 'true'
         if (item.key === 'system.mail.smtp_host') settingsForm.smtpHost = item.value
         if (item.key === 'system.mail.smtp_port') settingsForm.smtpPort = Number(item.value) || 465
         if (item.key === 'system.mail.smtp_user') settingsForm.smtpUser = item.value
@@ -225,8 +206,6 @@ async function fetchSettings() {
         if (item.key === 'system.mail.webhook_fallback_strategy') settingsForm.webhookFallbackStrategy = item.value || 'AUTO_DELIVERED'
         if (item.key === 'system.maintenance.enabled') settingsForm.maintenanceMode = item.value === 'true'
         if (item.key === 'system.maintenance.notice_message') settingsForm.maintenanceNotice = item.value
-        if (item.key === 'system.security.rate_limit_window') settingsForm.rateLimitWindow = Number(item.value) || 60
-        if (item.key === 'system.security.rate_limit_max_requests') settingsForm.rateLimitMaxRequests = Number(item.value) || 120
       })
     }
   } catch (error) {
@@ -257,11 +236,6 @@ async function handleSaveSettings() {
       { key: 'system.auth.registration_enabled', value: String(settingsForm.registrationEnabled) },
       { key: 'system.auth.require_email_verification', value: String(settingsForm.requireEmailVerification) },
       { key: 'system.general.default_locale', value: settingsForm.defaultLocale },
-      { key: 'system.captcha.enabled', value: String(settingsForm.captchaEnabled) },
-      { key: 'system.captcha.tolerance_px', value: String(settingsForm.captchaTolerance) },
-      { key: 'system.captcha.ticket_ttl_seconds', value: String(settingsForm.captchaTicketTtl) },
-      { key: 'system.captcha.max_attempts', value: String(settingsForm.captchaMaxAttempts) },
-      { key: 'system.captcha.force_reset_captcha', value: String(settingsForm.forceCaptchaOnReset) },
       { key: 'system.mail.smtp_host', value: settingsForm.smtpHost },
       { key: 'system.mail.smtp_port', value: String(settingsForm.smtpPort) },
       { key: 'system.mail.smtp_user', value: settingsForm.smtpUser },
@@ -272,9 +246,7 @@ async function handleSaveSettings() {
       { key: 'system.mail.webhook_secret', value: settingsForm.webhookSecret || '' },
       { key: 'system.mail.webhook_fallback_strategy', value: settingsForm.webhookFallbackStrategy || 'AUTO_DELIVERED' },
       { key: 'system.maintenance.enabled', value: String(settingsForm.maintenanceMode) },
-      { key: 'system.maintenance.notice_message', value: settingsForm.maintenanceNotice },
-      { key: 'system.security.rate_limit_window', value: String(settingsForm.rateLimitWindow) },
-      { key: 'system.security.rate_limit_max_requests', value: String(settingsForm.rateLimitMaxRequests) }
+      { key: 'system.maintenance.notice_message', value: settingsForm.maintenanceNotice }
     ]
 
     if (settingsForm.smtpPass) {
@@ -298,11 +270,7 @@ function handleResetDefault() {
   settingsForm.icpNumber = ''
   settingsForm.defaultLocale = 'zh_CN'
   settingsForm.registrationEnabled = true
-  settingsForm.captchaEnabled = true
-  settingsForm.captchaTolerance = 8
-  settingsForm.captchaTicketTtl = 300
-  settingsForm.captchaMaxAttempts = 5
-  settingsForm.forceCaptchaOnReset = true
+  settingsForm.requireEmailVerification = true
   settingsForm.smtpHost = 'smtp.example.com'
   settingsForm.smtpPort = 465
   settingsForm.smtpUser = 'noreply@volur.local'
@@ -312,8 +280,6 @@ function handleResetDefault() {
   settingsForm.senderName = 'Volur Lite Security Team'
   settingsForm.maintenanceMode = false
   settingsForm.maintenanceNotice = '平台底层正在维护，请稍后访问。'
-  settingsForm.rateLimitWindow = 60
-  settingsForm.rateLimitMaxRequests = 120
   message.info(t('admin.system.messages.reset_info'))
 }
 

@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.List;
 
@@ -14,7 +15,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CompetitionAboutVO {
+public class CompetitionAboutVO implements Serializable {
 
     private Long id;
 

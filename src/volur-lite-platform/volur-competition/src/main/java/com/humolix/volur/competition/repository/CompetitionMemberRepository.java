@@ -68,4 +68,23 @@ public interface CompetitionMemberRepository extends JpaRepository<CompetitionMe
 
     void deleteByTeamIdAndUserId(Long teamId, Long userId);
 
+    @Query("SELECT m.competition.id, COUNT(m.id) FROM CompetitionMember m " +
+            "WHERE m.competition.id IN :competitionIds AND m.status != :excludeStatus " +
+            "GROUP BY m.competition.id")
+    List<Object[]> countParticipantsByCompetitionIds(
+            @Param("competitionIds") Collection<Long> competitionIds,
+            @Param("excludeStatus") MemberStatus excludeStatus);
+
+    @Query("SELECT m.team.id, COUNT(m.id) FROM CompetitionMember m " +
+            "WHERE m.team.id IN :teamIds AND m.status = :status " +
+            "GROUP BY m.team.id")
+    List<Object[]> countMembersByTeamIdsAndStatus(
+            @Param("teamIds") Collection<Long> teamIds,
+            @Param("status") MemberStatus status);
+
+    @Query("SELECT m FROM CompetitionMember m " +
+            "LEFT JOIN FETCH m.user u " +
+            "WHERE m.team.id = :teamId")
+    List<CompetitionMember> findByTeamIdWithUserAndProfile(@Param("teamId") Long teamId);
+
 }

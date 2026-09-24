@@ -1,6 +1,5 @@
 package com.humolix.volur.user.domain.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.humolix.volur.user.domain.enums.PrivacyType;
 import jakarta.persistence.*;
@@ -18,15 +17,9 @@ import java.io.Serializable;
 public class UserProfile implements Serializable {
 
     @Id
+    @Column(name = "user_id", nullable = false)
     @EqualsAndHashCode.Include
     private Long id;
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @MapsId
-    @JoinColumn(name = "user_id")
-    @JsonBackReference
-    @ToString.Exclude
-    private User user;
 
     @Column(name = "org", length = 128, columnDefinition = "VARCHAR(128)")
     private String org;

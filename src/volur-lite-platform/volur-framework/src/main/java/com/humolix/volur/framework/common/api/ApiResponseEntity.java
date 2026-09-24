@@ -1,7 +1,7 @@
 package com.humolix.volur.framework.common.api;
 
 import com.humolix.volur.framework.common.util.MessageUtils;
-import com.humolix.volur.framework.security.util.RequestHolder;
+import com.humolix.volur.framework.security.util.RequestUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 
@@ -13,7 +13,7 @@ public final class ApiResponseEntity {
 
     public static <T> ApiResponse<T> of(HttpStatusCode status, int errorCode, String messageKey, T data) {
         String translatedMessage = MessageUtils.getMessage(messageKey);
-        String currentPath = RequestHolder.getOriginalRequestUri();
+        String currentPath = RequestUtil.getOriginalRequestUri();
         return ApiResponse.of(
                 status.value(),
                 errorCode,

@@ -8,8 +8,11 @@ import com.humolix.volur.challenge.mapper.ChallengeMapper;
 import com.humolix.volur.challenge.repository.ctf.CtfChallengeCategoryRepository;
 import com.humolix.volur.challenge.repository.ctf.CtfChallengeRepository;
 import com.humolix.volur.challenge.service.admin.ctf.AdminCtfCategoryService;
+import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,7 @@ public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
     }
 
     @Override
+    @Cacheable(cacheNames = CacheNames.DICT, key = "'ctf:category:' + #id", sync = true)
     public CtfCategoryVO getCategory(Long id) {
         CtfChallengeCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "分类不存在"));
@@ -59,6 +63,7 @@ public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = CacheNames.DICT, key = "'ctf:category:' + #id")
     public void updateCategory(Long id, CtfCategoryUpdateRequestDTO request) {
         CtfChallengeCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "分类不存在"));
@@ -87,6 +92,7 @@ public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = CacheNames.DICT, key = "'ctf:category:' + #id")
     public void deleteCategory(Long id) {
         if (challengeRepository.existsByCategoryId(id)) {
             throw new BusinessException(HttpStatus.CONFLICT, "该分类下存在题目，无法删除");

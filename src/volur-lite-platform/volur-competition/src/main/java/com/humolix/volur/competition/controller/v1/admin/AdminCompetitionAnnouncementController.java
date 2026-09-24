@@ -5,6 +5,8 @@ import com.humolix.volur.competition.domain.entity.CompetitionAnnouncement;
 import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
 import com.humolix.volur.competition.repository.CompetitionAnnouncementRepository;
 import com.humolix.volur.competition.repository.CompetitionRepository;
+import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.exception.BusinessException;
@@ -32,6 +34,7 @@ public class AdminCompetitionAnnouncementController {
     private final CompetitionAnnouncementRepository announcementRepository;
     private final CompetitionRepository competitionRepository;
     private final UserRepository userRepository;
+    private final VolurCacheTemplate cacheTemplate;
 
     @Operation(summary = "获取比赛所有公告列表")
     @GetMapping
@@ -72,6 +75,7 @@ public class AdminCompetitionAnnouncementController {
                 .build();
 
         CompetitionAnnouncement saved = announcementRepository.save(anno);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "announcements:" + competitionId);
         return ApiResponseEntity.created("发布比赛公告成功", toVO(saved));
     }
 
@@ -103,6 +107,7 @@ public class AdminCompetitionAnnouncementController {
         anno.setChallengeName(dto.getChallengeName());
 
         CompetitionAnnouncement updated = announcementRepository.save(anno);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "announcements:" + competitionId);
         return ApiResponseEntity.ok("更新比赛公告成功", toVO(updated));
     }
 
@@ -120,6 +125,7 @@ public class AdminCompetitionAnnouncementController {
 
         anno.setIsPinned(pinned);
         announcementRepository.save(anno);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "announcements:" + competitionId);
         return ApiResponseEntity.success(pinned ? "公告已置顶" : "已取消置顶");
     }
 
@@ -135,6 +141,7 @@ public class AdminCompetitionAnnouncementController {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "比赛公告不存在"));
 
         announcementRepository.delete(anno);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "announcements:" + competitionId);
         return ApiResponseEntity.success("删除比赛公告成功");
     }
 

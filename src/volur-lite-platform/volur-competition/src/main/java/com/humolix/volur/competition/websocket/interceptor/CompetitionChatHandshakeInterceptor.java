@@ -6,7 +6,9 @@ import com.humolix.volur.competition.domain.entity.CompetitionMember;
 import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.competition.repository.CompetitionMemberRepository;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.UserRole;
+import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import lombok.NonNull;
@@ -46,6 +48,7 @@ public class CompetitionChatHandshakeInterceptor implements HandshakeInterceptor
     private final JwtUtil jwtUtil;
     private final TokenService tokenService;
     private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
     private final CompetitionMemberRepository memberRepository;
 
     @Override
@@ -126,7 +129,9 @@ public class CompetitionChatHandshakeInterceptor implements HandshakeInterceptor
                 return false;
             }
 
-            String avatarUrl = user.getUserProfile() != null ? user.getUserProfile().getAvatarUrl() : null;
+            String avatarUrl = userProfileRepository.findById(userId)
+                    .map(UserProfile::getAvatarUrl)
+                    .orElse(null);
 
             attributes.put(ATTR_USER_ID, userId);
             attributes.put(ATTR_USERNAME, user.getUsername());

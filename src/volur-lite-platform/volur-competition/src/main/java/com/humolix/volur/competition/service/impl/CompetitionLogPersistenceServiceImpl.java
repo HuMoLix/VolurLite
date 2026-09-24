@@ -13,9 +13,9 @@ import com.humolix.volur.competition.service.CompetitionLogPersistenceService;
 import com.humolix.volur.framework.common.thread.VolurThreadManager;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
-import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -32,7 +32,7 @@ import java.util.Optional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CompetitionLogPersistenceServiceImpl implements CompetitionLogPersistenceService {
+public class CompetitionLogPersistenceServiceImpl implements CompetitionLogPersistenceService, SmartLifecycle {
 
     public static final String VREDIS_COMPETITION_LOG_BUFFER_KEY = "vredis:competition:log:buffer";
     private static final int BATCH_SIZE = 50;
@@ -45,6 +45,8 @@ public class CompetitionLogPersistenceServiceImpl implements CompetitionLogPersi
     private final CtfChallengeRepository ctfChallengeRepository;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
+
+    private volatile boolean running = false;
 
     @Override
     public void saveLogAsync(CompetitionLogContextDTO context) {
@@ -194,10 +196,30 @@ public class CompetitionLogPersistenceServiceImpl implements CompetitionLogPersi
                 .build();
     }
 
-    @PreDestroy
-    public void onShutdown() {
+    @Override
+    public void start() {
+        this.running = true;
+    }
+
+    @Override
+    public void stop() {
+        if (!this.running) {
+            return;
+        }
+        this.running = false;
         log.info("[CompetitionLog] 服务优雅停机，正在执行 Redis 日志缓冲区收尾落库...");
         drainBuffer();
+    }
+
+    @Override
+    public boolean isRunning() {
+        return this.running;
+    }
+
+    @Override
+    public int getPhase() {
+        // 赋予大于 LettuceConnectionFactory(phase=0) 的高优先级，确保在 Redis 连接池关闭前执行收尾
+        return Integer.MAX_VALUE - 1000;
     }
 
 }

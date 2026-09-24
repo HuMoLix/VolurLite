@@ -39,40 +39,24 @@
       </n-form-item>
 
       <div class="auth-form__forgot-password-link-wrapper">
-        <a href="#" @click.prevent="mode = 'forgot'">{{ t('auth.forgot_password') }}</a>
+        <a href="#" @click.prevent="setMode('forgot')">{{ t('auth.forgot_password') }}</a>
       </div>
 
-      <n-form-item path="captchaCode" :label="t('auth.verification_code')" v-if="isCaptchaEnabled">
-        <div class="auth-form__captcha-wrapper">
-          <n-input
-            v-model:value="loginForm.captchaCode"
-            :placeholder="t('auth.code')"
-            size="large"
-            style="flex: 1;"
-          />
-          <img
-            v-if="captchaImage"
-            :src="captchaImage"
-            @click="fetchCaptcha()"
-            class="auth-form__captcha-image"
-            :alt="t('auth.captcha_alt')"
-            :title="t('auth.captcha_refresh_title')"
-          />
-          <n-button
-            v-else
-            size="large"
-            @click="handleCaptchaButtonClick"
-            class="auth-form__captcha-reload-button"
-          >
-            {{ t('auth.verification_code') }}
-          </n-button>
-        </div>
+      <n-form-item :label="t('auth.verification_code')" v-if="isCaptchaEnabled" :show-feedback="false">
+        <VolurCaptcha
+          ref="loginCaptchaRef"
+          scene="LOGIN"
+          :account="loginForm.username"
+          @enter="handleAction"
+        />
       </n-form-item>
 
       <n-button
         type="primary"
         block
         size="large"
+        attr-type="button"
+        :disabled="loading"
         :loading="loading"
         @click="handleAction"
         class="auth-form__submit-button"
@@ -112,6 +96,8 @@
         type="primary"
         block
         size="large"
+        attr-type="button"
+        :disabled="loading"
         :loading="loading"
         @click="handleForgotPasswordAction"
         class="auth-form__submit-button"
@@ -122,7 +108,7 @@
       <div class="auth-form__footer">
         <n-text depth="3">
           {{ t('auth.remember_password') }}
-          <a href="#" @click.prevent="mode = 'login'" class="auth-form__toggle-link">
+          <a href="#" @click.prevent="setMode('login')" class="auth-form__toggle-link">
             {{ t('auth.log_in') }}
           </a>
         </n-text>
@@ -190,6 +176,8 @@
         type="primary"
         block
         size="large"
+        attr-type="button"
+        :disabled="loading"
         :loading="loading"
         @click="handleAction"
         class="auth-form__submit-button"
@@ -218,19 +206,18 @@
       </n-text>
     </div>
 
-    <!-- Slide Puzzle Behavioral Verification Modal -->
-    <SlidePuzzleModal
-      v-model:show="showPuzzleModal"
-      :scene="puzzleScene"
-      @success="handlePuzzleSuccess"
+    <!-- 全局行为人机验证协调组件 (注册 / 找回密码场景) -->
+    <VolurCaptcha
+      ref="behaviorCaptchaRef"
+      headless
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import SlidePuzzleModal from '@/components/verification/SlidePuzzleModal.vue'
-import type { CaptchaTicketVO } from '@/types/verification'
+import VolurCaptcha from '@/public/volurEx/components/captcha/VolurCaptcha.vue'
+import type { CaptchaVerifyRequestDTO } from '@/public/volurEx/components/captcha'
 import {
   NForm,
   NFormItem,
@@ -246,20 +233,28 @@ import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/store/modules/user'
 import { useSystemStore } from '@/store/modules/system'
 import { registerApi, forgotPasswordApi } from '@/api/auth'
-import { getCaptchaApi, sendRegisterEmailCodeApi } from '@/api/verification'
+import { sendRegisterEmailCodeApi } from '@/api/verification'
+
+type AuthMode = 'login' | 'register' | 'forgot'
 
 interface Props {
-  initialMode?: 'login' | 'register' | 'forgot'
+  initialMode?: AuthMode
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  initialMode: 'login'
-})
+const props = withDefaults(defineProps<Props>(), {})
 
 const emit = defineEmits<{
-  (e: 'success', mode: 'login' | 'register'): void
-  (e: 'mode-change', mode: string): void
+  (e: 'success', type: AuthMode): void
+  (e: 'mode-change', mode: AuthMode): void
 }>()
+
+const mode = defineModel<AuthMode>('mode', { default: 'login' })
+
+onMounted(() => {
+  if (props.initialMode && props.initialMode !== mode.value) {
+    mode.value = props.initialMode
+  }
+})
 
 const { t } = useI18n()
 const userStore = useUserStore()
@@ -267,32 +262,11 @@ const systemStore = useSystemStore()
 const message = useMessage()
 
 const formRef = ref<FormInst | null>(null)
-const mode = ref<'login' | 'register' | 'forgot'>(props.initialMode)
 const loading = ref<boolean>(false)
 const countdown = ref<number>(0)
-
-const captchaImage = ref<string>('')
-const captchaId = ref<string>('')
-const captchaType = ref<string>('LINE')
+const loginCaptchaRef = ref<InstanceType<typeof VolurCaptcha> | null>(null)
+const behaviorCaptchaRef = ref<InstanceType<typeof VolurCaptcha> | null>(null)
 const captchaTicket = ref<string>('')
-const requireBehaviorVerify = ref<boolean>(false)
-const showPuzzleModal = ref<boolean>(false)
-const puzzleScene = ref<string>('REGISTER')
-const pendingAction = ref<'SEND_EMAIL_CODE' | 'REGISTER' | 'FORGOT_PASSWORD' | 'FETCH_CAPTCHA' | null>(null)
-
-async function handlePuzzleSuccess(ticketVO: CaptchaTicketVO) {
-  captchaTicket.value = ticketVO.ticket
-  if (pendingAction.value === 'FETCH_CAPTCHA') {
-    await fetchCaptcha(ticketVO.ticket)
-  } else if (pendingAction.value === 'SEND_EMAIL_CODE') {
-    await doSendEmailCode(ticketVO.ticket)
-  } else if (pendingAction.value === 'REGISTER') {
-    await doRegister(ticketVO.ticket)
-  } else if (pendingAction.value === 'FORGOT_PASSWORD') {
-    await doSendForgotPassword(ticketVO.ticket)
-  }
-  pendingAction.value = null
-}
 
 const isLogin = computed(() => mode.value === 'login')
 const isForgot = computed(() => mode.value === 'forgot')
@@ -302,8 +276,7 @@ const isCaptchaEnabled = computed(() => systemStore.isCaptchaEnabled)
 
 const loginForm = reactive({
   username: '',
-  password: '',
-  captchaCode: ''
+  password: ''
 })
 
 const registerForm = reactive({
@@ -320,24 +293,7 @@ const forgotForm = reactive({
 
 const loginRules = computed<FormRules>(() => ({
   username: [{ required: true, message: t('auth.username_required') }],
-  password: [{ required: true, message: t('auth.password_required') }],
-  captchaCode: [
-    { required: isCaptchaEnabled.value, message: t('auth.captcha_required') },
-    {
-      validator(_rule: FormItemRule, value: string) {
-        if (!isCaptchaEnabled.value || !value) return true
-        const type = captchaType.value.toUpperCase()
-        if ((type === 'LINE' || type === 'SHEAR') && value.trim().length !== 6) {
-          return new Error(t('auth.graphic_captcha_length_6'))
-        }
-        if (type === 'MATH' && !/^-?\d+$/.test(value.trim())) {
-          return new Error(t('auth.math_captcha_invalid'))
-        }
-        return true
-      },
-      trigger: ['blur', 'input']
-    }
-  ]
+  password: [{ required: true, message: t('auth.password_required') }]
 }))
 
 const registerRules = computed<FormRules>(() => ({
@@ -388,7 +344,19 @@ const registerRules = computed<FormRules>(() => ({
     }
   ],
   emailCaptcha: isEmailVerificationRequired.value
-    ? [{ required: true, message: t('auth.email_code_required') }]
+    ? [
+        { required: true, message: t('auth.email_code_required') },
+        {
+          validator(_rule: FormItemRule, value: string) {
+            if (!value) return true
+            if (!/^\d{6}$/.test(value.trim())) {
+              return new Error(t('auth.six_digit_code') || '请输入6位数字验证码')
+            }
+            return true
+          },
+          trigger: ['blur', 'input']
+        }
+      ]
     : []
 }))
 
@@ -410,54 +378,14 @@ const forgotRules = computed<FormRules>(() => ({
   ]
 }))
 
+function setMode(newMode: AuthMode) {
+  mode.value = newMode
+  emit('mode-change', newMode)
+}
+
 function toggleMode() {
-  if (isLogin.value && !isRegisterEnabled.value) return
-  mode.value = isLogin.value ? 'register' : 'login'
-  emit('mode-change', mode.value)
-  if (isLogin.value && isCaptchaEnabled.value) {
-    fetchCaptcha()
-  }
-}
-
-async function fetchCaptcha(ticket?: string) {
-  if (!isCaptchaEnabled.value) return
-  try {
-    const res = await getCaptchaApi({
-      oldCaptchaId: captchaId.value || undefined,
-      ticket: ticket || undefined
-    })
-    if (res.data) {
-      if (res.data.requireBehaviorVerify) {
-        // 由于风险计数太高，需要行为式人机验证：清空图片，置标记，仅展示“验证码”按钮，不自动弹出弹窗
-        captchaImage.value = ''
-        requireBehaviorVerify.value = true
-        return
-      }
-      requireBehaviorVerify.value = false
-      captchaId.value = res.data.captchaId
-      captchaImage.value = res.data.backgroundImage || res.data.imageBase64 || ''
-      captchaType.value = (res.data.captchaType || 'LINE').toUpperCase()
-    }
-  } catch (e: any) {
-    console.warn('Captcha load skipped', e)
-  }
-}
-
-async function handleCaptchaButtonClick() {
-  if (requireBehaviorVerify.value) {
-    // 高风控状态下，用户主动点击“验证码”按钮才唤起滑动拼图弹窗
-    puzzleScene.value = 'LOGIN'
-    pendingAction.value = 'FETCH_CAPTCHA'
-    showPuzzleModal.value = true
-  } else {
-    // 正常获取或刷新验证码
-    await fetchCaptcha()
-    if (requireBehaviorVerify.value) {
-      puzzleScene.value = 'LOGIN'
-      pendingAction.value = 'FETCH_CAPTCHA'
-      showPuzzleModal.value = true
-    }
-  }
+  const nextMode: AuthMode = isLogin.value ? 'register' : 'login'
+  setMode(nextMode)
 }
 
 async function sendEmailVerificationCode() {
@@ -465,30 +393,41 @@ async function sendEmailVerificationCode() {
     message.warning(t('auth.enter_email_first'))
     return
   }
-
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(registerForm.email)) {
+  if (!emailRegex.test(registerForm.email.trim())) {
     message.warning(t('auth.enter_valid_email'))
     return
   }
 
   if (countdown.value > 0) return
 
+  let ticket: string | undefined
   if (isCaptchaEnabled.value) {
-    puzzleScene.value = 'REGISTER'
-    pendingAction.value = 'SEND_EMAIL_CODE'
-    showPuzzleModal.value = true
-  } else {
-    await doSendEmailCode()
+    try {
+      const ticketVO = await behaviorCaptchaRef.value?.verifyBehavior('REGISTER')
+      ticket = ticketVO?.ticket
+      if (ticket) {
+        captchaTicket.value = ticket
+      }
+    } catch {
+      return
+    }
   }
+
+  await doSendEmailCode(ticket)
 }
 
 async function doSendEmailCode(ticket?: string) {
   try {
+    const effectiveTicket = ticket || captchaTicket.value || undefined
     await sendRegisterEmailCodeApi({
       email: registerForm.email.trim(),
       username: registerForm.username ? registerForm.username.trim() : undefined,
-      captchaTicket: ticket || captchaTicket.value || undefined
+      captcha: effectiveTicket ? {
+        captchaTicket: effectiveTicket,
+        scene: 'REGISTER',
+        account: registerForm.email.trim()
+      } : undefined
     })
     message.success(t('auth.verification_code_sent'))
 
@@ -505,28 +444,49 @@ async function doSendEmailCode(ticket?: string) {
 }
 
 async function handleForgotPasswordAction() {
-  formRef.value?.validate(async (errors) => {
-    if (errors) return
-    if (isCaptchaEnabled.value) {
-      puzzleScene.value = 'RESET_PASSWORD'
-      pendingAction.value = 'FORGOT_PASSWORD'
-      showPuzzleModal.value = true
-    } else {
-      await doSendForgotPassword()
+  if (loading.value) return
+  loading.value = true
+  try {
+    const valid = await formRef.value?.validate().then(() => true).catch(() => false)
+    if (!valid) {
+      loading.value = false
+      return
     }
-  })
+    let ticket: string | undefined
+    if (isCaptchaEnabled.value) {
+      try {
+        const ticketVO = await behaviorCaptchaRef.value?.verifyBehavior('RESET_PASSWORD')
+        ticket = ticketVO?.ticket
+        if (ticket) {
+          captchaTicket.value = ticket
+        }
+      } catch {
+        loading.value = false
+        return
+      }
+    }
+    await doSendForgotPassword(ticket)
+  } catch {
+    loading.value = false
+  }
 }
 
 async function doSendForgotPassword(ticket?: string) {
   loading.value = true
   try {
+    const effectiveTicket = ticket || captchaTicket.value || undefined
     await forgotPasswordApi({
-      email: forgotForm.email.trim(),
       username: forgotForm.username.trim(),
-      captchaTicket: ticket || captchaTicket.value || undefined
+      email: forgotForm.email.trim(),
+      captcha: effectiveTicket ? {
+        captchaTicket: effectiveTicket,
+        scene: 'RESET_PASSWORD',
+        account: forgotForm.username.trim()
+      } : undefined
     })
     message.success(t('auth.reset_link_sent'))
-    mode.value = 'login'
+    emit('success', 'forgot')
+    setMode('login')
   } catch {
     captchaTicket.value = ''
   } finally {
@@ -535,50 +495,78 @@ async function doSendForgotPassword(ticket?: string) {
 }
 
 async function handleAction() {
-  formRef.value?.validate(async (errors) => {
-    if (errors) return
+  if (loading.value) return
+  loading.value = true
+
+  try {
+    const valid = await formRef.value?.validate().then(() => true).catch(() => false)
+    if (!valid) {
+      loading.value = false
+      return
+    }
+
     if (isLogin.value) {
-      loading.value = true
       try {
+        let captchaPayload: CaptchaVerifyRequestDTO | undefined
+        if (isCaptchaEnabled.value && loginCaptchaRef.value) {
+          captchaPayload = await loginCaptchaRef.value.getPayload()
+        }
+
         await userStore.login({
           username: loginForm.username,
           password: loginForm.password,
-          captchaId: captchaId.value || undefined,
-          captchaCode: loginForm.captchaCode || undefined
+          captcha: captchaPayload
         })
         message.success(t('auth.welcome_back'))
         emit('success', 'login')
-      } catch {
-        if (isLogin.value && isCaptchaEnabled.value) {
-          await fetchCaptcha()
-          loginForm.captchaCode = ''
+      } catch (error: any) {
+        const errorMsg = error?.message || ''
+        if (!errorMsg.includes('cancelled') && !errorMsg.includes('取消')) {
+          if (loginCaptchaRef.value) {
+            loginCaptchaRef.value.handleFailure(error)
+          }
         }
       } finally {
         loading.value = false
       }
     } else {
+      let ticket: string | undefined
       if (!isEmailVerificationRequired.value && isCaptchaEnabled.value) {
-        puzzleScene.value = 'REGISTER'
-        pendingAction.value = 'REGISTER'
-        showPuzzleModal.value = true
-      } else {
-        await doRegister()
+        try {
+          const ticketVO = await behaviorCaptchaRef.value?.verifyBehavior('REGISTER')
+          ticket = ticketVO?.ticket
+          if (ticket) {
+            captchaTicket.value = ticket
+          }
+        } catch {
+          loading.value = false
+          return
+        }
       }
+      await doRegister(ticket)
     }
-  })
+  } catch {
+    loading.value = false
+  }
 }
 
 async function doRegister(ticket?: string) {
   loading.value = true
   try {
+    const effectiveTicket = ticket || captchaTicket.value || undefined
     await registerApi({
       username: registerForm.username.trim(),
       password: registerForm.password,
       email: registerForm.email.trim(),
       emailCaptcha: isEmailVerificationRequired.value ? registerForm.emailCaptcha.trim() : undefined,
-      captchaTicket: ticket || captchaTicket.value || undefined
+      captcha: effectiveTicket ? {
+        captchaTicket: effectiveTicket,
+        scene: 'REGISTER',
+        account: registerForm.username.trim()
+      } : undefined
     })
     message.success(t('auth.account_created_success'))
+    emit('success', 'register')
     toggleMode()
   } catch {
     captchaTicket.value = ''
@@ -586,12 +574,6 @@ async function doRegister(ticket?: string) {
     loading.value = false
   }
 }
-
-onMounted(() => {
-  if (isLogin.value && isCaptchaEnabled.value) {
-    fetchCaptcha()
-  }
-})
 </script>
 
 <style scoped lang="scss">
@@ -662,7 +644,7 @@ $text-muted: #666;
   }
 
   .auth-form__submit-button {
-    margin-top: 12px;
+    margin-top: 20px;
     height: 48px;
     font-size: 16px;
     font-weight: 500;

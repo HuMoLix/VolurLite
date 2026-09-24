@@ -24,6 +24,7 @@ public class AdminCompetitionListVO implements Serializable {
     private Instant startTime;
     private Instant endTime;
     private Long teamCount;
+    private Long participantCount;
     private Instant createdAt;
 
 }

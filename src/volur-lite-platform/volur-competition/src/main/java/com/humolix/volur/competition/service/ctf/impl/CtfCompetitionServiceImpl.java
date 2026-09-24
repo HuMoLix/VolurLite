@@ -27,6 +27,9 @@ import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
+import com.humolix.volur.framework.cache.redis.RedisOps;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +37,7 @@ import org.springframework.util.StringUtils;
 
 import com.humolix.volur.competition.domain.enums.CompetitionType;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -49,15 +53,29 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
     private final UserRepository userRepository;
     private final CtfInstanceService containerInstanceService;
     private final CompetitionMapper competitionMapper;
+    private final VolurCacheTemplate cacheTemplate;
+    private final RedisOps redisOps;
 
     
 
     @Override
     public List<CtfCompetitionChallengeVO> listChallenges(Long competitionId, Long userId) {
-        List<CtfCompetitionChallenge> challenges = challengeRepository.findByCompetitionIdAndIsVisibleTrueOrderBySortOrderAsc(competitionId);
+        // 1. 静态赛题列表底座：走三级缓存 L1 (Caffeine ~50ns) + L2 (Redis ~1ms) + L3 回源单飞折叠
+        List<CtfCompetitionChallengeVO> cachedBaseList = cacheTemplate.getOrLoad(
+                CacheNames.COMPETITION_STATUS,
+                "ctf:challenges:" + competitionId,
+                () -> {
+                    List<CtfCompetitionChallenge> challenges = challengeRepository
+                            .findByCompetitionIdAndIsVisibleTrueOrderBySortOrderAsc(competitionId);
+                    return competitionMapper.toCtfChallengeVOList(challenges);
+                }
+        );
 
-        List<CtfCompetitionChallengeVO> voList = competitionMapper.toCtfChallengeVOList(challenges);
+        if (cachedBaseList == null || cachedBaseList.isEmpty()) {
+            return Collections.emptyList();
+        }
 
+        // 2. 动态解题标记：查询当前队伍已解出的赛题 ID
         CompetitionTeam myTeam = getMyApprovedTeam(competitionId, userId);
         Set<Long> solvedChallengeIds = Collections.emptySet();
         if (myTeam != null) {
@@ -67,33 +85,52 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
                     .collect(Collectors.toSet());
         }
 
-        for (CtfCompetitionChallengeVO vo : voList) {
-            vo.setIsSolvedByMyTeam(solvedChallengeIds.contains(vo.getId()));
+        // 3. 利用 toBuilder 产生副本返回，防止修改污染 L1 本地缓存中的共享对象
+        List<CtfCompetitionChallengeVO> result = new ArrayList<>(cachedBaseList.size());
+        for (CtfCompetitionChallengeVO vo : cachedBaseList) {
+            result.add(vo.toBuilder()
+                    .isSolvedByMyTeam(solvedChallengeIds.contains(vo.getId()))
+                    .build());
         }
 
-        return voList;
+        return result;
     }
 
     @Override
     public CtfCompetitionChallengeDetailVO getChallengeDetail(Long competitionId, Long competitionChallengeId, Long userId) {
-        CtfCompetitionChallenge compChallenge = challengeRepository.findByIdWithChallenge(competitionChallengeId)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
+        // 1. 静态赛题详情底座：三级缓存与单飞折叠，避免千人并发重复多表联查
+        CtfCompetitionChallengeDetailVO cachedDetail = cacheTemplate.getOrLoad(
+                CacheNames.CTF_CHALLENGE_DETAIL,
+                "comp:" + competitionId + ":chal:" + competitionChallengeId,
+                () -> {
+                    CtfCompetitionChallenge compChallenge = challengeRepository.findByIdWithChallenge(competitionChallengeId)
+                            .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
 
-        if (!compChallenge.getCompetition().getId().equals(competitionId) || !Boolean.TRUE.equals(compChallenge.getIsVisible())) {
-            throw new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在或尚未公开");
+                    if (!compChallenge.getCompetition().getId().equals(competitionId) || !Boolean.TRUE.equals(compChallenge.getIsVisible())) {
+                        throw new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在或尚未公开");
+                    }
+
+                    CtfCompetitionChallengeDetailVO vo = competitionMapper.toCtfChallengeDetailVO(compChallenge);
+                    CtfChallenge rawChallenge = compChallenge.getChallenge();
+                    vo.setIsContainer(rawChallenge != null && rawChallenge.isDynamicContainer());
+                    return vo;
+                }
+        );
+
+        if (cachedDetail == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在");
         }
 
-        CtfCompetitionChallengeDetailVO vo = competitionMapper.toCtfChallengeDetailVO(compChallenge);
-        CtfChallenge rawChallenge = compChallenge.getChallenge();
-        vo.setIsContainer(rawChallenge != null && rawChallenge.isDynamicContainer());
-
+        // 2. 动态判断当前战队解题状态
         CompetitionTeam myTeam = getMyApprovedTeam(competitionId, userId);
         boolean isSolved = myTeam != null && solvedRepository.existsByCompetitionIdAndCompetitionChallengeIdAndTeamId(
                 competitionId, competitionChallengeId, myTeam.getId()
         );
-        vo.setIsSolvedByMyTeam(isSolved);
 
-        return vo;
+        // 3. 不可变副本返回
+        return cachedDetail.toBuilder()
+                .isSolvedByMyTeam(isSolved)
+                .build();
     }
 
     @Override
@@ -173,6 +210,12 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
             }
         }
 
+        // 解题成功后主动失效题目列表、题目详情与天梯榜物化缓存
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "ctf:challenges:" + competitionId);
+        cacheTemplate.evict(CacheNames.CTF_CHALLENGE_DETAIL, "comp:" + competitionId + ":chal:" + competitionChallengeId);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "scoreboard:ctf:" + competitionId);
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "scoreboard:composite:" + competitionId);
+
         return true;
     }
 
@@ -186,13 +229,21 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
         Long stageId = 0L;
         String teamToken = null;
 
-        return containerInstanceService.startInstance(
-                compChallenge.getChallenge().getId(),
-                userId,
-                stageId,
-                team.getId(),
-                teamToken
-        );
+        // 同战队同赛题防并发重复拉起靶机容器分布式互斥锁
+        String lockKey = "volur:lock:container:start:" + competitionId + ":" + competitionChallengeId + ":" + team.getId();
+        try {
+            return redisOps.withLock(lockKey, Duration.ofSeconds(3), Duration.ofSeconds(30), () ->
+                    containerInstanceService.startInstance(
+                            compChallenge.getChallenge().getId(),
+                            userId,
+                            stageId,
+                            team.getId(),
+                            teamToken
+                    )
+            );
+        } catch (IllegalStateException e) {
+            throw new BusinessException(HttpStatus.CONFLICT, "靶机容器正在启动或排队中，请勿重复操作");
+        }
     }
 
     @Override
