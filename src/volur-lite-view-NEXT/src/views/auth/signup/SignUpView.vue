@@ -82,7 +82,7 @@
         <n-button
           type="primary"
           class="auth-action-btn btn-register-action"
-          :loading="loading"
+          :disabled="loading"
           @click="handleSignUp"
         >
           注册

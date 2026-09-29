@@ -24,7 +24,7 @@ export const authRoutes: RouteRecordRaw[] = [
             }
           },
           {
-            path: 'challenge/:type?',
+            path: 'challenge/:type(.*)*',
             name: 'V1SignInChallenge',
             component: () => import('@/views/auth/signin/ChallengeView.vue'),
             meta: {

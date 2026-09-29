@@ -25,6 +25,9 @@ public class FlowInitVO implements Serializable {
     @Schema(description = "后端签发的分布式会话状态句柄 (dsh)", example = "S-969965009:1790527266429740")
     private String dsh;
 
+    @Schema(description = "初始步骤签发的状态流转票据 (TL)")
+    private String tl;
+
     @Builder.Default
     @Schema(description = "状态机大模块流名称", example = "VlifWebLogin")
     private String flowName = "VlifWebLogin";

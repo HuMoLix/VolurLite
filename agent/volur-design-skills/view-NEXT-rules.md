@@ -228,7 +228,90 @@ html.dark {
 }
 ```
 
+### 5.3 异步提交流程中的错误生命周期 (Error Lifecycle in Submissions)
+
+#### ❌ 反模式 (提交流程同步过早清空错误引发抖动与重颤)
+```ts
+// 错误示范：提交流程伊始同步提前清空错误，引发卡片高度收缩又膨胀的上下弹跳
+async function handleVerifyChallenge() {
+  if (authFlowStore.loading) return
+  errorMsg.value = ''        // 导致错误行瞬间卸载，卡片骤缩 22px
+  recaptchaError.value = ''  // 触发 watch 清空，重赋时向沙箱重复下发震颤
+  try {
+    await authFlowStore.submitChallenge('pwd', { ... })
+  } catch (err: any) {
+    errorMsg.value = err?.message || '密码错误' // 重新挂载，卡片膨胀 22px
+  }
+}
+```
+
+#### ✅ 推荐实践 (输入与事件驱动的精确错误自愈)
+```ts
+// 正确示范：提交流程不清空错误，错误由用户输入变更精准驱动自愈
+watch(password, () => {
+  if (errorMsg.value) errorMsg.value = ''
+})
+
+async function handleVerifyChallenge() {
+  if (authFlowStore.loading || isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    const res = await authFlowStore.submitChallenge('pwd', { ... })
+    // 成功后由路由跳转或业务逻辑流转，无需提前重置
+  } catch (err: any) {
+    errorMsg.value = err?.message || '密码错误' // 就地平滑更新，无 DOM 剧变
+  } finally {
+    isSubmitting.value = false
+  }
+}
+```
+
+### 5.4 居中布局过渡解耦与并发防重锁 (Layout Decoupling & Concurrency Guard)
+
+#### ❌ 反模式 (居中容器滥用 transition: all 与裸奔无防重)
+```scss
+// 错误示范：弹性居中容器相邻元素配置 transition: all，产生 300ms 滞后拉扯
+.auth-footer {
+  transition: all 0.3s ease; // 卡片高度变化推动 Footer 时引发橡皮筋弹性晃动
+}
+```
+
+#### ✅ 推荐实践 (局部过渡隔离与互斥锁)
+```scss
+// 正确示范：移除整体布局属性缓动，错误提示采用轻量透明度淡入淡出
+.field-error-fade-enter-active,
+.field-error-fade-leave-active {
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.field-error-fade-enter-from,
+.field-error-fade-leave-to {
+  opacity: 0;
+}
+```
+
 ---
 
-## 6. 开发审计与溯源要求
+## 6. 交互体验与表单防抖动推荐约束 (Interaction & Anti-Jitter Recommended Constraints)
+
+在认证流（如 `IdentifierView.vue`、`ChallengeView.vue`）及复杂表单交互中，为了彻底杜绝卡片闪烁、垂直抖动与状态撕裂，推荐遵守以下五项铁律：
+
+1. **表单错误生命周期收敛铁律**：
+   - **严禁在异步提交流程伊始无条件同步清空错误字段**（严禁在 `handleNext` / `handleVerify` 顶部执行 `errorMsg.value = ''`）；
+   - 错误信息的清空必须且只能由**真实的用户修改行为**触发（如 `watch` 监听表单输入变化自愈消除、点击清空按钮 `@clear`、或重新点击验证码复选框启动重试）；
+   - 提交失败时直接就地更新或保持错误文本，杜绝“卸载 -> 卡片收缩 -> 重新挂载 -> 卡片膨胀”的视觉跳变。
+2. **居中弹性布局的过渡解耦铁律**：
+   - 桌面端垂直居中容器（`md:justify-center`）中，子元素高度变动会以中心为基准导致上下位移（$\Delta Y = \frac{\Delta H}{2}$）；
+   - 居中布局下容器自身与相邻兄弟元素（如 Footer）**严禁配置 `transition: all`**，防止高度突变与动画缓动产生复合共振拉扯；
+   - 动态插入的提示行必须使用轻量局部渐变（如 `field-error-fade` 的 opacity 缓动），平滑过渡。
+3. **异步提交流程的互斥防重锁 (`isSubmitting`)**：
+   - 表单提交必须配置 `const isSubmitting = ref(false)` 配合 `try ... finally`，对连续快速点击、回车键与鼠标点击在同一事件循环内的并发重复触发实施物理短路拦截。
+4. **挑战与动效侦听的实质值比对**：
+   - 监听外部传入的错误文本（如 reCAPTCHA `props.errorMsg`）时，必须使用 `(newVal, oldVal)` 并严格判定 `newVal && newVal !== oldVal`，当错误文本未发生实质变更时严禁重复向沙箱下发重置或水平震颤（`.rc-shake`）指令。
+5. **全屏加载遮罩与最小反馈驻留时间机制 ($\max(\text{minDuration}, t_{\text{backend}})$)**：
+   - 在认证流转（如“下一步”）中，为全屏白色遮罩（80% 透明度）与顶部线性进度条设定固定的前端最小展示时长（建议基准为 **1.5s**）；
+   - 当后端响应极快（<100ms）时，通过最小延时消除突闪（Flash of Loading），提升沉浸感；若超过 1.5s 后端仍未返回则保持展示，待后端响应完成且满足最小时间后，优雅平滑退出遮罩并流转至下一步。
+
+---
+
+## 7. 开发审计与溯源要求
 所有针对 `src/volur-lite-view-NEXT` 的任何修改，在完成之后必须在 `agent/volur-design-md` 中记录 Markdown 施工文档，详细记录改动点、视觉对齐说明与影响范围。

@@ -23,8 +23,8 @@
         <module>volur-system</module>
         <module>volur-user</module>
         <module>volur-verification</module>
-        <module>volur-auth</module>
         <module>volur-security</module>
+        <module>volur-auth</module>
         <module>volur-challenge</module>
         <module>volur-container</module>
         <module>volur-competition</module>

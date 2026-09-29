@@ -6,7 +6,6 @@
       'google-text-field--disabled': disabled
     }"
   >
-    <!-- 输入框主体边框容器 -->
     <div
       class="google-text-field__box"
       :class="{
@@ -16,7 +15,6 @@
       }"
       @click="focusInput"
     >
-      <!-- 原生输入框：margin: 2px 2px 0 2px，padding: 12px 12px -->
       <input
         ref="inputRef"
         :id="inputId"
@@ -35,7 +33,6 @@
         @keydown.enter="$emit('enter', $event)"
       />
 
-      <!-- 浮动 Placeholder / 标签：聚焦或有值时升到上边框 -->
       <label
         :for="inputId"
         class="google-text-field__label"
@@ -48,7 +45,6 @@
         {{ displayLabel }}
       </label>
 
-      <!-- 尾部操作区域 (清空图标 / 密码显隐切换) -->
       <div class="google-text-field__trailing">
         <button
           v-if="clearable && hasValue && !disabled && !readonly"
@@ -71,7 +67,6 @@
           :title="isPasswordVisible ? '隐藏密码' : '显示密码'"
           @click.stop="togglePasswordVisibility"
         >
-          <!-- 闭眼 / 睁眼 SVG -->
           <svg v-if="!isPasswordVisible" viewBox="0 0 24 24" class="w-4 h-4 fill-current">
             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
           </svg>
@@ -84,16 +79,16 @@
       </div>
     </div>
 
-    <!-- 错误状态提示信息 (带有 Google Accounts 警告圆标) -->
-    <div v-if="errorMsg" class="google-text-field__error-msg">
-      <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-current shrink-0">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-      </svg>
-      <span>{{ errorMsg }}</span>
-    </div>
+    <transition name="field-error-fade">
+      <div v-if="errorMsg" class="google-text-field__error-msg">
+        <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-current shrink-0">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+        </svg>
+        <span>{{ errorMsg }}</span>
+      </div>
+    </transition>
 
-    <!-- 帮助/辅助文本 -->
-    <div v-else-if="helperText" class="google-text-field__helper-text">
+    <div v-if="!errorMsg && helperText" class="google-text-field__helper-text">
       {{ helperText }}
     </div>
   </div>
@@ -214,7 +209,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
 
-  // 边框容器：对齐 Google Accounts Material 3 Outlined 规范
   &__box {
     position: relative;
     display: flex;
@@ -228,7 +222,7 @@ defineExpose({
 
     &--focused {
       border-color: #0b57d0;
-      box-shadow: 0 0 0 1px #0b57d0; // 无重排的清晰 2px Focus 描边
+      box-shadow: 0 0 0 1px #0b57d0;
     }
 
     &--error,
@@ -244,7 +238,6 @@ defineExpose({
     }
   }
 
-  // 1. 大输入框设计：严格按照要求 margin: 2px 2px 0 2px，padding: 12px 12px
   &__input {
     margin: 2px 2px 0 2px;
     padding: 12px 12px;
@@ -263,7 +256,7 @@ defineExpose({
     z-index: 1;
 
     &::placeholder {
-      color: transparent; // 隐藏原生 placeholder，由 floating label 接管
+      color: transparent;
     }
 
     &:disabled {
@@ -272,15 +265,13 @@ defineExpose({
     }
   }
 
-  // 报错时光标颜色保持为 Google Red
   &--error &__input {
     caret-color: #ea4335;
   }
 
-  // 2. 浮动 Placeholder / 标签：默认置于内部，focus 或有内容时升到边框上
   &__label {
     position: absolute;
-    left: 14px; // 2px margin + 12px padding
+    left: 14px;
     top: 50%;
     transform: translateY(-50%);
     font-size: 16px;
@@ -366,7 +357,6 @@ defineExpose({
     }
   }
 
-  // 错误提示取消 margin-left，直接与输入框左侧边框完全对齐
   &__error-msg {
     margin-top: 4px;
     margin-left: 0;
@@ -389,7 +379,16 @@ defineExpose({
   }
 }
 
-// 暗色模式阶梯体系适配
+.field-error-fade-enter-active,
+.field-error-fade-leave-active {
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.field-error-fade-enter-from,
+.field-error-fade-leave-to {
+  opacity: 0;
+}
+
 :global(html.dark) {
   .google-text-field {
     &__box {
@@ -478,7 +477,6 @@ defineExpose({
   }
 }
 
-// 移动端背景自适应 (当移动端卡片透明时，确保标签切角底色与容器背景一致)
 @media (max-width: 839px) {
   .google-text-field__label--floating,
   .google-text-field__input:focus ~ .google-text-field__label,

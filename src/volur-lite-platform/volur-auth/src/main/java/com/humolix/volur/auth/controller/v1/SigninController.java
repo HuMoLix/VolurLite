@@ -2,6 +2,7 @@ package com.humolix.volur.auth.controller.v1;
 
 import com.humolix.volur.auth.domain.dto.SignInChallengeRequestDTO;
 import com.humolix.volur.auth.domain.dto.SignInIdentifierRequestDTO;
+import com.humolix.volur.auth.domain.vo.ChallengeOptionVO;
 import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 import com.humolix.volur.auth.service.SigninService;
 import com.humolix.volur.framework.common.api.ApiResponse;
@@ -13,10 +14,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "登录流转引擎", description = "基于 Google Accounts 规范的会话句柄 (dsh) 与流转锁 (TL) 多步骤登录鉴权 API")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/auth/signin")
+@RequestMapping({"/api/v1/auth/signin", "/api/v1/signin"})
 public class SigninController {
 
     private final SigninService signinService;
@@ -37,6 +40,16 @@ public class SigninController {
             @Valid @RequestBody SignInChallengeRequestDTO request) {
         SignInFlowResponseVO response = signinService.challenge(request);
         return ApiResponseEntity.ok("挑战核验处理完成", response);
+    }
+
+    @Operation(summary = "获取当前会话可选的安全核验替代方案列表 (Step: Selection)")
+    @Syslog(module = "AUTH", value = "获取备选核验方式", logType = "AUTH", recordParams = false)
+    @GetMapping("/challenge/selection")
+    public ApiResponse<List<ChallengeOptionVO>> getChallengeSelection(
+            @RequestParam(value = "dsh", required = false) String dsh,
+            @RequestParam(value = "currentType", required = false) String currentType) {
+        List<ChallengeOptionVO> response = signinService.getChallengeSelection(dsh, currentType);
+        return ApiResponseEntity.ok("获取可选安全挑战方式成功", response);
     }
 
 }

@@ -1,0 +1,295 @@
+<template>
+  <form class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleVerifyChallenge">
+    <div>
+      <div>
+        <GoogleTextField
+          v-model="password"
+          :type="showPassword ? 'text' : 'password'"
+          label="输入您的密码"
+          autocomplete="current-password"
+          autofocus
+          :error-msg="errorMsg"
+          @clear="errorMsg = ''"
+          @enter="handleVerifyChallenge"
+        />
+      </div>
+
+      <div class="flex items-center justify-between mt-2">
+        <label class="flex items-center gap-2 text-sm text-google-text-desc dark:text-google-text-darkDesc cursor-pointer select-none">
+          <input
+            type="checkbox"
+            v-model="showPassword"
+            class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
+          />
+          <span>显示密码</span>
+        </label>
+        <a
+          href="#"
+          class="auth-forgot-link"
+          @click.prevent="handleForgotPassword"
+        >
+          忘记密码？
+        </a>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-2.5 pt-6 sm:pt-8">
+      <button
+        type="button"
+        class="auth-action-btn btn-try-another-way"
+        :isScrim="true"
+        @click="handleTryAnotherWayClick"
+      >
+        试试其他方式
+      </button>
+      <n-button
+        type="primary"
+        class="auth-action-btn btn-verify-action"
+        :disabled="loading"
+        @click="handleVerifyChallenge"
+      >
+        下一步
+      </n-button>
+    </div>
+  </form>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { NButton } from 'naive-ui'
+import GoogleTextField from '@/components/google/GoogleTextField.vue'
+import { useAuthFlowStore } from '@/store/modules/authFlow'
+
+defineOptions({
+  name: 'PwdChallengeView'
+})
+
+const router = useRouter()
+const authFlowStore = useAuthFlowStore()
+
+const password = ref('')
+const showPassword = ref(false)
+const errorMsg = ref('')
+const isSubmitting = ref(false)
+const loading = computed(() => authFlowStore.loading)
+
+watch(password, () => {
+  if (errorMsg.value) {
+    errorMsg.value = ''
+  }
+})
+
+function handleForgotPassword() {
+  if (authFlowStore.loading) return
+  window.$message.info('跳转至重置密码 /v1/recovery/challenge')
+}
+
+async function handleTryAnotherWayClick() {
+  if (authFlowStore.loading) return
+  await authFlowStore.triggerScrim(async () => {
+    await new Promise(resolve => setTimeout(resolve, 800))
+    await router.push({
+      path: '/v1/signin/challenge/selection',
+      query: authFlowStore.getQueryParams({
+        from: 'pwd',
+        page: '1'
+      })
+    })
+  }, 1000)
+}
+
+async function handleVerifyChallenge() {
+  if (authFlowStore.loading || isSubmitting.value) return
+  isSubmitting.value = true
+
+  try {
+    if (!password.value) {
+      errorMsg.value = '请输入密码'
+      return
+    }
+
+    try {
+      const res = await authFlowStore.submitChallenge('pwd', {
+        password: password.value,
+        rememberMe: true
+      })
+
+      if (res.success) {
+        window.$message?.success?.('登录成功！正在跳转至业务主页...')
+        router.push(res.redirect || authFlowStore.continueUrl || '/competitions')
+      } else if (res.nextStep) {
+        router.push({
+          path: `/v1/signin/challenge/${res.nextStep}`,
+          query: authFlowStore.getQueryParams()
+        })
+      }
+    } catch (err: any) {
+      errorMsg.value = err?.message || '密码错误，请重新输入'
+    }
+  } finally {
+    isSubmitting.value = false
+  }
+}
+</script>
+
+<style scoped lang="scss">
+.auth-forgot-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 2px !important;
+  border-radius: 4px;
+  background-color: transparent !important;
+  color: #0b57d0 !important;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(11, 87, 208, 0.08) !important;
+    text-decoration: none !important;
+    color: #0b57d0 !important;
+  }
+
+  &:active {
+    background-color: rgba(11, 87, 208, 0.16) !important;
+  }
+}
+
+:global(html.dark) .auth-forgot-link {
+  color: #8ab4f8 !important;
+
+  &:hover {
+    background-color: rgba(138, 180, 248, 0.12) !important;
+    color: #8ab4f8 !important;
+  }
+}
+
+.auth-action-btn {
+  height: 36px !important;
+  min-width: 88px !important;
+  padding: 0 16px !important;
+  border-radius: 9999px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  box-sizing: border-box;
+}
+
+.btn-try-another-way {
+  color: #0b57d0;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  user-select: none;
+
+  &:hover {
+    background-color: rgba(11, 87, 208, 0.08) !important;
+    color: #0b57d0 !important;
+  }
+
+  &:active {
+    background-color: rgba(11, 87, 208, 0.16) !important;
+  }
+}
+
+:global(html.dark) .btn-try-another-way {
+  color: #8ab4f8;
+
+  &:hover {
+    background-color: rgba(138, 180, 248, 0.12) !important;
+    color: #8ab4f8 !important;
+  }
+
+  &:active {
+    background-color: rgba(138, 180, 248, 0.2) !important;
+  }
+}
+
+.btn-verify-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #0b57d0 !important;
+  color: #ffffff !important;
+  border: none !important;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  user-select: none;
+
+  :deep(.n-button__content),
+  .n-button__content {
+    color: #ffffff !important;
+  }
+
+  :deep(.n-button__state-border) {
+    border: none !important;
+  }
+
+  &:hover {
+    background-color: #0842a0 !important;
+    color: #ffffff !important;
+    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #ffffff !important;
+    }
+  }
+
+  &:active {
+    background-color: #063980 !important;
+    color: #ffffff !important;
+    transform: scale(0.98);
+    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3);
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #ffffff !important;
+    }
+  }
+
+  &:focus,
+  &:focus-visible {
+    background-color: #0b57d0 !important;
+    color: #ffffff !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #ffffff !important;
+    }
+  }
+}
+
+:global(html.dark) .btn-verify-action {
+  background-color: #8ab4f8 !important;
+  color: #202124 !important;
+
+  :deep(.n-button__content),
+  .n-button__content {
+    color: #202124 !important;
+  }
+
+  &:hover {
+    background-color: #aecbfa !important;
+    color: #202124 !important;
+  }
+
+  &:active {
+    background-color: #669df6 !important;
+    color: #202124 !important;
+    transform: scale(0.98);
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #202124 !important;
+    }
+  }
+}
+</style>

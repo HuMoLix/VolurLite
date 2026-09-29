@@ -1,24 +1,27 @@
 package com.humolix.volur.auth.service.impl;
 
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import com.humolix.volur.auth.domain.dto.SignInChallengeRequestDTO;
 import com.humolix.volur.auth.domain.dto.SignInIdentifierRequestDTO;
+import com.humolix.volur.auth.domain.vo.ChallengeOptionVO;
 import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
+import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.auth.service.SigninService;
 import com.humolix.volur.framework.cache.redis.RedisOps;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.exception.MaintenanceModeException;
-import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
-import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.framework.common.util.RequestUtil;
-import com.humolix.volur.framework.security.flow.AuthFlowSession;
-import com.humolix.volur.framework.security.flow.TransitionLockManager;
+import com.humolix.volur.security.domain.session.AuthFlowSession;
+import com.humolix.volur.security.flow.TransitionLockManager;
+import com.humolix.volur.security.service.ChallengeService;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.repository.UserRepository;
-import com.humolix.volur.verification.domain.dto.CaptchaVerifyRequestDTO;
+
 import com.humolix.volur.verification.risk.engine.RiskEvaluationEngine;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.risk.enums.RiskLevel;
@@ -31,16 +34,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
-/**
- * 阶段化登录流转业务服务实现 (Google Accounts 规范)
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SigninServiceImpl implements SigninService {
 
     private final TransitionLockManager transitionLockManager;
+    private final ChallengeService challengeService;
     private final RiskEvaluationEngine riskEvaluationEngine;
     private final CaptchaSDK captchaSDK;
     private final UserRepository userRepository;
@@ -52,32 +56,43 @@ public class SigninServiceImpl implements SigninService {
 
     private static final String VREDIS_AUTH_LOGIN_ATTEMPTS_KEY_PREFIX = "vredis:auth:login_attempts:";
     private static final String VREDIS_AUTH_LOGIN_LOCK_KEY_PREFIX = "vredis:auth:login_lock:";
+    private static final String VREDIS_AUTH_IDENTIFIER_FAILURES_KEY_PREFIX = "vredis:auth:identifier_failures:";
+    private static final Duration IDENTIFIER_FAILURE_TTL = Duration.ofMinutes(15);
+    private static final long IDENTIFIER_RECAPTCHA_THRESHOLD = 5L;
+    private static final long IDENTIFIER_SLIDER_THRESHOLD = 10L;
 
     @Override
     public SignInFlowResponseVO identifier(SignInIdentifierRequestDTO request) {
         String clientIp = RequestUtil.getClientIp();
         String userAgent = RequestUtil.getUserAgent();
-        String identifier = request.getIdentifier();
+        String rawFp = StringUtils.hasText(request.getDeviceFingerprint())
+                ? request.getDeviceFingerprint()
+                : RequestUtil.getDeviceFingerprint();
+        String identifier = request.getIdentifier().trim();
+        String subjectKey = buildClientSubjectKey(clientIp, rawFp);
 
         AuthFlowSession session = transitionLockManager.createOrGetSession(
                 request.getDsh(), "VlifWebLogin", "WebServiceLogin", clientIp, userAgent
         );
         session.setIdentifier(identifier);
+        session.setClientIp(clientIp);
+        session.setUserAgent(userAgent);
+        session.setDeviceFingerprint(rawFp);
 
-        // 账号与设备综合风控评估
+        long failures = getIdentifierFailures(subjectKey);
+
         RiskLevel riskLevel = riskEvaluationEngine.evaluateComprehensiveRisk(
-                clientIp, identifier, request.getDeviceFingerprint(), CaptchaScene.LOGIN
+                clientIp, identifier, rawFp, CaptchaScene.LOGIN
         );
         session.setRiskLevel(riskLevel.name());
 
         String lowerIdentifier = identifier.toLowerCase();
-        boolean forceRecaptcha = riskLevel == RiskLevel.HIGH
+        boolean isEnvSuspicious = riskLevel == RiskLevel.HIGH
                 || lowerIdentifier.contains("bot")
                 || lowerIdentifier.contains("captcha")
                 || lowerIdentifier.contains("robot");
 
-        if (forceRecaptcha) {
-            // 环境异常 / 爬虫风险：要求人机验证，推进至 cid=1，签发初始 TL
+        if (failures >= IDENTIFIER_RECAPTCHA_THRESHOLD || isEnvSuspicious) {
             String tl = transitionLockManager.advanceTransitionTicket(
                     session.getDsh(), null, 0, "identifier", 1, "recaptcha", identifier
             );
@@ -89,20 +104,30 @@ public class SigninServiceImpl implements SigninService {
                     .status("CHALLENGE")
                     .identifier(identifier)
                     .build();
-        } else {
-            // 正常低风险环境：密码挑战 (/challenge/pwd)，推进至 cid=1，签发初始 TL
-            String tl = transitionLockManager.advanceTransitionTicket(
-                    session.getDsh(), null, 0, "identifier", 1, "pwd", identifier
-            );
-            return SignInFlowResponseVO.builder()
-                    .dsh(session.getDsh())
-                    .tl(tl)
-                    .cid(1)
-                    .nextStep("pwd")
-                    .status("CHALLENGE")
-                    .identifier(identifier)
-                    .build();
         }
+
+        User user = userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier.toLowerCase()))
+                .orElse(null);
+
+        if (user == null) {
+            recordIdentifierFailure(subjectKey);
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "用户名或邮箱不存在");
+        }
+
+        resetIdentifierFailures(subjectKey);
+
+        String tl = transitionLockManager.advanceTransitionTicket(
+                session.getDsh(), null, 0, "identifier", 1, "pwd", identifier
+        );
+        return SignInFlowResponseVO.builder()
+                .dsh(session.getDsh())
+                .tl(tl)
+                .cid(1)
+                .nextStep("pwd")
+                .status("CHALLENGE")
+                .identifier(identifier)
+                .build();
     }
 
     @Override
@@ -120,41 +145,59 @@ public class SigninServiceImpl implements SigninService {
 
         String clientIp = RequestUtil.getClientIp();
 
-        // 1. 人机验证挑战 (/challenge/recaptcha) -> 服务端重算风控评分 (Interstitial cid=2) -> 更新 TL 推进至 /challenge/pwd (cid=3)
         switch (challengeType) {
             case "recaptcha" -> {
                 transitionLockManager.validateTransitionTicket(dsh, tl, cid, "recaptcha");
 
-                if (StringUtils.hasText(request.getCaptchaCode())) {
-                    try {
-                        CaptchaVerifyRequestDTO verifyDTO = new CaptchaVerifyRequestDTO();
-                        verifyDTO.setCaptchaCode(request.getCaptchaCode());
-                        verifyDTO.setAccount(identifier);
-                        captchaSDK.verify(verifyDTO, identifier, CaptchaScene.LOGIN);
-                    } catch (Exception ex) {
-                        riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
-                        throw new BusinessException(HttpStatus.BAD_REQUEST, "人机身份验证未通过，请重试");
-                    }
+                String ticket = StringUtils.hasText(request.getCaptchaTicket())
+                        ? request.getCaptchaTicket()
+                        : request.getCaptchaCode();
+
+                if (!StringUtils.hasText(ticket) || !challengeService.validateAndBurnTicket(dsh, ticket)) {
+                    riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "人机安全验证未通过或凭据已失效，请重试");
                 }
+
+                String subjectKey = buildClientSubjectKey(clientIp, session.getDeviceFingerprint());
+                User user = userRepository.findByUsername(identifier)
+                        .or(() -> userRepository.findByEmail(identifier.toLowerCase()))
+                        .orElse(null);
+
+                if (user == null) {
+                    recordIdentifierFailure(subjectKey);
+                    int nextCid = cid + 1;
+                    String nextTL = transitionLockManager.advanceTransitionTicket(
+                            dsh, tl, cid, "recaptcha", nextCid, "identifier", identifier
+                    );
+                    return SignInFlowResponseVO.builder()
+                            .dsh(dsh)
+                            .tl(nextTL)
+                            .cid(nextCid)
+                            .nextStep("identifier")
+                            .status("CHALLENGE")
+                            .identifier(identifier)
+                            .errorMessage("用户名或邮箱不存在")
+                            .build();
+                }
+
+                resetIdentifierFailures(subjectKey);
                 riskEvaluationEngine.reduceRisk(clientIp);
 
-                // 内部流转经过 Interstitial (内部推进至 Step: cid=2) 并更新 TL 通关签名推进至密码挑战 (cid=3)
+                int nextCid = cid + 1;
                 String pwdTL = transitionLockManager.advanceTransitionTicket(
-                        dsh, tl, cid, "recaptcha", 3, "pwd", identifier
+                        dsh, tl, cid, "recaptcha", nextCid, "pwd", identifier
                 );
 
                 return SignInFlowResponseVO.builder()
                         .dsh(dsh)
                         .tl(pwdTL)
-                        .cid(3)
+                        .cid(nextCid)
                         .nextStep("pwd")
                         .status("CHALLENGE")
                         .identifier(identifier)
                         .build();
             }
 
-
-            // 2. 密码挑战 (/challenge/pwd)
             case "pwd" -> {
                 transitionLockManager.validateTransitionTicket(dsh, tl, cid, "pwd");
 
@@ -194,7 +237,6 @@ public class SigninServiceImpl implements SigninService {
                     throw new BusinessException(HttpStatus.FORBIDDEN, "账号已被封禁");
                 }
 
-                // 维护模式校验
                 boolean isMaintenance = systemSettingService.getBoolean(SystemSettingKeys.MAINTENANCE_ENABLED, false);
                 if (isMaintenance) {
                     boolean isAdmin = user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.SUPER_ADMIN;
@@ -207,12 +249,10 @@ public class SigninServiceImpl implements SigninService {
                     }
                 }
 
-                // 密码核验成功，清理失败尝试记录
                 redisTemplate.delete(attemptsKey);
                 riskEvaluationEngine.recordSuccess(clientIp, CaptchaScene.LOGIN);
                 riskEvaluationEngine.recordAccountSuccess(cleanIdentifier, CaptchaScene.LOGIN);
 
-                // 二次验证 2FA 检查
                 boolean require2fa = lusername.contains("2fa") || lusername.contains("totp");
                 if (require2fa) {
                     int nextCid = cid + 1;
@@ -229,7 +269,6 @@ public class SigninServiceImpl implements SigninService {
                             .build();
                 }
 
-                // 无需 2FA：全部核销完成，销毁 TL 与临时会话，签发正式 Token
                 transitionLockManager.burnAndCompleteSession(dsh, tl, cid, "pwd");
 
                 String jti = IdUtil.fastSimpleUUID();
@@ -246,8 +285,6 @@ public class SigninServiceImpl implements SigninService {
                         .build();
             }
 
-
-            // 3. 二次验证 2FA 挑战 (/challenge/2fa 或 totp)
             case "2fa", "totp" -> {
                 transitionLockManager.validateTransitionTicket(dsh, tl, cid, "2fa");
 
@@ -275,8 +312,6 @@ public class SigninServiceImpl implements SigninService {
                         .build();
             }
 
-
-            // 4. 设备环境确认挑战 (/challenge/device)
             case "device" -> {
                 transitionLockManager.validateTransitionTicket(dsh, tl, cid, "device");
 
@@ -296,6 +331,144 @@ public class SigninServiceImpl implements SigninService {
         }
 
         throw new BusinessException(HttpStatus.BAD_REQUEST, "不支持的安全挑战类型: " + challengeType);
+    }
+
+    private String buildClientSubjectKey(String clientIp, String deviceFingerprint) {
+        String cleanIp = StringUtils.hasText(clientIp) ? clientIp.trim() : "127.0.0.1";
+        String cleanFp = StringUtils.hasText(deviceFingerprint) ? deviceFingerprint.trim() : "unknown_fp";
+        return DigestUtil.md5Hex(cleanIp + "#" + cleanFp);
+    }
+
+    private long getIdentifierFailures(String subjectKey) {
+        String key = VREDIS_AUTH_IDENTIFIER_FAILURES_KEY_PREFIX + subjectKey;
+        String val = redisTemplate.opsForValue().get(key);
+        if (!StringUtils.hasText(val)) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(val);
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
+
+    private void recordIdentifierFailure(String subjectKey) {
+        String key = VREDIS_AUTH_IDENTIFIER_FAILURES_KEY_PREFIX + subjectKey;
+        redisOps.incr(key, 1, IDENTIFIER_FAILURE_TTL);
+    }
+
+    private void resetIdentifierFailures(String subjectKey) {
+        String key = VREDIS_AUTH_IDENTIFIER_FAILURES_KEY_PREFIX + subjectKey;
+        redisTemplate.delete(key);
+    }
+
+    @Override
+    public List<ChallengeOptionVO> getChallengeSelection(String dsh, String currentType) {
+        String cleanCurrent = StringUtils.hasText(currentType) ? currentType.trim().toLowerCase() : "";
+
+        String maskedEmail = null;
+        String maskedPhone = null;
+
+        if (StringUtils.hasText(dsh)) {
+            try {
+                AuthFlowSession session = transitionLockManager.getSession(dsh);
+                if (session != null && StringUtils.hasText(session.getIdentifier())) {
+                    String identifier = session.getIdentifier().trim();
+                    User user = userRepository.findByUsername(identifier)
+                            .or(() -> userRepository.findByEmail(identifier.toLowerCase()))
+                            .orElse(null);
+                    if (user != null) {
+                        if (StringUtils.hasText(user.getEmail())) {
+                            maskedEmail = maskEmail(user.getEmail());
+                        }
+                        if (StringUtils.hasText(user.getPhone())) {
+                            maskedPhone = maskPhone(user.getPhone());
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        List<ChallengeOptionVO> allOptions = new ArrayList<>();
+
+        allOptions.add(ChallengeOptionVO.builder()
+                .type("pk")
+                .title("在您的手机或平板电脑上点按“是”")
+                .subtitle("Volur 会向您的移动设备发送提示，以确认是您本人")
+                .icon("device")
+                .path("/v1/signin/challenge/pk")
+                .build());
+
+        allOptions.add(ChallengeOptionVO.builder()
+                .type("etotp")
+                .title("获取电子邮件验证码")
+                .subtitle(maskedEmail != null ? "向邮箱 " + maskedEmail + " 发送一次性安全代码" : "向您的安全邮箱发送一次性安全代码")
+                .icon("email")
+                .path("/v1/signin/challenge/etotp")
+                .build());
+
+        allOptions.add(ChallengeOptionVO.builder()
+                .type("totp")
+                .title("在手机上获取动态验证码")
+                .subtitle(maskedPhone != null ? "向手机号 " + maskedPhone + " 发送短信验证码" : "向您的绑定安全手机发送短信验证码")
+                .icon("sms")
+                .path("/v1/signin/challenge/totp")
+                .build());
+
+        allOptions.add(ChallengeOptionVO.builder()
+                .type("atcr")
+                .title("使用“身份验证器”应用")
+                .subtitle("从您的身份验证器应用 (Google Authenticator) 获取动态验证代码")
+                .icon("shield")
+                .path("/v1/signin/challenge/atcr")
+                .build());
+
+        allOptions.add(ChallengeOptionVO.builder()
+                .type("pwd")
+                .title("输入您的密码")
+                .subtitle("使用您的 Volur 账号密码验证身份")
+                .icon("key")
+                .path("/v1/signin/challenge/pwd")
+                .build());
+
+        if (StringUtils.hasText(cleanCurrent)) {
+            List<ChallengeOptionVO> filtered = allOptions.stream()
+                    .filter(opt -> !opt.getType().equalsIgnoreCase(cleanCurrent))
+                    .collect(Collectors.toList());
+            if (filtered.size() >= 4 && "pwd".equals(cleanCurrent)) {
+                filtered.add(ChallengeOptionVO.builder()
+                        .type("backup_code")
+                        .title("输入 8 位备用验证码")
+                        .subtitle("使用您保存的一次性安全备用码")
+                        .icon("shield")
+                        .path("/v1/signin/challenge/backup_code")
+                        .build());
+            }
+            return filtered;
+        }
+
+        return allOptions;
+    }
+
+    private String maskEmail(String email) {
+        int atIdx = email.indexOf('@');
+        if (atIdx <= 1) {
+            return email;
+        }
+        String name = email.substring(0, atIdx);
+        String domain = email.substring(atIdx);
+        if (name.length() <= 2) {
+            return name.charAt(0) + "***" + domain;
+        }
+        return name.charAt(0) + "***" + name.charAt(name.length() - 1) + domain;
+    }
+
+    private String maskPhone(String phone) {
+        if (phone.length() < 7) {
+            return phone;
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 
 }

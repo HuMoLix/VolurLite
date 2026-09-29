@@ -1,8 +1,8 @@
 package com.humolix.volur.security.service.impl;
 
 import com.humolix.volur.framework.common.util.RequestUtil;
-import com.humolix.volur.framework.security.flow.AuthFlowSession;
-import com.humolix.volur.framework.security.flow.TransitionLockManager;
+import com.humolix.volur.security.domain.session.AuthFlowSession;
+import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.domain.vo.FlowInitVO;
 import com.humolix.volur.security.service.FlowService;
 import lombok.RequiredArgsConstructor;
@@ -10,9 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-/**
- * VLIF (Volur Login Interface Framework) 全域状态机会话服务实现
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -39,11 +36,23 @@ public class FlowServiceImpl implements FlowService {
             transitionLockManager.setMetadata(session.getDsh(), "clientTimestamp", t);
         }
 
+        if (!StringUtils.hasText(session.getActiveTL())) {
+            String initialTL = transitionLockManager.generateTL(
+                    session.getDsh(),
+                    session.getCid() != null ? session.getCid() : 0,
+                    session.getCurrentStep() != null ? session.getCurrentStep() : "init",
+                    null
+            );
+            session.setActiveTL(initialTL);
+            transitionLockManager.saveSession(session);
+        }
+
         log.info("[VLIF-Flow] 会话初始化完成: dsh={}, flowName={}, flowEntry={}, fp={}, ip={}",
                 session.getDsh(), session.getFlowName(), session.getFlowEntry(), fp, clientIp);
 
         return FlowInitVO.builder()
                 .dsh(session.getDsh())
+                .tl(session.getActiveTL())
                 .flowName(session.getFlowName())
                 .flowEntry(session.getFlowEntry())
                 .cid(session.getCid() != null ? session.getCid() : 0)

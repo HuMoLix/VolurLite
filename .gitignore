@@ -49,3 +49,6 @@ dist_delivery/
 
 # Ai directory
 /src/volur-lite-platform/.workbuddy-ai/
+/agent/volur-design-scripts/annotations
+/agent/volur-design-scripts/captcha_dataset
+/agent/volur-design-scripts/val2017

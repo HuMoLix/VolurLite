@@ -1,0 +1,6 @@
+export { default as PwdChallengeView } from './pwdChallengeView.vue'
+export { default as RecaptchaChallengeView } from './recaptchaChallengeView.vue'
+export { default as DeviceChallengeView } from './deviceChallengeView.vue'
+export { default as TotpChallengeView } from './totpChallengeView.vue'
+export { default as RejectView } from './rejectView.vue'
+export { default as SelectionView } from './selectionView.vue'

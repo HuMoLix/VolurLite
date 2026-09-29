@@ -2,6 +2,7 @@ package com.humolix.volur.framework.id.generator;
 
 import com.humolix.volur.framework.id.constant.SnowflakeConstants;
 import com.humolix.volur.framework.id.exception.SnowflakeClockBackwardsException;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -10,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class SnowflakeIdGenerator implements IdGenerator {
 
+    @Getter
     private final long workerId;
 
     @SuppressWarnings("unused")

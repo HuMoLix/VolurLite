@@ -22,6 +22,7 @@ export interface SignInFlowResponseVO {
   nextStep?: string
   status: 'CHALLENGE' | 'SUCCESS'
   identifier?: string
+  errorMessage?: string
   accessToken?: string
   refreshToken?: string
   tokenType?: string
@@ -41,6 +42,15 @@ export interface SignInChallengeRequestDTO {
   challengeType: string
   password?: string
   captchaCode?: string
+  captchaTicket?: string
   verificationCode?: string
   rememberMe?: boolean
+}
+
+export interface ChallengeOptionVO {
+  type: string
+  title: string
+  subtitle?: string
+  icon?: string
+  path?: string
 }

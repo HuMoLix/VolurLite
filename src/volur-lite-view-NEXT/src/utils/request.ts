@@ -1,6 +1,12 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types/common/api'
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipToast?: boolean
+  }
+}
+
 const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 15000,
@@ -30,10 +36,13 @@ service.interceptors.response.use(
     const res = response.data as ApiResponse<any>
     if (res && typeof res.success === 'boolean' && !res.success) {
       const msg = res.message || '请求处理失败'
-      if (typeof window !== 'undefined' && window.$message) {
+      const skipToast = Boolean(response.config?.skipToast)
+      if (!skipToast && typeof window !== 'undefined' && window.$message) {
         window.$message.error(msg)
       }
-      return Promise.reject(new Error(msg))
+      const err = new Error(msg)
+      ;(err as any).response = response
+      return Promise.reject(err)
     }
     return response.data
   },
@@ -42,10 +51,14 @@ service.interceptors.response.use(
       error.response?.data?.message ||
       error.message ||
       '网络请求异常，请检查网络连接'
-    if (typeof window !== 'undefined' && window.$message) {
+    const skipToast = Boolean(error.config?.skipToast)
+    if (!skipToast && typeof window !== 'undefined' && window.$message) {
       window.$message.error(errorMsg)
     }
-    return Promise.reject(error)
+    const normalizedError = new Error(errorMsg)
+    ;(normalizedError as any).response = error.response
+    ;(normalizedError as any).status = error.response?.status
+    return Promise.reject(normalizedError)
   }
 )
 

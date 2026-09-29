@@ -38,6 +38,12 @@ public class SignInChallengeRequestDTO {
     @Schema(description = "人机验证码结果或 Token (当 challengeType=recaptcha 时使用)")
     private String captchaCode;
 
+    @Schema(description = "图形验证码 ID (当使用图形验证码时使用)")
+    private String captchaId;
+
+    @Schema(description = "滑块拼图通行凭证 (当使用滑块验证码时使用)")
+    private String captchaTicket;
+
     @Schema(description = "两步验证 6 位动态验证码 (当 challengeType=2fa 时使用)")
     private String verificationCode;
 

@@ -5,6 +5,8 @@ import { initFlowSessApi, submitSignInIdentifierApi, submitSignInChallengeApi } 
 import { getDeviceFingerprint } from '@/utils/fingerprint'
 
 const STORAGE_IDENTIFIER_KEY = 'volur_auth_identifier'
+const STORAGE_ACCOUNT_ERROR_KEY = 'volur_auth_account_error'
+export const MIN_LOADING_DURATION_MS = 1000
 
 export const useAuthFlowStore = defineStore('authFlow', () => {
   const dsh = ref<string>('')
@@ -20,6 +22,32 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
   )
   const activeChallengeType = ref<string>('')
   const loading = ref<boolean>(false)
+  const accountError = ref<string>(
+    (typeof window !== 'undefined' && window.sessionStorage?.getItem(STORAGE_ACCOUNT_ERROR_KEY)) || ''
+  )
+
+  function setAccountError(val: string): void {
+    accountError.value = val
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      if (val) {
+        window.sessionStorage.setItem(STORAGE_ACCOUNT_ERROR_KEY, val)
+      } else {
+        window.sessionStorage.removeItem(STORAGE_ACCOUNT_ERROR_KEY)
+      }
+    }
+  }
+
+  function consumeAccountError(): string {
+    let err = accountError.value
+    accountError.value = ''
+    if (!err && typeof window !== 'undefined' && window.sessionStorage) {
+      err = window.sessionStorage.getItem(STORAGE_ACCOUNT_ERROR_KEY) || ''
+    }
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem(STORAGE_ACCOUNT_ERROR_KEY)
+    }
+    return err
+  }
 
   async function ensureFlowParams(route: RouteLocationNormalizedLoaded, router: Router): Promise<void> {
     const query = route.query
@@ -89,6 +117,11 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
           newQuery.dsh = dsh.value
           changed = true
         }
+        if ((initRes.data as any)?.tl && !tl.value) {
+          tl.value = (initRes.data as any).tl
+          newQuery.TL = tl.value
+          changed = true
+        }
       } catch {
       }
     } else {
@@ -146,10 +179,11 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
     payload: {
       password?: string
       captchaCode?: string
+      captchaTicket?: string
       verificationCode?: string
       rememberMe?: boolean
     }
-  ): Promise<{ success: boolean; nextStep?: string; redirect?: string }> {
+  ): Promise<{ success: boolean; nextStep?: string; redirect?: string; errorMessage?: string }> {
     return withLoading(async () => {
       const res = await submitSignInChallengeApi({
         dsh: dsh.value,
@@ -186,7 +220,8 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
 
       return {
         success: false,
-        nextStep: data.nextStep
+        nextStep: data.nextStep,
+        errorMessage: data.errorMessage
       }
     })
   }
@@ -237,16 +272,38 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
     loading.value = false
   }
 
-  async function withLoading<T>(action: () => Promise<T>): Promise<T> {
+  async function withLoading<T>(action: () => Promise<T>, minDurationMs = MIN_LOADING_DURATION_MS): Promise<T> {
     if (loading.value) {
       throw new Error('AUTH_FLOW_REQUEST_IN_FLIGHT')
     }
     loading.value = true
+    const startTime = Date.now()
     try {
-      return await action()
+      const result = await action()
+      const elapsed = Date.now() - startTime
+      if (elapsed < minDurationMs) {
+        await new Promise(resolve => setTimeout(resolve, minDurationMs - elapsed))
+      }
+      return result
+    } catch (err) {
+      const elapsed = Date.now() - startTime
+      if (elapsed < minDurationMs) {
+        await new Promise(resolve => setTimeout(resolve, minDurationMs - elapsed))
+      }
+      throw err
     } finally {
       loading.value = false
     }
+  }
+
+  async function triggerScrim<T = void>(action?: () => Promise<T> | T, durationMs = MIN_LOADING_DURATION_MS): Promise<T | undefined> {
+    if (loading.value) return undefined
+    return withLoading(async () => {
+      if (action) {
+        return await action()
+      }
+      return undefined as unknown as T
+    }, durationMs)
   }
 
   function resetFlow(): void {
@@ -283,6 +340,9 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
     identifier,
     activeChallengeType,
     loading,
+    accountError,
+    setAccountError,
+    consumeAccountError,
     ensureFlowParams,
     submitIdentifier,
     submitChallenge,
@@ -296,6 +356,7 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
     startLoading,
     stopLoading,
     withLoading,
+    triggerScrim,
     resetFlow
   }
 })

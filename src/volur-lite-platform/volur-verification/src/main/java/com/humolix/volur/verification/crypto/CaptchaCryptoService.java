@@ -18,9 +18,6 @@ import java.security.PrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
 
-/**
- * 验证码场景标识混合解密服务 (RSA-PKCS1 + Rc4CaptchaEncoder + Anti-Replay)
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -177,4 +174,49 @@ public class CaptchaCryptoService {
         }
     }
 
+    public String decryptPayload(String payload) {
+        if (!StringUtils.hasText(payload)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "加密负载数据不能为空");
+        }
+        String clean = payload.trim();
+        if (clean.contains(".")) {
+            String[] parts = clean.split("\\.");
+            try {
+                byte[] encKeyBytes = Base64.getDecoder().decode(parts[0]);
+                Cipher rsaCipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                rsaCipher.init(Cipher.DECRYPT_MODE, this.privateKey);
+                byte[] sessionKey = rsaCipher.doFinal(encKeyBytes);
+
+                byte[] cipherBytes = Base64.getDecoder().decode(parts[1]);
+                byte[] plainBytes = rc4CaptchaEncoder.decode(cipherBytes, sessionKey);
+                return new String(plainBytes, StandardCharsets.UTF_8).trim();
+            } catch (Exception e) {
+                log.warn("[CaptchaCryptoService] 混合解密失败: {}", e.getMessage());
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "加密负载解密失败");
+            }
+        }
+        try {
+            byte[] cipherBytes = Base64.getDecoder().decode(clean);
+            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+            cipher.init(Cipher.DECRYPT_MODE, this.privateKey);
+            int blockSize = 256;
+            if (cipherBytes.length <= blockSize) {
+                byte[] decrypted = cipher.doFinal(cipherBytes);
+                return new String(decrypted, StandardCharsets.UTF_8).trim();
+            } else {
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                for (int offset = 0; offset < cipherBytes.length; offset += blockSize) {
+                    int inputLen = Math.min(blockSize, cipherBytes.length - offset);
+                    byte[] block = cipher.doFinal(cipherBytes, offset, inputLen);
+                    out.write(block);
+                }
+                return out.toString(StandardCharsets.UTF_8).trim();
+            }
+        } catch (Exception ex) {
+            log.warn("[CaptchaCryptoService] RSA 解密失败: {}", ex.getMessage());
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "加密数据解析失败");
+        }
+    }
+
 }
+

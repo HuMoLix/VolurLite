@@ -40,6 +40,9 @@ public class SignInFlowResponseVO implements Serializable {
     @Schema(description = "已绑定的账号标识", example = "user@example.com")
     private String identifier;
 
+    @Schema(description = "验证码类型要求: IMAGE(图形验证码), SLIDER(滑动验证码)", example = "IMAGE")
+    private String captchaType;
+
     @Schema(description = "认证完成时的访问令牌 Access Token (status=SUCCESS 时返回)")
     private String accessToken;
 
@@ -49,5 +52,8 @@ public class SignInFlowResponseVO implements Serializable {
     @Builder.Default
     @Schema(description = "令牌类型", example = "Bearer")
     private String tokenType = "Bearer";
+
+    @Schema(description = "流转阶段提示或错误信息")
+    private String errorMessage;
 
 }
