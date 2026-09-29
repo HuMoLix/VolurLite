@@ -12,6 +12,8 @@ declare module 'vue-router' {
     parentTitleKey?: string
     /** 是否需要登录鉴权 */
     requiresAuth?: boolean
+    /** 显式配置是否需要登录鉴权 (与 requiredAuth 语义同频) */
+    requiredAuth?: boolean
     /** 所需权限角色列表 (如 ['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']) */
     roles?: string[]
     /** 是否缓存组件 */

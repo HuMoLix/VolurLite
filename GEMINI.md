@@ -2,7 +2,8 @@
 
 本文档为 Volur Lite 项目的根规范与 AI 协作指令文件。在本项目中进行代码生成、重构、审查或编写新功能时，必须对前后端工程规范进行明确分离并严格遵守：
 - **后端工程（Java / Spring Boot / Platform）**：必须严格遵守 [`agent/volur-design-skills/Rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/Rules.md)；
-- **前端工程（Vue 3 / TypeScript / View）**：必须严格遵守 [`agent/volur-design-skills/view-Rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/view-Rules.md)；
+- **经典前端工程（Vue 3 / TypeScript / `src/volur-lite-view`）**：必须严格遵守 [`agent/volur-design-skills/view-Rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/view-Rules.md)；
+- **新一代前端工程（Vue 3 / Tailwind CSS / Naive UI / `src/volur-lite-view-NEXT`）**：必须严格遵守 [`agent/volur-design-skills/view-NEXT-rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/view-NEXT-rules.md)；
 - **自动化脚本（Python / C / Go）**：必须严格遵守 [`agent/volur-design-scripts/Script-rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-scripts/Script-rules.md)。
 
 ---
@@ -45,7 +46,7 @@
 
 ---
 
-### 1.2 前端架构与编码规范 (Frontend: Vue 3 & TypeScript & View)
+### 1.2 经典前端架构与编码规范 (Legacy Frontend: volur-lite-view)
 > 详细规范与完整反模式对照详见 [**`view-Rules.md`**](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/view-Rules.md)。
 
 1. **基础技术栈与语言标准基准**：
@@ -87,7 +88,27 @@
 
 ---
 
-### 1.3 Git 提交规范与版本控制 (Git Commit Specification)
+### 1.3 新一代前端架构与编码规范 (Next-gen Frontend: volur-lite-view-NEXT)
+> 详细规范与完整色彩体系、路由对照详见 [**`view-NEXT-rules.md`**](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/view-NEXT-rules.md)。
+
+1. **工程基准与技术栈**：
+   - 强制以 **ECMAScript 2026 (ES2026)** 为语言基准，基于 **Vue 3 + Vite + TypeScript (target: ESNext) + SCSS + Tailwind CSS + Naive UI** 现代全技术栈构建。
+   - 全局状态管理统一采用 **Pinia Setup Store 语法风格**，彻底杜绝 Options Store；字体库统一使用 `vfonts`。
+2. **Google 风格主题色彩铁律 (Google Material Design & Workspace)**：
+   - **全面对齐 Google 色彩体系**：主品牌色统一采用 **Google Blue**（亮色 `#1a73e8` / 暗色 `#8ab4f8`），语义辅助色统一采用 **Google Red** (`#ea4335` / `#f28b82`)、**Google Green** (`#34a853` / `#81c995`)、**Google Yellow** (`#fbbc04` / `#fdd663`)、**Google Cyan** (`#24c1e0` / `#78d9ec`)；
+   - **表面与背景阶梯**：亮色采用 Google 护眼浅灰底色 `#f8f9fa`，纯白卡片 `#ffffff`；暗色采用 Google Workspace 阶梯灰黑（基底 `#202124`、卡片 `#292a2d`、浮层 `#303134`、细微边框 `#3c4043`）；
+   - **文本颜色铁律**：严禁在正文中使用刺眼的全黑 `#000000`；所有描述文本与表单标签统一采用 Google Gray 体系（`#3c4043` / `#5f6368`，暗色 `#bdc1c6`）；主要按钮在亮色下采用 Google Blue `#1a73e8` 白字，暗色下采用反色高对比 `#8ab4f8`。
+3. **前端路由架构与按需版本控制 (Router Architecture & On-demand Versioning)**：
+   - 前端路由采用按需渐进式版本控制（**并不强制所有业务路由都具备版本前缀**，通用公开业务路由如 `/competitions` 可采用常规语义路径，涉及特定认证流或演进模块如 `/v1/signin/identifier` 则按指令要求添加）；
+   - 根路径 `/` 默认重定向至公开业务入口（如 `/competitions` 赛事大厅）；
+   - 路由守卫必须严格根据路由元信息中显式配置的 `requiredAuth`（或兼容 `requiresAuth`）判定是否引导拦截至登录页面。
+4. **Tailwind CSS 与 Naive UI 协同防护**：
+   - `tailwind.config.ts` 强制配置 `corePlugins: { preflight: false }`，杜绝 Tailwind 默认 reset 破坏 Naive UI 按钮与输入框外观；
+   - `index.html` 强制包含 `<meta name="naive-ui-style" />` 占位符；Tailwind 负责原子化排版栅格与间距，Naive UI 负责受控高交互组件。
+
+---
+
+### 1.4 Git 提交规范与版本控制 (Git Commit Specification)
 代码仓库统一遵循 **Angular / Conventional Commits** 提交信息规范。单次提交保持原子性，信息描述直击变更核心：
 
 1. **提交标准格式**：
@@ -105,7 +126,7 @@
    - **`chore`**：日常维护、工程构建配置、依赖升级与运维脚本变动。
 3. **Scope 影响范围标准**：
    - 后端模块：`competition`、`auth`、`system`、`challenge`、`user`、`verification`、`notification`、`container`、`framework`、`logging`；
-   - 前端模块：`view`、`volurEx`、`router`、`store`、`locale`；
+   - 前端模块：`view`、`view-NEXT`、`volurEx`、`router`、`store`、`locale`；
    - 数据库与运维：`scripts`、`db`；
    - 规范与审计：`agent`、`docs`。
 4. **Subject 规范**：
@@ -117,7 +138,8 @@
 
 关于更详尽的设计约束、反模式对照与正确代码范例，请参阅：
 - [**Volur Lite 后端详细编码与设计规范 (Rules.md)**](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/Rules.md)
-- [**Volur Lite 前端详细编码与设计规范 (view-Rules.md)**](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/view-Rules.md)
+- [**Volur Lite 经典前端详细编码与设计规范 (view-Rules.md)**](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/view-Rules.md)
+- [**Volur Lite NEXT 新一代前端详细编码与设计规范 (view-NEXT-rules.md)**](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-skills/view-NEXT-rules.md)
 - [**Volur Lite 自动化脚本编写规范 (Script-rules.md)**](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-scripts/Script-rules.md)
 
 ---
@@ -125,9 +147,16 @@
 ## 3. AI 行为指引
 
 1. **执行后端任务时**：自动遵循 `Rules.md` 规范，包括 Lombok 构造注入、DTO (`@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`)、VO (`@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`)、MapStruct 映射器、Controller 路径版本化与标准分页 Record，绝不生成冗余样板代码。
-2. **执行前端任务时**：自动遵循 `view-Rules.md` 规范，包括 ES2026 语言标准、Pinia Setup Store 规范、Vue 3 Setup Script、TypeScript 严格类型对齐后端 DTO/VO、**API 请求路径与 Controller 路由 100% 严格对齐**、SCSS 样式隔离、Naive UI Provider 体系、**自研组件库 `volurEx` (`src/public/volurEx`) 架构与集中导出规范**、vfonts 字体导入与无感 Token 刷新机制，杜绝 `any` 泛滥。
-3. **重构/修改既有代码时**：主动识别不合规代码并予以清理重构，保持代码库风格高度统一。
-4. **开发记录与审计溯源要求**：当每次 Agent 对项目文件进行修改或重构完成之后，必须在 `agent/volur-design-md` 文件夹中使用 Markdown 形式记录完整的施工与修改文档，详细阐述变更背景、改动点、安全隐患修复说明及影响范围，以便开发者进行溯源分析和审计。
-5. **自动化脚本与批量任务操作规范 (Scripting for Batch Operations)**：当且仅当需要 Agent 进行跨多文件的大批量、高重复性作业时，方可使用 Python、C 或 Go 编写自动化脚本。所有脚本必须统一存放在 `agent/volur-design-scripts` 文件夹中，且**必须严格遵守 [`agent/volur-design-scripts/Script-rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-scripts/Script-rules.md) 的约束要求**（仅供 Agent内部消费、杜绝冗余注释与文档字符串、禁止输出装饰性 UI/无用打印、输出直击核心）。严禁在针对性单文件任务中滥用脚本。
-6. **实体与数据库变更强制同步迁移脚本**：当涉及新增/变更实体类（Entity）、新增/修改数据库表字段、表结构或索引约束时，必须在同一变更周期内同步修改 [`scripts/upgrade/upgrade_to_latest.sql`](file:///Users/humolix/Documents/Dev/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql)，严格编写具备幂等性的增量 DDL 与数据清洗回填逻辑，严禁遗漏迁移脚本而直接提交实体变更。
-7. **执行 Git 提交时**：严格遵循 Conventional Commits 提交规范（`feat`/`fix`/`refactor`/`comment`/`docs`/`test` 等），准确标识模块 Scope，提交信息精炼直接，严禁无意义的模糊描述。
+2. **执行前端任务时**：
+   - **经典前端工程（`src/volur-lite-view`）**：严格遵循 `view-Rules.md` 规范，包括 ES2026 语言标准、Pinia Setup Store 规范、Vue 3 Setup Script、TypeScript 严格类型对齐后端 DTO/VO、**API 请求路径与 Controller 路由 100% 严格对齐**、SCSS 样式隔离、Naive UI Provider 体系、**自研组件库 `volurEx` (`src/public/volurEx`) 架构与集中导出规范**、vfonts 字体导入与无感 Token 刷新机制，杜绝 `any` 泛滥；
+   - **新一代前端工程（`src/volur-lite-view-NEXT`）**：**必须严格遵循 `view-NEXT-rules.md` 规范**，包括全面对齐 **Google Material Design / Workspace 色彩体系**（Google Blue `#1a73e8` / `#8ab4f8`、Google Gray 表面阶梯、禁止正文全黑 `#000`）、**前端 Router 路径强制版本控制**（如登录 `/v1/signin/identifier`、挑战 `/v1/signin/challenge`、注册 `/v1/signup` 等）、Tailwind CSS 与 Naive UI 无冲突协同（Preflight 隔离）、ES2026 严格规范与 Pinia Setup Store。
+3. **重构彻底性铁律（严禁妥协保留与旧命名别名）**：
+   - 要改东西就必须改得彻底、完整。对任何函数、类、变量、实体字段或模块进行重命名或结构调整时，必须全链路同步修改所有引用处与定义。
+   - **严禁保留任何“兼容旧命名别名”（如 `export const oldName = newName`、废弃桥接或兼容层）**，坚决杜绝历史包袱残留，保持代码库的纯粹性与单一真实源。
+4. **纯粹代码与零注释铁律（文档外置原则）**：
+   - **严禁在任何代码文件（包括但不限于 `.ts`、`.vue`、`.java`、`.go`、`.py`、`.sql`、`.scss` 等）中书写解释性注释、设计思路说明或冗余行内备注**。代码必须凭借清晰的结构与精准的命名实现高度自解释；
+   - **所有设计方案、变更背景、逻辑推导、技术选型理由及安全考量，必须统一、强制记录在 `agent/volur-design-md` 的 Markdown 方案文档中**，彻底保持代码文件的极致纯净与紧凑。
+5. **开发记录与审计溯源要求**：当每次 Agent 对项目文件进行修改或重构完成之后，必须在 `agent/volur-design-md` 文件夹中使用 Markdown 形式记录完整的施工与修改文档，详细阐述变更背景、改动点、安全隐患修复说明及影响范围，以便开发者进行溯源分析和审计。
+6. **自动化脚本与批量任务操作规范 (Scripting for Batch Operations)**：当且仅当需要 Agent 进行跨多文件的大批量、高重复性作业时，方可使用 Python、C 或 Go 编写自动化脚本。所有脚本必须统一存放在 `agent/volur-design-scripts` 文件夹中，且**必须严格遵守 [`agent/volur-design-scripts/Script-rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-scripts/Script-rules.md) 的约束要求**（仅供 Agent内部消费、杜绝冗余注释与文档字符串、禁止输出装饰性 UI/无用打印、输出直击核心）。严禁在针对性单文件任务中滥用脚本。
+7. **实体与数据库变更强制同步迁移脚本**：当涉及新增/变更实体类（Entity）、新增/修改数据库表字段、表结构或索引约束时，必须在同一变更周期内同步修改 [`scripts/upgrade/upgrade_to_latest.sql`](file:///Users/humolix/Documents/Dev/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql)，严格编写具备幂等性的增量 DDL 与数据清洗回填逻辑，严禁遗漏迁移脚本而直接提交实体变更。
+8. **执行 Git 提交时**：严格遵循 Conventional Commits 提交规范（`feat`/`fix`/`refactor`/`comment`/`docs`/`test` 等），准确标识模块 Scope，提交信息精炼直接，严禁无意义的模糊描述。

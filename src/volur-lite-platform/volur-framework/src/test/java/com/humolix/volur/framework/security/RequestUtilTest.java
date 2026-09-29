@@ -65,4 +65,35 @@ public class RequestUtilTest {
         Assertions.assertTrue(RequestUtil.isOriginAllowed("https://portal.domain.com", request, List.of("https://portal.domain.com")));
     }
 
+    @Test
+    public void testGetCookieValueAndDeviceFingerprint() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        // 1. 无 Cookie 时应返回 null
+        Assertions.assertNull(RequestUtil.getDeviceFingerprint(request));
+
+        // 2. 存在 Header X-Device-Fingerprint 但无 Cookie 时，必须返回 null (验证已彻底废除 Header)
+        request.addHeader("X-Device-Fingerprint", "legacy_header_token");
+        Assertions.assertNull(RequestUtil.getDeviceFingerprint(request));
+
+        // 3. 存在通用 fingerprint Cookie 时正确读取
+        request.setCookies(new jakarta.servlet.http.Cookie("fingerprint", "universal_fp_val"));
+        Assertions.assertEquals("universal_fp_val", RequestUtil.getDeviceFingerprint(request));
+
+        // 4. 存在长效设备 ID (_v_did) 时，优先级高于通用 fingerprint
+        request.setCookies(
+                new jakarta.servlet.http.Cookie("fingerprint", "universal_fp_val"),
+                new jakarta.servlet.http.Cookie("_v_did", "device_id_uuid_123")
+        );
+        Assertions.assertEquals("device_id_uuid_123", RequestUtil.getDeviceFingerprint(request));
+
+        // 5. 存在动态风控凭证 (_v_dtk) 时，最高优先级
+        request.setCookies(
+                new jakarta.servlet.http.Cookie("fingerprint", "universal_fp_val"),
+                new jakarta.servlet.http.Cookie("_v_did", "device_id_uuid_123"),
+                new jakarta.servlet.http.Cookie("_v_dtk", "device_risk_token_456")
+        );
+        Assertions.assertEquals("device_risk_token_456", RequestUtil.getDeviceFingerprint(request));
+    }
+
 }

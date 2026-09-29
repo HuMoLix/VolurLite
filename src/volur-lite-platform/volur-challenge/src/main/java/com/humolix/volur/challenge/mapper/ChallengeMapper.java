@@ -1,5 +1,6 @@
 package com.humolix.volur.challenge.mapper;
 
+import com.alibaba.fastjson2.JSON;
 import com.humolix.volur.challenge.domain.entity.awd.AwdChallenge;
 import com.humolix.volur.challenge.domain.entity.awdp.AwdPlusChallenge;
 import com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge;
@@ -10,6 +11,7 @@ import com.humolix.volur.challenge.domain.vo.awd.AwdChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.awd.AwdChallengeListVO;
 import com.humolix.volur.challenge.domain.vo.awdp.AwdPlusChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.awdp.AwdPlusChallengeListVO;
+import com.humolix.volur.challenge.domain.vo.ctf.CtfAttachmentVO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfCategoryVO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeListVO;
@@ -17,13 +19,7 @@ import com.humolix.volur.challenge.domain.vo.isw.IswChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.isw.IswChallengeListVO;
 import com.humolix.volur.challenge.domain.vo.theory.TheoryChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.theory.TheoryChallengeListVO;
-import com.alibaba.fastjson2.JSON;
-import com.humolix.volur.challenge.domain.vo.ctf.CtfAttachmentVO;
-import org.mapstruct.AfterMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 import org.springframework.util.StringUtils;
 
 import java.util.Collections;

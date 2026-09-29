@@ -10,7 +10,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Volur 平台验证码专用魔改 RC4 编码器 (Rc4CaptchaEncoder)
  * <p>
- * 参考 {@link com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder} 编码器规范设计，
+ * 参考 {@link com.humolix.volur.security.crypto.Sm3PasswordEncoder} 编码器规范设计，
  * 封装 Volur 平台针对人机验证码场景深度定制的魔改 RC4 流对称加密算法：
  * 1. S-Box 异或掩码混淆初始化：S[k] = (k ^ 0x5A) & 0xFF；
  * 2. KSA 增加额外置换轮次（2 轮）及附加常数偏移（0x3C）；

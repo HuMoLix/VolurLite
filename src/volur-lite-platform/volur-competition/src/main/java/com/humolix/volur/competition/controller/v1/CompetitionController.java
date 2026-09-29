@@ -2,6 +2,7 @@ package com.humolix.volur.competition.controller.v1;
 
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.vo.CompetitionAboutVO;
+import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
 import com.humolix.volur.competition.domain.vo.CompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.CompetitionSummaryVO;
 import com.humolix.volur.competition.service.CompetitionService;
@@ -12,6 +13,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "竞赛信息管理", description = "竞赛公开列表、比赛主页详情与赛事介绍查询接口")
 @RestController
@@ -62,7 +65,7 @@ public class CompetitionController {
 
     @Operation(summary = "获取竞赛专属公告列表")
     @GetMapping("/{id}/announcements")
-    public ApiResponse<java.util.List<com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO>> listAnnouncements(@PathVariable Long id) {
+    public ApiResponse<List<CompetitionAnnouncementVO>> listAnnouncements(@PathVariable Long id) {
         return ApiResponseEntity.ok("获取竞赛公告成功", competitionService.listAnnouncements(id));
     }
 

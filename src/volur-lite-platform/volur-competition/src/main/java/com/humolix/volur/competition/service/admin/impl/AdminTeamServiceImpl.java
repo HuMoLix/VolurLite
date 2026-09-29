@@ -1,11 +1,14 @@
 package com.humolix.volur.competition.service.admin.impl;
 
+import com.alibaba.fastjson2.JSON;
+import com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO;
 import com.humolix.volur.competition.domain.dto.AdminTeamUpdateDTO;
 import com.humolix.volur.competition.domain.dto.BatchTeamAuditDTO;
 import com.humolix.volur.competition.domain.dto.TeamAuditRequestDTO;
 import com.humolix.volur.competition.domain.entity.CompetitionConfig;
 import com.humolix.volur.competition.domain.entity.CompetitionMember;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
+import com.humolix.volur.competition.domain.enums.MemberRole;
 import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.AdminTeamDetailVO;
@@ -13,11 +16,7 @@ import com.humolix.volur.competition.domain.vo.AdminTeamListVO;
 import com.humolix.volur.competition.domain.vo.AdminTeamStatsVO;
 import com.humolix.volur.competition.domain.vo.CompetitionMemberVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
-import com.humolix.volur.competition.repository.CompetitionChatMessageRepository;
-import com.humolix.volur.competition.repository.CompetitionConfigRepository;
-import com.humolix.volur.competition.repository.CompetitionMemberRepository;
-import com.humolix.volur.competition.repository.CompetitionTeamInvitationRepository;
-import com.humolix.volur.competition.repository.CompetitionTeamRepository;
+import com.humolix.volur.competition.repository.*;
 import com.humolix.volur.competition.repository.awdp.AwdPlusCompetitionPatchRepository;
 import com.humolix.volur.competition.repository.ctf.CtfCompetitionSubmissionRepository;
 import com.humolix.volur.competition.repository.theory.TheoryCompetitionAnswerRepository;
@@ -28,11 +27,6 @@ import com.humolix.volur.framework.common.util.SortUtils;
 import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
 import com.humolix.volur.notification.domain.enums.NotificationType;
 import com.humolix.volur.notification.event.SendNotificationEvent;
-import com.alibaba.fastjson2.JSON;
-import com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO;
-import com.humolix.volur.competition.domain.entity.CompetitionMember;
-import com.humolix.volur.competition.domain.enums.MemberRole;
-import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.Gender;
@@ -51,12 +45,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j

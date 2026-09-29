@@ -24,6 +24,7 @@
         <module>volur-user</module>
         <module>volur-verification</module>
         <module>volur-auth</module>
+        <module>volur-security</module>
         <module>volur-challenge</module>
         <module>volur-container</module>
         <module>volur-competition</module>
@@ -78,6 +79,11 @@
             <dependency>
                 <groupId>com.humolix.volur</groupId>
                 <artifactId>volur-verification</artifactId>
+                <version>${volur.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.humolix.volur</groupId>
+                <artifactId>volur-security</artifactId>
                 <version>${volur.version}</version>
             </dependency>
             <dependency>

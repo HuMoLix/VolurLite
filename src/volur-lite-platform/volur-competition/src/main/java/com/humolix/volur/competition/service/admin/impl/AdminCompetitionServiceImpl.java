@@ -1,6 +1,8 @@
 package com.humolix.volur.competition.service.admin.impl;
 
-import com.humolix.volur.competition.domain.dto.*;
+import com.humolix.volur.competition.domain.dto.CompetitionConfigDTO;
+import com.humolix.volur.competition.domain.dto.CompetitionCreateRequestDTO;
+import com.humolix.volur.competition.domain.dto.CompetitionUpdateRequestDTO;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionConfig;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
@@ -9,7 +11,10 @@ import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionListVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
-import com.humolix.volur.competition.repository.*;
+import com.humolix.volur.competition.repository.CompetitionConfigRepository;
+import com.humolix.volur.competition.repository.CompetitionMemberRepository;
+import com.humolix.volur.competition.repository.CompetitionRepository;
+import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.service.admin.AdminCompetitionService;
 import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.framework.cache.VolurCacheTemplate;

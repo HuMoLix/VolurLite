@@ -1,7 +1,7 @@
 package com.humolix.volur.framework.common.api;
 
 import com.humolix.volur.framework.common.util.MessageUtils;
-import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.framework.common.util.RequestUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 

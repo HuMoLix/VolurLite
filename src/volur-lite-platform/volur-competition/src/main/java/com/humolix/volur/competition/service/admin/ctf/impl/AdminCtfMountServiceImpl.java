@@ -6,9 +6,9 @@ import com.humolix.volur.competition.domain.dto.ctf.CtfChallengeBatchMountReques
 import com.humolix.volur.competition.domain.dto.ctf.CtfChallengeMountRequestDTO;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.ctf.CtfCompetitionChallenge;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
-import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.repository.CompetitionRepository;
 import com.humolix.volur.competition.repository.ctf.CtfCompetitionChallengeRepository;
 import com.humolix.volur.competition.service.admin.ctf.AdminCtfMountService;

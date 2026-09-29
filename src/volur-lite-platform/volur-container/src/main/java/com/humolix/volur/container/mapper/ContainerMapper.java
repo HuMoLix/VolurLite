@@ -1,7 +1,7 @@
 package com.humolix.volur.container.mapper;
 
-import com.humolix.volur.container.domain.vo.AdminContainerInstanceVO;
 import com.humolix.volur.container.domain.entity.CtfChallengeInstance;
+import com.humolix.volur.container.domain.vo.AdminContainerInstanceVO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;

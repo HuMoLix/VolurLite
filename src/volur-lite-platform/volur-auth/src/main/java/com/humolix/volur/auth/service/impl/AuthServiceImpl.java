@@ -2,39 +2,39 @@ package com.humolix.volur.auth.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.humolix.volur.auth.domain.dto.*;
+import com.humolix.volur.auth.domain.vo.AuthenticateResponseVO;
+import com.humolix.volur.auth.exception.InvalidCaptchaException;
+import com.humolix.volur.auth.exception.TokenAlreadyBlacklistedException;
+import com.humolix.volur.auth.exception.TokenInvalidException;
+import com.humolix.volur.auth.exception.UserOrEmailExistException;
+import com.humolix.volur.auth.service.AuthService;
+import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
+import com.humolix.volur.framework.cache.redis.RedisOps;
+import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.framework.common.exception.MaintenanceModeException;
 import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
+import com.humolix.volur.framework.common.util.SpringContextHolder;
+import com.humolix.volur.notification.domain.enums.SecurityEventType;
+import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
+import com.humolix.volur.auth.security.jwt.JwtUtil;
+import com.humolix.volur.auth.security.util.SecurityUtils;
+import com.humolix.volur.auth.service.TokenService;
+import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.notification.event.SecurityNotificationEvent;
+import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.event.UserStatusAction;
 import com.humolix.volur.user.event.UserStatusChangedEvent;
-import com.humolix.volur.auth.exception.UserOrEmailExistException;
-import com.humolix.volur.auth.exception.TokenAlreadyBlacklistedException;
-import com.humolix.volur.auth.exception.TokenInvalidException;
-import com.humolix.volur.auth.exception.InvalidCaptchaException;
-import com.humolix.volur.framework.security.util.RequestUtil;
-import com.humolix.volur.notification.domain.enums.SecurityEventType;
-import com.humolix.volur.notification.event.SecurityNotificationEvent;
 import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
-import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
-import com.humolix.volur.auth.security.jwt.JwtUtil;
-import com.humolix.volur.auth.security.util.SecurityUtils;
-import com.humolix.volur.auth.service.AuthService;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.sdk.CaptchaSDK;
 import com.humolix.volur.verification.service.EmailService;
-import com.humolix.volur.system.service.SystemSettingService;
-import com.humolix.volur.auth.service.TokenService;
-import com.humolix.volur.auth.domain.vo.AuthenticateResponseVO;
-import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.common.exception.MaintenanceModeException;
-import com.humolix.volur.system.constant.SystemSettingKeys;
-import com.humolix.volur.framework.common.util.SpringContextHolder;
-import com.humolix.volur.framework.cache.CacheNames;
-import com.humolix.volur.framework.cache.VolurCacheTemplate;
-import com.humolix.volur.framework.cache.redis.RedisOps;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +51,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -495,5 +494,6 @@ public class AuthServiceImpl implements AuthService {
                 "用户通过邮箱 2FA 注销账号"
         ));
     }
+
 
 }

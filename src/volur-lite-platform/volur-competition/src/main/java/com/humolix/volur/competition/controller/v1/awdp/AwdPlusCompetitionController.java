@@ -1,12 +1,12 @@
 package com.humolix.volur.competition.controller.v1.awdp;
 
+import com.humolix.volur.competition.annotation.CompetitionLog;
 import com.humolix.volur.competition.domain.dto.awdp.AwdPlusPatchUploadRequestDTO;
 import com.humolix.volur.competition.domain.vo.awdp.AwdPlusTargetStatusVO;
 import com.humolix.volur.competition.service.awdp.AwdPlusCompetitionService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
-import com.humolix.volur.competition.annotation.CompetitionLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

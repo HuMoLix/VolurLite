@@ -16,6 +16,8 @@ public record SecurityWhitelistProperties(
 
             // Authentication and Authorization
             "/api/v1/auth/login",
+            "/api/v1/auth/signin/**",
+            "/api/v1/flow/**",
             "/api/v1/auth/register",
             "/api/v1/auth/logout",
             "/api/v1/auth/forgot-password",

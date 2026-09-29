@@ -4,11 +4,7 @@ import com.humolix.volur.framework.common.validation.validator.IdentificationCar
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 
 /**
  * 中国大陆第二代公民身份证号码校验注解 (GB 11643-1999)

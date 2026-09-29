@@ -43,7 +43,7 @@ router.beforeEach(async (to) => {
     return { path: '/' }
   }
 
-  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth === true || record.meta.requiredAuth === true)
   const requiredRoles = to.matched.find((record) => record.meta.roles)?.meta.roles
 
   if (requiresAuth && !token) {

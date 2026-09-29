@@ -5,7 +5,6 @@ import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.repository.CompetitionRepository;
 import com.humolix.volur.framework.common.exception.BusinessException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

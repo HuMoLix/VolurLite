@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Volur 平台魔改 RC4 静态算法工具类 (Rc4Util)
  * <p>
- * 参考 {@link com.humolix.volur.auth.security.crypto.Sm3Util} 工具类规范设计，
+ * 参考 {@link com.humolix.volur.security.crypto.Sm3Util} 工具类规范设计，
  * 提供纯函数式静态加密、解密及流转换工具方法，底层委托至 {@link Rc4CaptchaEncoder}。
  */
 @Component

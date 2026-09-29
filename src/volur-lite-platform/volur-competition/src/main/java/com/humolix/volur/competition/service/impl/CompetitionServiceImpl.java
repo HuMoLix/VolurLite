@@ -1,12 +1,15 @@
 package com.humolix.volur.competition.service.impl;
 
 import com.humolix.volur.competition.domain.entity.Competition;
+import com.humolix.volur.competition.domain.entity.CompetitionAnnouncement;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.CompetitionAboutVO;
+import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
 import com.humolix.volur.competition.domain.vo.CompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.CompetitionSummaryVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
+import com.humolix.volur.competition.repository.CompetitionAnnouncementRepository;
 import com.humolix.volur.competition.repository.CompetitionRepository;
 import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.service.CompetitionService;
@@ -24,9 +27,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import com.humolix.volur.competition.domain.entity.CompetitionAnnouncement;
-import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
-import com.humolix.volur.competition.repository.CompetitionAnnouncementRepository;
 import java.util.ArrayList;
 import java.util.List;
 

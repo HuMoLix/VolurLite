@@ -13,7 +13,6 @@ import com.humolix.volur.notification.mapper.NotificationMapper;
 import com.humolix.volur.notification.repository.BroadcastMessageRepository;
 import com.humolix.volur.notification.service.RealtimePushService;
 import com.humolix.volur.notification.service.admin.AdminBroadcastService;
-import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;

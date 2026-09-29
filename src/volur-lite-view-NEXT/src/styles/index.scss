@@ -1,0 +1,140 @@
+@use './variables.scss' as *;;
+@use './mixins.scss';
+@use './tailwind.css';
+
+:root,
+[data-theme='light'] {
+  --v-bg-base: #f8f9fa;            // Google Gray 50
+  --v-bg-card: #ffffff;
+  --v-bg-surface: #ffffff;
+  --v-bg-elevated: #f1f3f4;        // Google Gray 100
+  --sys-color-surface-container: #f0f4f9; // Material 3 Surface Container
+  --v-text-primary: #202124;       // Google Gray 900
+  --v-text-desc: #3c4043;          // Google Gray 700
+  --v-text-muted: #5f6368;         // Google Gray 600
+  --v-text-sub: #80868b;           // Google Gray 500
+  --v-border-base: #dadce0;        // Google Gray 300
+  --v-btn-primary-bg: #1a73e8;     // Google Blue 600
+  --v-btn-primary-text: #ffffff;
+  --v-btn-primary-hover: #1765cc;
+  --v-btn-primary-active: #1557b0;
+  --v-color-primary: #1a73e8;
+  --v-color-success: #34a853;      // Google Green 600
+  --v-color-warning: #fbbc04;      // Google Yellow 600
+  --v-color-error: #ea4335;        // Google Red 600
+  --v-color-info: #24c1e0;         // Google Cyan
+}
+
+html.dark,
+[data-theme='dark'] {
+  --v-bg-base: #202124;            // Google Dark 900
+  --v-bg-card: #292a2d;            // Google Dark 800
+  --v-bg-surface: #292a2d;
+  --v-bg-elevated: #303134;        // Google Dark 700
+  --sys-color-surface-container: #1e1f20; // Material 3 Surface Container Dark
+  --v-text-primary: #e8eaed;       // Google Dark Text Primary
+  --v-text-desc: #bdc1c6;          // Google Dark Text Secondary
+  --v-text-muted: #9aa0a6;         // Google Dark Text Muted
+  --v-text-sub: #80868b;
+  --v-border-base: #3c4043;        // Google Dark Border 600
+  --v-btn-primary-bg: #8ab4f8;     // Google Blue 200 (Dark Accent)
+  --v-btn-primary-text: #202124;
+  --v-btn-primary-hover: #aecbfa;
+  --v-btn-primary-active: #669df6;
+  --v-color-primary: #8ab4f8;
+  --v-color-success: #81c995;      // Google Green 200
+  --v-color-warning: #fdd663;      // Google Yellow 200
+  --v-color-error: #f28b82;        // Google Red 200
+  --v-color-info: #78d9ec;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+body {
+  background-color: var(--v-bg-base);
+  color: var(--v-text-primary);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+// 全局超链接规范 (普通链接 hover 显示下划线，移除点击/访问态变色)
+a {
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:visited {
+    color: inherit;
+  }
+
+  &:active,
+  &:focus {
+    outline: none;
+  }
+}
+
+// 按钮型链接与辅助操作按钮 (hover 时去除下划线，仅展示微高亮背景色，无边框与聚焦外框，尺寸统一)
+.auth-btn-link,
+.btn-link,
+a.auth-btn-link,
+a.btn-link,
+button.auth-btn-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  text-decoration: none !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    text-decoration: none !important;
+    background-color: rgba(60, 64, 67, 0.08);
+    color: var(--v-text-primary, #202124);
+  }
+
+  &:visited,
+  &:active,
+  &:focus {
+    text-decoration: none !important;
+    outline: none;
+  }
+}
+
+html.dark .auth-btn-link:hover,
+html.dark .btn-link:hover,
+html.dark button.auth-btn-link:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--v-text-primary, #e8eaed);
+}

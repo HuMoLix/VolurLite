@@ -2,7 +2,6 @@ package com.humolix.volur.verification;
 
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
-import com.humolix.volur.verification.domain.dto.AdminIpRuleCreateDTO;
 import com.humolix.volur.verification.domain.entity.RiskIpRule;
 import com.humolix.volur.verification.domain.enums.IpRuleStatus;
 import com.humolix.volur.verification.domain.enums.IpRuleType;

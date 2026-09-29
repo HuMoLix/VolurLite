@@ -5,11 +5,7 @@ import com.humolix.volur.verification.domain.dto.AdminIpRuleCreateDTO;
 import com.humolix.volur.verification.domain.dto.AdminIpRuleQueryDTO;
 import com.humolix.volur.verification.domain.dto.AdminRiskPolicyDTO;
 import com.humolix.volur.verification.domain.dto.AdminRiskSettingsDTO;
-import com.humolix.volur.verification.domain.vo.AdminIpDiagnosisVO;
-import com.humolix.volur.verification.domain.vo.AdminIpRuleVO;
-import com.humolix.volur.verification.domain.vo.AdminRiskPolicyVO;
-import com.humolix.volur.verification.domain.vo.AdminRiskSettingsVO;
-import com.humolix.volur.verification.domain.vo.AdminRiskStatisticsVO;
+import com.humolix.volur.verification.domain.vo.*;
 
 public interface AdminRiskService {
 

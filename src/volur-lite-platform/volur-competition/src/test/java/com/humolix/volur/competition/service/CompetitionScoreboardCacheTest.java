@@ -1,11 +1,5 @@
 package com.humolix.volur.competition.service;
 
-import com.humolix.volur.competition.domain.entity.Competition;
-import com.humolix.volur.competition.domain.entity.CompetitionConfig;
-import com.humolix.volur.competition.domain.entity.CompetitionTeam;
-import com.humolix.volur.competition.domain.enums.CompetitionStatus;
-import com.humolix.volur.competition.domain.enums.CompetitionType;
-import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.scoreboard.CompositeScoreboardVO;
 import com.humolix.volur.competition.domain.vo.scoreboard.CtfScoreboardVO;
 import com.humolix.volur.competition.domain.vo.scoreboard.CtfTeamRankVO;
@@ -27,10 +21,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;

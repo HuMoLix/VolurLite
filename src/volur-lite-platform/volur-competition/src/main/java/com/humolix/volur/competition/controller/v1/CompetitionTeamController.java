@@ -1,5 +1,6 @@
 package com.humolix.volur.competition.controller.v1;
 
+import com.humolix.volur.competition.annotation.CompetitionLog;
 import com.humolix.volur.competition.domain.dto.TeamInviteAcceptDTO;
 import com.humolix.volur.competition.domain.dto.TeamSignupRequestDTO;
 import com.humolix.volur.competition.domain.dto.TeamUpdateRequestDTO;
@@ -9,7 +10,6 @@ import com.humolix.volur.competition.service.CompetitionTeamService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
-import com.humolix.volur.competition.annotation.CompetitionLog;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

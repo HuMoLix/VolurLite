@@ -1,8 +1,8 @@
 package com.humolix.volur.container.domain.entity;
 
 import com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge;
-import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
 import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
+import com.humolix.volur.framework.id.annotation.SnowflakeGenerated;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;

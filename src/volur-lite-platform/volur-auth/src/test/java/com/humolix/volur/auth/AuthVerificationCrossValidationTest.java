@@ -2,11 +2,15 @@ package com.humolix.volur.auth;
 
 import com.humolix.volur.auth.domain.dto.RegisterRequestDTO;
 import com.humolix.volur.auth.exception.InvalidCaptchaException;
+import com.humolix.volur.auth.service.AuthService;
 import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
-import com.humolix.volur.auth.service.AuthService;
 import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.service.impl.AuthServiceImpl;
+import com.humolix.volur.framework.cache.VolurCacheTemplate;
+import com.humolix.volur.framework.cache.redis.RedisOps;
+import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
@@ -14,10 +18,6 @@ import com.humolix.volur.verification.domain.dto.CaptchaVerifyRequestDTO;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.sdk.CaptchaSDK;
 import com.humolix.volur.verification.service.EmailService;
-import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.system.constant.SystemSettingKeys;
-import com.humolix.volur.framework.cache.VolurCacheTemplate;
-import com.humolix.volur.framework.cache.redis.RedisOps;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,9 +25,7 @@ import org.mockito.Mockito;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 public class AuthVerificationCrossValidationTest {

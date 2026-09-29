@@ -100,8 +100,8 @@ public class RiskIpFilter extends OncePerRequestFilter {
             }
         }
 
-        // 3. 跨 IP 设备维度前置滑动窗口限流 (针对海量代理池脚本攻击防御)
-        String deviceToken = request.getHeader("X-Device-Fingerprint");
+        // 3. 跨 IP 设备维度前置滑动窗口限流 (从 Cookie 提取设备指纹，抵御海量代理池脚本攻击)
+        String deviceToken = RequestUtil.getDeviceFingerprint(request);
         if (isRiskRateLimitEnabled() && StringUtils.hasText(deviceToken)) {
             int windowSeconds = systemSettingService.getInt(SystemSettingKeys.SECURITY_RATE_LIMIT_WINDOW, 60);
             int maxDeviceRequests = systemSettingService.getInt(SystemSettingKeys.RISK_DEVICE_RATE_LIMIT_MAX, 100);

@@ -4,12 +4,11 @@ import com.humolix.volur.challenge.domain.entity.Challenge;
 import com.humolix.volur.container.domain.dto.AdminContainerExecDTO;
 import com.humolix.volur.container.domain.dto.AdminContainerManualStartDTO;
 import com.humolix.volur.container.domain.dto.AdminContainerTestConnectionDTO;
-import com.humolix.volur.container.domain.vo.AdminContainerExecResultVO;
-import com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO;
 import com.humolix.volur.container.domain.dto.ContainerRunResultDTO;
-
 import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
+import com.humolix.volur.container.domain.vo.AdminContainerExecResultVO;
 import com.humolix.volur.container.domain.vo.AdminContainerTerminalInfoVO;
+import com.humolix.volur.container.domain.vo.AdminContainerTestConnectionVO;
 
 public interface ContainerRuntimeStrategy {
 
