@@ -112,8 +112,9 @@ defineOptions({
 })
 
 import { computed, provide, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { NDropdown } from 'naive-ui'
-import { useAuthFlowStore, MIN_LOADING_DURATION_MS } from '@/store/modules/authFlow'
+import { useSigninFlowStore, useSignupFlowStore, MIN_LOADING_DURATION_MS } from '@/store/modules/flow'
 
 const props = withDefaults(
   defineProps<{
@@ -124,12 +125,29 @@ const props = withDefaults(
   }
 )
 
-const authFlowStore = useAuthFlowStore()
+const route = useRoute()
+const signinFlowStore = useSigninFlowStore()
+const signupFlowStore = useSignupFlowStore()
+
+const currentFlowStore = computed(() => {
+  if (route.path.startsWith('/v1/signup')) {
+    return signupFlowStore
+  }
+  if (route.path.startsWith('/v1/info')) {
+    const followup = (route.query.followup as string) || ''
+    const cont = (route.query.continue as string) || ''
+    if (followup.includes('signup') || cont.includes('signup')) {
+      return signupFlowStore
+    }
+  }
+  return signinFlowStore
+})
+
 async function triggerScrim<T = void>(
   action?: () => Promise<T> | T,
   durationMs = MIN_LOADING_DURATION_MS
 ): Promise<T | undefined> {
-  return authFlowStore.triggerScrim(action, durationMs)
+  return currentFlowStore.value.triggerScrim(action, durationMs)
 }
 
 function handleCardActionClick(event: MouseEvent): void {
@@ -143,13 +161,15 @@ function handleCardActionClick(event: MouseEvent): void {
     scrimBtn.classList.contains('btn-next-step') ||
     scrimBtn.classList.contains('btn-verify-action') ||
     scrimBtn.classList.contains('btn-try-another-way') ||
+    scrimBtn.classList.contains('btn-create-account') ||
+    scrimBtn.classList.contains('btn-signin-instead') ||
     scrimBtn.classList.contains('auth-selection-item') ||
     scrimBtn.getAttribute('type') === 'submit'
   ) {
     return
   }
 
-  if (!authFlowStore.loading) {
+  if (!signinFlowStore.loading && !signupFlowStore.loading) {
     triggerScrim(undefined, MIN_LOADING_DURATION_MS)
   }
 }
@@ -158,14 +178,14 @@ const isCardLoading = computed(() => {
   if (typeof props.loading === 'boolean') {
     return props.loading
   }
-  return authFlowStore.loading
+  return signinFlowStore.loading || signupFlowStore.loading
 })
 
 const isScrimVisible = computed(() => isCardLoading.value)
 
 provide('authLoading', isCardLoading)
 provide('setAuthLoading', (val: boolean) => {
-  authFlowStore.setLoading(val)
+  currentFlowStore.value.setLoading(val)
 })
 provide('triggerScrim', triggerScrim)
 

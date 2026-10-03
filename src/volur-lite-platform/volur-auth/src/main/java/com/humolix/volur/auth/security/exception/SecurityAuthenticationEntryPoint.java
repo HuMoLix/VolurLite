@@ -25,13 +25,13 @@ public class SecurityAuthenticationEntryPoint implements AuthenticationEntryPoin
                          @NonNull AuthenticationException authException) throws IOException {
 
         if (response.isCommitted()) return;
-        ApiResponse<?> apiResponse = ApiResponseEntity.unauthorized("未认证，访问该资源需要先进行身份验证");
+        ApiResponseEntity<?> apiResponse = ApiResponseEntity.unauthorized("未认证，访问该资源需要先进行身份验证");
 
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setCharacterEncoding("UTF-8");
 
-        String json = objectMapper.writeValueAsString(apiResponse);
+        String json = objectMapper.writeValueAsString(apiResponse.getBody());
         response.getWriter().write(json);
     }
 

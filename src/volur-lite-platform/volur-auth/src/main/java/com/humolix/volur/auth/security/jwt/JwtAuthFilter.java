@@ -1,29 +1,29 @@
 package com.humolix.volur.auth.security.jwt;
 
-import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.security.entity.UserDetails;
-import com.humolix.volur.framework.common.exception.authException.tokenException.*;
-import io.jsonwebtoken.ExpiredJwtException;
-import org.springframework.beans.factory.annotation.Qualifier;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.security.SignatureException;
-import org.springframework.web.servlet.HandlerExceptionResolver;
 import com.humolix.volur.auth.security.service.UserDetailsService;
 import com.humolix.volur.auth.security.util.SecurityWhitelistMatcher;
-import io.jsonwebtoken.Claims;
+import com.humolix.volur.auth.service.TokenService;
+import com.humolix.volur.framework.common.exception.authException.tokenException.*;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.oauth2.jwt.BadJwtException;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.io.IOException;
 
@@ -74,14 +74,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         boolean isWhitelisted = whitelistMatcher.match(request);
 
         try {
-            Claims claims = jwtUtil.getClaimsFromToken(token);
+            Jwt claims = jwtUtil.getClaimsFromToken(token);
 
             if (tokenService.isTokenBlacklisted(claims.getId())) {
                 throw new TokenBlacklistedException();
             }
 
-            final Long userId = claims.get("userId", Long.class);
-            final long iat = claims.getIssuedAt().getTime();
+            final Long userId = jwtUtil.getUserIdFromTokenAsLong(token);
+            final long iat = claims.getIssuedAt() != null ? claims.getIssuedAt().toEpochMilli() : 0L;
 
             if (tokenService.isUserForceLoggedOut(userId, iat)) {
                 throw new UserForceLoggedOutException();
@@ -117,9 +117,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private Exception fromException(Exception ex) {
         return switch (ex) {
             case TokenAuthenticationException tae -> tae;
-            case ExpiredJwtException e -> new TokenExpiredException(e);
-            case MalformedJwtException e -> new TokenMalformedException(e);
-            case SignatureException e -> new TokenMalformedException(e);
+            case JwtValidationException e -> new TokenExpiredException(e);
+            case BadJwtException e -> new TokenMalformedException(e);
+            case JwtException e -> new InvalidTokenException("无效的令牌", e);
             case UsernameNotFoundException e -> new InvalidTokenException("无效的令牌，用户不存在", e);
             default -> ex;
         };

@@ -1,9 +1,8 @@
 package com.humolix.volur.security.service.impl;
 
 import cn.hutool.core.util.IdUtil;
-import com.alibaba.fastjson2.JSON;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.security.domain.dto.RecaptchaVerifyRequestDTO;
@@ -11,7 +10,7 @@ import com.humolix.volur.security.domain.session.AuthFlowSession;
 import com.humolix.volur.security.domain.vo.RecaptchaChallengeVO;
 import com.humolix.volur.security.domain.vo.RecaptchaVerifyResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
-import com.humolix.volur.security.service.ChallengeService;
+import com.humolix.volur.security.service.RecaptchaService;
 import com.humolix.volur.verification.crypto.CaptchaCryptoService;
 import com.humolix.volur.verification.domain.dto.CaptchaVerifyDTO;
 import com.humolix.volur.verification.domain.vo.CaptchaResponseVO;
@@ -38,7 +37,7 @@ import java.util.Objects;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ChallengeServiceImpl implements ChallengeService {
+public class RecaptchaServiceImpl implements RecaptchaService {
 
     private final TransitionLockManager transitionLockManager;
     private final RiskEvaluationEngine riskEvaluationEngine;
@@ -118,7 +117,11 @@ public class ChallengeServiceImpl implements ChallengeService {
                 .build();
 
         String key = VREDIS_SECURITY_RECAPTCHA_CHALLENGE_KEY_PREFIX + recaptchaToken;
-        redisTemplate.opsForValue().set(key, JSON.toJSONString(context), RECAPTCHA_CHALLENGE_TTL);
+        try {
+            redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(context), RECAPTCHA_CHALLENGE_TTL);
+        } catch (Exception e) {
+            log.error("[Recaptcha] 序列化人机验证挑战上下文失败", e);
+        }
 
         return voBuilder.build();
     }
@@ -135,7 +138,12 @@ public class ChallengeServiceImpl implements ChallengeService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "人机验证挑战已失效，请重新验证");
         }
 
-        ChallengeContext context = JSON.parseObject(contextJson, ChallengeContext.class);
+        ChallengeContext context;
+        try {
+            context = objectMapper.readValue(contextJson, ChallengeContext.class);
+        } catch (Exception e) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "解析人机验证挑战数据失败");
+        }
         if (context == null || !Objects.equals(context.getDsh(), dsh)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "人机验证会话不匹配");
         }

@@ -9,6 +9,7 @@
       <button
         type="button"
         class="auth-action-btn btn-try-another-way"
+        :isScrim="true"
         @click="handleRejectedBack"
       >
         返回
@@ -28,16 +29,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton } from 'naive-ui'
-import { useAuthFlowStore } from '@/store/modules/authFlow'
+import { useSigninFlowStore } from '@/store/modules/flow'
+import { useCardHeader } from '@/composables/useCardHeader'
 
 defineOptions({
   name: 'RejectView'
 })
 
+useCardHeader('无法登录', '')
+
 const route = useRoute()
 const router = useRouter()
-const authFlowStore = useAuthFlowStore()
+const signinFlowStore = useSigninFlowStore()
 
 const rejectedMessage = computed(() => {
   let msg = (route.query.rejectedmsg as string) || ''
@@ -55,27 +58,23 @@ const rejectedMessage = computed(() => {
 })
 
 async function handleRejectedBack() {
-  if (authFlowStore.loading) return
-  await authFlowStore.triggerScrim(async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    await router.push({
-      path: '/v1/signin/identifier',
-      query: authFlowStore.getQueryParams()
-    })
-  }, 1000)
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
+    path: '/v1/signin/identifier',
+    query: signinFlowStore.getQueryParams()
+  })
 }
 
 async function handleRejectedRetry() {
-  if (authFlowStore.loading) return
-  await authFlowStore.triggerScrim(async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    await router.push({
-      path: '/v1/signin/challenge/selection',
-      query: authFlowStore.getQueryParams({
-        page: '1'
-      })
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
+    path: '/v1/signin/challenge/selection',
+    query: signinFlowStore.getQueryParams({
+      page: '1'
     })
-  }, 1000)
+  })
 }
 </script>
 

@@ -1,6 +1,6 @@
 package com.humolix.volur.framework.security;
 
-import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.framework.common.util.RequestUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

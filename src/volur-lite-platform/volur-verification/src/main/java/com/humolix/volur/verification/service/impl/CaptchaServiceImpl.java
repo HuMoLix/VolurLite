@@ -2,7 +2,7 @@ package com.humolix.volur.verification.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.verification.captcha.manager.CaptchaProviderManager;
 import com.humolix.volur.verification.captcha.provider.CaptchaProvider;
 import com.humolix.volur.verification.domain.dto.CaptchaVerifyDTO;

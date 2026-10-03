@@ -2,7 +2,7 @@ package com.humolix.volur.verification.sdk;
 
 import cn.hutool.core.util.RandomUtil;
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;

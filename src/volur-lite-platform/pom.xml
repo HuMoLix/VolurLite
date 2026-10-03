@@ -44,13 +44,11 @@
         <volur.version>1.0.0-SNAPSHOT</volur.version>
 
         <!-- Third-party Dependency Versions aligned with VolurCTF -->
-        <jjwt.version>0.13.0</jjwt.version>
+        <spring-security.version>7.1.0</spring-security.version>
         <mysql.version>9.7.0</mysql.version>
         <bouncycastle.version>1.85</bouncycastle.version>
         <hutool.version>5.8.47</hutool.version>
-        <fastjson2.version>2.0.56</fastjson2.version>
-        <springdoc.version>3.1.0</springdoc.version>
-        <fabric8-kubernetes.version>7.8.0</fabric8-kubernetes.version>
+        <fabric8-kubernetes.version>8.0.0</fabric8-kubernetes.version>
         <caffeine.version>3.2.0</caffeine.version>
         <mapstruct.version>1.7.0.Beta1</mapstruct.version>
         <lombok.version>1.18.46</lombok.version>
@@ -136,23 +134,11 @@
                 <version>${mysql.version}</version>
             </dependency>
 
-            <!-- JWT -->
+            <!-- Spring Security OAuth2 JOSE (JWT) -->
             <dependency>
-                <groupId>io.jsonwebtoken</groupId>
-                <artifactId>jjwt-api</artifactId>
-                <version>${jjwt.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.jsonwebtoken</groupId>
-                <artifactId>jjwt-impl</artifactId>
-                <version>${jjwt.version}</version>
-                <scope>runtime</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.jsonwebtoken</groupId>
-                <artifactId>jjwt-jackson</artifactId>
-                <version>${jjwt.version}</version>
-                <scope>runtime</scope>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-oauth2-jose</artifactId>
+                <version>${spring-security.version}</version>
             </dependency>
 
             <!-- K3s / Kubernetes Client for Container Dispatching -->
@@ -162,23 +148,11 @@
                 <version>${fabric8-kubernetes.version}</version>
             </dependency>
 
-            <!-- SpringDoc OpenAPI WebMvc UI -->
-            <dependency>
-                <groupId>org.springdoc</groupId>
-                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-                <version>${springdoc.version}</version>
-            </dependency>
-
-            <!-- Hutool & JSON Utilities -->
+            <!-- Hutool Utilities -->
             <dependency>
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.alibaba.fastjson2</groupId>
-                <artifactId>fastjson2</artifactId>
-                <version>${fastjson2.version}</version>
             </dependency>
 
             <!-- Caffeine Cache -->

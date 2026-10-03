@@ -38,12 +38,35 @@ export const authRoutes: RouteRecordRaw[] = [
       },
       {
         path: 'signup',
-        name: 'V1SignUp',
-        component: () => import('@/views/auth/signup/SignUpView.vue'),
+        children: [
+          {
+            path: '',
+            redirect: (to) => ({
+              path: '/v1/signup/steps/name',
+              query: to.query
+            })
+          },
+          {
+            path: 'steps/:step(.*)*',
+            name: 'V1SignUpSteps',
+            component: () => import('@/views/auth/signup/SignUpView.vue'),
+            meta: {
+              title: '注册 - Volur 账号',
+              cardTitle: '创建您的 Volur 账号',
+              cardSubtitle: '输入您的基本信息以开启网络安全演练之旅',
+              requiredAuth: false
+            }
+          }
+        ]
+      },
+      {
+        path: 'info/sessionexpire',
+        name: 'V1SessionExpire',
+        component: () => import('@/views/auth/sessionExpireView.vue'),
         meta: {
-          title: '注册 - Volur 账号',
-          cardTitle: '创建您的 Volur 账号',
-          cardSubtitle: '输入您的基本信息以开启网络安全演练之旅',
+          title: '会话已超时 - Volur 账号',
+          cardTitle: '会话已超时',
+          cardSubtitle: '由于长时间未进行任何操作，此会话已结束',
           requiredAuth: false
         }
       }

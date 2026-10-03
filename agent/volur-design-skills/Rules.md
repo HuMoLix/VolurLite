@@ -48,7 +48,7 @@ public class AuthController {
     private final TokenService tokenService;
 
     @PostMapping("/login")
-    public ApiResponse<AuthenticateResponseVO> login(@Valid @RequestBody AuthenticateRequestDTO request) {
+    public ApiResponseEntity<AuthenticateResponseVO> login(@Valid @RequestBody AuthenticateRequestDTO request) {
         AuthenticateResponseVO response = authService.authenticate(request);
         return ApiResponseEntity.ok("登录成功", response);
     }
@@ -282,33 +282,33 @@ public class AuthenticateResponseVO {
 
 ### 3.3 统一响应对象封装规范 (`ApiResponseEntity` & `ApiResponse`)
 
-在 Controller 层向前端返回结果时，必须统一使用 `ApiResponse<T>` 作为方法返回值，并通过 `ApiResponseEntity` 静态工厂方法进行组装。
+在 Controller 层向前端返回结果时，必须统一使用 `ApiResponseEntity<T>` 作为方法返回值，并通过 `ApiResponseEntity` 实体工厂方法进行组装。
 
 #### 3.3.1 方法命名大小写规范 (Case Standards)
-- **强制统一使用小写驼峰方法**：必须调用小写驼峰方法（如 `ApiResponseEntity.ok(...)`、`ApiResponseEntity.success(...)`、`ApiResponseEntity.created(...)`、`ApiResponseEntity.badRequest(...)` 等），严格遵循 Java 与 Spring 生态标准规范（类似 `ResponseEntity.ok()`）。
+- **强制统一使用小写驼峰方法**：必须调用小写驼峰方法（如 `ApiResponseEntity.ok(...)`、`ApiResponseEntity.success(...)`、`ApiResponseEntity.created(...)`、`ApiResponseEntity.badRequest(...)` 等），严格遵循 Java 与 Spring 生态标准规范（对标 `ResponseEntity.ok()`）。
 - **严禁使用大写方法**：大写静态方法（如 `OK()`, `SUCCESS()`, `CREATED()`, `BAD_REQUEST()` 等）已全部标记为 `@Deprecated`，新编写或重构的代码中严禁调用。
 
 #### 3.3.2 `ok` 与 `success` 的语义与返回类型严格边界
 - **`ApiResponseEntity.ok(data)` / `ApiResponseEntity.ok(message, data)`**：
   - **核心定位**：**专用于有具体业务数据负载（Payload / Data）**的成功响应场景。
-  - **返回类型**：必须声明为 `ApiResponse<T>`，其中泛型 `T` 对应具体的数据模型（如 `ApiResponse<UserSummaryVO>`, `ApiResponse<Page<UserVO>>`, `ApiResponse<Long>`, `ApiResponse<Boolean>` 等）。
+  - **返回类型**：必须声明为 `ApiResponseEntity<T>`，其中泛型 `T` 对应具体的数据模型（如 `ApiResponseEntity<UserSummaryVO>`, `ApiResponseEntity<PageResponse<UserVO>>`, `ApiResponseEntity<Long>`, `ApiResponseEntity<Boolean>` 等）。
   - **典型应用**：
     - `GET` 查询接口（单条详情、列表、分页）；
-    - `POST` / `PUT` / `PATCH` 产生具体业务返回值的场景（如登录返回 Token 凭据 `ApiResponse<AuthenticateResponseVO>`、提交 Flag 返回判定结果 `ApiResponse<Boolean>`、生成临时凭据 `ApiResponse<String>`）。
+    - `POST` / `PUT` / `PATCH` 产生具体业务返回值的场景（如登录返回 Token 凭据 `ApiResponseEntity<AuthenticateResponseVO>`、提交 Flag 返回判定结果 `ApiResponseEntity<Boolean>`、生成临时凭据 `ApiResponseEntity<String>`）。
 - **`ApiResponseEntity.success(message)`**：
   - **核心定位**：**专用于无具体数据返回（纯命令式操作、状态确认或动作执行完成）**的成功响应场景。
-  - **返回类型**：必须固定声明为 `ApiResponse<Void>`，其内部 `data` 统一包装为 `null`。
+  - **返回类型**：必须固定声明为 `ApiResponseEntity<Void>`，其内部 `data` 统一包装为 `null`。
   - **典型应用**：
     - `DELETE` 删除数据操作（如删除用户、删除题目、批量删除等）；
     - `PUT` / `PATCH` 状态切换或无需回传实体的属性更新（如切换账号禁用状态、更新配置等）；
     - 命令式/动作型 `POST` 操作（如发送验证码邮件、重置密码确认、退出登录、注销账号等）。
-  - **严禁反模式**：严禁在无数据返回的方法中使用 `ApiResponseEntity.ok("...", null)` 或 `ApiResponseEntity.OK("...", null)`，凡是 `data` 为 `null` 且返回 `ApiResponse<Void>` 的场景，必须且只能使用 `ApiResponseEntity.success("...")`！
+  - **严禁反模式**：严禁在无数据返回的方法中使用 `ApiResponseEntity.ok("...", null)` 或 `ApiResponseEntity.OK("...", null)`，凡是 `data` 为 `null` 且返回 `ApiResponseEntity<Void>` 的场景，必须且只能使用 `ApiResponseEntity.success("...")`！
 
 #### 3.3.3 `created` 资源创建响应规范 (HTTP 201 Created)
 - **`ApiResponseEntity.created(data)` / `ApiResponseEntity.created(message, data)`**：
   - **核心定位**：严格遵循 RESTful 架构语义（RFC 7231 / HTTP 201 Created），用于在服务端**成功持久化创建了新资源实体**的场景。
   - **HTTP 状态码**：HTTP 201 (Created)，响应体 `status = 201`。
-  - **返回类型**：`ApiResponse<T>`，通常携带新创建资源的主键 ID（`ApiResponse<Long>`）或新建实体的完整视图对象（`ApiResponse<AdminUserDetailsVO>`）。
+  - **返回类型**：`ApiResponseEntity<T>`，通常携带新创建资源的主键 ID（`ApiResponseEntity<Long>`）或新建实体的完整视图对象（`ApiResponseEntity<AdminUserDetailsVO>`）。
   - **适用场景**：
     - `POST /api/v1/admin/users` 新增系统用户；
     - `POST /api/v1/admin/challenges/ctf` 新建赛题资源；
@@ -318,12 +318,12 @@ public class AuthenticateResponseVO {
 #### 3.3.4 常用响应方法与 HTTP 动词映射速查表 (Cheat Sheet)
 | 业务场景 | HTTP Method | 规范方法 | 返回类型 | 状态码 | Data 负载 | 典型示例 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **查询详情 / 列表 / 分页** | `GET` | `ApiResponseEntity.ok(msg, data)` | `ApiResponse<T>` | 200 OK | ✅ 有实体/VO | `return ApiResponseEntity.ok("获取详情成功", userVO);` |
-| **创建新资源实体** | `POST` | `ApiResponseEntity.created(msg, data)` | `ApiResponse<T>` | 201 Created | ✅ 实体或主键 ID | `return ApiResponseEntity.created("创建题目成功", detailVO);` |
-| **非创建实体的带返回操作** | `POST` / `PUT` | `ApiResponseEntity.ok(msg, data)` | `ApiResponse<T>` | 200 OK | ✅ 结果载荷 | `return ApiResponseEntity.ok("登录成功", authResponseVO);` |
-| **删除资源** | `DELETE` | `ApiResponseEntity.success(msg)` | `ApiResponse<Void>` | 200 OK | ❌ 固定 `null` | `return ApiResponseEntity.success("删除用户成功");` |
-| **状态切换 / 纯更新动作** | `PATCH` / `PUT` | `ApiResponseEntity.success(msg)` | `ApiResponse<Void>` | 200 OK | ❌ 固定 `null` | `return ApiResponseEntity.success("状态切换成功");` |
-| **命令式动作 (发邮件/重置/登出)** | `POST` | `ApiResponseEntity.success(msg)` | `ApiResponse<Void>` | 200 OK | ❌ 固定 `null` | `return ApiResponseEntity.success("验证码已发送至邮箱");` |
+| **查询详情 / 列表 / 分页** | `GET` | `ApiResponseEntity.ok(msg, data)` | `ApiResponseEntity<T>` | 200 OK | ✅ 有实体/VO | `return ApiResponseEntity.ok("获取详情成功", userVO);` |
+| **创建新资源实体** | `POST` | `ApiResponseEntity.created(msg, data)` | `ApiResponseEntity<T>` | 201 Created | ✅ 实体或主键 ID | `return ApiResponseEntity.created("创建题目成功", detailVO);` |
+| **非创建实体的带返回操作** | `POST` / `PUT` | `ApiResponseEntity.ok(msg, data)` | `ApiResponseEntity<T>` | 200 OK | ✅ 结果载荷 | `return ApiResponseEntity.ok("登录成功", authResponseVO);` |
+| **删除资源** | `DELETE` | `ApiResponseEntity.success(msg)` | `ApiResponseEntity<Void>` | 200 OK | ❌ 固定 `null` | `return ApiResponseEntity.success("删除用户成功");` |
+| **状态切换 / 纯更新动作** | `PATCH` / `PUT` | `ApiResponseEntity.success(msg)` | `ApiResponseEntity<Void>` | 200 OK | ❌ 固定 `null` | `return ApiResponseEntity.success("状态切换成功");` |
+| **命令式动作 (发邮件/重置/登出)** | `POST` | `ApiResponseEntity.success(msg)` | `ApiResponseEntity<Void>` | 200 OK | ❌ 固定 `null` | `return ApiResponseEntity.success("验证码已发送至邮箱");` |
 
 ---
 
@@ -1026,3 +1026,32 @@ boolean isMaintenance = systemSettingService.getBoolean(SystemSettingKeys.MAINTE
 String notice = systemSettingService.getSettingValue(SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, "系统正在全站维护升级中，暂不可用，请稍后访问。");
 int portStart = systemSettingService.getInt(SystemSettingKeys.CONTAINER_PORT_RANGE_START, 20000);
 ```
+
+---
+
+## 17. 全链路快速失败与严禁隐式 Mock 铁律 (Fail-Fast & Zero-Mock Principle)
+
+### 17.1 基本原则
+- **没配置就是没配置，严禁私自 Mock 假数据**：对于未配置的基础设施或关键业务依赖（如 SMTP 邮件主机/账号未配置、人机验证密钥未配置、短信服务未配置等），必须直接抛出明确异常快速失败（如 `throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "邮件服务未配置，无法执行此操作")`）。
+- **严禁伪造执行成功或返回假数据**：绝不能为了使测试“跑通”而假装服务可用、返回伪造的 Mock 数据或静默吞掉异常。必须确保在开发、自动化测试与联调期间能第一时间暴露出未配置的问题。
+- **杜绝隐式兜底假值**：在参数检验与流程推进中，缺失关键入参或状态必须直接报错中断，严禁隐式使用不可靠的假值掩盖问题。
+
+### 17.2 [反模式 vs 推荐实践]
+```java
+// ❌ 错误示例 1: 邮件服务未配置时私自伪造发送成功与假凭证
+if (!StringUtils.hasText(smtpHost)) {
+    log.warn("SMTP 未配置，mock 发送成功");
+    return "mock_verify_code_123456"; // 严重违规！掩盖真实环境缺陷
+}
+
+// ❌ 错误示例 2: 第三方校验未配置时默认放行
+if (!captchaEnabled) {
+    return true; // 若业务场景强依赖人机校验，未配置或未提供凭证却假装成功放行
+}
+
+// ✅ 正确示例: 缺失关键配置或凭据时直接抛出强类型业务异常中断
+String smtpHost = systemSettingService.getSettingValue(SystemSettingKeys.MAIL_SMTP_HOST, "");
+if (!StringUtils.hasText(smtpHost)) {
+    throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "系统邮件基础设施尚未配置，无法发送验证邮件");
+}
+```

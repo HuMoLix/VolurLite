@@ -43,6 +43,8 @@
           <button
             type="button"
             class="auth-action-btn btn-create-account"
+            :disabled="loading"
+            :isScrim="true"
             @click="handleCreateAccount"
           >
             创建账号
@@ -66,7 +68,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
-import { useAuthFlowStore } from '@/store/modules/authFlow'
+import { useSigninFlowStore } from '@/store/modules/flow'
 
 defineOptions({
   name: 'IdentifierView'
@@ -74,11 +76,11 @@ defineOptions({
 
 const route = useRoute()
 const router = useRouter()
-const authFlowStore = useAuthFlowStore()
+const signinFlowStore = useSigninFlowStore()
 
-const identifier = ref(authFlowStore.identifier || '')
+const identifier = ref(signinFlowStore.identifier || '')
 const errorMsg = ref('')
-const loading = computed(() => authFlowStore.loading)
+const loading = computed(() => signinFlowStore.loading)
 let hasMounted = false
 
 watch(identifier, () => {
@@ -88,7 +90,7 @@ watch(identifier, () => {
 })
 
 function checkPendingError(): void {
-  const fromStore = authFlowStore.consumeAccountError()
+  const fromStore = signinFlowStore.consumeAccountError()
   const fromQuery = (route.query.accountError as string) || ''
   const pending = fromStore || fromQuery
   if (pending) {
@@ -102,9 +104,9 @@ function checkPendingError(): void {
 }
 
 onMounted(() => {
-  authFlowStore.ensureFlowParams(route, router)
-  if (authFlowStore.identifier && !identifier.value) {
-    identifier.value = authFlowStore.identifier
+  signinFlowStore.ensureFlowParams(route, router)
+  if (signinFlowStore.identifier && !identifier.value) {
+    identifier.value = signinFlowStore.identifier
   }
   checkPendingError()
   setTimeout(() => {
@@ -122,7 +124,7 @@ watch(
 )
 
 watch(
-  () => authFlowStore.accountError,
+  () => signinFlowStore.accountError,
   (val) => {
     if (val) {
       checkPendingError()
@@ -131,7 +133,7 @@ watch(
 )
 
 async function handleNext() {
-  if (authFlowStore.loading) return
+  if (signinFlowStore.loading) return
 
   const trimmed = identifier.value.trim()
   if (!trimmed) {
@@ -140,10 +142,10 @@ async function handleNext() {
   }
 
   try {
-    const nextStep = await authFlowStore.submitIdentifier(trimmed)
+    const nextStep = await signinFlowStore.submitIdentifier(trimmed)
     await router.push({
       path: `/v1/signin/challenge/${nextStep}`,
-      query: authFlowStore.getQueryParams()
+      query: signinFlowStore.getQueryParams()
     })
   } catch (err: any) {
     errorMsg.value = err?.message || '账号核验失败，请重试'
@@ -151,19 +153,21 @@ async function handleNext() {
 }
 
 function handleForgotAccount() {
-  if (authFlowStore.loading) return
+  if (signinFlowStore.loading) return
   window.$message.info('跳转至账号找回 /v1/recovery/identifier')
 }
 
-function handleCreateAccount() {
-  if (authFlowStore.loading) return
-  authFlowStore.setFlow('VlifWebSignUp', 'WebSignUp')
-  router.push({
-    path: '/v1/signup',
-    query: authFlowStore.getQueryParams({
+async function handleCreateAccount() {
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
+    path: '/v1/signup/steps/name',
+    query: {
+      continue: signinFlowStore.continueUrl || '/competitions',
+      followup: '/v1/signup',
       flowName: 'VlifWebSignUp',
       flowEntry: 'WebSignUp'
-    })
+    }
   })
 }
 </script>
@@ -245,23 +249,33 @@ function handleCreateAccount() {
   outline: none;
   user-select: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: rgba(11, 87, 208, 0.08) !important;
     color: #0b57d0 !important;
   }
 
-  &:active {
+  &:active:not(:disabled) {
     background-color: rgba(11, 87, 208, 0.16) !important;
     color: #0b57d0 !important;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 
 :global(.dark) .btn-create-account {
   color: #8ab4f8;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: rgba(138, 180, 248, 0.12) !important;
     color: #8ab4f8 !important;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 

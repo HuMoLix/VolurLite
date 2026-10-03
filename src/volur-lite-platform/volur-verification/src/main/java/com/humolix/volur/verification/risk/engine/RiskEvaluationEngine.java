@@ -2,7 +2,7 @@ package com.humolix.volur.verification.risk.engine;
 
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;

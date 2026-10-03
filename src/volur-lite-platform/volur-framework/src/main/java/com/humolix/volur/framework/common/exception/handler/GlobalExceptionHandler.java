@@ -1,9 +1,9 @@
 package com.humolix.volur.framework.common.exception.handler;
 
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.exception.MaintenanceModeException;
+import com.humolix.volur.framework.common.exception.authException.csrfException.*;
 import com.humolix.volur.framework.common.exception.authException.tokenException.*;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolation;
@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
+    public ApiResponseEntity<Void> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
@@ -47,7 +47,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.web.method.annotation.HandlerMethodValidationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleHandlerMethodValidationException(org.springframework.web.method.annotation.HandlerMethodValidationException ex) {
+    public ApiResponseEntity<Void> handleHandlerMethodValidationException(org.springframework.web.method.annotation.HandlerMethodValidationException ex) {
         String message = ex.getAllErrors().stream()
                 .map(org.springframework.context.MessageSourceResolvable::getDefaultMessage)
                 .filter(msg -> msg != null && !msg.isBlank())
@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BindException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleBindException(BindException ex) {
+    public ApiResponseEntity<Void> handleBindException(BindException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleConstraintViolationException(ConstraintViolationException ex) {
+    public ApiResponseEntity<Void> handleConstraintViolationException(ConstraintViolationException ex) {
         String message = ex.getConstraintViolations().stream()
                 .map(ConstraintViolation::getMessage)
                 .collect(Collectors.joining(", "));
@@ -78,50 +78,50 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ApiResponse<Void> handleBadCredentialsException() {
+    public ApiResponseEntity<Void> handleBadCredentialsException() {
         return ApiResponseEntity.unauthorized("用户名或密码错误");
     }
 
     @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
     @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ApiResponse<Void> handleAccessDeniedException() {
+    public ApiResponseEntity<Void> handleAccessDeniedException() {
         return ApiResponseEntity.forbidden("权限不足，拒绝访问");
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ApiResponse<Void> handleNoResourceFoundException() {
+    public ApiResponseEntity<Void> handleNoResourceFoundException() {
         return ApiResponseEntity.notFound("访问的资源不存在");
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
-    public ApiResponse<Void> handleMethodNotSupportedException(HttpRequestMethodNotSupportedException ex) {
+    public ApiResponseEntity<Void> handleMethodNotSupportedException(HttpRequestMethodNotSupportedException ex) {
         return ApiResponseEntity.methodNotAllowed("不支持该请求方式: " + ex.getMethod());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+    public ApiResponseEntity<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
         log.warn("请求体读取失败: {}", ex.getMessage());
         return ApiResponseEntity.badRequest("请求体格式不正确或缺少请求体");
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleMissingServletRequestParameterException(MissingServletRequestParameterException ex) {
+    public ApiResponseEntity<Void> handleMissingServletRequestParameterException(MissingServletRequestParameterException ex) {
         return ApiResponseEntity.badRequest("缺少必要的请求参数: " + ex.getParameterName());
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+    public ApiResponseEntity<Void> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
         return ApiResponseEntity.badRequest("请求参数类型不匹配: " + ex.getName());
     }
 
     @ExceptionHandler({MultipartException.class, MaxUploadSizeExceededException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleMultipartException(Exception ex) {
+    public ApiResponseEntity<Void> handleMultipartException(Exception ex) {
         log.warn("文件上传异常: {}", ex.getMessage());
         return ApiResponseEntity.badRequest("文件上传失败，请检查上传文件大小与格式是否符合要求");
     }
@@ -134,20 +134,20 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MailException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ApiResponse<Void> handleMailException(MailException ex) {
+    public ApiResponseEntity<Void> handleMailException(MailException ex) {
         log.error("邮件服务异常: ", ex);
         return ApiResponseEntity.error(HttpStatus.INTERNAL_SERVER_ERROR, "邮件服务暂时不可用，请稍后再试");
     }
 
     @ExceptionHandler(MaintenanceModeException.class)
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
-    public ApiResponse<Void> handleMaintenanceModeException(MaintenanceModeException ex) {
+    public ApiResponseEntity<Void> handleMaintenanceModeException(MaintenanceModeException ex) {
         log.warn("全站维护模式拦截: {}", ex.getMessage());
         return ApiResponseEntity.error(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ApiResponse<Void> handleBusinessException(BusinessException ex, HttpServletResponse response) {
+    public ApiResponseEntity<Void> handleBusinessException(BusinessException ex, HttpServletResponse response) {
         if (response != null && ex.getStatus() != null) {
             response.setStatus(ex.getStatus().value());
         }
@@ -155,27 +155,27 @@ public class GlobalExceptionHandler {
         return ApiResponseEntity.of(ex.getStatus(), ex.getErrorCode(), ex.getMessage(), null);
     }
 
-    public ApiResponse<Void> handleBusinessException(BusinessException ex) {
+    public ApiResponseEntity<Void> handleBusinessException(BusinessException ex) {
         return handleBusinessException(ex, null);
     }
 
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleIllegalArgumentException(RuntimeException ex) {
+    public ApiResponseEntity<Void> handleIllegalArgumentException(RuntimeException ex) {
         log.warn("业务状态或参数异常: {}", ex.getMessage());
         return ApiResponseEntity.badRequest(ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ApiResponse<Void> handleGlobalException(Exception ex) {
+    public ApiResponseEntity<Void> handleGlobalException(Exception ex) {
         log.error("系统未处理异常: ", ex);
         return ApiResponseEntity.internalServerError("服务器内部故障，请联系管理员");
     }
 
     @ExceptionHandler(TokenAuthenticationException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ApiResponse<Void> handleTokenAuthenticationException(TokenAuthenticationException ex) {
+    public ApiResponseEntity<Void> handleTokenAuthenticationException(TokenAuthenticationException ex) {
         return switch (ex) {
             case TokenMissingException e -> ApiResponseEntity.unauthorized(e.getErrorCode(), e.getMessage());
             case TokenExpiredException e ->
@@ -185,6 +185,16 @@ public class GlobalExceptionHandler {
             case UserForceLoggedOutException e ->
                     ApiResponseEntity.unauthorized(e.getErrorCode(), e.getMessage());
             case InvalidTokenException e -> ApiResponseEntity.unauthorized(e.getErrorCode(), e.getMessage());
+        };
+    }
+
+    @ExceptionHandler(CsrfValidationException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponseEntity<Void> handleCsrfValidationException(CsrfValidationException ex) {
+        log.warn("CSRF 防护校验未通过: errorCode={}, message={}", ex.getErrorCode(), ex.getMessage());
+        return switch (ex) {
+            case CsrfOriginDeniedException e -> ApiResponseEntity.forbidden(e.getErrorCode(), e.getMessage());
+            case CsrfTokenMismatchException e -> ApiResponseEntity.forbidden(e.getErrorCode(), e.getMessage());
         };
     }
 

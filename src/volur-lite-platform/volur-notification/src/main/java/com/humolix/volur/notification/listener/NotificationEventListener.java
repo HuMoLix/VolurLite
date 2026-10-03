@@ -1,6 +1,5 @@
 package com.humolix.volur.notification.listener;
 
-import com.alibaba.fastjson2.JSON;
 import com.humolix.volur.framework.common.thread.VolurThreadManager;
 import com.humolix.volur.notification.domain.bo.SendNotificationBO;
 import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
@@ -8,6 +7,7 @@ import com.humolix.volur.notification.domain.enums.NotificationType;
 import com.humolix.volur.notification.event.SecurityNotificationEvent;
 import com.humolix.volur.notification.event.SendNotificationEvent;
 import com.humolix.volur.notification.service.NotificationService;
+import com.humolix.volur.framework.common.util.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -80,7 +80,7 @@ public class NotificationEventListener {
                         .content(content)
                         .type(NotificationType.SECURITY_ALERT)
                         .actionStatus(NotificationActionStatus.NONE)
-                        .actionData(JSON.toJSONString(actionData))
+                        .actionData(JsonUtils.toJsonString(actionData))
                         .build();
 
                 notificationService.sendNotification(sendBO);

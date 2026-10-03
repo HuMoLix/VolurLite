@@ -1,6 +1,5 @@
 package com.humolix.volur.competition.service.admin.impl;
 
-import com.alibaba.fastjson2.JSON;
 import com.humolix.volur.competition.domain.dto.AdminTeamMemberDTO;
 import com.humolix.volur.competition.domain.dto.AdminTeamUpdateDTO;
 import com.humolix.volur.competition.domain.dto.BatchTeamAuditDTO;
@@ -44,6 +43,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -65,6 +65,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
     private final ApplicationEventPublisher eventPublisher;
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
+    private final ObjectMapper objectMapper;
 
     @Override
     public PageResponse<AdminTeamListVO> listTeams(Long competitionId, Integer page, Integer size, TeamStatus status, String keyword) {
@@ -187,7 +188,12 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             }
             passActionContext.put("teamId", team.getId());
             passActionContext.put("teamName", team.getTeamName());
-            String passActionData = JSON.toJSONString(passActionContext);
+            String passActionData;
+            try {
+                passActionData = objectMapper.writeValueAsString(passActionContext);
+            } catch (Exception e) {
+                passActionData = "{}";
+            }
 
             List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
             for (CompetitionMember m : allMembers) {
@@ -219,7 +225,12 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             }
             rejectActionContext.put("teamId", team.getId());
             rejectActionContext.put("teamName", team.getTeamName());
-            String rejectActionData = JSON.toJSONString(rejectActionContext);
+            String rejectActionData;
+            try {
+                rejectActionData = objectMapper.writeValueAsString(rejectActionContext);
+            } catch (Exception e) {
+                rejectActionData = "{}";
+            }
 
             List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
             for (CompetitionMember m : allMembers) {

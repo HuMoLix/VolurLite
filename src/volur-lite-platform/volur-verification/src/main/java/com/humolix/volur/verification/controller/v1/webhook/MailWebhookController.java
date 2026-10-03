@@ -3,13 +3,10 @@ package com.humolix.volur.verification.controller.v1.webhook;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.verification.service.MailWebhookService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "邮件服务商 Webhook 回调", description = "接收外部邮件中继服务商（Resend / SendGrid / 自建中继）的投递送达、退信与投诉回调")
 @RestController
 @RequestMapping("/api/v1/verification/webhook/mail")
 @RequiredArgsConstructor
@@ -17,9 +14,8 @@ public class MailWebhookController {
 
     private final MailWebhookService mailWebhookService;
 
-    @Operation(summary = "处理邮件投递状态 Webhook 回调事件")
     @PostMapping
-    public ApiResponse<Void> handleWebhook(
+    public ApiResponseEntity<Void> handleWebhook(
             @RequestBody(required = false) String payload,
             @RequestHeader(value = "X-Webhook-Secret", required = false) String headerSecret,
             @RequestHeader(value = "X-Volur-Secret", required = false) String altHeaderSecret,

@@ -1,6 +1,7 @@
 package com.humolix.volur.security;
 
 import com.humolix.volur.framework.common.api.ApiResponse;
+import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.security.controller.v1.FlowController;
 import com.humolix.volur.security.domain.vo.FlowInitVO;
 import com.humolix.volur.security.service.FlowService;
@@ -24,11 +25,11 @@ class FlowControllerTest {
     private FlowController flowController;
 
     @Test
-    @DisplayName("initSess 成功调用并返回 VLIF 会话初始化数据")
-    void initSess_shouldReturnFlowInitVO() {
+    @DisplayName("Successfully initialize authentication flow session without dsh")
+    void testInitSess_Success() {
         String flowName = "VlifWebLogin";
         String flowEntry = "WebServiceLogin";
-        String fp = "e10adc3949ba59abbe56e057f20f883e";
+        String fp = "4f8a9e2d";
         Long t = 1790527266429L;
 
         FlowInitVO mockVO = FlowInitVO.builder()
@@ -42,8 +43,10 @@ class FlowControllerTest {
 
         given(flowService.initSess(flowName, flowEntry, fp, t, null)).willReturn(mockVO);
 
-        ApiResponse<FlowInitVO> response = flowController.initSess(flowName, flowEntry, fp, t, null);
+        ApiResponseEntity<FlowInitVO> entity = flowController.initSess(flowName, flowEntry, fp, t, null);
 
+        assertThat(entity).isNotNull();
+        ApiResponse<FlowInitVO> response = entity.getBody();
         assertThat(response).isNotNull();
         assertThat(response.status()).isEqualTo(200);
         assertThat(response.data()).isNotNull();

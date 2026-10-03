@@ -1,0 +1,5 @@
+export { default as NameStepView } from './NameStepView.vue'
+export { default as EmailStepView } from './EmailStepView.vue'
+export { default as EtotpChallengeStepView } from './EtotpChallengeStepView.vue'
+export { default as PasswordStepView } from './PasswordStepView.vue'
+export { default as OptionsChallengeStepView } from './OptionsChallengeStepView.vue'

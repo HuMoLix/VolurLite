@@ -1,8 +1,8 @@
 package com.humolix.volur.system.service.admin.impl;
 
-import com.alibaba.fastjson2.JSON;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.system.domain.dto.AdminAsyncTaskPageRequestDTO;
 import com.humolix.volur.system.domain.entity.AsyncTaskEntity;
 import com.humolix.volur.system.domain.enums.AsyncTaskStatus;
@@ -52,6 +52,7 @@ public class AdminAsyncTaskServiceImpl implements AdminAsyncTaskService {
     private final ApplicationEventPublisher eventPublisher;
     private final ThreadPoolTaskExecutor volurAsyncTaskExecutor;
     private final PlatformTransactionManager transactionManager;
+    private final ObjectMapper objectMapper;
 
     private final Set<Long> cancelledTaskIds = ConcurrentHashMap.newKeySet();
 
@@ -71,7 +72,7 @@ public class AdminAsyncTaskServiceImpl implements AdminAsyncTaskService {
         String paramsJson = null;
         if (parameters != null) {
             try {
-                paramsJson = parameters instanceof String s ? s : JSON.toJSONString(parameters);
+                paramsJson = parameters instanceof String s ? s : objectMapper.writeValueAsString(parameters);
             } catch (Exception e) {
                 paramsJson = String.valueOf(parameters);
             }
@@ -250,7 +251,7 @@ public class AdminAsyncTaskServiceImpl implements AdminAsyncTaskService {
                 entity.setStatusMessage("任务执行成功完成");
                 if (resultData != null) {
                     try {
-                        entity.setResultData(resultData instanceof String s ? s : JSON.toJSONString(resultData));
+                        entity.setResultData(resultData instanceof String s ? s : objectMapper.writeValueAsString(resultData));
                     } catch (Exception ignored) {
                         entity.setResultData(String.valueOf(resultData));
                     }

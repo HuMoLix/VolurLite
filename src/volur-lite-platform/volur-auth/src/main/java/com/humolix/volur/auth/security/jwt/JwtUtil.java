@@ -1,13 +1,12 @@
 package com.humolix.volur.auth.security.jwt;
 
-import com.humolix.volur.framework.common.exception.authException.tokenException.InvalidTokenException;
-import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
-import com.humolix.volur.user.domain.entity.User;
-import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.security.entity.UserDetails;
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
+import com.humolix.volur.framework.common.exception.authException.tokenException.InvalidTokenException;
+import com.humolix.volur.framework.common.exception.authException.tokenException.TokenExpiredException;
+import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMalformedException;
+import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
+import com.humolix.volur.framework.common.util.RequestUtil;
+import com.humolix.volur.user.domain.entity.User;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -15,13 +14,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Date;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,8 +37,6 @@ public class JwtUtil {
     private static final String TOKEN_TYPE_CLAIM = "type";
     private static final String REMEMBER_ME_CLAIM = "rememberMe";
 
-    private final TokenService tokenService;
-
     @Value("${volur.jwt.secret}")
     private String secretKeyStr;
 
@@ -49,18 +49,18 @@ public class JwtUtil {
     @Value("${volur.jwt.remember-me-refresh-expiration-ms:2592000000}")
     private Long rememberMeRefreshTokenExpirationMs;
 
-    private SecretKey cachedSecretKey;
-    private JwtParser jwtParser;
+    private JwtEncoder jwtEncoder;
+    private JwtDecoder jwtDecoder;
 
     @PostConstruct
     public void init() {
         if (!StringUtils.hasText(secretKeyStr)) {
             throw new IllegalStateException("Jwt Secret must be configured and not empty");
         }
-        
+
         byte[] keyBytes;
         try {
-            keyBytes = Decoders.BASE64.decode(secretKeyStr);
+            keyBytes = Base64.getDecoder().decode(secretKeyStr);
         } catch (Exception e) {
             keyBytes = secretKeyStr.getBytes(StandardCharsets.UTF_8);
         }
@@ -70,14 +70,9 @@ public class JwtUtil {
             keyBytes = padded;
         }
 
-        this.cachedSecretKey = Keys.hmacShaKeyFor(keyBytes);
-        this.jwtParser = Jwts.parser()
-                .verifyWith(cachedSecretKey)
-                .build();
-    }
-
-    private SecretKey getSecretKey() {
-        return cachedSecretKey;
+        SecretKey cachedSecretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
+        this.jwtEncoder = NimbusJwtEncoder.withSecretKey(cachedSecretKey).algorithm(MacAlgorithm.HS256).build();
+        this.jwtDecoder = NimbusJwtDecoder.withSecretKey(cachedSecretKey).macAlgorithm(MacAlgorithm.HS256).build();
     }
 
     public String generateAccessToken(Authentication authentication, String jti) {
@@ -86,18 +81,20 @@ public class JwtUtil {
         List<String> roles = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList();
-        
+
         long accessExpMs = expireSeconds * 1000L;
-        return Jwts.builder()
+        JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
+        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
                 .subject(authentication.getName())
                 .id(jti)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(accessExpMs)))
+                .issuedAt(now)
+                .expiresAt(now.plusMillis(accessExpMs))
                 .claim(AUTHORITIES_CLAIM, roles)
                 .claim(USER_ID_CLAIM, Objects.requireNonNull(userDetails).getUserId())
                 .claim(TOKEN_TYPE_CLAIM, "access")
-                .signWith(getSecretKey(), Jwts.SIG.HS256)
-                .compact();
+                .build();
+
+        return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet)).getTokenValue();
     }
 
     public String generateRefreshToken(Authentication authentication, String jti) {
@@ -109,16 +106,18 @@ public class JwtUtil {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         long expirationMs = rememberMe ? rememberMeRefreshTokenExpirationMs : refreshTokenExpirationMs;
 
-        return Jwts.builder()
+        JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
+        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
                 .subject(authentication.getName())
                 .id(jti)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(expirationMs)))
+                .issuedAt(now)
+                .expiresAt(now.plusMillis(expirationMs))
                 .claim(USER_ID_CLAIM, Objects.requireNonNull(userDetails).getUserId())
                 .claim(TOKEN_TYPE_CLAIM, "refresh")
                 .claim(REMEMBER_ME_CLAIM, rememberMe)
-                .signWith(getSecretKey(), Jwts.SIG.HS256)
-                .compact();
+                .build();
+
+        return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet)).getTokenValue();
     }
 
     public String generateAccessTokenFromUser(User user) {
@@ -133,16 +132,18 @@ public class JwtUtil {
                 .toList();
         long accessExpMs = expireSeconds * 1000L;
 
-        return Jwts.builder()
+        JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
+        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
                 .subject(user.getUsername())
                 .id(jti)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(accessExpMs)))
+                .issuedAt(now)
+                .expiresAt(now.plusMillis(accessExpMs))
                 .claim(AUTHORITIES_CLAIM, roles)
                 .claim(USER_ID_CLAIM, user.getId())
                 .claim(TOKEN_TYPE_CLAIM, "access")
-                .signWith(getSecretKey(), Jwts.SIG.HS256)
-                .compact();
+                .build();
+
+        return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet)).getTokenValue();
     }
 
     public String generateRefreshTokenFromUser(User user, String jti) {
@@ -153,26 +154,32 @@ public class JwtUtil {
         final Instant now = Instant.now();
         long expirationMs = rememberMe ? rememberMeRefreshTokenExpirationMs : refreshTokenExpirationMs;
 
-        return Jwts.builder()
+        JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
+        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
                 .subject(user.getUsername())
                 .id(jti)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(expirationMs)))
+                .issuedAt(now)
+                .expiresAt(now.plusMillis(expirationMs))
                 .claim(USER_ID_CLAIM, user.getId())
                 .claim(TOKEN_TYPE_CLAIM, "refresh")
                 .claim(REMEMBER_ME_CLAIM, rememberMe)
-                .signWith(getSecretKey(), Jwts.SIG.HS256)
-                .compact();
+                .build();
+
+        return jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet)).getTokenValue();
     }
 
-    public Claims getClaimsFromToken(String token) {
+    public Jwt getClaimsFromToken(String token) {
         try {
-            return jwtParser.parseSignedClaims(token).getPayload();
-        } catch (ExpiredJwtException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("JWT 解析失败: {}", e.getMessage());
-            throw new InvalidTokenException("无效的令牌: " + e.getMessage());
+            return jwtDecoder.decode(token);
+        } catch (JwtValidationException e) {
+            log.error("JWT 验证失败 (已过期或校验失败): {}", e.getMessage());
+            throw new TokenExpiredException(e);
+        } catch (BadJwtException e) {
+            log.error("JWT 格式或签名错误: {}", e.getMessage());
+            throw new TokenMalformedException(e);
+        } catch (JwtException e) {
+            log.error("JWT 解析异常: {}", e.getMessage());
+            throw new InvalidTokenException("无效的令牌: " + e.getMessage(), e);
         }
     }
 
@@ -181,28 +188,14 @@ public class JwtUtil {
     }
 
     public Long getIssuedAtFromToken(String token) {
-        return getClaimsFromToken(token).getIssuedAt().getTime();
+        Instant issuedAt = getClaimsFromToken(token).getIssuedAt();
+        return issuedAt != null ? issuedAt.toEpochMilli() : 0L;
     }
 
     public boolean validateRefreshToken(String token) {
         try {
-            Claims claims = getClaimsFromToken(token);
-            if (tokenService.isTokenBlacklisted(claims.getId())) {
-                return false;
-            }
-            return "refresh".equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    public boolean validateTokenWithBlacklist(String token) {
-        if (!StringUtils.hasText(token)) {
-            return false;
-        }
-        try {
-            Claims claims = getClaimsFromToken(token);
-            return !tokenService.isTokenBlacklisted(claims.getId());
+            Jwt jwt = getClaimsFromToken(token);
+            return "refresh".equals(jwt.getClaimAsString(TOKEN_TYPE_CLAIM));
         } catch (Exception e) {
             return false;
         }
@@ -221,7 +214,8 @@ public class JwtUtil {
     }
 
     public long getExpirationTimeFromToken(String token) {
-        return getClaimsFromToken(token).getExpiration().getTime();
+        Instant expiresAt = getClaimsFromToken(token).getExpiresAt();
+        return expiresAt != null ? expiresAt.toEpochMilli() : 0L;
     }
 
     public String getUsernameFromToken(String token) {
@@ -229,35 +223,38 @@ public class JwtUtil {
     }
 
     public Long getUserIdFromTokenAsLong(String token) {
-        return getClaimsFromToken(token).get(USER_ID_CLAIM, Long.class);
+        Object userId = getClaimsFromToken(token).getClaim(USER_ID_CLAIM);
+        if (userId instanceof Number number) {
+            return number.longValue();
+        }
+        if (userId != null) {
+            return Long.valueOf(userId.toString());
+        }
+        return null;
     }
 
     public String parseToken(HttpServletRequest request) {
-        final String authHeader = request.getHeader("Authorization");
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
-        final String queryToken = request.getParameter("token");
-        if (StringUtils.hasText(queryToken)) {
-            return queryToken;
-        }
-        final String queryAccessToken = request.getParameter("access_token");
-        if (StringUtils.hasText(queryAccessToken)) {
-            return queryAccessToken;
+        String token = RequestUtil.getCookieValue(request, "access_token");
+        if (StringUtils.hasText(token)) {
+            return token;
         }
         throw new TokenMissingException();
     }
 
-    public String parseTokenFromHeader(String authHeader) {
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
-        throw new TokenMissingException();
-    }
-
-    @SuppressWarnings("unchecked")
     public List<String> getRolesFromToken(String token) {
-        return getClaimsFromToken(token).get(AUTHORITIES_CLAIM, List.class);
+        return getClaimsFromToken(token).getClaimAsStringList(AUTHORITIES_CLAIM);
+    }
+
+    public Long getExpireSeconds() {
+        return expireSeconds;
+    }
+
+    public Long getRefreshTokenExpirationMs() {
+        return refreshTokenExpirationMs;
+    }
+
+    public Long getRememberMeRefreshTokenExpirationMs() {
+        return rememberMeRefreshTokenExpirationMs;
     }
 
 }

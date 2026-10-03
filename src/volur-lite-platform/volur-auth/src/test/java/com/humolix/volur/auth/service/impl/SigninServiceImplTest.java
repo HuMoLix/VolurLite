@@ -6,13 +6,15 @@ import com.humolix.volur.auth.domain.vo.ChallengeOptionVO;
 import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 
 import java.util.List;
+import com.humolix.volur.auth.security.cookie.AuthCookieService;
 import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.framework.cache.redis.RedisOps;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.session.AuthFlowSession;
 import com.humolix.volur.security.flow.TransitionLockManager;
-import com.humolix.volur.security.service.ChallengeService;
+import com.humolix.volur.security.service.FlowCryptoService;
+import com.humolix.volur.security.service.RecaptchaService;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
@@ -39,7 +41,8 @@ import static org.mockito.Mockito.verify;
 class SigninServiceImplTest {
 
     private TransitionLockManager transitionLockManager;
-    private ChallengeService challengeService;
+    private RecaptchaService recaptchaService;
+    private FlowCryptoService flowCryptoService;
     private RiskEvaluationEngine riskEvaluationEngine;
     private CaptchaSDK captchaSDK;
     private UserRepository userRepository;
@@ -49,7 +52,7 @@ class SigninServiceImplTest {
     private RedisOps redisOps;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
-
+    private AuthCookieService authCookieService;
     private SigninServiceImpl signinService;
 
     @BeforeEach
@@ -60,7 +63,8 @@ class SigninServiceImplTest {
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
         transitionLockManager = Mockito.mock(TransitionLockManager.class);
-        challengeService = Mockito.mock(ChallengeService.class);
+        recaptchaService = Mockito.mock(RecaptchaService.class);
+        flowCryptoService = Mockito.mock(FlowCryptoService.class);
         riskEvaluationEngine = Mockito.mock(RiskEvaluationEngine.class);
         captchaSDK = Mockito.mock(CaptchaSDK.class);
         userRepository = Mockito.mock(UserRepository.class);
@@ -70,12 +74,14 @@ class SigninServiceImplTest {
         redisOps = Mockito.mock(RedisOps.class);
         redisTemplate = Mockito.mock(StringRedisTemplate.class);
         valueOperations = Mockito.mock(ValueOperations.class);
+        authCookieService = Mockito.mock(AuthCookieService.class);
 
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
 
         signinService = new SigninServiceImpl(
                 transitionLockManager,
-                challengeService,
+                recaptchaService,
+                flowCryptoService,
                 riskEvaluationEngine,
                 captchaSDK,
                 userRepository,
@@ -83,7 +89,8 @@ class SigninServiceImplTest {
                 jwtUtil,
                 systemSettingService,
                 redisOps,
-                redisTemplate
+                redisTemplate,
+                authCookieService
         );
     }
 
@@ -189,7 +196,7 @@ class SigninServiceImplTest {
                 .build();
 
         given(transitionLockManager.getSession(request.getDsh())).willReturn(session);
-        given(challengeService.validateAndBurnTicket(eq(request.getDsh()), eq("rctk_sample_valid"))).willReturn(true);
+        given(recaptchaService.validateAndBurnTicket(eq(request.getDsh()), eq("rctk_sample_valid"))).willReturn(true);
 
         User mockUser = new User();
         mockUser.setUsername("validuser");
@@ -223,7 +230,7 @@ class SigninServiceImplTest {
                 .build();
 
         given(transitionLockManager.getSession(request.getDsh())).willReturn(session);
-        given(challengeService.validateAndBurnTicket(eq(request.getDsh()), eq("rctk_sample_valid"))).willReturn(true);
+        given(recaptchaService.validateAndBurnTicket(eq(request.getDsh()), eq("rctk_sample_valid"))).willReturn(true);
         given(userRepository.findByUsername("nonexistent")).willReturn(Optional.empty());
         given(userRepository.findByEmail("nonexistent")).willReturn(Optional.empty());
         given(transitionLockManager.advanceTransitionTicket(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("recaptcha"), eq(2), eq("identifier"), eq("nonexistent")))
@@ -267,6 +274,45 @@ class SigninServiceImplTest {
         Assertions.assertTrue(options.stream().anyMatch(opt -> "totp".equalsIgnoreCase(opt.getType())));
         Assertions.assertTrue(options.stream().anyMatch(opt -> "atcr".equalsIgnoreCase(opt.getType())));
         Assertions.assertTrue(options.stream().anyMatch(opt -> "backup_code".equalsIgnoreCase(opt.getType())));
+    }
+
+    @Test
+    void challenge_pwd_success_shouldWriteAuthCookiesAndReturnSuccess() {
+        SignInChallengeRequestDTO request = new SignInChallengeRequestDTO();
+        request.setDsh("S-100200300:1790000000");
+        request.setTl("ADG-PWD_TICKET");
+        request.setCid(2);
+        request.setChallengeType("pwd");
+        request.setPassword("correctPassword123!");
+        request.setRememberMe(true);
+
+        AuthFlowSession session = AuthFlowSession.builder()
+                .dsh(request.getDsh())
+                .identifier("validuser")
+                .currentStep("pwd")
+                .cid(2)
+                .deviceFingerprint("fp_sample_123")
+                .build();
+
+        User mockUser = new User();
+        mockUser.setUsername("validuser");
+        mockUser.setPassword("encodedPassword");
+        mockUser.setStatus(true);
+        mockUser.setRole(com.humolix.volur.user.domain.enums.UserRole.USER);
+
+        given(transitionLockManager.getSession(request.getDsh())).willReturn(session);
+        given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
+        given(passwordEncoder.matches("correctPassword123!", "encodedPassword")).willReturn(true);
+        given(jwtUtil.generateAccessTokenFromUser(eq(mockUser), anyString())).willReturn("test_access_token");
+        given(jwtUtil.generateRefreshTokenFromUser(eq(mockUser), anyString(), eq(true))).willReturn("test_refresh_token");
+
+        SignInFlowResponseVO response = signinService.challenge(request);
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals("SUCCESS", response.getStatus());
+        Assertions.assertEquals("validuser", response.getIdentifier());
+        verify(transitionLockManager).burnAndCompleteSession(request.getDsh(), request.getTl(), 2, "pwd");
+        verify(authCookieService).writeAuthCookies(eq("test_access_token"), eq("test_refresh_token"), eq(true));
     }
 
 }

@@ -49,12 +49,6 @@
             <artifactId>spring-aop</artifactId>
         </dependency>
 
-        <!-- SpringDoc OpenAPI -->
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-        </dependency>
-
         <!-- MapStruct & Lombok -->
         <dependency>
             <groupId>org.mapstruct</groupId>

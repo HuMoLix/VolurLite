@@ -8,8 +8,6 @@ import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.logging.annotation.Syslog;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "管理端题解 WP 管理", description = "管理员查阅、评审与下载参赛队伍提交的 Writeup 题解接口")
 @RestController
 @RequestMapping("/api/v1/admin/competitions/{competitionId}/writeups")
 @RequiredArgsConstructor
@@ -26,9 +23,8 @@ public class AdminCompetitionWriteupController {
 
     private final CompetitionWriteupRepository writeupRepository;
 
-    @Operation(summary = "获取指定比赛所有队伍提交的 Writeup 列表")
     @GetMapping
-    public ApiResponse<List<CompetitionWriteupVO>> listWriteups(
+    public ApiResponseEntity<List<CompetitionWriteupVO>> listWriteups(
             @PathVariable Long competitionId,
             @RequestParam(required = false) String keyword) {
 
@@ -38,9 +34,8 @@ public class AdminCompetitionWriteupController {
         return ApiResponseEntity.ok("获取队伍 Writeup 列表成功", voList);
     }
 
-    @Operation(summary = "获取单个 Writeup 详情")
     @GetMapping("/{writeupId}")
-    public ApiResponse<CompetitionWriteupVO> getWriteup(
+    public ApiResponseEntity<CompetitionWriteupVO> getWriteup(
             @PathVariable Long competitionId,
             @PathVariable Long writeupId) {
 
@@ -50,11 +45,10 @@ public class AdminCompetitionWriteupController {
         return ApiResponseEntity.ok("获取 Writeup 详情成功", toVO(wp));
     }
 
-    @Operation(summary = "审核与评分队伍 Writeup")
     @Syslog(module = "COMPETITION", value = "审核队伍 Writeup", recordParams = true)
     @PutMapping("/{writeupId}/audit")
     @Transactional
-    public ApiResponse<CompetitionWriteupVO> auditWriteup(
+    public ApiResponseEntity<CompetitionWriteupVO> auditWriteup(
             @PathVariable Long competitionId,
             @PathVariable Long writeupId,
             @RequestBody CompetitionWriteupAuditDTO dto) {
@@ -76,11 +70,10 @@ public class AdminCompetitionWriteupController {
         return ApiResponseEntity.ok("审核 Writeup 成功", toVO(saved));
     }
 
-    @Operation(summary = "删除队伍 Writeup")
     @Syslog(module = "COMPETITION", value = "删除队伍 Writeup", recordParams = true)
     @DeleteMapping("/{writeupId}")
     @Transactional
-    public ApiResponse<Void> deleteWriteup(
+    public ApiResponseEntity<Void> deleteWriteup(
             @PathVariable Long competitionId,
             @PathVariable Long writeupId) {
 

@@ -3,25 +3,35 @@ import { ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { initFlowSessApi, submitSignInIdentifierApi, submitSignInChallengeApi } from '@/api/auth'
 import { getDeviceFingerprint } from '@/utils/fingerprint'
+import { isDshExpired, buildSessionExpireLocation, buildSessionExpireHref } from '@/utils/flow'
+import { encryptFlowCredential } from '@/utils/flow-crypto'
+import { createFlowLoading } from './flowLoading'
 
 const STORAGE_IDENTIFIER_KEY = 'volur_auth_identifier'
 const STORAGE_ACCOUNT_ERROR_KEY = 'volur_auth_account_error'
-export const MIN_LOADING_DURATION_MS = 1000
 
-export const useAuthFlowStore = defineStore('authFlow', () => {
+export const useSigninFlowStore = defineStore('signinFlow', () => {
+  const {
+    loading,
+    setLoading,
+    startLoading,
+    stopLoading,
+    withLoading,
+    triggerScrim
+  } = createFlowLoading()
+
   const dsh = ref<string>('')
   const tl = ref<string>('')
   const cid = ref<number>(0)
-  const continueUrl = ref<string>('/')
+  const continueUrl = ref<string>('/competitions')
   const flowName = ref<string>('VlifWebLogin')
   const flowEntry = ref<string>('WebServiceLogin')
-  const followup = ref<string>('/')
+  const followup = ref<string>('/v1/signin/identifier')
   const pstMsg = ref<string>('1')
   const identifier = ref<string>(
     (typeof window !== 'undefined' && window.sessionStorage?.getItem(STORAGE_IDENTIFIER_KEY)) || ''
   )
   const activeChallengeType = ref<string>('')
-  const loading = ref<boolean>(false)
   const accountError = ref<string>(
     (typeof window !== 'undefined' && window.sessionStorage?.getItem(STORAGE_ACCOUNT_ERROR_KEY)) || ''
   )
@@ -55,39 +65,24 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
     const newQuery: Record<string, string> = { ...(query as Record<string, string>) }
 
     if (!newQuery.continue) {
-      newQuery.continue = (query.redirect as string) || '/'
+      newQuery.continue = (query.redirect as string) || '/competitions'
       changed = true
     }
     continueUrl.value = newQuery.continue
 
-    if (!newQuery.followup) {
-      newQuery.followup = newQuery.continue
+    if (!newQuery.followup || newQuery.followup === '/') {
+      newQuery.followup = '/v1/signin/identifier'
       changed = true
     }
     followup.value = newQuery.followup
 
-    const isSignUpPath = route.path.includes('/signup')
-    const defaultFlowName = isSignUpPath ? 'VlifWebSignUp' : 'VlifWebLogin'
     if (!newQuery.flowName) {
-      newQuery.flowName = defaultFlowName
-      changed = true
-    } else if (isSignUpPath && newQuery.flowName === 'VlifWebLogin') {
-      newQuery.flowName = 'VlifWebSignUp'
-      changed = true
-    } else if (!isSignUpPath && newQuery.flowName === 'VlifWebSignUp') {
       newQuery.flowName = 'VlifWebLogin'
       changed = true
     }
     flowName.value = newQuery.flowName
 
-    const defaultFlowEntry = isSignUpPath ? 'WebSignUp' : 'WebServiceLogin'
     if (!newQuery.flowEntry) {
-      newQuery.flowEntry = defaultFlowEntry
-      changed = true
-    } else if (isSignUpPath && newQuery.flowEntry === 'WebServiceLogin') {
-      newQuery.flowEntry = 'WebSignUp'
-      changed = true
-    } else if (!isSignUpPath && newQuery.flowEntry === 'WebSignUp') {
       newQuery.flowEntry = 'WebServiceLogin'
       changed = true
     }
@@ -100,6 +95,11 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
     pstMsg.value = newQuery.pstMsg
 
     if (query.dsh && typeof query.dsh === 'string') {
+      if (isDshExpired(query.dsh)) {
+        resetFlow()
+        router.replace(buildSessionExpireLocation(route))
+        return
+      }
       dsh.value = query.dsh
     } else if (!dsh.value) {
       try {
@@ -125,6 +125,11 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
       } catch {
       }
     } else {
+      if (isDshExpired(dsh.value)) {
+        resetFlow()
+        router.replace(buildSessionExpireLocation(route))
+        return
+      }
       newQuery.dsh = dsh.value
       changed = true
     }
@@ -151,6 +156,13 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
   }
 
   async function submitIdentifier(trimmedVal: string): Promise<string> {
+    if (dsh.value && isDshExpired(dsh.value)) {
+      resetFlow()
+      if (typeof window !== 'undefined') {
+        window.location.href = buildSessionExpireHref()
+      }
+      throw new Error('会话已超时，请重新开始')
+    }
     return withLoading(async () => {
       const res = await submitSignInIdentifierApi({
         identifier: trimmedVal,
@@ -168,7 +180,10 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
         tl.value = data.tl
       }
       cid.value = typeof data.cid === 'number' ? data.cid : 1
-      activeChallengeType.value = data.nextStep || 'pwd'
+      if (!data.nextStep) {
+        throw new Error('服务端未返回下一步挑战流程')
+      }
+      activeChallengeType.value = data.nextStep
 
       return activeChallengeType.value
     })
@@ -184,24 +199,35 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
       rememberMe?: boolean
     }
   ): Promise<{ success: boolean; nextStep?: string; redirect?: string; errorMessage?: string }> {
+    if (dsh.value && isDshExpired(dsh.value)) {
+      resetFlow()
+      if (typeof window !== 'undefined') {
+        window.location.href = buildSessionExpireHref()
+      }
+      throw new Error('会话已超时，请重新开始')
+    }
     return withLoading(async () => {
+      const challengePayload = { ...payload }
+      if (challengeType === 'pwd' && typeof challengePayload.password === 'string' && challengePayload.password) {
+        challengePayload.password = await encryptFlowCredential(
+          challengePayload.password,
+          flowName.value || 'VlifWebLogin',
+          flowEntry.value || 'WebServiceLogin',
+          dsh.value
+        )
+      }
+
       const res = await submitSignInChallengeApi({
         dsh: dsh.value,
         tl: tl.value,
         cid: cid.value,
         challengeType,
-        ...payload
+        ...challengePayload
       })
 
       const data = res.data
 
       if (data.status === 'SUCCESS') {
-        if (data.accessToken && typeof localStorage !== 'undefined') {
-          localStorage.setItem('access_token', data.accessToken)
-        }
-        if (data.refreshToken && typeof localStorage !== 'undefined') {
-          localStorage.setItem('refresh_token', data.refreshToken)
-        }
         return {
           success: true,
           redirect: continueUrl.value || '/competitions'
@@ -258,52 +284,6 @@ export const useAuthFlowStore = defineStore('authFlow', () => {
     params.cid = String(cid.value)
 
     return { ...params, ...extra }
-  }
-
-  function setLoading(val: boolean): void {
-    loading.value = val
-  }
-
-  function startLoading(): void {
-    loading.value = true
-  }
-
-  function stopLoading(): void {
-    loading.value = false
-  }
-
-  async function withLoading<T>(action: () => Promise<T>, minDurationMs = MIN_LOADING_DURATION_MS): Promise<T> {
-    if (loading.value) {
-      throw new Error('AUTH_FLOW_REQUEST_IN_FLIGHT')
-    }
-    loading.value = true
-    const startTime = Date.now()
-    try {
-      const result = await action()
-      const elapsed = Date.now() - startTime
-      if (elapsed < minDurationMs) {
-        await new Promise(resolve => setTimeout(resolve, minDurationMs - elapsed))
-      }
-      return result
-    } catch (err) {
-      const elapsed = Date.now() - startTime
-      if (elapsed < minDurationMs) {
-        await new Promise(resolve => setTimeout(resolve, minDurationMs - elapsed))
-      }
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
-
-  async function triggerScrim<T = void>(action?: () => Promise<T> | T, durationMs = MIN_LOADING_DURATION_MS): Promise<T | undefined> {
-    if (loading.value) return undefined
-    return withLoading(async () => {
-      if (action) {
-        return await action()
-      }
-      return undefined as unknown as T
-    }, durationMs)
   }
 
   function resetFlow(): void {

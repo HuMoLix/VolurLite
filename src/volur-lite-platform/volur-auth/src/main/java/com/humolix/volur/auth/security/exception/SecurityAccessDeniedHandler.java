@@ -25,13 +25,13 @@ public class SecurityAccessDeniedHandler implements AccessDeniedHandler {
                        @NonNull AccessDeniedException accessDeniedException) throws IOException {
 
         if (response.isCommitted()) return;
-        ApiResponse<?> apiResponse = ApiResponseEntity.forbidden("权限不足，无法访问该资源");
+        ApiResponseEntity<?> apiResponse = ApiResponseEntity.forbidden("权限不足，无法访问该资源");
 
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setCharacterEncoding("UTF-8");
 
-        String json = objectMapper.writeValueAsString(apiResponse);
+        String json = objectMapper.writeValueAsString(apiResponse.getBody());
         response.getWriter().write(json);
     }
 

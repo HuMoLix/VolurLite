@@ -59,20 +59,23 @@ import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
-import { useAuthFlowStore } from '@/store/modules/authFlow'
+import { useSigninFlowStore } from '@/store/modules/flow'
+import { useCardHeader } from '@/composables/useCardHeader'
 
 defineOptions({
   name: 'PwdChallengeView'
 })
 
+useCardHeader('欢迎', '')
+
 const router = useRouter()
-const authFlowStore = useAuthFlowStore()
+const signinFlowStore = useSigninFlowStore()
 
 const password = ref('')
 const showPassword = ref(false)
 const errorMsg = ref('')
 const isSubmitting = ref(false)
-const loading = computed(() => authFlowStore.loading)
+const loading = computed(() => signinFlowStore.loading)
 
 watch(password, () => {
   if (errorMsg.value) {
@@ -81,26 +84,24 @@ watch(password, () => {
 })
 
 function handleForgotPassword() {
-  if (authFlowStore.loading) return
+  if (signinFlowStore.loading) return
   window.$message.info('跳转至重置密码 /v1/recovery/challenge')
 }
 
 async function handleTryAnotherWayClick() {
-  if (authFlowStore.loading) return
-  await authFlowStore.triggerScrim(async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    await router.push({
-      path: '/v1/signin/challenge/selection',
-      query: authFlowStore.getQueryParams({
-        from: 'pwd',
-        page: '1'
-      })
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
+    path: '/v1/signin/challenge/selection',
+    query: signinFlowStore.getQueryParams({
+      from: 'pwd',
+      page: '1'
     })
-  }, 1000)
+  })
 }
 
 async function handleVerifyChallenge() {
-  if (authFlowStore.loading || isSubmitting.value) return
+  if (signinFlowStore.loading || isSubmitting.value) return
   isSubmitting.value = true
 
   try {
@@ -110,18 +111,18 @@ async function handleVerifyChallenge() {
     }
 
     try {
-      const res = await authFlowStore.submitChallenge('pwd', {
+      const res = await signinFlowStore.submitChallenge('pwd', {
         password: password.value,
         rememberMe: true
       })
 
       if (res.success) {
         window.$message?.success?.('登录成功！正在跳转至业务主页...')
-        router.push(res.redirect || authFlowStore.continueUrl || '/competitions')
+        router.push(res.redirect || signinFlowStore.continueUrl || '/competitions')
       } else if (res.nextStep) {
         router.push({
           path: `/v1/signin/challenge/${res.nextStep}`,
-          query: authFlowStore.getQueryParams()
+          query: signinFlowStore.getQueryParams()
         })
       }
     } catch (err: any) {

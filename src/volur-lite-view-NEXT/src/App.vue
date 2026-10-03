@@ -21,7 +21,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import {
   NConfigProvider,
   NLoadingBarProvider,
@@ -37,8 +38,64 @@ import {
 import NaiveProvider from '@/components/common/NaiveProvider.vue'
 import { useAppStore } from '@/store/modules/app'
 import { initDeviceFingerprint } from '@/utils/fingerprint'
+import { refreshTokenApi } from '@/api/auth'
 
 const appStore = useAppStore()
+const router = useRouter()
+const route = useRoute()
+
+let tokenRefreshTimer: ReturnType<typeof setInterval> | null = null
+let isTokenRenewing = false
+
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+async function inspectAndRenewToken() {
+  if (isTokenRenewing) return
+
+  const isLoggedIn = getCookie('logged_in') === 'true'
+  if (!isLoggedIn) return
+
+  const expStr = getCookie('access_exp')
+  if (!expStr) return
+
+  const exp = Number(expStr)
+  if (isNaN(exp)) return
+
+  const now = Date.now()
+  const remain = exp - now
+  const THRESHOLD = 5 * 60 * 1000
+
+  if (remain < THRESHOLD) {
+    isTokenRenewing = true
+    try {
+      await refreshTokenApi()
+    } catch {
+      const latestExpStr = getCookie('access_exp')
+      const latestExp = latestExpStr ? Number(latestExpStr) : 0
+      const latestRemain = latestExp > 0 ? latestExp - Date.now() : 0
+
+      if (latestRemain <= 0) {
+        const path = route.path
+        if (
+          !path.startsWith('/v1/signin') &&
+          !path.startsWith('/v1/signup') &&
+          path !== '/v1/info/sessionexpire'
+        ) {
+          router.push({
+            path: '/v1/signin/identifier',
+            query: { redirect: route.fullPath }
+          })
+        }
+      }
+    } finally {
+      isTokenRenewing = false
+    }
+  }
+}
 
 onMounted(() => {
   const launchRiskProbe = () => {
@@ -50,6 +107,16 @@ onMounted(() => {
     window.requestIdleCallback(() => launchRiskProbe(), { timeout: 2500 })
   } else {
     setTimeout(launchRiskProbe, 120)
+  }
+
+  inspectAndRenewToken()
+  tokenRefreshTimer = setInterval(inspectAndRenewToken, 15000)
+})
+
+onUnmounted(() => {
+  if (tokenRefreshTimer) {
+    clearInterval(tokenRefreshTimer)
+    tokenRefreshTimer = null
   }
 })
 

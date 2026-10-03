@@ -20,7 +20,7 @@ import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.auth.security.util.SecurityUtils;
 import com.humolix.volur.auth.service.TokenService;
-import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.notification.event.SecurityNotificationEvent;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
@@ -35,7 +35,7 @@ import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.sdk.CaptchaSDK;
 import com.humolix.volur.verification.service.EmailService;
-import io.jsonwebtoken.Claims;
+import org.springframework.security.oauth2.jwt.Jwt;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -221,45 +221,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthenticateResponseVO refreshToken(String refreshToken) {
-        if (!jwtUtil.validateRefreshToken(refreshToken)) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "无效或已过期的刷新令牌，请重新登录");
-        }
-
-        Claims claims = jwtUtil.getClaimsFromToken(refreshToken);
-        String oldJti = claims.getId();
-        if (tokenService.isTokenBlacklisted(oldJti)) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "会话已注销，请重新登录");
-        }
-
-        String username = claims.getSubject();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
-
-        if (!Boolean.TRUE.equals(user.getStatus())) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "账号已被封禁");
-        }
-
-        long iat = claims.getIssuedAt().getTime();
-        if (tokenService.isUserForceLoggedOut(user.getId(), iat)) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "会话已失效，请重新登录");
-        }
-
-        Boolean rememberMeClaim = claims.get("rememberMe", Boolean.class);
-        boolean rememberMe = Boolean.TRUE.equals(rememberMeClaim);
-
-        tokenService.blacklistToken(oldJti, claims.getExpiration().getTime());
-        String newJti = IdUtil.fastSimpleUUID();
-        String newAccessToken = jwtUtil.generateAccessTokenFromUser(user, newJti);
-        String newRefreshToken = jwtUtil.generateRefreshTokenFromUser(user, newJti, rememberMe);
-
-        return AuthenticateResponseVO.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
-                .build();
-    }
-
-    @Override
     public void processForgotPassword(ForgotPasswordRequestDTO request) {
         captchaSDK.verify(request.getCaptcha(), request.getUsername(), CaptchaScene.RESET_PASSWORD);
         processForgotPassword(request.getEmail(), request.getUsername());
@@ -397,34 +358,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(HttpServletRequest request) {
-        String token = jwtUtil.parseToken(request);
-        if (!StringUtils.hasText(token)) {
-            throw new TokenMissingException();
-        }
-
-        Claims claims;
-        try {
-            claims = jwtUtil.getClaimsFromToken(token);
-        } catch (Exception ex) {
-            throw new TokenInvalidException("令牌错误或已过期");
-        }
-
-        String jti = claims.getId();
-        if (tokenService.isTokenBlacklisted(jti)) {
-            throw new TokenAlreadyBlacklistedException();
-        }
-
-        try {
-            long expiration = claims.getExpiration().getTime();
-            tokenService.blacklistToken(jti, expiration);
-            SecurityUtils.logout();
-        } catch (Exception ex) {
-            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "登出失败: " + ex.getMessage());
-        }
-    }
-
-    @Override
     public void sendDeleteAccountEmail(EmailCaptchaRequestDTO request) {
         User user = SecurityUtils.getCurrentUser();
         if (user == null) {
@@ -481,7 +414,7 @@ public class AuthServiceImpl implements AuthService {
         tokenService.forceLogoutUser(user.getId());
 
         try {
-            logout(httpRequest);
+            tokenService.logout();
         } catch (Exception ignored) {
         }
         evictUserCache(oldUsername, oldEmail);

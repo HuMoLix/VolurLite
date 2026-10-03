@@ -6,6 +6,7 @@ import com.humolix.volur.auth.domain.dto.SignInChallengeRequestDTO;
 import com.humolix.volur.auth.domain.dto.SignInIdentifierRequestDTO;
 import com.humolix.volur.auth.domain.vo.ChallengeOptionVO;
 import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.auth.security.cookie.AuthCookieService;
 import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.auth.service.SigninService;
@@ -15,7 +16,8 @@ import com.humolix.volur.framework.common.exception.MaintenanceModeException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.security.domain.session.AuthFlowSession;
 import com.humolix.volur.security.flow.TransitionLockManager;
-import com.humolix.volur.security.service.ChallengeService;
+import com.humolix.volur.security.service.FlowCryptoService;
+import com.humolix.volur.security.service.RecaptchaService;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
@@ -44,7 +46,8 @@ import java.util.stream.Collectors;
 public class SigninServiceImpl implements SigninService {
 
     private final TransitionLockManager transitionLockManager;
-    private final ChallengeService challengeService;
+    private final RecaptchaService recaptchaService;
+    private final FlowCryptoService flowCryptoService;
     private final RiskEvaluationEngine riskEvaluationEngine;
     private final CaptchaSDK captchaSDK;
     private final UserRepository userRepository;
@@ -53,6 +56,7 @@ public class SigninServiceImpl implements SigninService {
     private final SystemSettingService systemSettingService;
     private final RedisOps redisOps;
     private final StringRedisTemplate redisTemplate;
+    private final AuthCookieService authCookieService;
 
     private static final String VREDIS_AUTH_LOGIN_ATTEMPTS_KEY_PREFIX = "vredis:auth:login_attempts:";
     private static final String VREDIS_AUTH_LOGIN_LOCK_KEY_PREFIX = "vredis:auth:login_lock:";
@@ -153,7 +157,7 @@ public class SigninServiceImpl implements SigninService {
                         ? request.getCaptchaTicket()
                         : request.getCaptchaCode();
 
-                if (!StringUtils.hasText(ticket) || !challengeService.validateAndBurnTicket(dsh, ticket)) {
+                if (!StringUtils.hasText(ticket) || !recaptchaService.validateAndBurnTicket(dsh, ticket)) {
                     riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "人机安全验证未通过或凭据已失效，请重试");
                 }
@@ -205,6 +209,10 @@ public class SigninServiceImpl implements SigninService {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "请输入密码");
                 }
 
+                String plainPassword = request.getPassword().startsWith("$V1$GCM$")
+                        ? flowCryptoService.decrypt(request.getPassword(), session.getFlowName(), session.getFlowEntry(), session.getDsh())
+                        : request.getPassword();
+
                 String cleanIdentifier = identifier.trim();
                 String lusername = cleanIdentifier.toLowerCase();
 
@@ -220,7 +228,7 @@ public class SigninServiceImpl implements SigninService {
                         .or(() -> userRepository.findByEmail(cleanIdentifier.toLowerCase()))
                         .orElse(null);
 
-                if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                if (user == null || !passwordEncoder.matches(plainPassword, user.getPassword())) {
                     riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
                     riskEvaluationEngine.recordAccountFailure(cleanIdentifier, CaptchaScene.LOGIN);
 
@@ -276,11 +284,10 @@ public class SigninServiceImpl implements SigninService {
                 String accessToken = jwtUtil.generateAccessTokenFromUser(user, jti);
                 String refreshToken = jwtUtil.generateRefreshTokenFromUser(user, jti, rememberMe);
 
+                authCookieService.writeAuthCookies(accessToken, refreshToken, rememberMe);
+
                 return SignInFlowResponseVO.builder()
                         .status("SUCCESS")
-                        .accessToken(accessToken)
-                        .refreshToken(refreshToken)
-                        .tokenType("Bearer")
                         .identifier(cleanIdentifier)
                         .build();
             }
@@ -303,11 +310,10 @@ public class SigninServiceImpl implements SigninService {
                 String accessToken = jwtUtil.generateAccessTokenFromUser(user, jti);
                 String refreshToken = jwtUtil.generateRefreshTokenFromUser(user, jti, rememberMe);
 
+                authCookieService.writeAuthCookies(accessToken, refreshToken, rememberMe);
+
                 return SignInFlowResponseVO.builder()
                         .status("SUCCESS")
-                        .accessToken(accessToken)
-                        .refreshToken(refreshToken)
-                        .tokenType("Bearer")
                         .identifier(identifier)
                         .build();
             }

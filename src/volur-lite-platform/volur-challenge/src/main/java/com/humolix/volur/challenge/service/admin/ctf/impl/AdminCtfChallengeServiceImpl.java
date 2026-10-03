@@ -1,9 +1,10 @@
 package com.humolix.volur.challenge.service.admin.ctf.impl;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
-import com.alibaba.fastjson2.JSONObject;
-import com.alibaba.fastjson2.JSONWriter;
+import com.humolix.volur.framework.common.util.JsonUtils;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.humolix.volur.challenge.domain.dto.ctf.CtfAttachmentDTO;
 import com.humolix.volur.challenge.domain.dto.ctf.CtfChallengeCreateRequestDTO;
 import com.humolix.volur.challenge.domain.dto.ctf.CtfChallengeUpdateRequestDTO;
@@ -74,6 +75,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
     private final StorageService storageService;
     private final SystemSettingService systemSettingService;
     private final ApplicationEventPublisher eventPublisher;
+    private final ObjectMapper objectMapper;
 
     @Override
     public PageResponse<CtfChallengeListVO> listChallenges(Integer page, Integer size, Long categoryId, String name) {
@@ -121,7 +123,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
         String firstAttachmentName = request.getAttachmentName();
 
         if (request.getAttachments() != null && !request.getAttachments().isEmpty()) {
-            attachmentsJson = JSON.toJSONString(request.getAttachments());
+            attachmentsJson = JsonUtils.toJsonString(request.getAttachments());
             if (!StringUtils.hasText(firstAttachmentUrl)) {
                 firstAttachmentUrl = request.getAttachments().get(0).getUrl();
             }
@@ -134,7 +136,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                     firstAttachmentUrl,
                     null
             ));
-            attachmentsJson = JSON.toJSONString(singleList);
+            attachmentsJson = JsonUtils.toJsonString(singleList);
         }
 
         CtfChallenge challenge = CtfChallenge.builder()
@@ -202,7 +204,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                 challenge.setAttachmentUrl(null);
                 challenge.setAttachmentName(null);
             } else {
-                challenge.setAttachments(JSON.toJSONString(request.getAttachments()));
+                challenge.setAttachments(JsonUtils.toJsonString(request.getAttachments()));
                 challenge.setAttachmentUrl(request.getAttachments().get(0).getUrl());
                 challenge.setAttachmentName(request.getAttachments().get(0).getName());
             }
@@ -210,7 +212,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
             if (request.getAttachmentUrl() != null) challenge.setAttachmentUrl(request.getAttachmentUrl());
             if (request.getAttachmentName() != null) challenge.setAttachmentName(request.getAttachmentName());
             if (StringUtils.hasText(challenge.getAttachmentUrl()) && !StringUtils.hasText(challenge.getAttachments())) {
-                challenge.setAttachments(JSON.toJSONString(List.of(new CtfAttachmentDTO(
+                challenge.setAttachments(JsonUtils.toJsonString(List.of(new CtfAttachmentDTO(
                         StringUtils.hasText(challenge.getAttachmentName()) ? challenge.getAttachmentName() : "附件文件",
                         challenge.getAttachmentUrl(),
                         null
@@ -268,8 +270,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
             response.setHeader("Content-Disposition", "attachment; filename=\"" + URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20") + "\"");
 
             try (ZipOutputStream zos = new ZipOutputStream(response.getOutputStream(), StandardCharsets.UTF_8)) {
-                // 1. 标准 challenge.json 元数据
-                JSONObject chalObj = new JSONObject();
+                ObjectNode chalObj = objectMapper.createObjectNode();
                 chalObj.put("Name", "示例题目-Web基础");
                 chalObj.put("Description", "### 题目描述\n\n这是一个用于演示 Volur 平台标准赛题包结构的示例题目。\n\n- 支持 Markdown 语法\n- 支持配置静态/动态靶机\n- 支持附带静态附件");
                 chalObj.put("Category", "Web");
@@ -277,27 +278,27 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                 chalObj.put("Author", "Admin");
                 chalObj.put("Difficulty", "Easy");
 
-                JSONObject dynamicType = new JSONObject();
+                ObjectNode dynamicType = objectMapper.createObjectNode();
                 dynamicType.put("Mode", "Static");
                 dynamicType.put("Flag", "flag{volur_standard_ctf_template_sample}");
-                chalObj.put("DynamicType", dynamicType);
+                chalObj.set("DynamicType", dynamicType);
 
-                JSONObject container = new JSONObject();
+                ObjectNode container = objectMapper.createObjectNode();
                 container.put("ContainerImage", "ctftraining/helloworld:latest");
                 container.put("ContainerExposePort", 80);
                 container.put("CPULimit", 1);
                 container.put("MemoryLimit", 128);
-                chalObj.put("Container", container);
+                chalObj.set("Container", container);
 
-                JSONArray atts = new JSONArray();
-                JSONObject att = new JSONObject();
+                ArrayNode atts = objectMapper.createArrayNode();
+                ObjectNode att = objectMapper.createObjectNode();
                 att.put("Path", "attachment.txt");
                 atts.add(att);
-                chalObj.put("Attachments", atts);
+                chalObj.set("Attachments", atts);
 
-                JSONObject root = new JSONObject();
-                root.put("Challenge", chalObj);
-                byte[] jsonBytes = root.toString(JSONWriter.Feature.PrettyFormat).getBytes(StandardCharsets.UTF_8);
+                ObjectNode root = objectMapper.createObjectNode();
+                root.set("Challenge", chalObj);
+                byte[] jsonBytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
 
                 zos.putNextEntry(new ZipEntry("challenge.json"));
                 zos.write(jsonBytes);
@@ -388,16 +389,10 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
 
         try {
             byte[] jsonBytes = allFiles.get(jsonKey);
-            JSONObject root = JSON.parseObject(new String(jsonBytes, StandardCharsets.UTF_8));
-            JSONObject chal = root.getJSONObject("Challenge");
-            if (chal == null) {
-                chal = root;
-            }
+            JsonNode root = objectMapper.readTree(jsonBytes);
+            JsonNode chal = root.hasNonNull("Challenge") ? root.get("Challenge") : root;
 
-            String chalName = chal.getString("Name");
-            if (!StringUtils.hasText(chalName)) {
-                chalName = chal.getString("name");
-            }
+            String chalName = chal.hasNonNull("Name") ? chal.get("Name").asText() : (chal.hasNonNull("name") ? chal.get("name").asText() : null);
             if (!StringUtils.hasText(chalName) && lastSlash > 0) {
                 chalName = jsonKey.substring(0, lastSlash);
                 if (chalName.contains("/")) {
@@ -413,12 +408,10 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                     errors.add("题目【" + chalName + "】导入失败: 数据库中已存在同名题目");
                     failedCount++;
                 } else {
-                    String desc = chal.getString("Description");
-                    if (desc == null) desc = chal.getString("description");
+                    String desc = chal.hasNonNull("Description") ? chal.get("Description").asText() : (chal.hasNonNull("description") ? chal.get("description").asText() : null);
 
                     // 分类解析与自动创建
-                    String catName = chal.getString("Category");
-                    if (catName == null) catName = chal.getString("category");
+                    String catName = chal.hasNonNull("Category") ? chal.get("Category").asText() : (chal.hasNonNull("category") ? chal.get("category").asText() : null);
                     if (!StringUtils.hasText(catName)) catName = "Misc";
                     final String finalCatName = catName.trim();
                     CtfChallengeCategory category = categoryRepository.findByNameIgnoreCase(finalCatName)
@@ -430,32 +423,28 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                     ChallengeDifficulty difficulty = parseDifficulty(chal);
 
                     // Flag & 模式解析
-                    JSONObject dynamicType = chal.getJSONObject("DynamicType");
-                    if (dynamicType == null) dynamicType = chal.getJSONObject("dynamicType");
-                    String mode = dynamicType != null ? dynamicType.getString("Mode") : chal.getString("Mode");
-                    String flag = dynamicType != null ? dynamicType.getString("Flag") : chal.getString("Flag");
-                    if (!StringUtils.hasText(flag) && dynamicType != null) {
-                        flag = dynamicType.getString("FlagTemplate");
+                    JsonNode dynamicType = chal.hasNonNull("DynamicType") ? chal.get("DynamicType") : chal.get("dynamicType");
+                    String mode = dynamicType != null && dynamicType.hasNonNull("Mode") ? dynamicType.get("Mode").asText() : (chal.hasNonNull("Mode") ? chal.get("Mode").asText() : null);
+                    String flag = dynamicType != null && dynamicType.hasNonNull("Flag") ? dynamicType.get("Flag").asText() : (chal.hasNonNull("Flag") ? chal.get("Flag").asText() : null);
+                    if (!StringUtils.hasText(flag) && dynamicType != null && dynamicType.hasNonNull("FlagTemplate")) {
+                        flag = dynamicType.get("FlagTemplate").asText();
                     }
-                    if (!StringUtils.hasText(flag)) {
-                        flag = chal.getString("flag");
+                    if (!StringUtils.hasText(flag) && chal.hasNonNull("flag")) {
+                        flag = chal.get("flag").asText();
                     }
 
                     // 容器解析
-                    JSONObject container = chal.getJSONObject("Container");
-                    if (container == null) container = chal.getJSONObject("container");
-                    String imageName = container != null ? container.getString("ContainerImage") : chal.getString("imageName");
-                    Integer containerPort = container != null ? container.getInteger("ContainerExposePort") : chal.getInteger("containerPort");
+                    JsonNode container = chal.hasNonNull("Container") ? chal.get("Container") : chal.get("container");
+                    String imageName = container != null && container.hasNonNull("ContainerImage") ? container.get("ContainerImage").asText() : (chal.hasNonNull("imageName") ? chal.get("imageName").asText() : null);
+                    Integer containerPort = container != null && container.hasNonNull("ContainerExposePort") ? container.get("ContainerExposePort").asInt() : (chal.hasNonNull("containerPort") ? chal.get("containerPort").asInt() : null);
                     Integer cpuLimit = 1;
                     Integer memoryLimit = 128;
                     if (container != null) {
-                        if (container.getInteger("CPULimit") != null) {
-                            cpuLimit = container.getInteger("CPULimit");
-                        } else if (container.getDouble("CPULimit") != null) {
-                            cpuLimit = (int) Math.ceil(container.getDouble("CPULimit"));
+                        if (container.hasNonNull("CPULimit")) {
+                            cpuLimit = (int) Math.ceil(container.get("CPULimit").asDouble());
                         }
-                        if (container.getInteger("MemoryLimit") != null) {
-                            memoryLimit = container.getInteger("MemoryLimit");
+                        if (container.hasNonNull("MemoryLimit")) {
+                            memoryLimit = container.get("MemoryLimit").asInt();
                         }
                     }
 
@@ -469,14 +458,11 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                     List<CtfAttachmentVO> importedAttachments = new ArrayList<>();
 
                     // 1. 先看 Attachments 配置中的文件路径
-                    JSONArray atts = chal.getJSONArray("Attachments");
-                    if (atts != null && !atts.isEmpty()) {
+                    JsonNode atts = chal.get("Attachments");
+                    if (atts != null && atts.isArray() && !atts.isEmpty()) {
                         for (int i = 0; i < atts.size(); i++) {
-                            JSONObject attItem = atts.getJSONObject(i);
-                            String pathInJson = attItem.getString("Path");
-                            if (!StringUtils.hasText(pathInJson)) {
-                                pathInJson = attItem.getString("Name");
-                            }
+                            JsonNode attItem = atts.get(i);
+                            String pathInJson = attItem.hasNonNull("Path") ? attItem.get("Path").asText() : (attItem.hasNonNull("Name") ? attItem.get("Name").asText() : null);
                             if (StringUtils.hasText(pathInJson)) {
                                 String attName = Paths.get(pathInJson).getFileName().toString();
                                 byte[] attBytes = null;
@@ -535,7 +521,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
 
                     String attachmentName = !importedAttachments.isEmpty() ? importedAttachments.get(0).getName() : null;
                     String attachmentUrl = !importedAttachments.isEmpty() ? importedAttachments.get(0).getUrl() : null;
-                    String attachmentsJson = !importedAttachments.isEmpty() ? JSON.toJSONString(importedAttachments) : null;
+                    String attachmentsJson = !importedAttachments.isEmpty() ? JsonUtils.toJsonString(importedAttachments) : null;
 
                     // 创建并保存实体
                     CtfChallenge newChal = CtfChallenge.builder()
@@ -616,8 +602,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                 for (CtfChallenge challenge : challenges) {
                     String folder = challenge.getName() + "/";
 
-                    // 1. 生成符合平台的标准 build.json
-                    JSONObject chalObj = new JSONObject();
+                    ObjectNode chalObj = objectMapper.createObjectNode();
                     chalObj.put("Name", challenge.getName());
                     chalObj.put("Description", challenge.getDescription());
                     chalObj.put("Category", challenge.getCategoryName() != null ? challenge.getCategoryName() : "Misc");
@@ -625,27 +610,26 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                     chalObj.put("Author", challenge.getAuthor() != null ? challenge.getAuthor().getUsername() : "Admin");
                     chalObj.put("Difficulty", mapDifficultyToString(challenge.getDifficulty()));
 
-                    JSONObject dynamicType = new JSONObject();
+                    ObjectNode dynamicType = objectMapper.createObjectNode();
                     dynamicType.put("Mode", challenge.getType() == ChallengeType.STATIC ? "Static" : "Dynamic");
                     if (StringUtils.hasText(challenge.getFlag())) {
                         dynamicType.put("Flag", challenge.getFlag());
                     }
-                    chalObj.put("DynamicType", dynamicType);
+                    chalObj.set("DynamicType", dynamicType);
 
                     if (StringUtils.hasText(challenge.getImageName())) {
-                        JSONObject container = new JSONObject();
+                        ObjectNode container = objectMapper.createObjectNode();
                         container.put("ContainerImage", challenge.getImageName());
                         container.put("ContainerExposePort", challenge.getContainerPort() != null ? challenge.getContainerPort() : 8000);
                         container.put("CPULimit", challenge.getCpuLimit() != null ? challenge.getCpuLimit() : 1);
                         container.put("MemoryLimit", challenge.getMemoryLimit() != null ? challenge.getMemoryLimit() : 128);
-                        chalObj.put("Container", container);
+                        chalObj.set("Container", container);
                     }
 
-                    // 导出附件列表解析
                     List<CtfAttachmentVO> exportAtts = new ArrayList<>();
                     if (StringUtils.hasText(challenge.getAttachments())) {
                         try {
-                            List<CtfAttachmentVO> parsed = JSON.parseArray(challenge.getAttachments(), CtfAttachmentVO.class);
+                            List<CtfAttachmentVO> parsed = JsonUtils.parseList(challenge.getAttachments(), CtfAttachmentVO.class);
                             if (parsed != null) exportAtts.addAll(parsed);
                         } catch (Exception ignored) {}
                     }
@@ -657,26 +641,25 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
                     }
 
                     if (!exportAtts.isEmpty()) {
-                        JSONArray atts = new JSONArray();
+                        ArrayNode atts = objectMapper.createArrayNode();
                         for (CtfAttachmentVO attVO : exportAtts) {
                             if (StringUtils.hasText(attVO.getName())) {
-                                JSONObject att = new JSONObject();
+                                ObjectNode att = objectMapper.createObjectNode();
                                 att.put("Path", attVO.getName());
                                 atts.add(att);
                             }
                         }
-                        chalObj.put("Attachments", atts);
+                        chalObj.set("Attachments", atts);
                     }
 
-                    JSONObject root = new JSONObject();
-                    root.put("Challenge", chalObj);
-                    byte[] jsonBytes = root.toString(JSONWriter.Feature.PrettyFormat).getBytes(StandardCharsets.UTF_8);
+                    ObjectNode root = objectMapper.createObjectNode();
+                    root.set("Challenge", chalObj);
+                    byte[] jsonBytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(root);
 
                     zos.putNextEntry(new ZipEntry(folder + "challenge.json"));
                     zos.write(jsonBytes);
                     zos.closeEntry();
 
-                    // 2. 导出所有附件内容
                     for (CtfAttachmentVO attVO : exportAtts) {
                         if (StringUtils.hasText(attVO.getUrl()) && StringUtils.hasText(attVO.getName())) {
                             byte[] attBytes = loadAttachmentBytes(attVO.getUrl(), baseDir);
@@ -748,10 +731,17 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
         return path.contains("__MACOSX/") || name.equals(".ds_store") || name.startsWith("._") || name.endsWith(".git");
     }
 
-    private ChallengeDifficulty parseDifficulty(JSONObject chal) {
-        Object diffObj = chal.get("Difficulty");
-        if (diffObj == null) diffObj = chal.get("difficulty");
-        return ChallengeDifficulty.fromValue(diffObj);
+    private ChallengeDifficulty parseDifficulty(JsonNode chal) {
+        JsonNode diffNode = chal.hasNonNull("Difficulty") ? chal.get("Difficulty") : chal.get("difficulty");
+        if (diffNode == null || diffNode.isNull() || diffNode.isMissingNode()) {
+            return ChallengeDifficulty.EASY;
+        }
+        if (diffNode.isNumber()) {
+            ChallengeDifficulty diff = ChallengeDifficulty.fromCode(diffNode.asInt());
+            return diff != null ? diff : ChallengeDifficulty.EASY;
+        }
+        ChallengeDifficulty diff = ChallengeDifficulty.fromValue(diffNode.asText());
+        return diff != null ? diff : ChallengeDifficulty.EASY;
     }
 
     private String mapDifficultyToString(ChallengeDifficulty diff) {

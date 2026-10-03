@@ -88,7 +88,29 @@ CREATE TABLE IF NOT EXISTS `risk_ip_rule` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------
--- 4. 存储过程执行表结构增量与字段迁移 (幂等执行)
+-- 4. 新增数据表：WebAuthn 通行密钥凭证表 (Passkey Credentials)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `user_credentials` (
+  `credential_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_entity_user_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `public_key` blob NOT NULL,
+  `signature_count` bigint NOT NULL DEFAULT 0,
+  `uv_initialized` tinyint(1) NOT NULL DEFAULT 0,
+  `backup_eligible` tinyint(1) NOT NULL DEFAULT 0,
+  `authenticator_transports` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `public_key_credential_type` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'public-key',
+  `backup_state` tinyint(1) NOT NULL DEFAULT 0,
+  `attestation_object` longblob,
+  `attestation_client_data_json` longblob,
+  `created` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_used` timestamp NULL DEFAULT NULL,
+  `label` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`credential_id`),
+  KEY `idx_user_credentials_user_id` (`user_entity_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------------------
+-- 5. 存储过程执行表结构增量与字段迁移 (幂等执行)
 -- ------------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS `migrate_volur_schema_20260921`;
 
@@ -274,6 +296,14 @@ BEGIN
             ALTER TABLE `competition_team_invitation`
             ADD CONSTRAINT `fk_invitation_team` FOREIGN KEY (`team_id`) REFERENCES `competition_team` (`id`) ON DELETE CASCADE;
         END IF;
+    END IF;
+
+    -- 3.11 user_credentials 表：修复 public_key 字段类型为 BLOB (适配 Spring Security WebAuthn 二进制公钥)
+    IF EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_credentials' AND COLUMN_NAME = 'public_key' AND DATA_TYPE NOT IN ('blob', 'mediumblob', 'longblob')
+    ) THEN
+        ALTER TABLE `user_credentials` MODIFY COLUMN `public_key` blob NOT NULL;
     END IF;
 
 END //

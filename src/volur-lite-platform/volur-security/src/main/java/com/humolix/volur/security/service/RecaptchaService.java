@@ -4,7 +4,7 @@ import com.humolix.volur.security.domain.dto.RecaptchaVerifyRequestDTO;
 import com.humolix.volur.security.domain.vo.RecaptchaChallengeVO;
 import com.humolix.volur.security.domain.vo.RecaptchaVerifyResponseVO;
 
-public interface ChallengeService {
+public interface RecaptchaService {
 
     RecaptchaChallengeVO getRecaptchaChallenge(String dsh, String tl);
 

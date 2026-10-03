@@ -9,8 +9,8 @@
         v-model:passed="isRecaptchaPassed"
         v-model:token="recaptchaToken"
         v-model:ticket="recaptchaTicket"
-        :dsh="authFlowStore.dsh"
-        :tl="authFlowStore.tl"
+        :dsh="signinFlowStore.dsh"
+        :tl="signinFlowStore.tl"
         v-model:error-msg="recaptchaError"
         @success="handleRecaptchaSuccess"
         @error="handleRecaptchaError"
@@ -43,21 +43,24 @@ import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
 import Recaptcha from '@/components/security/recaptcha.vue'
-import { useAuthFlowStore } from '@/store/modules/authFlow'
+import { useSigninFlowStore } from '@/store/modules/flow'
+import { useCardHeader } from '@/composables/useCardHeader'
 
 defineOptions({
   name: 'RecaptchaChallengeView'
 })
 
+useCardHeader('安全核验', '为了保护您的账号安全，请完成以下人机身份验证')
+
 const router = useRouter()
-const authFlowStore = useAuthFlowStore()
+const signinFlowStore = useSigninFlowStore()
 
 const isRecaptchaPassed = ref(false)
 const recaptchaToken = ref('')
 const recaptchaTicket = ref('')
 const recaptchaError = ref('')
 const isSubmitting = ref(false)
-const loading = computed(() => authFlowStore.loading)
+const loading = computed(() => signinFlowStore.loading)
 
 watch(isRecaptchaPassed, (val) => {
   if (val && recaptchaError.value) {
@@ -76,21 +79,19 @@ function handleRecaptchaError(err: string): void {
 }
 
 async function handleTryAnotherWayClick() {
-  if (authFlowStore.loading) return
-  await authFlowStore.triggerScrim(async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    const msg = 'Volur 无法验证此账号归您所有。请稍后重试，或前往“账号恢复”页面寻求帮助。'
-    await router.push({
-      path: '/v1/signin/challenge/rejected',
-      query: authFlowStore.getQueryParams({
-        rejectedmsg: encodeURIComponent(msg)
-      })
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  const msg = 'Volur 无法验证此账号归您所有。请稍后重试，或前往“账号恢复”页面寻求帮助。'
+  await router.push({
+    path: '/v1/signin/challenge/rejected',
+    query: signinFlowStore.getQueryParams({
+      rejectedmsg: encodeURIComponent(msg)
     })
-  }, 1000)
+  })
 }
 
 async function handleVerifyChallenge() {
-  if (authFlowStore.loading || isSubmitting.value) return
+  if (signinFlowStore.loading || isSubmitting.value) return
   isSubmitting.value = true
 
   try {
@@ -100,38 +101,40 @@ async function handleVerifyChallenge() {
     }
 
     try {
-      const res = await authFlowStore.submitChallenge('recaptcha', {
+      const res = await signinFlowStore.submitChallenge('recaptcha', {
         captchaTicket: recaptchaTicket.value,
         captchaCode: recaptchaTicket.value
       })
 
       if (res.nextStep === 'identifier') {
         const errorText = res.errorMessage || '用户名或邮箱不存在'
-        authFlowStore.setAccountError(errorText)
+        signinFlowStore.setAccountError(errorText)
         router.replace({
           path: '/v1/signin/identifier',
           query: {
-            ...authFlowStore.getQueryParams(),
+            ...signinFlowStore.getQueryParams(),
             accountError: errorText
           }
         })
         return
       }
 
-      const nextStep = res.nextStep || 'pwd'
+      if (!res.nextStep) {
+        throw new Error('服务端未返回下一步挑战流程')
+      }
       router.push({
-        path: `/v1/signin/challenge/${nextStep}`,
-        query: authFlowStore.getQueryParams()
+        path: `/v1/signin/challenge/${res.nextStep}`,
+        query: signinFlowStore.getQueryParams()
       })
     } catch (err: any) {
       const msg = err?.message || ''
       if (msg.includes('用户名或邮箱不存在') || msg.includes('不存在')) {
         const errorText = msg || '用户名或邮箱不存在'
-        authFlowStore.setAccountError(errorText)
+        signinFlowStore.setAccountError(errorText)
         router.replace({
           path: '/v1/signin/identifier',
           query: {
-            ...authFlowStore.getQueryParams(),
+            ...signinFlowStore.getQueryParams(),
             accountError: errorText
           }
         })

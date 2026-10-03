@@ -4,6 +4,7 @@ import com.humolix.volur.auth.security.crypto.Sm3AuthProvider;
 import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.exception.SecurityAccessDeniedHandler;
 import com.humolix.volur.auth.security.exception.SecurityAuthenticationEntryPoint;
+import com.humolix.volur.auth.security.filter.CsrfProtectionFilter;
 import com.humolix.volur.auth.security.filter.MaintenanceModeFilter;
 import com.humolix.volur.auth.security.filter.RiskIpFilter;
 import com.humolix.volur.auth.security.jwt.JwtAuthFilter;
@@ -22,11 +23,12 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.framework.common.util.RequestUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -41,6 +43,7 @@ public class SecurityConfig {
     private final Sm3AuthProvider sm3AuthProvider;
     private final Sm3PasswordEncoder sm3PasswordEncoder;
     private final JwtAuthFilter jwtAuthFilter;
+    private final CsrfProtectionFilter csrfProtectionFilter;
     private final MaintenanceModeFilter maintenanceModeFilter;
     private final RiskIpFilter riskIpFilter;
     private final SecurityAccessDeniedHandler securityAccessDeniedHandler;
@@ -77,7 +80,7 @@ public class SecurityConfig {
                 configuration.setAllowedOrigins(List.of(origin));
                 configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
                 configuration.setAllowedHeaders(List.of("*"));
-                configuration.setAllowCredentials(false);
+                configuration.setAllowCredentials(true);
                 configuration.setMaxAge(3600L);
                 return configuration;
             }
@@ -111,9 +114,10 @@ public class SecurityConfig {
                         .authenticationEntryPoint(securityAuthenticationEntryPoint)
                         .accessDeniedHandler(securityAccessDeniedHandler)
                 )
+                .addFilterBefore(riskIpFilter, CsrfFilter.class)
+                .addFilterAfter(csrfProtectionFilter, CsrfFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(riskIpFilter, JwtAuthFilter.class)
-                .addFilterAfter(maintenanceModeFilter, JwtAuthFilter.class);
+                .addFilterAfter(maintenanceModeFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

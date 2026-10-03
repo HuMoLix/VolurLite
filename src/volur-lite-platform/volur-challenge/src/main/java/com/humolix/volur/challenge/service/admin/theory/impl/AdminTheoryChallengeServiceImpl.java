@@ -1,9 +1,9 @@
 package com.humolix.volur.challenge.service.admin.theory.impl;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONArray;
-import com.alibaba.fastjson2.JSONObject;
-import com.alibaba.fastjson2.JSONWriter;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.humolix.volur.challenge.domain.dto.theory.TheoryChallengeCreateRequestDTO;
 import com.humolix.volur.challenge.domain.dto.theory.TheoryChallengeUpdateRequestDTO;
 import com.humolix.volur.challenge.domain.entity.theory.TheoryChallenge;
@@ -49,6 +49,7 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
     private final UserRepository userRepository;
     private final ChallengeMapper challengeMapper;
     private final VolurThreadManager volurThreadManager;
+    private final ObjectMapper objectMapper;
 
     @Override
     public PageResponse<TheoryChallengeListVO> listChallenges(Integer page, Integer size, TheoryType type, String category, String keyword) {
@@ -189,32 +190,37 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
             throw new BusinessException(HttpStatus.BAD_REQUEST, "未读取到有效的 JSON 题目数据内容");
         }
 
-        JSONArray array;
+        List<JsonNode> items = new ArrayList<>();
         try {
-            Object parsed = JSON.parse(jsonContent);
-            if (parsed instanceof JSONArray arr) {
-                array = arr;
-            } else if (parsed instanceof JSONObject obj) {
-                if (obj.containsKey("questions")) {
-                    array = obj.getJSONArray("questions");
+            JsonNode parsed = objectMapper.readTree(jsonContent);
+            if (parsed.isArray()) {
+                for (JsonNode node : parsed) {
+                    items.add(node);
+                }
+            } else if (parsed.isObject()) {
+                if (parsed.hasNonNull("questions") && parsed.get("questions").isArray()) {
+                    for (JsonNode node : parsed.get("questions")) {
+                        items.add(node);
+                    }
                 } else {
-                    array = new JSONArray();
-                    array.add(obj);
+                    items.add(parsed);
                 }
             } else {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "JSON 题目格式不符合规范");
             }
+        } catch (BusinessException be) {
+            throw be;
         } catch (Exception e) {
             log.error("[AdminTheoryChallengeService] 解析理论题库 JSON 语法错误", e);
             throw new BusinessException(HttpStatus.BAD_REQUEST, "解析题目 JSON 语法错误: " + e.getMessage());
         }
 
-        for (int i = 0; i < array.size(); i++) {
-            JSONObject item = array.getJSONObject(i);
+        for (int i = 0; i < items.size(); i++) {
+            JsonNode item = items.get(i);
             try {
-                String name = item.getString("name");
-                if (!StringUtils.hasText(name)) {
-                    name = item.getString("title");
+                String name = item.hasNonNull("name") ? item.get("name").asText() : null;
+                if (!StringUtils.hasText(name) && item.hasNonNull("title")) {
+                    name = item.get("title").asText();
                 }
                 if (!StringUtils.hasText(name)) {
                     errors.add("第 " + (i + 1) + " 条题目名称不能为空");
@@ -229,9 +235,9 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
                     continue;
                 }
 
-                String content = item.getString("content");
-                if (!StringUtils.hasText(content)) {
-                    content = item.getString("question");
+                String content = item.hasNonNull("content") ? item.get("content").asText() : null;
+                if (!StringUtils.hasText(content) && item.hasNonNull("question")) {
+                    content = item.get("question").asText();
                 }
                 if (!StringUtils.hasText(content)) {
                     errors.add("题目【" + name + "】题干内容不能为空");
@@ -239,9 +245,9 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
                     continue;
                 }
 
-                String standardAnswer = item.getString("standardAnswer");
-                if (!StringUtils.hasText(standardAnswer)) {
-                    standardAnswer = item.getString("answer");
+                String standardAnswer = item.hasNonNull("standardAnswer") ? item.get("standardAnswer").asText() : null;
+                if (!StringUtils.hasText(standardAnswer) && item.hasNonNull("answer")) {
+                    standardAnswer = item.get("answer").asText();
                 }
                 if (!StringUtils.hasText(standardAnswer)) {
                     errors.add("题目【" + name + "】标准答案不能为空");
@@ -249,16 +255,17 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
                     continue;
                 }
 
-                TheoryType type = parseTheoryType(item.getString("type"));
-                String options = item.getString("options");
-                if (options == null && item.containsKey("choices")) {
-                    options = item.get("choices").toString();
+                TheoryType type = parseTheoryType(item.hasNonNull("type") ? item.get("type").asText() : null);
+                String options = item.hasNonNull("options") ? item.get("options").asText() : null;
+                if (options == null && item.hasNonNull("choices")) {
+                    JsonNode choicesNode = item.get("choices");
+                    options = choicesNode.isTextual() ? choicesNode.asText() : choicesNode.toString();
                 }
 
-                String explanation = item.getString("explanation");
-                Integer score = item.getInteger("score") != null ? item.getInteger("score") : 5;
-                Integer difficulty = item.getInteger("difficulty") != null ? item.getInteger("difficulty") : 1;
-                String category = item.getString("category");
+                String explanation = item.hasNonNull("explanation") ? item.get("explanation").asText() : null;
+                Integer score = item.hasNonNull("score") && item.get("score").isNumber() ? item.get("score").asInt() : 5;
+                Integer difficulty = item.hasNonNull("difficulty") && item.get("difficulty").isNumber() ? item.get("difficulty").asInt() : 1;
+                String category = item.hasNonNull("category") ? item.get("category").asText() : null;
                 if (!StringUtils.hasText(category)) {
                     category = "理论知识";
                 }
@@ -287,7 +294,7 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
         }
 
         return ChallengeImportResultVO.builder()
-                .totalCount(array.size())
+                .totalCount(items.size())
                 .successCount(successCount)
                 .failedCount(failedCount)
                 .errors(errors)
@@ -308,9 +315,9 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
             throw new BusinessException(HttpStatus.NOT_FOUND, "没有找到可供导出的理论题目");
         }
 
-        JSONArray array = new JSONArray();
+        ArrayNode array = objectMapper.createArrayNode();
         for (TheoryChallenge tc : list) {
-            JSONObject obj = new JSONObject();
+            ObjectNode obj = objectMapper.createObjectNode();
             obj.put("name", tc.getName());
             obj.put("category", tc.getCategory());
             obj.put("type", tc.getType() != null ? tc.getType().name() : "SINGLE_CHOICE");
@@ -327,7 +334,7 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
             response.setContentType("application/json;charset=UTF-8");
             String fileName = "theory-challenges-export.json";
             response.setHeader("Content-Disposition", "attachment; filename=\"" + URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20") + "\"");
-            byte[] bytes = array.toString(JSONWriter.Feature.PrettyFormat).getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(array);
             response.getOutputStream().write(bytes);
             response.getOutputStream().flush();
         } catch (IOException e) {

@@ -1,5 +1,6 @@
 package com.humolix.volur.framework.security.util;
 
+import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.framework.security.CurrentUserSchema;
 import com.humolix.volur.framework.security.UserIdentity;
 import org.springframework.security.core.Authentication;
@@ -10,23 +11,12 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * 全局安全与请求执行上下文工具类
- * <p>
- * 提供请求范围内的用户身份与实时网络环境快照获取功能，作为全系统用户上下文统一门面。
- * </p>
- */
 public final class SecurityContextUtil {
 
     private SecurityContextUtil() {
         throw new UnsupportedOperationException("Utility class");
     }
 
-    /**
-     * 获取当前执行上下文的用户快照 Schema (永不为 null)
-     *
-     * @return 包含实时 IP、身份 ID、用户名、认证状态及角色列表的上下文快照
-     */
     public static CurrentUserSchema getCurrentUserSchema() {
         String remoteIp = RequestUtil.getRemoteIp();
 

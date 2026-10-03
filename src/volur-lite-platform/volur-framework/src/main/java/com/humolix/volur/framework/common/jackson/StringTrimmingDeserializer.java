@@ -1,21 +1,13 @@
 package com.humolix.volur.framework.common.jackson;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.BeanProperty;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.humolix.volur.framework.common.annotation.Trimmed;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.BeanProperty;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
 
-import java.io.IOException;
-
-/**
- * Jackson 字符串就地高效清洗反序列化器
- * <p>
- * 基于 {@link ContextualDeserializer} 实现启动期一次性参数解析与实例缓存，运行时零反射开销。
- * </p>
- */
-public class StringTrimmingDeserializer extends JsonDeserializer<String> implements ContextualDeserializer {
+public class StringTrimmingDeserializer extends ValueDeserializer<String> {
 
     private final boolean toLowerCase;
     private final boolean emptyToNull;
@@ -30,7 +22,7 @@ public class StringTrimmingDeserializer extends JsonDeserializer<String> impleme
     }
 
     @Override
-    public String deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+    public String deserialize(JsonParser p, DeserializationContext ctxt) throws JacksonException {
         String value = p.getValueAsString();
         if (value == null) {
             return null;
@@ -46,7 +38,7 @@ public class StringTrimmingDeserializer extends JsonDeserializer<String> impleme
     }
 
     @Override
-    public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) {
+    public ValueDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) {
         if (property == null) {
             return this;
         }
@@ -59,4 +51,5 @@ public class StringTrimmingDeserializer extends JsonDeserializer<String> impleme
         }
         return this;
     }
+
 }

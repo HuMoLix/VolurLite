@@ -1,6 +1,6 @@
 package com.humolix.volur.notification.service.impl;
 
-import com.alibaba.fastjson2.JSON;
+import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.id.generator.SnowflakeIdGenerator;
 import com.humolix.volur.notification.domain.bo.RealtimeMessageBO;
 import com.humolix.volur.notification.domain.dto.BroadcastMessageDTO;
@@ -26,6 +26,7 @@ public class RealtimePushServiceImpl implements RealtimePushService {
     private final StringRedisTemplate redisTemplate;
     private final SnowflakeIdGenerator snowflakeIdGenerator;
     private final NotificationMapper notificationMapper;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void pushNotification(Long userId, NotificationVO notificationVO) {
@@ -122,8 +123,12 @@ public class RealtimePushServiceImpl implements RealtimePushService {
     }
 
     private void publishToRedisChannel(RealtimeMessageBO messageBO) {
-        String json = JSON.toJSONString(messageBO);
-        redisTemplate.convertAndSend(RealtimeRedisConfig.VREDIS_REALTIME_PUBSUB_CHANNEL, json);
+        try {
+            String json = objectMapper.writeValueAsString(messageBO);
+            redisTemplate.convertAndSend(RealtimeRedisConfig.VREDIS_REALTIME_PUBSUB_CHANNEL, json);
+        } catch (Exception e) {
+            log.error("[Realtime] 序列化实时推送消息失败", e);
+        }
     }
 
 }

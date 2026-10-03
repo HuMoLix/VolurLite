@@ -10,18 +10,20 @@ import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
-import io.jsonwebtoken.Claims;
+import org.springframework.security.oauth2.jwt.Jwt;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
-import org.springframework.web.util.UriComponentsBuilder;
+import com.humolix.volur.framework.common.util.RequestUtil;
 
 import java.net.URI;
 import java.util.List;
@@ -71,14 +73,24 @@ public class CompetitionChatHandshakeInterceptor implements HandshakeInterceptor
             return false;
         }
 
-        // 提取 Token (优先从 query 参数 ?token=...，其次从 Authorization 请求头)
-        String token = UriComponentsBuilder.fromUri(uri).build().getQueryParams().getFirst("token");
+        String token = null;
+        if (request instanceof ServletServerHttpRequest servletRequest) {
+            token = RequestUtil.getCookieValue(servletRequest.getServletRequest(), "access_token");
+        }
         if (!StringUtils.hasText(token)) {
-            List<String> authHeaders = request.getHeaders().get("Authorization");
-            if (authHeaders != null && !authHeaders.isEmpty()) {
-                String authHeader = authHeaders.getFirst();
-                if (authHeader.startsWith("Bearer ")) {
-                    token = authHeader.substring(7);
+            List<String> cookieHeaders = request.getHeaders().get(HttpHeaders.COOKIE);
+            if (cookieHeaders != null) {
+                for (String cookieHeader : cookieHeaders) {
+                    for (String piece : cookieHeader.split(";")) {
+                        String[] pair = piece.trim().split("=", 2);
+                        if (pair.length == 2 && "access_token".equalsIgnoreCase(pair[0].trim())) {
+                            token = pair[1].trim();
+                            break;
+                        }
+                    }
+                    if (StringUtils.hasText(token)) {
+                        break;
+                    }
                 }
             }
         }
@@ -90,7 +102,7 @@ public class CompetitionChatHandshakeInterceptor implements HandshakeInterceptor
         }
 
         try {
-            Claims claims = jwtUtil.getClaimsFromToken(token);
+            Jwt claims = jwtUtil.getClaimsFromToken(token);
 
             if (tokenService.isTokenBlacklisted(claims.getId())) {
                 log.warn("[WebSocket-Chat] 拒绝连接: 令牌已被列入黑名单");
@@ -98,8 +110,8 @@ public class CompetitionChatHandshakeInterceptor implements HandshakeInterceptor
                 return false;
             }
 
-            Long userId = claims.get("userId", Long.class);
-            long iat = claims.getIssuedAt().getTime();
+            Long userId = jwtUtil.getUserIdFromTokenAsLong(token);
+            long iat = claims.getIssuedAt() != null ? claims.getIssuedAt().toEpochMilli() : 0L;
             if (tokenService.isUserForceLoggedOut(userId, iat)) {
                 log.warn("[WebSocket-Chat] 拒绝连接: 账号已被强制下线");
                 response.setStatusCode(HttpStatus.UNAUTHORIZED);

@@ -10,4 +10,8 @@ public interface TokenService {
 
     void forceLogoutUser(Long userId);
 
+    void refreshToken();
+
+    void logout();
+
 }

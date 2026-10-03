@@ -51,11 +51,6 @@ public class MaintenanceModeFilter extends OncePerRequestFilter {
             "/api/v1/captcha/**",
             "/api/v1/verification/**",
             "/api/v1/uploads/**",
-            "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html",
-            "/doc.html",
-            "/webjars/**",
             "/error",
             "/favicon.ico"
     );

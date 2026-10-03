@@ -71,20 +71,23 @@ import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
-import { useAuthFlowStore } from '@/store/modules/authFlow'
+import { useSigninFlowStore } from '@/store/modules/flow'
+import { useCardHeader } from '@/composables/useCardHeader'
 
 defineOptions({
   name: 'TotpChallengeView'
 })
 
+useCardHeader('安全核验与挑战', '系统检测到本次登录可能存在风险，请完成安全挑战以继续')
+
 const router = useRouter()
-const authFlowStore = useAuthFlowStore()
+const signinFlowStore = useSigninFlowStore()
 
 const verificationCode = ref('')
 const trustDevice = ref(true)
 const errorMsg = ref('')
 const isSubmitting = ref(false)
-const loading = computed(() => authFlowStore.loading)
+const loading = computed(() => signinFlowStore.loading)
 
 watch(verificationCode, () => {
   if (errorMsg.value) {
@@ -93,21 +96,19 @@ watch(verificationCode, () => {
 })
 
 async function handleTryAnotherWayClick() {
-  if (authFlowStore.loading) return
-  await authFlowStore.triggerScrim(async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    await router.push({
-      path: '/v1/signin/challenge/selection',
-      query: authFlowStore.getQueryParams({
-        from: 'totp',
-        page: '1'
-      })
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
+    path: '/v1/signin/challenge/selection',
+    query: signinFlowStore.getQueryParams({
+      from: 'totp',
+      page: '1'
     })
-  }, 1000)
+  })
 }
 
 async function handleVerifyChallenge() {
-  if (authFlowStore.loading || isSubmitting.value) return
+  if (signinFlowStore.loading || isSubmitting.value) return
   isSubmitting.value = true
 
   try {
@@ -117,13 +118,13 @@ async function handleVerifyChallenge() {
     }
 
     try {
-      const res = await authFlowStore.submitChallenge('2fa', {
+      const res = await signinFlowStore.submitChallenge('2fa', {
         verificationCode: verificationCode.value.trim(),
         rememberMe: trustDevice.value
       })
       if (res.success) {
         window.$message?.success?.('双重验证通过，登录成功！')
-        router.push(res.redirect || authFlowStore.continueUrl || '/competitions')
+        router.push(res.redirect || signinFlowStore.continueUrl || '/competitions')
       }
     } catch (err: any) {
       errorMsg.value = err?.message || '验证码错误或已过期'

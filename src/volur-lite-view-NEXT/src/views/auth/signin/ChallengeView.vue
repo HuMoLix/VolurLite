@@ -7,6 +7,8 @@
         <button
           type="button"
           class="auth-account-chip"
+          :disabled="signinFlowStore.loading"
+          :isScrim="true"
           @click="goBackIdentifier"
           title="切换账号"
         >
@@ -36,7 +38,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthFlowStore } from '@/store/modules/authFlow'
+import { useSigninFlowStore } from '@/store/modules/flow'
+import { provideCardHeader } from '@/composables/useCardHeader'
 import {
   PwdChallengeView,
   RecaptchaChallengeView,
@@ -52,7 +55,8 @@ defineOptions({
 
 const route = useRoute()
 const router = useRouter()
-const authFlowStore = useAuthFlowStore()
+const signinFlowStore = useSigninFlowStore()
+const { title: cardTitle, subtitle: cardSubtitle } = provideCardHeader('安全核验', '')
 
 const challengeType = computed(() => {
   const p = route.params.type
@@ -80,26 +84,8 @@ const activeChallengeComponent = computed(() => {
   return TotpChallengeView
 })
 
-const cardTitle = computed(() => {
-  const type = challengeType.value
-  if (type === 'rejected' || type === 'reject') return '无法登录'
-  if (type === 'selection') return '2 步验证'
-  if (type === 'pwd' || type === 'password') return '欢迎'
-  if (type === 'recaptcha') return '安全核验'
-  return '安全核验与挑战'
-})
-
-const cardSubtitle = computed(() => {
-  const type = challengeType.value
-  if (type === 'rejected' || type === 'reject') return ''
-  if (type === 'selection') return ''
-  if (type === 'pwd' || type === 'password') return ''
-  if (type === 'recaptcha') return '为了保护您的账号安全，请完成以下人机身份验证'
-  return '系统检测到本次登录可能存在风险，请完成安全挑战以继续'
-})
-
 const displayIdentifier = computed(() => {
-  return authFlowStore.identifier || 'user@example.com'
+  return signinFlowStore.identifier || 'user@example.com'
 })
 
 const displayInitial = computed(() => {
@@ -107,33 +93,34 @@ const displayInitial = computed(() => {
 })
 
 onMounted(() => {
-  authFlowStore.ensureFlowParams(route, router)
+  signinFlowStore.ensureFlowParams(route, router)
 
-  if (!authFlowStore.identifier) {
+  if (!signinFlowStore.identifier) {
     window.$message?.warning?.('请先输入登录账号')
     router.replace({
       path: '/v1/signin/identifier',
-      query: authFlowStore.getQueryParams()
+      query: signinFlowStore.getQueryParams()
     })
     return
   }
 
   if (challengeType.value !== 'rejected' && challengeType.value !== 'reject') {
-    if (!authFlowStore.validateTransitionTicket(route)) {
+    if (!signinFlowStore.validateTransitionTicket(route)) {
       window.$message?.warning?.('认证流转票据 (TL) 缺失或已失效，请重新输入账号')
       router.replace({
         path: '/v1/signin/identifier',
-        query: authFlowStore.getQueryParams()
+        query: signinFlowStore.getQueryParams()
       })
     }
   }
 })
 
-function goBackIdentifier() {
-  if (authFlowStore.loading) return
-  router.push({
+async function goBackIdentifier() {
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
     path: '/v1/signin/identifier',
-    query: authFlowStore.getQueryParams()
+    query: signinFlowStore.getQueryParams()
   })
 }
 </script>

@@ -142,15 +142,18 @@ import { useRoute, useRouter } from 'vue-router'
 import { NSpin } from 'naive-ui'
 import { fetchChallengeSelectionApi } from '@/api/auth'
 import type { ChallengeOptionVO } from '@/types/auth/flow'
-import { useAuthFlowStore } from '@/store/modules/authFlow'
+import { useSigninFlowStore } from '@/store/modules/flow'
+import { useCardHeader } from '@/composables/useCardHeader'
 
 defineOptions({
   name: 'SelectionView'
 })
 
+useCardHeader('2 步验证', '')
+
 const route = useRoute()
 const router = useRouter()
-const authFlowStore = useAuthFlowStore()
+const signinFlowStore = useSigninFlowStore()
 
 const availableMethods = ref<ChallengeOptionVO[]>([])
 const isFetchingSelection = ref(false)
@@ -186,7 +189,7 @@ async function loadSelectionMethods() {
   isFetchingSelection.value = true
   try {
     const res = await fetchChallengeSelectionApi({
-      dsh: authFlowStore.dsh,
+      dsh: signinFlowStore.dsh,
       currentType: (route.query.from as string) || 'pwd'
     })
     if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
@@ -205,59 +208,53 @@ function handleSelectionRejected() {
   const msg = '您提供的信息不足以让 Volur 认定您确实是这个账号的所有者。Google 需要使用这类信息来保证您账号的安全。'
   router.replace({
     path: '/v1/signin/challenge/rejected',
-    query: authFlowStore.getQueryParams({
+    query: signinFlowStore.getQueryParams({
       rejectedmsg: encodeURIComponent(msg)
     })
   })
 }
 
 async function handleSelectMethod(item: ChallengeOptionVO) {
-  if (authFlowStore.loading) return
-  await authFlowStore.triggerScrim(async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    const targetPath = item.path || `/v1/signin/challenge/${item.type}`
-    await router.push({
-      path: targetPath,
-      query: authFlowStore.getQueryParams()
-    })
-  }, 1000)
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  const targetPath = item.path || `/v1/signin/challenge/${item.type}`
+  await router.push({
+    path: targetPath,
+    query: signinFlowStore.getQueryParams()
+  })
 }
 
 async function handleTryAnotherWayInSelection() {
-  if (authFlowStore.loading) return
-  await authFlowStore.triggerScrim(async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    if (currentPage.value < totalPages.value) {
-      const nextPage = currentPage.value + 1
-      await router.push({
-        path: '/v1/signin/challenge/selection',
-        query: authFlowStore.getQueryParams({
-          from: (route.query.from as string) || '',
-          page: String(nextPage)
-        })
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  if (currentPage.value < totalPages.value) {
+    const nextPage = currentPage.value + 1
+    await router.push({
+      path: '/v1/signin/challenge/selection',
+      query: signinFlowStore.getQueryParams({
+        from: (route.query.from as string) || '',
+        page: String(nextPage)
       })
-    } else {
-      const msg = '您提供的信息不足以让 Volur 认定您确实是这个账号的所有者。Google 需要使用这类信息来保证您账号的安全。'
-      await router.push({
-        path: '/v1/signin/challenge/rejected',
-        query: authFlowStore.getQueryParams({
-          rejectedmsg: encodeURIComponent(msg)
-        })
+    })
+  } else {
+    const msg = '您提供的信息不足以让 Volur 认定您确实是这个账号的所有者。Google 需要使用这类信息来保证您账号的安全。'
+    await router.push({
+      path: '/v1/signin/challenge/rejected',
+      query: signinFlowStore.getQueryParams({
+        rejectedmsg: encodeURIComponent(msg)
       })
-    }
-  }, 1000)
+    })
+  }
 }
 
 async function handleCancelSelection() {
-  if (authFlowStore.loading) return
-  await authFlowStore.triggerScrim(async () => {
-    await new Promise(resolve => setTimeout(resolve, 800))
-    const fromStep = (route.query.from as string) || 'pwd'
-    await router.push({
-      path: `/v1/signin/challenge/${fromStep}`,
-      query: authFlowStore.getQueryParams()
-    })
-  }, 1000)
+  if (signinFlowStore.loading) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  const fromStep = (route.query.from as string) || 'pwd'
+  await router.push({
+    path: `/v1/signin/challenge/${fromStep}`,
+    query: signinFlowStore.getQueryParams()
+  })
 }
 </script>
 

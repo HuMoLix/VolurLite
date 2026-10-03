@@ -4,6 +4,7 @@ import com.humolix.volur.competition.annotation.CompetitionLog;
 import com.humolix.volur.competition.domain.dto.CompetitionLogContextDTO;
 import com.humolix.volur.competition.service.CompetitionLogPersistenceService;
 import com.humolix.volur.framework.common.api.ApiResponse;
+import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.util.IpUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -91,8 +92,20 @@ public class CompetitionLogAspect {
                 if (errorMessage.length() > 2000) {
                     errorMessage = errorMessage.substring(0, 2000);
                 }
+            } else if (result instanceof ApiResponseEntity<?> entity) {
+                ApiResponse<?> apiResponse = entity.getBody();
+                if (apiResponse != null) {
+                    if (apiResponse.data() instanceof Boolean b) {
+                        status = b;
+                        if (!b && StringUtils.hasText(apiResponse.message())) {
+                            errorMessage = apiResponse.message();
+                        }
+                    } else if (!apiResponse.success() || apiResponse.status() != 200) {
+                        status = false;
+                        errorMessage = apiResponse.message();
+                    }
+                }
             } else if (result instanceof ApiResponse<?> apiResponse) {
-                // 特殊支持: submitFlag 返回 ApiResponse<Boolean>，若 data == false 代表 flag 错误
                 if (apiResponse.data() instanceof Boolean b) {
                     status = b;
                     if (!b && StringUtils.hasText(apiResponse.message())) {
@@ -104,11 +117,11 @@ public class CompetitionLogAspect {
                 }
             }
 
-            // 5. 序列化响应结果快照
             String resultJson = null;
             if (competitionLog.recordResponse() && result != null && exception == null) {
                 try {
-                    resultJson = objectMapper.writeValueAsString(result);
+                    Object responseToSerialize = result instanceof ApiResponseEntity<?> entity ? entity.getBody() : result;
+                    resultJson = objectMapper.writeValueAsString(responseToSerialize);
                     if (resultJson.length() > 4000) {
                         resultJson = resultJson.substring(0, 4000) + "... (truncated)";
                     }

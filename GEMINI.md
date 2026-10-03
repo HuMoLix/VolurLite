@@ -23,8 +23,8 @@
    - **VO (响应视图)**：统一添加 `@Data`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor`。默认初始值属性显式添加 `@Builder.Default`。
 3. **控制器层与版本控制 (Thin Controller 原则)**：
    - 控制器存放于 `controller/v1/`，类级别统一注解 `@RequestMapping("/api/v1/{module-name}")`。
-   - 统一返回 `ApiResponse<T>`，使用 `ApiResponseEntity` 工厂方法（`ok`, `success`, `created`, `badRequest` 等，强制小写驼峰）。
-   - 无数据返回（`data == null`）时必须使用 `ApiResponseEntity.success(msg)` 返回 `ApiResponse<Void>`，严禁 `ok(msg, null)` 反模式。
+   - 统一返回 `ApiResponseEntity<T>`，使用 `ApiResponseEntity` 实体工厂方法（`ok`, `success`, `created`, `badRequest` 等，强制小写驼峰）。
+   - 无数据返回（`data == null`）时必须使用 `ApiResponseEntity.success(msg)` 返回 `ApiResponseEntity<Void>`，严禁 `ok(msg, null)` 反模式。
    - 布尔判定分支响应强制使用三元表达式。
 4. **Redis 缓存规范**：
    - 常量名称统一 `VREDIS_` + 模块大写 + 功能大写 + `KEY_PREFIX`。
@@ -43,6 +43,9 @@
    - 当每次对领域持久化实体（Entity / PO）进行调整，或任何涉及 MySQL 数据表结构变更的操作（如新建表、增删改字段、字段类型/非空约束调整、变更索引等）时，**必须同步修改/更新增量平滑升级迁移脚本 [`scripts/upgrade/upgrade_to_latest.sql`](file:///Users/humolix/Documents/Dev/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql)**。
    - 迁移脚本必须严格具备**幂等性（Idempotent）**设计：统一采用存储过程并结合 `information_schema` 字典进行存在性探测（`IF NOT EXISTS` / `IF EXISTS`），支持在远程生产环境中重复安全执行，杜绝因重复执行或严格模式导致报错阻断。
    - 涉及字段语义重命名或拆分时，必须在迁移脚本中编写安全的无损数据回填（`UPDATE`）清洗逻辑，确保生产已有数据资产完整平滑过渡。
+10. **全链路快速失败与严禁隐式 Mock / 伪造兜底 (Fail-Fast & Zero-Mock 原则)**：
+    - **没配置就是没配置，严禁私自 Mock 假数据**：对于未配置的基础设施或业务依赖（如 SMTP 邮件服务、人机验证密钥、短信网关、外部认证器等），必须直接抛出明确异常快速失败（如 `throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "邮件服务未配置，无法执行此操作")`）；
+    - **严禁伪造执行成功或返回假令牌/假数据**：绝不能为了使测试“跑通”而假装服务可用或伪造假数据兜底，确保在开发、集成测试与联调期能够第一时间暴露出缺失的配置或底层缺陷。
 
 ---
 
@@ -105,6 +108,10 @@
 4. **Tailwind CSS 与 Naive UI 协同防护**：
    - `tailwind.config.ts` 强制配置 `corePlugins: { preflight: false }`，杜绝 Tailwind 默认 reset 破坏 Naive UI 按钮与输入框外观；
    - `index.html` 强制包含 `<meta name="naive-ui-style" />` 占位符；Tailwind 负责原子化排版栅格与间距，Naive UI 负责受控高交互组件。
+5. **认证流转状态机与强类型快速失败铁律 (Fail-Fast Navigation Rule)**：
+   - 前端路由推进必须严格由服务端响应的真实业务字段驱动（如 `nextStep`、`status`）。
+   - **严禁在代码中对服务端未返回的关键流程字段进行前端伪造或隐式 Mock 兜底（如 `const targetPath = \`/v1/signup/steps/${res.nextStep || 'email'}\`` 等假值反模式）**；
+   - 当服务端未返回关键推进字段（如 `nextStep` 缺失或为空）时，**必须直接抛出异常（Fast-Fail）或报错中断**，严禁使用 `|| 'email'`、`|| 'pwd'` 等默认假值掩盖服务端缺陷或时序异常，确保在测试与联调期能够第一时间暴露并捕获全链路问题。
 
 ---
 
@@ -160,3 +167,8 @@
 6. **自动化脚本与批量任务操作规范 (Scripting for Batch Operations)**：当且仅当需要 Agent 进行跨多文件的大批量、高重复性作业时，方可使用 Python、C 或 Go 编写自动化脚本。所有脚本必须统一存放在 `agent/volur-design-scripts` 文件夹中，且**必须严格遵守 [`agent/volur-design-scripts/Script-rules.md`](file:///H:/HuMoLix/github/Volur-Lite/agent/volur-design-scripts/Script-rules.md) 的约束要求**（仅供 Agent内部消费、杜绝冗余注释与文档字符串、禁止输出装饰性 UI/无用打印、输出直击核心）。严禁在针对性单文件任务中滥用脚本。
 7. **实体与数据库变更强制同步迁移脚本**：当涉及新增/变更实体类（Entity）、新增/修改数据库表字段、表结构或索引约束时，必须在同一变更周期内同步修改 [`scripts/upgrade/upgrade_to_latest.sql`](file:///Users/humolix/Documents/Dev/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql)，严格编写具备幂等性的增量 DDL 与数据清洗回填逻辑，严禁遗漏迁移脚本而直接提交实体变更。
 8. **执行 Git 提交时**：严格遵循 Conventional Commits 提交规范（`feat`/`fix`/`refactor`/`comment`/`docs`/`test` 等），准确标识模块 Scope，提交信息精炼直接，严禁无意义的模糊描述。
+9. **全链路杜绝隐式 Mock 与伪造兜底铁律（Fast-Fail & Zero-Mock 原则）**：
+   - **全端通用铁律**：没配置的就是没配置，缺字段就是缺字段，严禁在任何端编写任何形式的隐式 Mock、假数据或伪装成功兜底逻辑；
+   - **前端**：严禁在前后端交互、API 调用或状态机流转中出现诸如 `res.nextStep || 'email'` 这类在后端缺失关键字段时隐式 Mock 默认步骤的代码；若后端未返回预期流程字段，必须直接抛出明确错误中断流转；
+   - **后端**：严禁在第三方凭据未配置（如 SMTP、Recaptcha、短信网关等）、依赖资源不存在或系统配置缺失时私自 Mock 成功响应、假数据或伪造假值；对于“没配置的就是没配置”，必须直接抛出强类型业务异常快速失败，严防掩盖接口与配置缺陷，确保测试期能精准暴露问题。
+

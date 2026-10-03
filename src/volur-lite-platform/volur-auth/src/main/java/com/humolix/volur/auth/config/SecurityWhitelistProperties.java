@@ -17,6 +17,7 @@ public record SecurityWhitelistProperties(
             // Authentication and Authorization
             "/api/v1/auth/login",
             "/api/v1/auth/signin/**",
+            "/api/v1/auth/signup/**",
             "/api/v1/flow/**",
             "/api/v1/auth/register",
             "/api/v1/auth/logout",
@@ -49,14 +50,7 @@ public record SecurityWhitelistProperties(
             "/favicon.ico",
             "/static/**",
             "/api/v1/uploads/**",
-            "/api/v1/system/settings/public",
-
-            // Swagger and API Documentation
-            "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html",
-            "/doc.html",
-            "/webjars/**"
+            "/api/v1/system/settings/public"
     );
 
     public SecurityWhitelistProperties {

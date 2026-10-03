@@ -1,6 +1,6 @@
 package com.humolix.volur.security.flow;
 
-import com.alibaba.fastjson2.JSON;
+import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.session.AuthFlowSession;
 import com.humolix.volur.framework.id.generator.SnowflakeIdGenerator;
@@ -24,6 +24,7 @@ class TransitionLockManagerTest {
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private TransitionLockManager transitionLockManager;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -31,7 +32,7 @@ class TransitionLockManagerTest {
         redisTemplate = Mockito.mock(StringRedisTemplate.class);
         valueOperations = Mockito.mock(ValueOperations.class);
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
-        transitionLockManager = new TransitionLockManager(redisTemplate, new DshGenerator(new SnowflakeIdGenerator(1L)), new TransitionLockGenerator());
+        transitionLockManager = new TransitionLockManager(redisTemplate, new DshGenerator(new SnowflakeIdGenerator(1L)), new TransitionLockGenerator(), objectMapper);
     }
 
     @Test
@@ -74,7 +75,7 @@ class TransitionLockManagerTest {
     }
 
     @Test
-    void advanceTransitionTicket_shouldValidateAndRotateToken() {
+    void advanceTransitionTicket_shouldValidateAndRotateToken() throws Exception {
         String dsh = "S-100200300:1790000000";
         String initialTL = transitionLockManager.generateTL(dsh, 0, "init", null);
 
@@ -87,7 +88,7 @@ class TransitionLockManagerTest {
                 .activeTL(initialTL)
                 .build();
 
-        given(valueOperations.get("vredis:security:flow:session:" + dsh)).willReturn(JSON.toJSONString(session));
+        given(valueOperations.get("vredis:security:flow:session:" + dsh)).willReturn(objectMapper.writeValueAsString(session));
 
         String nextTL = transitionLockManager.advanceTransitionTicket(
                 dsh, initialTL, 0, "init", 1, "recaptcha", "user@ctf.local"
@@ -100,7 +101,7 @@ class TransitionLockManagerTest {
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(valueOperations).set(eq("vredis:security:flow:session:" + dsh), captor.capture(), eq(Duration.ofMinutes(15)));
 
-        AuthFlowSession saved = JSON.parseObject(captor.getValue(), AuthFlowSession.class);
+        AuthFlowSession saved = objectMapper.readValue(captor.getValue(), AuthFlowSession.class);
         Assertions.assertEquals(1, saved.getCid());
         Assertions.assertEquals("recaptcha", saved.getCurrentStep());
         Assertions.assertEquals("user@ctf.local", saved.getIdentifier());
@@ -109,7 +110,7 @@ class TransitionLockManagerTest {
     }
 
     @Test
-    void validateTransitionTicket_shouldThrowWhenTamperedOrSkipped() {
+    void validateTransitionTicket_shouldThrowWhenTamperedOrSkipped() throws Exception {
         String dsh = "S-100200300:1790000000";
         String activeTL = transitionLockManager.generateTL(dsh, 1, "recaptcha", null);
 
@@ -120,7 +121,7 @@ class TransitionLockManagerTest {
                 .activeTL(activeTL)
                 .build();
 
-        given(valueOperations.get("vredis:security:flow:session:" + dsh)).willReturn(JSON.toJSONString(session));
+        given(valueOperations.get("vredis:security:flow:session:" + dsh)).willReturn(objectMapper.writeValueAsString(session));
 
         Assertions.assertThrows(BusinessException.class, () ->
                 transitionLockManager.validateTransitionTicket(dsh, "ADG-OLD_EXPIRED_TOKEN_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", 1, "recaptcha")

@@ -10,15 +10,12 @@ import com.humolix.volur.competition.service.CompetitionTeamService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "竞赛战队与报名管理", description = "参赛战队创建、报名、信息修改与成员邀请确认接口")
 @RestController
 @RequestMapping("/api/v1/competitions/{competitionId}/teams")
 @RequiredArgsConstructor
@@ -26,28 +23,25 @@ public class CompetitionTeamController {
 
     private final CompetitionTeamService teamService;
 
-    @Operation(summary = "创建队伍并完成报名")
     @CompetitionLog(logType = "TEAM", action = "创建队伍并报名竞赛", recordParams = true)
     @PostMapping("/signup")
-    public ApiResponse<Long> signupTeam(
+    public ApiResponseEntity<Long> signupTeam(
             @PathVariable Long competitionId,
             @CurrentUserId Long userId,
             @Valid @RequestBody TeamSignupRequestDTO request) {
         return ApiResponseEntity.created("创建队伍报名成功", teamService.signupTeam(competitionId, userId, request));
     }
 
-    @Operation(summary = "获取当前用户在该比赛中的队伍详情")
     @GetMapping("/me")
-    public ApiResponse<MyTeamInfoVO> getMyTeam(
+    public ApiResponseEntity<MyTeamInfoVO> getMyTeam(
             @PathVariable Long competitionId,
             @CurrentUserId Long userId) {
         return ApiResponseEntity.ok("获取我的队伍信息成功", teamService.getMyTeam(competitionId, userId));
     }
 
-    @Operation(summary = "更新我的战队信息（队长权限）")
     @CompetitionLog(logType = "TEAM", action = "更新参赛队伍信息", recordParams = true)
     @PutMapping("/me")
-    public ApiResponse<Void> updateTeam(
+    public ApiResponseEntity<Void> updateTeam(
             @PathVariable Long competitionId,
             @CurrentUserId Long userId,
             @Valid @RequestBody TeamUpdateRequestDTO request) {
@@ -55,28 +49,25 @@ public class CompetitionTeamController {
         return ApiResponseEntity.success("修改队伍信息成功");
     }
 
-    @Operation(summary = "解散我的战队（队长权限）")
     @CompetitionLog(logType = "TEAM", action = "解散参赛队伍", recordParams = true)
     @DeleteMapping("/me")
-    public ApiResponse<Void> deleteMyTeam(
+    public ApiResponseEntity<Void> deleteMyTeam(
             @PathVariable Long competitionId,
             @CurrentUserId Long userId) {
         teamService.deleteMyTeam(competitionId, userId);
         return ApiResponseEntity.success("解散队伍成功");
     }
 
-    @Operation(summary = "获取当前用户收到的本场竞赛战队邀请列表")
     @GetMapping("/invitations/me")
-    public ApiResponse<List<TeamInvitationVO>> getMyInvitations(
+    public ApiResponseEntity<List<TeamInvitationVO>> getMyInvitations(
             @PathVariable Long competitionId,
             @CurrentUserId Long userId) {
         return ApiResponseEntity.ok("获取队伍邀请列表成功", teamService.getMyInvitations(competitionId, userId));
     }
 
-    @Operation(summary = "受邀队员确认接受组队邀请")
     @CompetitionLog(logType = "TEAM", action = "接受竞赛组队邀请", recordParams = true)
     @PostMapping("/{teamId}/invite/accept")
-    public ApiResponse<Void> acceptInvitation(
+    public ApiResponseEntity<Void> acceptInvitation(
             @PathVariable Long competitionId,
             @PathVariable Long teamId,
             @CurrentUserId Long userId,
@@ -85,10 +76,9 @@ public class CompetitionTeamController {
         return ApiResponseEntity.success("加入队伍成功");
     }
 
-    @Operation(summary = "受邀队员拒绝组队邀请")
     @CompetitionLog(logType = "TEAM", action = "拒绝竞赛组队邀请", recordParams = true)
     @PostMapping("/{teamId}/invite/reject")
-    public ApiResponse<Void> rejectInvitation(
+    public ApiResponseEntity<Void> rejectInvitation(
             @PathVariable Long competitionId,
             @PathVariable Long teamId,
             @CurrentUserId Long userId) {
@@ -96,10 +86,9 @@ public class CompetitionTeamController {
         return ApiResponseEntity.success("已拒绝队伍邀请");
     }
 
-    @Operation(summary = "队长取消已发送的队员组队邀请")
     @CompetitionLog(logType = "TEAM", action = "取消队员组队邀请", recordParams = true)
     @DeleteMapping("/{teamId}/invite/cancel")
-    public ApiResponse<Void> cancelInvitation(
+    public ApiResponseEntity<Void> cancelInvitation(
             @PathVariable Long competitionId,
             @PathVariable Long teamId,
             @CurrentUserId Long captainUserId,
@@ -108,10 +97,9 @@ public class CompetitionTeamController {
         return ApiResponseEntity.success("已取消该成员的邀请");
     }
 
-    @Operation(summary = "队长重新邀请已拒绝或未处理的队员")
     @CompetitionLog(logType = "TEAM", action = "重新邀请参赛队员", recordParams = true)
     @PostMapping("/{teamId}/invite/reinvite")
-    public ApiResponse<Void> reinviteMember(
+    public ApiResponseEntity<Void> reinviteMember(
             @PathVariable Long competitionId,
             @PathVariable Long teamId,
             @CurrentUserId Long captainUserId,

@@ -22,12 +22,19 @@ export default defineConfig({
   server: {
     port: 3001,
     host: '127.0.0.1',
+    allowedHosts: [
+      'test-platform.volurctf.com'
+    ],
+    hmr: {
+      clientPort: 443
+    },
     open: false,
     cors: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true
+        changeOrigin: true,
+        xfwd: true
       },
       '/ws': {
         target: 'http://localhost:8080',

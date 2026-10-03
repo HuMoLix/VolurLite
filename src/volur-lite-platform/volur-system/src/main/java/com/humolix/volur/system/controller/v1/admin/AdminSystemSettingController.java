@@ -7,8 +7,6 @@ import com.humolix.volur.system.domain.dto.SystemSettingUpdateDTO;
 import com.humolix.volur.system.domain.vo.AdminSystemOverviewVO;
 import com.humolix.volur.system.domain.vo.SystemSettingVO;
 import com.humolix.volur.system.service.SystemSettingService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "管理端系统设置", description = "管理员管理系统设置相关接口")
 @RestController
 @RequestMapping("/api/v1/admin/system/settings")
 @RequiredArgsConstructor
@@ -25,30 +22,26 @@ public class AdminSystemSettingController {
 
     private final SystemSettingService systemSettingService;
 
-    @Operation(summary = "获取系统运行健康与底层环境概览")
     @GetMapping("/overview")
-    public ApiResponse<AdminSystemOverviewVO> getSystemOverview() {
+    public ApiResponseEntity<AdminSystemOverviewVO> getSystemOverview() {
         return ApiResponseEntity.ok("获取系统概览成功", systemSettingService.getSystemOverview());
     }
 
-    @Operation(summary = "获取所有系统设置列表")
     @GetMapping
-    public ApiResponse<List<SystemSettingVO>> getAllSettings() {
+    public ApiResponseEntity<List<SystemSettingVO>> getAllSettings() {
         return ApiResponseEntity.ok("获取系统设置列表成功", systemSettingService.getAllSettings());
     }
 
-    @Operation(summary = "单个更新系统设置")
     @Syslog(module = "SYSTEM", value = "单个更新系统设置", recordParams = true)
     @PostMapping("/update")
-    public ApiResponse<Void> updateSetting(@Valid @RequestBody SystemSettingUpdateDTO request) {
+    public ApiResponseEntity<Void> updateSetting(@Valid @RequestBody SystemSettingUpdateDTO request) {
         systemSettingService.updateSetting(request);
         return ApiResponseEntity.success("更新系统设置成功");
     }
 
-    @Operation(summary = "批量更新系统设置")
     @Syslog(module = "SYSTEM", value = "批量更新系统设置", recordParams = true)
     @PostMapping("/batch-update")
-    public ApiResponse<Void> batchUpdateSettings(@RequestBody List<@Valid SystemSettingUpdateDTO> requests) {
+    public ApiResponseEntity<Void> batchUpdateSettings(@RequestBody List<@Valid SystemSettingUpdateDTO> requests) {
         systemSettingService.updateSettings(requests);
         return ApiResponseEntity.success("批量更新系统设置成功");
     }

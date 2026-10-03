@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { routes } from './router'
+import { isDshExpired, buildSessionExpireLocation } from '@/utils/flow'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,16 +15,22 @@ router.beforeEach((to) => {
     document.title = `${to.meta.title}`
   }
 
+  if (to.path !== '/v1/info/sessionexpire') {
+    const dshParam = typeof to.query.dsh === 'string' ? to.query.dsh : ''
+    if (dshParam && isDshExpired(dshParam)) {
+      return buildSessionExpireLocation(to)
+    }
+  }
+
   const isAuthRequired = to.matched.some(
     (record) => record.meta.requiredAuth === true
   )
 
-  const token =
-    typeof localStorage !== 'undefined'
-      ? localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
-      : null
+  const isLoggedIn =
+    typeof document !== 'undefined' &&
+    /(?:^|;\s*)logged_in=true/.test(document.cookie)
 
-  if (isAuthRequired && !token) {
+  if (isAuthRequired && !isLoggedIn) {
     return {
       path: '/v1/signin/identifier',
       query: { redirect: to.fullPath }

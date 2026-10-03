@@ -10,13 +10,10 @@ import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
 import com.humolix.volur.logging.annotation.Syslog;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "管理端竞赛管理", description = "管理员管理赛事创建、编辑、删除与封榜控制接口")
 @RestController
 @RequestMapping("/api/v1/admin/competitions")
 @RequiredArgsConstructor
@@ -24,70 +21,62 @@ public class AdminCompetitionController {
 
     private final AdminCompetitionService competitionService;
 
-    @Operation(summary = "分页获取竞赛列表")
     @GetMapping
-    public ApiResponse<PageResponse<AdminCompetitionListVO>> listCompetitions(
+    public ApiResponseEntity<PageResponse<AdminCompetitionListVO>> listCompetitions(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword) {
         return ApiResponseEntity.ok("获取竞赛列表成功", competitionService.listCompetitions(page, size, keyword));
     }
 
-    @Operation(summary = "获取指定竞赛管理详情")
     @GetMapping("/{id}")
-    public ApiResponse<AdminCompetitionDetailVO> getCompetition(@PathVariable Long id) {
+    public ApiResponseEntity<AdminCompetitionDetailVO> getCompetition(@PathVariable Long id) {
         return ApiResponseEntity.ok("获取竞赛详情成功", competitionService.getCompetition(id));
     }
 
-    @Operation(summary = "创建新竞赛")
     @Syslog(module = "COMPETITION", value = "创建竞赛", recordParams = true)
     @PostMapping
-    public ApiResponse<Long> createCompetition(
+    public ApiResponseEntity<Long> createCompetition(
             @Valid @RequestBody CompetitionCreateRequestDTO request,
             @CurrentUserId Long userId) {
         return ApiResponseEntity.created("创建竞赛成功", competitionService.createCompetition(request, userId));
     }
 
-    @Operation(summary = "更新竞赛基本信息与规则")
     @Syslog(module = "COMPETITION", value = "更新竞赛信息", recordParams = true)
     @PutMapping("/{id}")
-    public ApiResponse<Void> updateCompetition(
+    public ApiResponseEntity<Void> updateCompetition(
             @PathVariable Long id,
             @Valid @RequestBody CompetitionUpdateRequestDTO request) {
         competitionService.updateCompetition(id, request);
         return ApiResponseEntity.success("更新竞赛成功");
     }
 
-    @Operation(summary = "删除竞赛")
     @Syslog(module = "COMPETITION", value = "删除竞赛", recordParams = true)
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteCompetition(@PathVariable Long id) {
+    public ApiResponseEntity<Void> deleteCompetition(@PathVariable Long id) {
         competitionService.deleteCompetition(id);
         return ApiResponseEntity.success("删除竞赛成功");
     }
 
-    @Operation(summary = "设置竞赛天梯榜封榜/解封状态")
     @Syslog(module = "COMPETITION", value = "设置竞赛封榜状态", recordParams = true)
     @PostMapping("/{id}/freeze")
-    public ApiResponse<Void> setFreezeScoreboard(
+    public ApiResponseEntity<Void> setFreezeScoreboard(
             @PathVariable Long id,
             @RequestParam boolean frozen) {
         competitionService.setScoreboardFrozen(id, frozen);
         return ApiResponseEntity.success(frozen ? "封榜成功" : "解封榜单成功");
     }
 
-    @Operation(summary = "归档指定竞赛")
     @Syslog(module = "COMPETITION", value = "归档竞赛", recordParams = true)
     @PostMapping("/{id}/archive")
-    public ApiResponse<Void> archiveCompetition(@PathVariable Long id) {
+    public ApiResponseEntity<Void> archiveCompetition(@PathVariable Long id) {
         competitionService.archiveCompetition(id);
         return ApiResponseEntity.success("归档竞赛成功");
     }
 
-    @Operation(summary = "取消归档指定竞赛")
     @Syslog(module = "COMPETITION", value = "取消归档竞赛", recordParams = true)
     @PostMapping("/{id}/unarchive")
-    public ApiResponse<Void> unarchiveCompetition(@PathVariable Long id) {
+    public ApiResponseEntity<Void> unarchiveCompetition(@PathVariable Long id) {
         competitionService.unarchiveCompetition(id);
         return ApiResponseEntity.success("取消归档成功");
     }

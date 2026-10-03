@@ -111,7 +111,8 @@ public class SyslogAspect {
 
             if (syslog.recordResponse() && result != null && exception == null) {
                 try {
-                    String resultJson = objectMapper.writeValueAsString(result);
+                    Object toSerialize = result instanceof org.springframework.http.HttpEntity<?> entity ? entity.getBody() : result;
+                    String resultJson = objectMapper.writeValueAsString(toSerialize);
                     if (resultJson.length() > 4000) {
                         resultJson = resultJson.substring(0, 4000) + "... (truncated)";
                     }

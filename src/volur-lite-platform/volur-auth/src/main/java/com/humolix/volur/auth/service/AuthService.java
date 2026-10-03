@@ -11,8 +11,6 @@ public interface AuthService {
 
     AuthenticateResponseVO authenticate(AuthenticateRequestDTO request);
 
-    AuthenticateResponseVO refreshToken(String refreshToken);
-
     void processForgotPassword(ForgotPasswordRequestDTO request);
 
     void processForgotPassword(String email, String username);
@@ -28,8 +26,6 @@ public interface AuthService {
     void changePassword(ChangePasswordRequestDTO request);
 
     void sendDeleteAccountEmail(EmailCaptchaRequestDTO request);
-
-    void logout(HttpServletRequest request);
 
     void deleteAccount(DeleteAccountRequestDTO request, HttpServletRequest httpRequest);
 

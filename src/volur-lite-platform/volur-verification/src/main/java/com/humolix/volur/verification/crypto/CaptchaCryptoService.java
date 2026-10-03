@@ -1,7 +1,8 @@
 package com.humolix.volur.verification.crypto;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -76,7 +77,7 @@ public class CaptchaCryptoService {
     private long antiReplayWindowMs;
 
     private PrivateKey privateKey;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new JsonMapper();
 
     /**
      * 获取用于前端加密场景的 RSA 公钥 (PEM 纯 Base64 内容)

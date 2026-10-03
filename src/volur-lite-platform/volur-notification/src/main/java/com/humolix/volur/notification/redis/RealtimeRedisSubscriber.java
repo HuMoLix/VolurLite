@@ -1,6 +1,6 @@
 package com.humolix.volur.notification.redis;
 
-import com.alibaba.fastjson2.JSON;
+import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.notification.domain.bo.RealtimeMessageBO;
 import com.humolix.volur.notification.sse.GlobalSseManager;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +18,13 @@ import java.nio.charset.StandardCharsets;
 public class RealtimeRedisSubscriber implements MessageListener {
 
     private final GlobalSseManager globalSseManager;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void onMessage(@NonNull Message message, byte[] pattern) {
         try {
             String json = new String(message.getBody(), StandardCharsets.UTF_8);
-            RealtimeMessageBO messageBO = JSON.parseObject(json, RealtimeMessageBO.class);
+            RealtimeMessageBO messageBO = objectMapper.readValue(json, RealtimeMessageBO.class);
             if (messageBO == null || messageBO.getEventType() == null) {
                 return;
             }

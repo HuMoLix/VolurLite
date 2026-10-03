@@ -1,7 +1,7 @@
 package com.humolix.volur.auth.security.filter;
 
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.security.util.RequestUtil;
+import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.verification.risk.limiter.RedisSlidingWindowRateLimiter;
@@ -64,8 +64,7 @@ public class RiskIpFilter extends OncePerRequestFilter {
         }
 
         String requestUri = request.getRequestURI();
-        if ("/error".equals(requestUri) || "/favicon.ico".equals(requestUri)
-                || requestUri.startsWith("/v3/api-docs") || requestUri.startsWith("/swagger-ui")) {
+        if ("/error".equals(requestUri) || "/favicon.ico".equals(requestUri)) {
             filterChain.doFilter(request, response);
             return;
         }

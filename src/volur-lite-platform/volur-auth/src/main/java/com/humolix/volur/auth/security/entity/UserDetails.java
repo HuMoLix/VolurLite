@@ -3,8 +3,6 @@ package com.humolix.volur.auth.security.entity;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.alibaba.fastjson2.annotation.JSONCreator;
-import com.alibaba.fastjson2.annotation.JSONField;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.framework.security.UserIdentity;
 import lombok.Getter;
@@ -28,10 +26,8 @@ public class UserDetails implements org.springframework.security.core.userdetail
     private final Collection<? extends GrantedAuthority> authorities;
 
     @JsonCreator
-    @JSONCreator
     public UserDetails(
             @JsonProperty("user")
-            @JSONField(name = "user")
             User user) {
         this.user = Objects.requireNonNull(user, "User entity must not be null");
         this.authorities = calculateAuthorities(user);

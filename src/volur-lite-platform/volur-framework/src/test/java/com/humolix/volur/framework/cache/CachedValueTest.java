@@ -97,19 +97,14 @@ class CachedValueTest {
     }
 
     @Test
-    @DisplayName("自定义 POJO 走 parseObject 回落分支，字段完整还原")
+    @DisplayName("自定义 POJO 字段完整还原")
     void pojoRoundTripUsesFallbackPath() {
-        // 这是唯一会真正走到 JSON.parseObject 的分支：
-        // JSON.parse 对对象返回 JSONObject，不是 SampleEntity，因此必须回落构造。
         assertRoundTrip(new SampleEntity(7L, "volur"));
     }
 
     @Test
-    @DisplayName("缓存普通 String 值不会因标量而解码失败（fastjson2 parseObject 的 NPE 陷阱）")
+    @DisplayName("缓存普通 String 值不会因标量而解码失败")
     void plainStringValueIsNotBrokenByScalarParsing() {
-        // 回归测试：早期实现用 JSON.parseObject(json, target) 统一处理，
-        // 遇到标量 payload（JSON 形如 "hello"）会在 fastjson2 内部抛 NPE，
-        // 导致所有字符串型缓存静默失效、每次回源。
         for (String value : List.of("hello", "123", "true", "null", "", "{\"a\":1}")) {
             CachedValue cv = CachedValue.of(value);
             CachedValue decoded = CachedValue.decode(cv.encode());
@@ -122,13 +117,8 @@ class CachedValueTest {
     }
 
     @Test
-    @DisplayName("JDK 不可变集合（List.of/Map.of/Set.of）可往返——不得记录包级私有实现类名")
+    @DisplayName("JDK 不可变集合（List.of/Map.of/Set.of）可往返")
     void jdkImmutableCollectionsRoundTrip() {
-        // 回归测试：早期实现把 value.getClass().getName() 写进信封，
-        // 对 List.of(...) 会得到 java.util.ImmutableCollections$ListN 这种
-        // 包级私有内部类名，读取时 fastjson2 反射构造直接抛 NPE，
-        // 导致该缓存永久失效（每次都要删 L2 再回源）。
-        // 归一化到接口类型后必须能正常往返。
         assertRoundTrip(List.of("a", "b", "c"));
         assertRoundTrip(List.of());
         assertRoundTrip(Map.of("k1", "v1", "k2", 2));
@@ -167,7 +157,6 @@ class CachedValueTest {
     @Test
     @DisplayName("白名单外的类型在反序列化时被拒绝——防 autoType 式 RCE")
     void rejectsTypeOutsideWhitelist() {
-        // 手工构造一个"被篡改的" L2 值，类型指向白名单外的类
         String tampered = "{\"n\":false,\"t\":\"javax.script.ScriptEngineManager\",\"v\":\"{}\"}";
         CachedValue cv = CachedValue.decode(tampered);
 
@@ -183,7 +172,6 @@ class CachedValueTest {
         String json = "{\"n\":false,\"t\":\"javax.script.ScriptEngineManager\",\"v\":\"\\\"x\\\"\"}";
         CachedValue cv = CachedValue.decode(json);
 
-        // 指定了 preferredType 就不再解析信封里的 FQCN，因此不会触发白名单检查
         assertThat(cv.unwrap(String.class)).isEqualTo("x");
     }
 

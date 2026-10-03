@@ -1,6 +1,6 @@
 package com.humolix.volur.challenge.mapper;
 
-import com.alibaba.fastjson2.JSON;
+import com.humolix.volur.framework.common.util.JsonUtils;
 import com.humolix.volur.challenge.domain.entity.awd.AwdChallenge;
 import com.humolix.volur.challenge.domain.entity.awdp.AwdPlusChallenge;
 import com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge;
@@ -43,7 +43,7 @@ public interface ChallengeMapper {
         List<CtfAttachmentVO> list = null;
         if (StringUtils.hasText(challenge.getAttachments())) {
             try {
-                list = JSON.parseArray(challenge.getAttachments(), CtfAttachmentVO.class);
+                list = JsonUtils.parseList(challenge.getAttachments(), CtfAttachmentVO.class);
             } catch (Exception ignored) {}
         }
         if ((list == null || list.isEmpty()) && StringUtils.hasText(challenge.getAttachmentUrl())) {

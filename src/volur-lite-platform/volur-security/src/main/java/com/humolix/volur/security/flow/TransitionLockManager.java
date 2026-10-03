@@ -1,6 +1,6 @@
 package com.humolix.volur.security.flow;
 
-import com.alibaba.fastjson2.JSON;
+import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.session.AuthFlowSession;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +26,7 @@ public class TransitionLockManager {
     private final StringRedisTemplate redisTemplate;
     private final DshGenerator dshGenerator;
     private final TransitionLockGenerator transitionLockGenerator;
+    private final ObjectMapper objectMapper;
 
     public String generateDsh() {
         return dshGenerator.generate();
@@ -104,7 +105,7 @@ public class TransitionLockManager {
             return null;
         }
         try {
-            return JSON.parseObject(json, AuthFlowSession.class);
+            return objectMapper.readValue(json, AuthFlowSession.class);
         } catch (Exception e) {
             log.error("[TransitionLockManager] 解析会话 JSON 失败, dsh={}", dsh, e);
             return null;
@@ -117,7 +118,11 @@ public class TransitionLockManager {
         }
         session.setUpdatedAt(System.currentTimeMillis());
         String key = VREDIS_SECURITY_FLOW_SESSION_KEY_PREFIX + session.getDsh().trim();
-        redisTemplate.opsForValue().set(key, JSON.toJSONString(session), FLOW_SESSION_TTL);
+        try {
+            redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(session), FLOW_SESSION_TTL);
+        } catch (Exception e) {
+            log.error("[TransitionLockManager] 序列化会话 JSON 失败, dsh={}", session.getDsh(), e);
+        }
     }
 
     public void validateTransitionTicket(String dsh, String tl, int cid, String expectedStep) {

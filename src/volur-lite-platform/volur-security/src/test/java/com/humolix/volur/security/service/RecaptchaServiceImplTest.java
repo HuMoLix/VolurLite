@@ -1,13 +1,14 @@
 package com.humolix.volur.security.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.dto.RecaptchaVerifyRequestDTO;
 import com.humolix.volur.security.domain.session.AuthFlowSession;
 import com.humolix.volur.security.domain.vo.RecaptchaChallengeVO;
 import com.humolix.volur.security.domain.vo.RecaptchaVerifyResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
-import com.humolix.volur.security.service.impl.ChallengeServiceImpl;
+import com.humolix.volur.security.service.impl.RecaptchaServiceImpl;
 import com.humolix.volur.verification.crypto.CaptchaCryptoService;
 import com.humolix.volur.verification.domain.vo.CaptchaResponseVO;
 import com.humolix.volur.verification.domain.vo.CaptchaTicketVO;
@@ -30,7 +31,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
-class ChallengeServiceImplTest {
+class RecaptchaServiceImplTest {
 
     private TransitionLockManager transitionLockManager;
     private RiskEvaluationEngine riskEvaluationEngine;
@@ -38,9 +39,9 @@ class ChallengeServiceImplTest {
     private CaptchaService captchaService;
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new JsonMapper();
 
-    private ChallengeServiceImpl challengeService;
+    private RecaptchaServiceImpl recaptchaService;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -58,7 +59,7 @@ class ChallengeServiceImplTest {
 
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
 
-        challengeService = new ChallengeServiceImpl(
+        recaptchaService = new RecaptchaServiceImpl(
                 transitionLockManager,
                 riskEvaluationEngine,
                 captchaCryptoService,
@@ -84,7 +85,7 @@ class ChallengeServiceImplTest {
         given(riskEvaluationEngine.evaluateComprehensiveRisk(any(), any(), any(), any())).willReturn(RiskLevel.LOW);
         given(captchaCryptoService.getPublicKeyPem()).willReturn("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A");
 
-        RecaptchaChallengeVO result = challengeService.getRecaptchaChallenge(dsh, tl);
+        RecaptchaChallengeVO result = recaptchaService.getRecaptchaChallenge(dsh, tl);
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals("CLICK", result.getChallengeType());
@@ -118,7 +119,7 @@ class ChallengeServiceImplTest {
                 .build();
         given(captchaService.generateChallenge(eq("LOGIN"), eq("SLIDER"), isNull())).willReturn(puzzleVO);
 
-        RecaptchaChallengeVO result = challengeService.getRecaptchaChallenge(dsh, tl);
+        RecaptchaChallengeVO result = recaptchaService.getRecaptchaChallenge(dsh, tl);
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals("PUZZLE", result.getChallengeType());
@@ -140,7 +141,7 @@ class ChallengeServiceImplTest {
         given(captchaCryptoService.decryptPayload("mock_payload_base64")).willReturn(mockDecryptedPayload);
 
         RecaptchaVerifyRequestDTO requestDTO = new RecaptchaVerifyRequestDTO(token, "mock_payload_base64");
-        RecaptchaVerifyResponseVO response = challengeService.verifyRecaptcha(dsh, tl, requestDTO);
+        RecaptchaVerifyResponseVO response = recaptchaService.verifyRecaptcha(dsh, tl, requestDTO);
 
         Assertions.assertNotNull(response);
         Assertions.assertTrue(response.isPassed());
@@ -169,7 +170,7 @@ class ChallengeServiceImplTest {
         given(captchaService.verifyAndIssueTicket(any())).willReturn(ticketVO);
 
         RecaptchaVerifyRequestDTO requestDTO = new RecaptchaVerifyRequestDTO(token, "mock_payload_base64");
-        RecaptchaVerifyResponseVO response = challengeService.verifyRecaptcha(dsh, tl, requestDTO);
+        RecaptchaVerifyResponseVO response = recaptchaService.verifyRecaptcha(dsh, tl, requestDTO);
 
         Assertions.assertNotNull(response);
         Assertions.assertTrue(response.isPassed());
@@ -186,7 +187,7 @@ class ChallengeServiceImplTest {
         given(valueOperations.get("vredis:security:recaptcha:challenge:" + token)).willReturn(null);
 
         RecaptchaVerifyRequestDTO requestDTO = new RecaptchaVerifyRequestDTO(token, "mock_payload");
-        BusinessException ex = Assertions.assertThrows(BusinessException.class, () -> challengeService.verifyRecaptcha(dsh, tl, requestDTO));
+        BusinessException ex = Assertions.assertThrows(BusinessException.class, () -> recaptchaService.verifyRecaptcha(dsh, tl, requestDTO));
         Assertions.assertEquals("人机验证挑战已失效，请重新验证", ex.getMessage());
     }
 
@@ -197,7 +198,7 @@ class ChallengeServiceImplTest {
 
         given(valueOperations.get("vredis:security:recaptcha:ticket:" + ticket)).willReturn(dsh);
 
-        boolean valid = challengeService.validateAndBurnTicket(dsh, ticket);
+        boolean valid = recaptchaService.validateAndBurnTicket(dsh, ticket);
         Assertions.assertTrue(valid);
         verify(redisTemplate).delete("vredis:security:recaptcha:ticket:" + ticket);
     }
@@ -209,7 +210,7 @@ class ChallengeServiceImplTest {
 
         given(valueOperations.get("vredis:security:recaptcha:ticket:" + ticket)).willReturn(null);
 
-        boolean valid = challengeService.validateAndBurnTicket(dsh, ticket);
+        boolean valid = recaptchaService.validateAndBurnTicket(dsh, ticket);
         Assertions.assertFalse(valid);
     }
 

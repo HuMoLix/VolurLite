@@ -1,6 +1,6 @@
 package com.humolix.volur.competition.service.impl;
 
-import com.alibaba.fastjson2.JSON;
+import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.competition.annotation.RequiredCompetitionStatus;
 import com.humolix.volur.competition.domain.dto.*;
 import com.humolix.volur.competition.domain.entity.Competition;
@@ -55,6 +55,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
     private final CompetitionMapper competitionMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -743,7 +744,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .title("【竞赛邀请】" + team.getCaptain().getUsername() + " 重新邀请您加入战队「" + team.getTeamName() + "」")
                 .content(content)
                 .actionStatus(NotificationActionStatus.PENDING)
-                .actionData(JSON.toJSONString(actionContext))
+                .actionData(serializeActionContext(actionContext))
                 .expireTime(expireTime)
                 .build());
 
@@ -925,7 +926,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .title("【竞赛邀请】" + captain.getUsername() + " 邀请您加入战队「" + team.getTeamName() + "」")
                 .content(content)
                 .actionStatus(NotificationActionStatus.PENDING)
-                .actionData(JSON.toJSONString(actionContext))
+                .actionData(serializeActionContext(actionContext))
                 .expireTime(expireTime)
                 .build());
     }
@@ -1044,6 +1045,14 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 vo.setAvatarUrl(avatarMap.get(vo.getUserId()));
             }
         });
+    }
+
+    private String serializeActionContext(Object context) {
+        try {
+            return objectMapper.writeValueAsString(context);
+        } catch (Exception e) {
+            return "{}";
+        }
     }
 
 }
