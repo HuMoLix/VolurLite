@@ -5,20 +5,20 @@
         <GoogleTextField
           v-model="password"
           :type="showPassword ? 'text' : 'password'"
-          label="输入您的密码"
+          :label="t('auth.password_label')"
           autocomplete="new-password"
           autofocus
-          :error-msg="errors.password"
-          @clear="errors.password = ''"
+          :error-msg="passwordError"
+          @clear="clearPasswordError"
         />
 
         <GoogleTextField
           v-model="confirmPassword"
           :type="showPassword ? 'text' : 'password'"
-          label="再次确认密码"
+          :label="t('auth.confirm_password_label')"
           autocomplete="new-password"
-          :error-msg="errors.confirmPassword"
-          @clear="errors.confirmPassword = ''"
+          :error-msg="confirmPasswordError"
+          @clear="clearConfirmPasswordError"
           @enter="handleNext"
         />
       </div>
@@ -30,12 +30,12 @@
             v-model="showPassword"
             class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
           />
-          <span>显示密码</span>
+          <span>{{ t('auth.show_password') }}</span>
         </label>
       </div>
 
       <p class="text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-        使用 8 个或以上字符，且混合包含字母、数字和符号以提高安全性。
+        {{ t('auth.password_hint') }}
       </p>
     </div>
 
@@ -47,16 +47,17 @@
         :isScrim="true"
         @click="handleNext"
       >
-        完成注册
+        {{ t('auth.finish_signup') }}
       </n-button>
     </div>
   </form>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
@@ -65,7 +66,8 @@ defineOptions({
   name: 'PasswordStepView'
 })
 
-useCardHeader('创建安全密码', '输入安全密码以完成账号创建')
+const { t } = useI18n()
+useCardHeader(() => t('auth.password_label'), () => t('auth.password_hint'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
@@ -75,39 +77,67 @@ const confirmPassword = ref('')
 const showPassword = ref(false)
 const loading = computed(() => signupFlowStore.loading)
 
-const errors = reactive({
-  password: '',
-  confirmPassword: ''
+const passwordKey = ref('')
+const rawPasswordMsg = ref('')
+const confirmPasswordKey = ref('')
+const rawConfirmPasswordMsg = ref('')
+
+const passwordError = computed(() => {
+  if (passwordKey.value) {
+    return t(passwordKey.value)
+  }
+  return rawPasswordMsg.value
 })
 
+const confirmPasswordError = computed(() => {
+  if (confirmPasswordKey.value) {
+    return t(confirmPasswordKey.value)
+  }
+  return rawConfirmPasswordMsg.value
+})
+
+function clearPasswordError(): void {
+  passwordKey.value = ''
+  rawPasswordMsg.value = ''
+}
+
+function clearConfirmPasswordError(): void {
+  confirmPasswordKey.value = ''
+  rawConfirmPasswordMsg.value = ''
+}
+
 watch(password, () => {
-  if (errors.password) errors.password = ''
+  if (passwordKey.value || rawPasswordMsg.value) {
+    clearPasswordError()
+  }
 })
 
 watch(confirmPassword, () => {
-  if (errors.confirmPassword) errors.confirmPassword = ''
+  if (confirmPasswordKey.value || rawConfirmPasswordMsg.value) {
+    clearConfirmPasswordError()
+  }
 })
 
 async function handleNext() {
   if (signupFlowStore.loading) return
 
-  errors.password = ''
-  errors.confirmPassword = ''
+  clearPasswordError()
+  clearConfirmPasswordError()
   let hasError = false
 
   if (!password.value) {
-    errors.password = '请输入密码'
+    passwordKey.value = 'auth.password_required'
     hasError = true
   } else if (password.value.length < 8) {
-    errors.password = '密码长度至少需为 8 位'
+    passwordKey.value = 'auth.password_length_min8'
     hasError = true
   }
 
   if (!confirmPassword.value) {
-    errors.confirmPassword = '请确认密码'
+    confirmPasswordKey.value = 'auth.confirm_password_required'
     hasError = true
   } else if (password.value !== confirmPassword.value) {
-    errors.confirmPassword = '两次输入的密码不一致'
+    confirmPasswordKey.value = 'auth.passwords_not_match'
     hasError = true
   }
 
@@ -116,14 +146,14 @@ async function handleNext() {
   try {
     const { nextStep, status } = await signupFlowStore.submitSignUpPassword(password.value, confirmPassword.value)
     if (status === 'COMPLETE') {
-      window.$message?.success?.('账号创建成功，欢迎加入 Volur！')
+      window.$message?.success?.(t('auth.account_created_success'))
     }
     router.push({
       path: `/v1/signup/steps/${nextStep}`,
       query: signupFlowStore.getQueryParams()
     })
   } catch (err: any) {
-    window.$message?.error?.(err?.message || '设置密码失败，请重试')
+    window.$message?.error?.(err?.message || t('auth.password_setup_failed'))
   }
 }
 </script>
@@ -206,11 +236,6 @@ async function handleNext() {
   &:hover {
     background-color: #aecbfa !important;
     color: #202124 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #202124 !important;
-    }
   }
 
   &:active {

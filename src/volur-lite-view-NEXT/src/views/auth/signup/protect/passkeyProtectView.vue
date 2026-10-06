@@ -11,10 +11,10 @@
           </svg>
         </div>
         <h2 class="text-base font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-2">
-          使用设备生物识别或硬件密钥
+          {{ t('auth.passkey_protect_title') }}
         </h2>
         <p class="text-sm text-google-text-secondary dark:text-google-text-darkSecondary max-w-sm leading-relaxed">
-          通行密钥保存在您的个人设备中，具有独一无二的密码学防伪特性，能够有效防御钓鱼网站与凭据泄露。
+          {{ t('auth.passkey_protect_desc') }}
         </p>
       </div>
 
@@ -25,10 +25,10 @@
           </svg>
         </div>
         <h2 class="text-base font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-2">
-          通行密钥已成功绑定
+          {{ t('auth.passkey_registered_title') }}
         </h2>
         <p class="text-sm text-google-text-secondary dark:text-google-text-darkSecondary max-w-sm leading-relaxed">
-          已成功为此设备注册通行密钥，下次登录时可直接使用指纹、面容或设备锁快速进入。
+          {{ t('auth.passkey_registered_desc') }}
         </p>
       </div>
     </div>
@@ -41,7 +41,7 @@
         :isScrim="true"
         @click="handleBackOptions"
       >
-        {{ passkeyRegistered ? '返回选项' : '稍后' }}
+        {{ passkeyRegistered ? t('auth.back_options') : t('auth.later') }}
       </button>
       <n-button
         v-if="!passkeyRegistered"
@@ -52,7 +52,7 @@
         :isScrim="true"
         @click="handleCreatePasskey"
       >
-        创建通行密钥
+        {{ t('auth.create_passkey') }}
       </n-button>
       <n-button
         v-else
@@ -62,7 +62,7 @@
         :isScrim="true"
         @click="handleFinish"
       >
-        继续
+        {{ t('common.next') }}
       </n-button>
     </div>
   </div>
@@ -72,6 +72,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { fetchPasskeyCreationOptionsApi, submitPasskeyRegisterApi } from '@/api/auth'
 import type { PasskeyRegisterRequestDTO, PasskeyCreationOptionsVO } from '@/types/auth/flow'
@@ -81,7 +82,8 @@ defineOptions({
   name: 'PasskeyProtectView'
 })
 
-useCardHeader('通行密钥', '为您的 Volur 账号添加通行密钥，即可使用指纹、面容或屏幕锁定安全登录')
+const { t } = useI18n()
+useCardHeader(() => t('auth.passkey_method_name'), () => t('auth.passkey_protect_desc'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
@@ -164,20 +166,14 @@ function bufferToBase64Url(buffer: ArrayBuffer): string {
 async function handleCreatePasskey() {
   if (isRegistering.value) return
   if (typeof window === 'undefined' || !window.PublicKeyCredential || !navigator.credentials?.create) {
-    window.$message?.warning?.('当前浏览器或环境不支持通行密钥 (WebAuthn)')
+    window.$message?.warning?.(t('auth.passkey_not_supported'))
     return
   }
 
   const hostname = window.location.hostname
   const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(':')
   if (isIp) {
-    window.$message?.error?.(
-      '通行密钥 (WebAuthn) 规范不支持纯 IP 地址访问，请在浏览器地址栏将 ' +
-        hostname +
-        ' 替换为 localhost 重新访问（例如 http://localhost:' +
-        (window.location.port || '3000') +
-        '）'
-    )
+    window.$message?.error?.(t('auth.passkey_ip_not_supported'))
     return
   }
 
@@ -292,18 +288,16 @@ async function handleCreatePasskey() {
 
       if (regRes.data?.success) {
         passkeyRegistered.value = true
-        window.$message?.success?.('通行密钥添加成功！')
+        window.$message?.success?.(t('auth.passkey_registered_title'))
       } else {
         throw new Error(regRes.message || '通行密钥注册未通过')
       }
     })
   } catch (err: any) {
     if (err.name === 'NotAllowedError') {
-      window.$message?.info?.('已取消通行密钥创建')
-    } else if (err.name === 'SecurityError' && String(err.message).toLowerCase().includes('invalid domain')) {
-      window.$message?.error?.('通行密钥不支持纯 IP 地址（如 127.0.0.1），请在浏览器地址栏使用 localhost 或域名访问')
+      window.$message?.info?.(t('auth.passkey_cancelled'))
     } else {
-      window.$message?.error?.(err?.message || '创建通行密钥失败，请稍后重试')
+      window.$message?.error?.(err?.message || t('auth.passkey_verify_failed'))
     }
   } finally {
     isRegistering.value = false
@@ -441,11 +435,6 @@ async function handleFinish() {
   &:hover {
     background-color: #aecbfa !important;
     color: #202124 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #202124 !important;
-    }
   }
 
   &:active {

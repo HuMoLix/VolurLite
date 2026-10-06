@@ -11,7 +11,7 @@
           :disabled="signupFlowStore.loading"
           :isScrim="true"
           @click="goBackName"
-          title="修改用户名"
+          :title="t('auth.back_to_name')"
         >
           <span class="auth-account-chip__avatar">
             {{ displayInitial }}
@@ -39,6 +39,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { provideCardHeader } from '@/composables/useCardHeader'
 import {
@@ -54,10 +55,11 @@ defineOptions({
   name: 'SignUpView'
 })
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
-const { title: cardTitle, subtitle: cardSubtitle } = provideCardHeader('创建 Volur 账号', '输入您的基本信息以开启网络安全演练之旅')
+const { title: cardTitle, subtitle: cardSubtitle } = provideCardHeader(() => t('auth.signup_create_title'), () => t('auth.signup_create_subtitle'))
 
 const stepParam = computed(() => {
   const p = route.params.step
@@ -81,7 +83,7 @@ const showAccountChip = computed(() => {
 })
 
 const displayIdentifier = computed(() => {
-  return signupFlowStore.username || signupFlowStore.email || '新账号'
+  return signupFlowStore.username || signupFlowStore.email || ''
 })
 
 const displayInitial = computed(() => {
@@ -92,7 +94,7 @@ onMounted(() => {
   signupFlowStore.ensureFlowParams(route, router)
   if (stepParam.value !== 'name') {
     if (!signupFlowStore.validateTransitionTicket(route)) {
-      window.$message?.warning?.('认证流转票据 (TL) 缺失或已失效，请重新输入用户名')
+      window.$message?.warning?.(t('auth.tl_missing_warning'))
       router.replace({
         path: '/v1/signup/steps/name',
         query: signupFlowStore.getQueryParams()

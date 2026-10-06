@@ -7,20 +7,20 @@
         </svg>
         <div class="text-xs text-google-text-desc dark:text-google-text-darkDesc leading-relaxed">
           <p class="font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-0.5">
-            触发 2 步安全验证
+            {{ t('auth.two_step_verification') }}
           </p>
-          为保障账号资产安全，已向绑定安全邮箱发送了 6 位动态验证码。
+          {{ (currentType === 'totp' || currentType === 'smsotp') ? t('auth.two_step_sms_tip') : t('auth.two_step_email_tip') }}
         </div>
       </div>
 
       <div>
         <GoogleTextField
           v-model="verificationCode"
-          label="输入 6 位安全验证码"
+          :label="t('auth.enter_code_label')"
           autocomplete="one-time-code"
           autofocus
           :error-msg="errorMsg"
-          @clear="errorMsg = ''"
+          @clear="clearError"
           @enter="handleVerifyChallenge"
         />
       </div>
@@ -32,7 +32,7 @@
             v-model="trustDevice"
             class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
           />
-          <span>在此设备上信任 30 天</span>
+          <span>{{ t('auth.trust_device_30_days') }}</span>
         </label>
         <a
           href="#"
@@ -40,7 +40,7 @@
           :isScrim="true"
           @click.prevent="handleTryAnotherWayClick"
         >
-          改用其他方式
+          {{ t('auth.another_way') }}
         </a>
       </div>
     </div>
@@ -52,7 +52,7 @@
         :isScrim="true"
         @click="handleTryAnotherWayClick"
       >
-        试试其他方式
+        {{ t('auth.try_another_way') }}
       </button>
       <n-button
         type="primary"
@@ -60,7 +60,7 @@
         :disabled="loading"
         @click="handleVerifyChallenge"
       >
-        验证
+        {{ t('common.verify') }}
       </n-button>
     </div>
   </form>
@@ -68,8 +68,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
@@ -78,20 +79,42 @@ defineOptions({
   name: 'TotpChallengeView'
 })
 
-useCardHeader('安全核验与挑战', '系统检测到本次登录可能存在风险，请完成安全挑战以继续')
+const { t } = useI18n()
+useCardHeader(() => t('auth.security_verification_and_challenge'), '')
 
+const route = useRoute()
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
 
+const currentType = computed(() => {
+  const p = route.params.type
+  const typeParam = Array.isArray(p) ? p.join('/') : (p as string) || (route.query.challengeType as string) || ''
+  return typeParam ? typeParam.toLowerCase() : 'etotp'
+})
+
 const verificationCode = ref('')
 const trustDevice = ref(true)
-const errorMsg = ref('')
+const errorKey = ref('')
+const rawErrorMsg = ref('')
+
+const errorMsg = computed(() => {
+  if (errorKey.value) {
+    return t(errorKey.value)
+  }
+  return rawErrorMsg.value
+})
+
+function clearError(): void {
+  errorKey.value = ''
+  rawErrorMsg.value = ''
+}
+
 const isSubmitting = ref(false)
 const loading = computed(() => signinFlowStore.loading)
 
 watch(verificationCode, () => {
-  if (errorMsg.value) {
-    errorMsg.value = ''
+  if (errorKey.value || rawErrorMsg.value) {
+    clearError()
   }
 })
 
@@ -101,7 +124,7 @@ async function handleTryAnotherWayClick() {
   await router.push({
     path: '/v1/signin/challenge/selection',
     query: signinFlowStore.getQueryParams({
-      from: 'totp',
+      from: currentType.value,
       page: '1'
     })
   })
@@ -113,21 +136,29 @@ async function handleVerifyChallenge() {
 
   try {
     if (!verificationCode.value.trim()) {
-      errorMsg.value = '请输入安全验证码'
+      errorKey.value = 'auth.security_code_required'
+      rawErrorMsg.value = ''
       return
     }
 
     try {
-      const res = await signinFlowStore.submitChallenge('2fa', {
+      const challengeType = currentType.value === 'totp' || currentType.value === 'smsotp' ? 'smsotp' : 'etotp'
+      const res = await signinFlowStore.submitChallenge(challengeType, {
         verificationCode: verificationCode.value.trim(),
         rememberMe: trustDevice.value
       })
       if (res.success) {
-        window.$message?.success?.('双重验证通过，登录成功！')
+        window.$message?.success?.(t('auth.security_verify_success'))
         router.push(res.redirect || signinFlowStore.continueUrl || '/competitions')
       }
     } catch (err: any) {
-      errorMsg.value = err?.message || '验证码错误或已过期'
+      if (err?.message) {
+        rawErrorMsg.value = err.message
+        errorKey.value = ''
+      } else {
+        errorKey.value = 'auth.security_code_invalid'
+        rawErrorMsg.value = ''
+      }
     }
   } finally {
     isSubmitting.value = false

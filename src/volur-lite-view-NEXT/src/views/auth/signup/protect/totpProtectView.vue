@@ -9,13 +9,13 @@
           </svg>
         </div>
         <h2 class="text-base font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-2">
-          使用动态身份验证器
+          {{ t('auth.totp_protect_title') }}
         </h2>
         <p class="text-sm text-google-text-secondary dark:text-google-text-darkSecondary max-w-sm leading-relaxed mb-4">
-          通过 Google Authenticator 等应用生成动态口令，为您的账号增添双重防护。
+          {{ t('auth.totp_protect_desc') }}
         </p>
         <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-neutral-800/60 border border-google-border-base dark:border-neutral-700/60 max-w-sm text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed text-left">
-          注册完成后，您可以随时在「个人中心 - 安全设置」中扫描专属二维码绑定身份验证器。
+          {{ t('auth.totp_protect_notice') }}
         </div>
       </div>
     </div>
@@ -28,7 +28,7 @@
         :isScrim="true"
         @click="handleBackOptions"
       >
-        返回
+        {{ t('common.back') }}
       </button>
       <n-button
         type="primary"
@@ -37,7 +37,7 @@
         :isScrim="true"
         @click="handleBackOptions"
       >
-        知道了
+        {{ t('auth.got_it') }}
       </n-button>
     </div>
   </div>
@@ -47,6 +47,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
 
@@ -54,7 +55,8 @@ defineOptions({
   name: 'TotpProtectView'
 })
 
-useCardHeader('两步验证 (2FA)', '使用身份验证器应用为账号增添双重安全防护')
+const { t } = useI18n()
+useCardHeader(() => t('auth.totp_protect_title'), () => t('auth.totp_protect_desc'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()

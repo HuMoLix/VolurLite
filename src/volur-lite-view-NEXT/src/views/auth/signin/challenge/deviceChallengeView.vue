@@ -2,29 +2,32 @@
   <form class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleVerifyChallenge">
     <div class="space-y-4">
       <div class="auth-challenge-banner flex items-start gap-3 p-3.5 rounded-lg border border-google-border-light dark:border-google-border-dark bg-google-surface-light dark:bg-google-surface-darkElevated">
-        <svg class="w-5 h-5 text-google-yellow dark:text-google-yellow-dark shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+        <svg class="w-5 h-5 text-google-blue dark:text-google-blue-dark shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="7.5" cy="15.5" r="3.5" />
+          <path d="M10 13l9-9" />
+          <path d="M16 4l3 3" />
+          <path d="M14 6l2 2" />
         </svg>
         <div class="text-xs text-google-text-desc dark:text-google-text-darkDesc leading-relaxed">
           <p class="font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-0.5">
-            检测到新设备或非典型网络环境
+            {{ t('auth.passkey_verify_title') }}
           </p>
-          请确认本次登录是否由您本人发起。确认后将引导前往输入密码。
+          {{ t('auth.passkey_verify_desc') }}
         </div>
       </div>
 
       <div class="p-4 rounded-lg border border-google-border-light dark:border-google-border-dark space-y-2 text-xs">
         <div class="flex justify-between">
-          <span class="text-google-text-muted">尝试登录时间</span>
+          <span class="text-google-text-muted">{{ t('auth.login_account') }}</span>
+          <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">{{ signinFlowStore.identifier }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-google-text-muted">{{ t('auth.attempt_time') }}</span>
           <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">{{ currentTimeFormatted }}</span>
         </div>
         <div class="flex justify-between">
-          <span class="text-google-text-muted">登录客户端特征</span>
-          <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">Chrome / Web Client</span>
-        </div>
-        <div class="flex justify-between">
-          <span class="text-google-text-muted">会话状态句柄 (DSH)</span>
-          <span class="font-mono text-google-text-sub truncate max-w-[200px]">{{ signinFlowStore.dsh }}</span>
+          <span class="text-google-text-muted">{{ t('auth.verify_method') }}</span>
+          <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">{{ t('auth.passkey_method_name') }}</span>
         </div>
       </div>
 
@@ -43,15 +46,16 @@
         :isScrim="true"
         @click="handleTryAnotherWayClick"
       >
-        试试其他方式
+        {{ t('auth.try_another_way') }}
       </button>
       <n-button
         type="primary"
         class="auth-action-btn btn-verify-action"
-        :disabled="loading"
+        :loading="isSubmitting"
+        :disabled="loading || isSubmitting"
         @click="handleVerifyChallenge"
       >
-        验证
+        {{ t('common.verify') }}
       </n-button>
     </div>
   </form>
@@ -61,19 +65,36 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore } from '@/store/modules/flow'
+import { fetchPasskeyAssertionOptionsApi } from '@/api/auth'
 import { useCardHeader } from '@/composables/useCardHeader'
 
 defineOptions({
   name: 'DeviceChallengeView'
 })
 
-useCardHeader('安全核验与挑战', '系统检测到本次登录可能存在风险，请完成安全挑战以继续')
+const { t } = useI18n()
+useCardHeader(() => t('auth.passkey_verify_title'), () => t('auth.passkey_verify_desc'))
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
 
-const deviceError = ref('')
+const deviceErrorKey = ref('')
+const rawDeviceError = ref('')
+
+const deviceError = computed(() => {
+  if (deviceErrorKey.value) {
+    return t(deviceErrorKey.value)
+  }
+  return rawDeviceError.value
+})
+
+function clearDeviceError(): void {
+  deviceErrorKey.value = ''
+  rawDeviceError.value = ''
+}
+
 const isSubmitting = ref(false)
 const loading = computed(() => signinFlowStore.loading)
 
@@ -81,13 +102,67 @@ const currentTimeFormatted = computed(() => {
   return new Date().toLocaleTimeString('zh-CN', { hour12: false })
 })
 
+function copyToPureArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(buffer).set(bytes)
+  return buffer
+}
+
+function base64UrlToBuffer(base64Url: unknown): ArrayBuffer {
+  if (!base64Url) {
+    return new ArrayBuffer(0)
+  }
+  if (base64Url instanceof ArrayBuffer) {
+    return base64Url
+  }
+  if (ArrayBuffer.isView(base64Url)) {
+    return copyToPureArrayBuffer(new Uint8Array(base64Url.buffer, base64Url.byteOffset, base64Url.byteLength))
+  }
+  if (Array.isArray(base64Url)) {
+    return copyToPureArrayBuffer(new Uint8Array(base64Url))
+  }
+  let str = ''
+  if (typeof base64Url === 'string') {
+    str = base64Url
+  } else if (typeof base64Url === 'object') {
+    const rec = base64Url as Record<string, unknown>
+    const candidate = rec.value || rec.bytes || rec.id
+    if (typeof candidate === 'string') {
+      str = candidate
+    } else if (Array.isArray(candidate)) {
+      return copyToPureArrayBuffer(new Uint8Array(candidate))
+    }
+  }
+  if (!str) {
+    return new ArrayBuffer(0)
+  }
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/')
+  const padLen = (4 - (base64.length % 4)) % 4
+  const padded = base64.padEnd(base64.length + padLen, '=')
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return copyToPureArrayBuffer(bytes)
+}
+
+function bufferToBase64Url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
 async function handleTryAnotherWayClick() {
-  if (signinFlowStore.loading) return
+  if (signinFlowStore.loading || isSubmitting.value) return
   await signinFlowStore.triggerScrim(undefined, 1000)
   await router.push({
     path: '/v1/signin/challenge/selection',
     query: signinFlowStore.getQueryParams({
-      from: 'device',
+      from: 'pk',
       page: '1'
     })
   })
@@ -95,20 +170,98 @@ async function handleTryAnotherWayClick() {
 
 async function handleVerifyChallenge() {
   if (signinFlowStore.loading || isSubmitting.value) return
-  isSubmitting.value = true
+  clearDeviceError()
 
+  if (typeof window === 'undefined' || !window.PublicKeyCredential || !navigator.credentials?.get) {
+    deviceErrorKey.value = 'auth.passkey_not_supported'
+    return
+  }
+
+  const hostname = window.location.hostname
+  const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(':')
+  if (isIp) {
+    deviceErrorKey.value = 'auth.passkey_ip_not_supported'
+    return
+  }
+
+  isSubmitting.value = true
   try {
-    try {
-      const res = await signinFlowStore.submitChallenge('device', {})
-      if (!res.nextStep) {
-        throw new Error('服务端未返回下一步挑战流程')
+    const optRes = await fetchPasskeyAssertionOptionsApi({
+      dsh: signinFlowStore.dsh,
+      tl: signinFlowStore.tl
+    })
+    const optionsData = optRes.data
+    if (!optionsData || !optionsData.challenge) {
+      throw new Error('获取通行密钥认证选项失败')
+    }
+
+    const allowCredentials: PublicKeyCredentialDescriptor[] | undefined = Array.isArray(optionsData.allowCredentials)
+      ? optionsData.allowCredentials.map((c: any) => ({
+          id: base64UrlToBuffer(c.id),
+          type: (c.type || 'public-key') as PublicKeyCredentialType,
+          transports: c.transports
+        }))
+      : undefined
+
+    const requestOptions: CredentialRequestOptions = {
+      publicKey: {
+        challenge: base64UrlToBuffer(optionsData.challenge),
+        rpId: hostname && !isIp ? hostname : (optionsData.rpId || window.location.hostname),
+        userVerification: optionsData.userVerification || 'preferred',
+        timeout: 60000,
+        ...(allowCredentials && allowCredentials.length > 0 ? { allowCredentials } : {})
       }
-      router.push({
+    }
+
+    const credential = (await navigator.credentials.get(requestOptions)) as PublicKeyCredential | null
+    if (!credential) {
+      throw new Error('获取通行密钥断言失败')
+    }
+
+    const assertionResponse = credential.response as AuthenticatorAssertionResponse
+    const credentialPayload = {
+      id: credential.id,
+      rawId: bufferToBase64Url(credential.rawId),
+      response: {
+        authenticatorData: bufferToBase64Url(assertionResponse.authenticatorData),
+        clientDataJSON: bufferToBase64Url(assertionResponse.clientDataJSON),
+        signature: bufferToBase64Url(assertionResponse.signature),
+        userHandle: assertionResponse.userHandle ? bufferToBase64Url(assertionResponse.userHandle) : undefined
+      },
+      type: credential.type,
+      clientExtensionResults: credential.getClientExtensionResults ? credential.getClientExtensionResults() : {}
+    }
+
+    const res = await signinFlowStore.submitChallenge('pk', {
+      credential: credentialPayload,
+      rememberMe: true
+    })
+
+    if (res.success) {
+      await router.push(res.redirect || '/competitions')
+      return
+    }
+
+    if (res.nextStep) {
+      await router.push({
         path: `/v1/signin/challenge/${res.nextStep}`,
         query: signinFlowStore.getQueryParams()
       })
-    } catch (err: any) {
-      deviceError.value = err?.message || '设备核验失败'
+      return
+    }
+
+    if (res.errorMessage) {
+      rawDeviceError.value = res.errorMessage
+    }
+  } catch (err: any) {
+    if (err.name === 'NotAllowedError') {
+      deviceErrorKey.value = 'auth.passkey_cancelled'
+    } else {
+      if (err?.message) {
+        rawDeviceError.value = err.message
+      } else {
+        deviceErrorKey.value = 'auth.passkey_verify_failed'
+      }
     }
   } finally {
     isSubmitting.value = false

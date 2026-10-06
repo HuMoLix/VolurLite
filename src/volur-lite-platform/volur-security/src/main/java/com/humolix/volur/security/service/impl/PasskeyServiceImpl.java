@@ -1,12 +1,25 @@
 package com.humolix.volur.security.service.impl;
 
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.framework.common.util.RequestUtil;
+import com.humolix.volur.security.domain.dto.PasskeyAssertionVerifyRequestDTO;
 import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
-import com.humolix.volur.security.domain.session.AuthFlowSession;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
 import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
+import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
+import com.humolix.volur.security.flow.flows.SigninFlow;
 import com.humolix.volur.security.service.PasskeyService;
+import com.humolix.volur.security.session.SessionManager;
+import com.humolix.volur.security.session.domain.Session;
+import com.humolix.volur.security.session.validator.SessionDeviceBaselineValidator;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.repository.UserRepository;
+import com.humolix.volur.user.service.UserTrustedDeviceService;
+import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.system.service.SystemSettingService;
+import com.humolix.volur.verification.risk.engine.RiskEvaluationEngine;
+import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -14,18 +27,22 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.web.webauthn.api.AuthenticatorAssertionResponse;
 import org.springframework.security.web.webauthn.api.AuthenticatorAttachment;
 import org.springframework.security.web.webauthn.api.AuthenticatorAttestationResponse;
 import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
 import org.springframework.security.web.webauthn.api.CredentialRecord;
 import org.springframework.security.web.webauthn.api.PublicKeyCredential;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialCreationOptions;
+import org.springframework.security.web.webauthn.api.PublicKeyCredentialRequestOptions;
 import org.springframework.security.web.webauthn.api.ResidentKeyRequirement;
 import org.springframework.security.web.webauthn.api.UserVerificationRequirement;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.security.web.webauthn.management.ImmutablePublicKeyCredentialCreationOptionsRequest;
+import org.springframework.security.web.webauthn.management.ImmutablePublicKeyCredentialRequestOptionsRequest;
 import org.springframework.security.web.webauthn.management.ImmutableRelyingPartyRegistrationRequest;
+import org.springframework.security.web.webauthn.management.RelyingPartyAuthenticationRequest;
 import org.springframework.security.web.webauthn.management.RelyingPartyPublicKey;
 import org.springframework.security.web.webauthn.management.RelyingPartyRegistrationRequest;
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
@@ -48,16 +65,27 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PasskeyServiceImpl implements PasskeyService {
 
+    private final SessionManager sessionManager;
     private final TransitionLockManager transitionLockManager;
     private final WebAuthnRelyingPartyOperations rpOperations;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final SessionDeviceBaselineValidator sessionDeviceBaselineValidator;
+    private final UserRepository userRepository;
+    private final UserTrustedDeviceService userTrustedDeviceService;
+    private final RiskEvaluationEngine riskEvaluationEngine;
+    private final SystemSettingService systemSettingService;
 
     private static final String VREDIS_SECURITY_PASSKEY_CREATION_KEY_PREFIX = "vredis:security:passkey:creation:";
+    private static final String VREDIS_SECURITY_PASSKEY_ASSERTION_KEY_PREFIX = "vredis:security:passkey:assertion:";
     private static final Duration PASSKEY_CREATION_TTL = Duration.ofMinutes(5);
+    private static final Duration PASSKEY_ASSERTION_TTL = Duration.ofMinutes(5);
 
     @Override
     public List<PasskeyAuthenticatorOptionVO> getSupportedAuthenticators() {
+        if (!systemSettingService.getBoolean(SystemSettingKeys.WEBAUTHN_ENABLED, true)) {
+            return List.of();
+        }
         return List.of(
                 PasskeyAuthenticatorOptionVO.builder()
                         .key("windows_password_manager")
@@ -104,12 +132,13 @@ public class PasskeyServiceImpl implements PasskeyService {
 
     @Override
     public PublicKeyCredentialCreationOptions getCreationOptions(String dsh, String tl, String authenticatorType) {
-        transitionLockManager.validateStepAndTl(dsh, tl, "pt/options");
-        AuthFlowSession session = transitionLockManager.getSession(dsh);
+        assertWebAuthnEnabled();
+        transitionLockManager.validateTransLock(dsh, tl, "pt/options");
+        Session session = sessionManager.getSession(dsh);
 
-        String username = (String) transitionLockManager.getMetadata(dsh, "username");
-        if (!StringUtils.hasText(username)) {
-            username = session.getIdentifier();
+        String username = (String) sessionManager.getMetadata(dsh, "username");
+        if (!StringUtils.hasText(username) && session.getFlow() != null) {
+            username = session.getFlow().getIdentifier();
         }
         if (!StringUtils.hasText(username)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "无法定位当前会话绑定的用户，请重新开始注册");
@@ -150,7 +179,8 @@ public class PasskeyServiceImpl implements PasskeyService {
 
     @Override
     public PasskeyRegisterResponseVO registerPasskey(String dsh, String tl, PasskeyRegisterRequestDTO request) {
-        transitionLockManager.validateStepAndTl(dsh, tl, "pt/options");
+        assertWebAuthnEnabled();
+        transitionLockManager.validateTransLock(dsh, tl, "pt/options");
 
         String key = VREDIS_SECURITY_PASSKEY_CREATION_KEY_PREFIX + dsh;
         String base64 = redisTemplate.opsForValue().get(key);
@@ -196,7 +226,7 @@ public class PasskeyServiceImpl implements PasskeyService {
         }
 
         redisTemplate.delete(key);
-        transitionLockManager.setMetadata(dsh, "passkeyRegistered", true);
+        sessionManager.setMetadata(dsh, "passkeyRegistered", true);
 
         return PasskeyRegisterResponseVO.builder()
                 .success(true)
@@ -204,14 +234,180 @@ public class PasskeyServiceImpl implements PasskeyService {
                 .build();
     }
 
+    @Override
+    public PublicKeyCredentialRequestOptions getAssertionOptions(String dsh, String tl) {
+        assertWebAuthnEnabled();
+        Session session = sessionManager.getSession(dsh);
+        sessionDeviceBaselineValidator.validateBaseline(session);
+
+        String currentStep = session.getFlow() != null ? session.getFlow().getCurrentStep() : "pk";
+        transitionLockManager.validateTransLock(dsh, tl, currentStep);
+
+        String username = session.getFlow() != null ? session.getFlow().getIdentifier() : null;
+        if (!StringUtils.hasText(username)) {
+            username = (String) sessionManager.getMetadata(dsh, "username");
+        }
+        if (!StringUtils.hasText(username)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "无法定位当前会话绑定的用户，请重新输入账号");
+        }
+
+        String cleanIdentifier = username.trim();
+        User user = userRepository.findByUsername(cleanIdentifier)
+                .or(() -> userRepository.findByEmail(cleanIdentifier.toLowerCase()))
+                .orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "用户名或邮箱不存在"));
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                user.getUsername(),
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+
+        PublicKeyCredentialRequestOptions options = rpOperations.createCredentialRequestOptions(
+                new ImmutablePublicKeyCredentialRequestOptionsRequest(authentication)
+        );
+
+        byte[] serialized = serialize(options);
+        String base64 = Base64.getEncoder().encodeToString(serialized);
+        String key = VREDIS_SECURITY_PASSKEY_ASSERTION_KEY_PREFIX + dsh;
+        redisTemplate.opsForValue().set(key, base64, PASSKEY_ASSERTION_TTL);
+
+        return options;
+    }
+
+    @Override
+    public SignInFlowResponseVO verifyPasskeyAssertion(PasskeyAssertionVerifyRequestDTO request) {
+        assertWebAuthnEnabled();
+        String dsh = request.getDsh();
+        String tl = request.getTl();
+        int cid = request.getCid() != null ? request.getCid() : 1;
+
+        Session session = sessionManager.getSession(dsh);
+        sessionDeviceBaselineValidator.validateBaseline(session);
+
+        String currentStep = session.getFlow() != null ? session.getFlow().getCurrentStep() : "pk";
+        transitionLockManager.validateTransLock(dsh, tl, currentStep);
+
+        String username = session.getFlow() != null ? session.getFlow().getIdentifier() : null;
+        if (!StringUtils.hasText(username)) {
+            username = (String) sessionManager.getMetadata(dsh, "username");
+        }
+        if (!StringUtils.hasText(username)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "无法定位当前会话绑定的用户，请重新输入账号");
+        }
+
+        String cleanIdentifier = username.trim();
+        User user = userRepository.findByUsername(cleanIdentifier)
+                .or(() -> userRepository.findByEmail(cleanIdentifier.toLowerCase()))
+                .orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "用户名或邮箱不存在"));
+
+        String key = VREDIS_SECURITY_PASSKEY_ASSERTION_KEY_PREFIX + dsh;
+        String base64 = redisTemplate.opsForValue().get(key);
+        if (!StringUtils.hasText(base64)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "通行密钥挑战已失效或不存在，请重新生成");
+        }
+
+        PublicKeyCredentialRequestOptions requestOptions;
+        try {
+            byte[] bytes = Base64.getDecoder().decode(base64);
+            requestOptions = deserialize(bytes, PublicKeyCredentialRequestOptions.class);
+        } catch (Exception e) {
+            log.error("Failed to deserialize cached passkey assertion options", e);
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "解析通行密钥会话失败");
+        }
+
+        if (requestOptions == null) {
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "通行密钥会话数据异常");
+        }
+
+        if (request.getCredential() == null || request.getCredential().isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "通行密钥凭据载荷不能为空");
+        }
+
+        PublicKeyCredential<AuthenticatorAssertionResponse> credential;
+        try {
+            String credentialJson = objectMapper.writeValueAsString(request.getCredential());
+            credential = objectMapper.readValue(credentialJson, new TypeReference<>() {});
+        } catch (Exception e) {
+            log.error("Failed to deserialize WebAuthn assertion credential payload", e);
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "通行密钥凭据格式错误");
+        }
+
+        RelyingPartyAuthenticationRequest authRequest = new RelyingPartyAuthenticationRequest(requestOptions, credential);
+        String clientIp = RequestUtil.getClientIp();
+        try {
+            rpOperations.authenticate(authRequest);
+        } catch (Exception e) {
+            riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
+            riskEvaluationEngine.recordAccountFailure(cleanIdentifier, CaptchaScene.LOGIN);
+            log.warn("WebAuthn assertion authenticate failed: {}", e.getMessage(), e);
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "通行密钥核验未通过: " + e.getMessage());
+        }
+
+        redisTemplate.delete(key);
+        riskEvaluationEngine.recordSuccess(clientIp, CaptchaScene.LOGIN);
+        riskEvaluationEngine.recordAccountSuccess(cleanIdentifier, CaptchaScene.LOGIN);
+
+        String deviceHash = session.getRequestDeviceParams() != null
+                ? session.getRequestDeviceParams().getDeviceHash()
+                : null;
+        if (!StringUtils.hasText(deviceHash) && session.getRequestDeviceParams() != null) {
+            deviceHash = session.getRequestDeviceParams().getFingerprint();
+        }
+        if (StringUtils.hasText(deviceHash)) {
+            String osFamily = session.getRequestDeviceParams() != null ? session.getRequestDeviceParams().getOsFamily() : null;
+            String browserFamily = session.getRequestDeviceParams() != null ? session.getRequestDeviceParams().getBrowserFamily() : null;
+            userTrustedDeviceService.recordLoginDevice(user.getId(), deviceHash, osFamily, browserFamily, clientIp);
+        }
+
+        SigninFlow signinFlow = SigninFlow.from(session.getFlow());
+        signinFlow.completeStep(currentStep);
+        session.setFlow(signinFlow);
+        sessionManager.saveSession(session);
+
+        int nextCid = cid + 1;
+        String nextTL = transitionLockManager.nextTransLock(
+                dsh, tl, cid, currentStep, nextCid, SigninFlow.STEP_AUTHENTICATE, cleanIdentifier
+        );
+
+        return SignInFlowResponseVO.builder()
+                .dsh(dsh)
+                .tl(nextTL)
+                .cid(nextCid)
+                .nextStep(SigninFlow.STEP_AUTHENTICATE)
+                .status("CHALLENGE")
+                .identifier(cleanIdentifier)
+                .build();
+    }
+
+    private void assertWebAuthnEnabled() {
+        if (!systemSettingService.getBoolean(SystemSettingKeys.WEBAUTHN_ENABLED, true)) {
+            throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "通行密钥 (WebAuthn) 认证服务已停用");
+        }
+    }
+
+    private UserVerificationRequirement resolveUserVerificationRequirement() {
+        String uv = systemSettingService.getSettingValue(SystemSettingKeys.WEBAUTHN_USER_VERIFICATION, "preferred");
+        if (uv != null) {
+            String trimmed = uv.trim().toLowerCase();
+            if ("required".equals(trimmed)) {
+                return UserVerificationRequirement.REQUIRED;
+            }
+            if ("discouraged".equals(trimmed)) {
+                return UserVerificationRequirement.DISCOURAGED;
+            }
+        }
+        return UserVerificationRequirement.PREFERRED;
+    }
+
     private AuthenticatorSelectionCriteria resolveCriteria(String authenticatorType) {
         if (!StringUtils.hasText(authenticatorType)) {
             return null;
         }
+        UserVerificationRequirement uv = resolveUserVerificationRequirement();
         return switch (authenticatorType.trim().toLowerCase()) {
             case "windows_password_manager" -> AuthenticatorSelectionCriteria.builder()
                     .authenticatorAttachment(AuthenticatorAttachment.PLATFORM)
-                    .userVerification(UserVerificationRequirement.PREFERRED)
+                    .userVerification(uv)
                     .residentKey(ResidentKeyRequirement.REQUIRED)
                     .build();
             case "windows_hello" -> AuthenticatorSelectionCriteria.builder()
@@ -221,17 +417,17 @@ public class PasskeyServiceImpl implements PasskeyService {
                     .build();
             case "security_key" -> AuthenticatorSelectionCriteria.builder()
                     .authenticatorAttachment(AuthenticatorAttachment.CROSS_PLATFORM)
-                    .userVerification(UserVerificationRequirement.PREFERRED)
+                    .userVerification(uv)
                     .residentKey(ResidentKeyRequirement.PREFERRED)
                     .build();
             case "mobile_device" -> AuthenticatorSelectionCriteria.builder()
                     .authenticatorAttachment(AuthenticatorAttachment.CROSS_PLATFORM)
-                    .userVerification(UserVerificationRequirement.PREFERRED)
+                    .userVerification(uv)
                     .residentKey(ResidentKeyRequirement.REQUIRED)
                     .build();
             case "apple_keychain" -> AuthenticatorSelectionCriteria.builder()
                     .authenticatorAttachment(AuthenticatorAttachment.PLATFORM)
-                    .userVerification(UserVerificationRequirement.PREFERRED)
+                    .userVerification(uv)
                     .residentKey(ResidentKeyRequirement.REQUIRED)
                     .build();
             default -> null;

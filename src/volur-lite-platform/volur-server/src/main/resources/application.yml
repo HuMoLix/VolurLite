@@ -67,6 +67,28 @@ volur:
     remember-me-refresh-expiration-ms: ${VOLUR_JWT_REMEMBER_ME_REFRESH_EXPIRATION_MS:2592000000} # 30 days
     header: "Authorization"
     token-prefix: "Bearer "
+  security:
+    webauthn:
+      enabled: ${VOLUR_WEBAUTHN_ENABLED:true}
+      rp-id: "${VOLUR_WEBAUTHN_RP_ID:localhost}"
+      rp-name: "${VOLUR_WEBAUTHN_RP_NAME:Volur Lite}"
+      timeout: ${VOLUR_WEBAUTHN_TIMEOUT:60s}
+      user-verification: "${VOLUR_WEBAUTHN_USER_VERIFICATION:preferred}"
+      resident-key: "${VOLUR_WEBAUTHN_RESIDENT_KEY:preferred}"
+      attestation: "${VOLUR_WEBAUTHN_ATTESTATION:none}"
+      allowed-origins:
+        - "http://localhost:5173"
+        - "http://localhost:8080"
+        - "http://127.0.0.1:5173"
+        - "http://127.0.0.1:8080"
+        - "http://localhost:3000"
+        - "http://localhost:3001"
+        - "http://127.0.0.1:3000"
+        - "http://127.0.0.1:3001"
+        - "http://localhost:4173"
+        - "https://localhost:5173"
+        - "https://localhost:8080"
+        - "https://localhost:3001"
   container:
     docker-host: "${VOLUR_CONTAINER_DOCKER_HOST:tcp://localhost:2375}" # Or unix:///var/run/docker.sock for Linux
     default-timeout-minutes: 60

@@ -58,7 +58,8 @@ public class FlowCryptoServiceImpl implements FlowCryptoService {
 
         byte[] payloadBytes;
         try {
-            payloadBytes = Base64.getDecoder().decode(cipherBase64);
+            String sanitized = cipherBase64.trim().replace(' ', '+');
+            payloadBytes = Base64.getDecoder().decode(sanitized);
         } catch (Exception e) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "密文数据Base64解码失败");
         }

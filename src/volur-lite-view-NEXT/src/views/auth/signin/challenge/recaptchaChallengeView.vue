@@ -2,7 +2,7 @@
   <form class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleVerifyChallenge">
     <div class="space-y-5">
       <p class="text-sm text-google-text-desc dark:text-google-text-darkDesc leading-relaxed">
-        为了保护您的账号不受自动化程序攻击，请勾选下方验证框完成人机身份验证。
+        {{ t('auth.recaptcha_tip') }}
       </p>
 
       <Recaptcha
@@ -11,7 +11,7 @@
         v-model:ticket="recaptchaTicket"
         :dsh="signinFlowStore.dsh"
         :tl="signinFlowStore.tl"
-        v-model:error-msg="recaptchaError"
+        :error-msg="recaptchaError"
         @success="handleRecaptchaSuccess"
         @error="handleRecaptchaError"
       />
@@ -24,7 +24,7 @@
         :isScrim="true"
         @click="handleTryAnotherWayClick"
       >
-        试试其他方式
+        {{ t('auth.try_another_way') }}
       </button>
       <n-button
         type="primary"
@@ -32,7 +32,7 @@
         :disabled="loading"
         @click="handleVerifyChallenge"
       >
-        下一步
+        {{ t('auth.next') }}
       </n-button>
     </div>
   </form>
@@ -42,6 +42,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import Recaptcha from '@/components/security/recaptcha.vue'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
@@ -50,7 +51,8 @@ defineOptions({
   name: 'RecaptchaChallengeView'
 })
 
-useCardHeader('安全核验', '为了保护您的账号安全，请完成以下人机身份验证')
+const { t } = useI18n()
+useCardHeader(() => t('auth.security_verification'), () => t('auth.security_verification_prompt'))
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
@@ -58,30 +60,50 @@ const signinFlowStore = useSigninFlowStore()
 const isRecaptchaPassed = ref(false)
 const recaptchaToken = ref('')
 const recaptchaTicket = ref('')
-const recaptchaError = ref('')
+const recaptchaErrorKey = ref('')
+const rawRecaptchaError = ref('')
+
+const recaptchaError = computed(() => {
+  if (recaptchaErrorKey.value) {
+    return t(recaptchaErrorKey.value)
+  }
+  return rawRecaptchaError.value
+})
+
+function clearRecaptchaError(): void {
+  recaptchaErrorKey.value = ''
+  rawRecaptchaError.value = ''
+}
+
 const isSubmitting = ref(false)
 const loading = computed(() => signinFlowStore.loading)
 
 watch(isRecaptchaPassed, (val) => {
-  if (val && recaptchaError.value) {
-    recaptchaError.value = ''
+  if (val && (recaptchaErrorKey.value || rawRecaptchaError.value)) {
+    clearRecaptchaError()
   }
 })
 
 function handleRecaptchaSuccess(payload: { token: string; ticket: string; metrics?: Record<string, unknown> }): void {
-  recaptchaError.value = ''
+  clearRecaptchaError()
   recaptchaToken.value = payload.token
   recaptchaTicket.value = payload.ticket || payload.token
 }
 
 function handleRecaptchaError(err: string): void {
-  recaptchaError.value = err || '人机验证失败，请重试'
+  if (err) {
+    rawRecaptchaError.value = err
+    recaptchaErrorKey.value = ''
+  } else {
+    recaptchaErrorKey.value = 'auth.recaptcha_failed'
+    rawRecaptchaError.value = ''
+  }
 }
 
 async function handleTryAnotherWayClick() {
   if (signinFlowStore.loading) return
   await signinFlowStore.triggerScrim(undefined, 1000)
-  const msg = 'Volur 无法验证此账号归您所有。请稍后重试，或前往“账号恢复”页面寻求帮助。'
+  const msg = t('auth.cannot_signin_default_msg')
   await router.push({
     path: '/v1/signin/challenge/rejected',
     query: signinFlowStore.getQueryParams({
@@ -96,7 +118,8 @@ async function handleVerifyChallenge() {
 
   try {
     if (!isRecaptchaPassed.value || !recaptchaTicket.value) {
-      recaptchaError.value = '请完成人机验证框以继续'
+      recaptchaErrorKey.value = 'auth.recaptcha_required'
+      rawRecaptchaError.value = ''
       return
     }
 
@@ -107,7 +130,7 @@ async function handleVerifyChallenge() {
       })
 
       if (res.nextStep === 'identifier') {
-        const errorText = res.errorMessage || '用户名或邮箱不存在'
+        const errorText = res.errorMessage || 'auth.account_not_found'
         signinFlowStore.setAccountError(errorText)
         router.replace({
           path: '/v1/signin/identifier',
@@ -129,7 +152,7 @@ async function handleVerifyChallenge() {
     } catch (err: any) {
       const msg = err?.message || ''
       if (msg.includes('用户名或邮箱不存在') || msg.includes('不存在')) {
-        const errorText = msg || '用户名或邮箱不存在'
+        const errorText = msg || 'auth.account_not_found'
         signinFlowStore.setAccountError(errorText)
         router.replace({
           path: '/v1/signin/identifier',
@@ -140,7 +163,13 @@ async function handleVerifyChallenge() {
         })
         return
       }
-      recaptchaError.value = msg || '人机验证失败，请重试'
+      if (msg) {
+        rawRecaptchaError.value = msg
+        recaptchaErrorKey.value = ''
+      } else {
+        recaptchaErrorKey.value = 'auth.recaptcha_failed'
+        rawRecaptchaError.value = ''
+      }
     }
   } finally {
     isSubmitting.value = false

@@ -174,6 +174,12 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.RISK_HEADLESS_PENALTY_ENABLED, "true", "RISK", "BOOLEAN", false, "无头浏览器与自动化脚本严控惩罚开关");
         initDefaultIfAbsent(SystemSettingKeys.RISK_TLS_CHECK_ENABLED, "true", "RISK", "BOOLEAN", false, "原生Nginx TLS握手特征一致性核验开关");
         initDefaultIfAbsent(SystemSettingKeys.RISK_DEVICE_RATE_LIMIT_MAX, "100", "RISK", "INTEGER", false, "单设备跨IP滑动窗口最大请求次数");
+        initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_ENABLED, "true", "SECURITY", "BOOLEAN", true, "通行密钥 (WebAuthn/Passkey) 认证总开关");
+        initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_RP_ID, "localhost", "SECURITY", "STRING", true, "WebAuthn Relying Party 身份标识 (域名或localhost)");
+        initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_RP_NAME, "Volur Lite", "SECURITY", "STRING", true, "WebAuthn 依赖方应用展示名称");
+        initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_ALLOWED_ORIGINS, "", "SECURITY", "STRING", false, "允许的额外 WebAuthn 来源列表 (逗号分隔，留空使用默认)");
+        initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_USER_VERIFICATION, "preferred", "SECURITY", "STRING", false, "WebAuthn 用户验证偏好 (preferred/required/discouraged)");
+        initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_TIMEOUT_SECONDS, "60", "SECURITY", "INTEGER", false, "WebAuthn 认证交互超时时间 (秒)");
     }
 
     private void initDefaultIfAbsent(String key, String defaultValue, String group, String type, boolean isPublic, String desc) {
@@ -208,6 +214,7 @@ public class SystemSettingInitializer implements ApplicationRunner {
     private boolean isPublicSetting(String key) {
         return key.startsWith("system.general.")
                 || key.startsWith("system.maintenance.")
+                || key.startsWith("system.security.webauthn.")
                 || SystemSettingKeys.CAPTCHA_ENABLED.equals(key)
                 || SystemSettingKeys.AUTH_REGISTRATION_ENABLED.equals(key)
                 || SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION.equals(key);

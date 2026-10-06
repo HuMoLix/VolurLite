@@ -10,9 +10,11 @@ export interface CardHeaderContext {
 
 export type HeaderSource = string | Ref<string> | (() => string)
 
-export function provideCardHeader(defaultTitle = '', defaultSubtitle = ''): CardHeaderContext {
-  const title = ref(defaultTitle)
-  const subtitle = ref(defaultSubtitle)
+export function provideCardHeader(defaultTitle: HeaderSource = '', defaultSubtitle: HeaderSource = ''): CardHeaderContext {
+  const initialTitle = typeof defaultTitle === 'function' ? defaultTitle() : isRef(defaultTitle) ? defaultTitle.value : defaultTitle
+  const initialSubtitle = typeof defaultSubtitle === 'function' ? defaultSubtitle() : isRef(defaultSubtitle) ? defaultSubtitle.value : defaultSubtitle
+  const title = ref(initialTitle)
+  const subtitle = ref(initialSubtitle)
 
   function setHeader(newTitle: string, newSubtitle = ''): void {
     title.value = newTitle

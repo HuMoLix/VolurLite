@@ -1,18 +1,17 @@
 package com.humolix.volur.security.flow;
 
-import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.security.domain.session.AuthFlowSession;
+import com.humolix.volur.security.flow.domain.Flow;
+import com.humolix.volur.security.flow.domain.FlowNames;
+import com.humolix.volur.security.flow.generator.TransitionLockGenerator;
+import com.humolix.volur.security.session.SessionManager;
+import com.humolix.volur.security.session.domain.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Objects;
 
 @Slf4j
@@ -20,207 +19,94 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class TransitionLockManager {
 
-    private static final String VREDIS_SECURITY_FLOW_SESSION_KEY_PREFIX = "vredis:security:flow:session:";
-    private static final Duration FLOW_SESSION_TTL = Duration.ofMinutes(15);
-
-    private final StringRedisTemplate redisTemplate;
-    private final DshGenerator dshGenerator;
     private final TransitionLockGenerator transitionLockGenerator;
-    private final ObjectMapper objectMapper;
+    private final SessionManager sessionManager;
 
-    public String generateDsh() {
-        return dshGenerator.generate();
-    }
-
-    public String generateTL(String dsh, int cid, String step, String identifier) {
+    public String createTransLock(String dsh, int cid, String step, String identifier) {
         return transitionLockGenerator.generate(dsh, cid, step, identifier);
     }
 
-    public AuthFlowSession createOrGetSession(String dsh, String flowName, String flowEntry, String clientIp, String userAgent) {
-        if (StringUtils.hasText(dsh)) {
-            AuthFlowSession existing = getSessionOrNull(dsh);
-            if (existing != null) {
-                boolean modified = false;
-                if (StringUtils.hasText(flowName) && !Objects.equals(existing.getFlowName(), flowName)) {
-                    existing.setFlowName(flowName);
-                    modified = true;
-                }
-                if (StringUtils.hasText(flowEntry) && !Objects.equals(existing.getFlowEntry(), flowEntry)) {
-                    existing.setFlowEntry(flowEntry);
-                    modified = true;
-                }
-                if (StringUtils.hasText(clientIp) && !Objects.equals(existing.getClientIp(), clientIp)) {
-                    existing.setClientIp(clientIp);
-                    modified = true;
-                }
-                if (StringUtils.hasText(userAgent) && !Objects.equals(existing.getUserAgent(), userAgent)) {
-                    existing.setUserAgent(userAgent);
-                    modified = true;
-                }
-                if (modified) {
-                    saveSession(existing);
-                }
-                return existing;
-            }
+    public void validateTransLock(String dsh, String tl, int cid, String expectedStep) {
+        Session session = sessionManager.getSession(dsh);
+        Flow flow = session.getFlow();
+        if (flow == null) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "会话流程状态机不存在");
         }
 
-        String assignedDsh = StringUtils.hasText(dsh) ? dsh.trim() : generateDsh();
-        AuthFlowSession session = AuthFlowSession.builder()
-                .dsh(assignedDsh)
-                .flowName(StringUtils.hasText(flowName) ? flowName.trim() : "VlifWebLogin")
-                .flowEntry(StringUtils.hasText(flowEntry) ? flowEntry.trim() : "WebServiceLogin")
-                .clientIp(clientIp)
-                .userAgent(userAgent)
-                .currentStep("init")
-                .cid(0)
-                .completedSteps(new ArrayList<>())
-                .metadata(new HashMap<>())
-                .createdAt(System.currentTimeMillis())
-                .updatedAt(System.currentTimeMillis())
-                .build();
-
-        saveSession(session);
-        return session;
-    }
-
-    public AuthFlowSession createOrGetSession(String dsh, String clientIp, String userAgent) {
-        return createOrGetSession(dsh, "VlifWebLogin", "WebServiceLogin", clientIp, userAgent);
-    }
-
-    public AuthFlowSession getSession(String dsh) {
-        AuthFlowSession session = getSessionOrNull(dsh);
-        if (session == null) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "登录或业务流程会话句柄 (dsh) 已失效或不存在，请重新开始");
-        }
-        return session;
-    }
-
-    public AuthFlowSession getSessionOrNull(String dsh) {
-        if (!StringUtils.hasText(dsh)) {
-            return null;
-        }
-        String key = VREDIS_SECURITY_FLOW_SESSION_KEY_PREFIX + dsh.trim();
-        String json = redisTemplate.opsForValue().get(key);
-        if (!StringUtils.hasText(json)) {
-            return null;
-        }
-        try {
-            return objectMapper.readValue(json, AuthFlowSession.class);
-        } catch (Exception e) {
-            log.error("[TransitionLockManager] 解析会话 JSON 失败, dsh={}", dsh, e);
-            return null;
-        }
-    }
-
-    public void saveSession(AuthFlowSession session) {
-        if (session == null || !StringUtils.hasText(session.getDsh())) {
-            return;
-        }
-        session.setUpdatedAt(System.currentTimeMillis());
-        String key = VREDIS_SECURITY_FLOW_SESSION_KEY_PREFIX + session.getDsh().trim();
-        try {
-            redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(session), FLOW_SESSION_TTL);
-        } catch (Exception e) {
-            log.error("[TransitionLockManager] 序列化会话 JSON 失败, dsh={}", session.getDsh(), e);
-        }
-    }
-
-    public void validateTransitionTicket(String dsh, String tl, int cid, String expectedStep) {
-        AuthFlowSession session = getSession(dsh);
-
-        if (!StringUtils.hasText(tl) || !tl.startsWith("ADG-")) {
+        if (!transitionLockGenerator.isValid(tl)) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "认证流转票据 (TL) 缺失或格式非法");
         }
 
-        if (!Objects.equals(session.getActiveTL(), tl)) {
-            log.warn("[TransitionLockManager] TL 票据不匹配或已被核销: dsh={}, reqTL={}, activeTL={}", dsh, tl, session.getActiveTL());
+        if (!Objects.equals(flow.getActiveTL(), tl)) {
+            log.warn("[TransitionLockManager] TL 票据不匹配或已被核销: dsh={}, reqTL={}, activeTL={}", dsh, tl, flow.getActiveTL());
             throw new BusinessException(HttpStatus.FORBIDDEN, "流转票据 (TL) 无效或已被核销，防止重放攻击");
         }
 
-        if (!Objects.equals(session.getCurrentStep(), expectedStep)) {
-            log.warn("[TransitionLockManager] 检测到跃迁跳步: dsh={}, expectedStep={}, sessionStep={}", dsh, expectedStep, session.getCurrentStep());
+        if (!Objects.equals(flow.getCurrentStep(), expectedStep)) {
+            log.warn("[TransitionLockManager] 检测到跃迁跳步: dsh={}, expectedStep={}, sessionStep={}", dsh, expectedStep, flow.getCurrentStep());
             throw new BusinessException(HttpStatus.FORBIDDEN, "检测到非法越级跳转 (Step Skipping)，请按顺序完成验证");
         }
 
-        if (!Objects.equals(session.getCid(), cid)) {
-            log.warn("[TransitionLockManager] cid 序号不匹配: dsh={}, reqCid={}, sessionCid={}", dsh, cid, session.getCid());
+        if (!Objects.equals(flow.getCid(), cid)) {
+            log.warn("[TransitionLockManager] cid 序号不匹配: dsh={}, reqCid={}, sessionCid={}", dsh, cid, flow.getCid());
             throw new BusinessException(HttpStatus.FORBIDDEN, "认证步骤序号 (cid) 不一致，流程已被重置");
         }
     }
 
-    public void validateStepAndTl(String dsh, String tl, String expectedStep) {
-        AuthFlowSession session = getSession(dsh);
+    public void validateTransLock(String dsh, String tl, String expectedStep) {
+        Session session = sessionManager.getSession(dsh);
+        Flow flow = session.getFlow();
+        if (flow == null) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "会话流程状态机不存在");
+        }
 
-        if (!StringUtils.hasText(tl) || !tl.startsWith("ADG-")) {
+        if (!transitionLockGenerator.isValid(tl)) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "认证流转票据 (TL) 缺失或格式非法");
         }
 
-        if (!Objects.equals(session.getActiveTL(), tl)) {
-            log.warn("[TransitionLockManager] TL 票据不匹配或已被核销: dsh={}, reqTL={}, activeTL={}", dsh, tl, session.getActiveTL());
+        if (!Objects.equals(flow.getActiveTL(), tl)) {
+            log.warn("[TransitionLockManager] TL 票据不匹配或已被核销: dsh={}, reqTL={}, activeTL={}", dsh, tl, flow.getActiveTL());
             throw new BusinessException(HttpStatus.FORBIDDEN, "流转票据 (TL) 无效或已被核销，防止重放攻击");
         }
 
-        if (StringUtils.hasText(expectedStep) && "VlifWebLogin".equals(session.getFlowName())) {
-            if (!Objects.equals(session.getCurrentStep(), expectedStep)) {
-                log.warn("[TransitionLockManager] 步骤不匹配: dsh={}, expectedStep={}, sessionStep={}", dsh, expectedStep, session.getCurrentStep());
+        if (StringUtils.hasText(expectedStep) && FlowNames.VLIF_WEB_LOGIN.getFlowName().equals(flow.getFlowName())) {
+            if (!Objects.equals(flow.getCurrentStep(), expectedStep)) {
+                log.warn("[TransitionLockManager] 步骤不匹配: dsh={}, expectedStep={}, sessionStep={}", dsh, expectedStep, flow.getCurrentStep());
                 throw new BusinessException(HttpStatus.FORBIDDEN, "检测到非法越级跳转，请按顺序完成验证");
             }
         }
     }
 
-    public String advanceTransitionTicket(String dsh, String currentTl, int currentCid, String completedStep, int nextCid, String nextStep, String identifier) {
-        AuthFlowSession session = getSession(dsh);
+    public String nextTransLock(String dsh, String currentTl, int currentCid, String completedStep, int nextCid, String nextStep, String identifier) {
+        Session session = sessionManager.getSession(dsh);
+        Flow flow = session.getFlow();
+        if (flow == null) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "会话流程状态机不存在");
+        }
 
         if (StringUtils.hasText(currentTl)) {
-            validateTransitionTicket(dsh, currentTl, currentCid, completedStep);
-            if (session.getCompletedSteps() == null) {
-                session.setCompletedSteps(new ArrayList<>());
-            }
-            session.getCompletedSteps().add(completedStep);
+            validateTransLock(dsh, currentTl, currentCid, completedStep);
+            flow.completeStep(completedStep);
         }
 
-        String nextTL = generateTL(dsh, nextCid, nextStep, identifier);
-        session.setActiveTL(nextTL);
-        session.setCid(nextCid);
-        session.setCurrentStep(nextStep);
+        String nextTL = createTransLock(dsh, nextCid, nextStep, identifier);
+        flow.setActiveTL(nextTL);
+        flow.setCid(nextCid);
+        flow.setCurrentStep(nextStep);
         if (StringUtils.hasText(identifier)) {
-            session.setIdentifier(identifier);
+            flow.setIdentifier(identifier);
         }
-        saveSession(session);
+        sessionManager.saveSession(session);
 
         log.info("[TransitionLockManager] 推进状态机步骤: flow={}, dsh={}, step: {} -> {}, cid: {} -> {}",
-                session.getFlowName(), dsh, completedStep, nextStep, currentCid, nextCid);
+                flow.getFlowName(), dsh, completedStep, nextStep, currentCid, nextCid);
         return nextTL;
     }
 
-    public void setMetadata(String dsh, String key, Object value) {
-        AuthFlowSession session = getSession(dsh);
-        if (session.getMetadata() == null) {
-            session.setMetadata(new HashMap<>());
-        }
-        session.getMetadata().put(key, value);
-        saveSession(session);
-    }
-
-    public Object getMetadata(String dsh, String key) {
-        AuthFlowSession session = getSessionOrNull(dsh);
-        if (session == null || session.getMetadata() == null) {
-            return null;
-        }
-        return session.getMetadata().get(key);
-    }
-
     public void burnAndCompleteSession(String dsh, String currentTl, int currentCid, String expectedStep) {
-        validateTransitionTicket(dsh, currentTl, currentCid, expectedStep);
-        destroySession(dsh);
+        validateTransLock(dsh, currentTl, currentCid, expectedStep);
+        sessionManager.destroySession(dsh);
         log.info("[TransitionLockManager] 流程认证完成，已销毁会话与事务锁: dsh={}", dsh);
-    }
-
-    public void destroySession(String dsh) {
-        if (StringUtils.hasText(dsh)) {
-            String key = VREDIS_SECURITY_FLOW_SESSION_KEY_PREFIX + dsh.trim();
-            redisTemplate.delete(key);
-        }
     }
 
 }

@@ -51,7 +51,7 @@
           type="button"
           tabindex="-1"
           class="google-text-field__action-btn"
-          title="清空"
+          :title="t('common.clear')"
           @click.stop="handleClear"
         >
           <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current">
@@ -64,7 +64,7 @@
           type="button"
           tabindex="-1"
           class="google-text-field__action-btn"
-          :title="isPasswordVisible ? '隐藏密码' : '显示密码'"
+          :title="isPasswordVisible ? t('auth.hide_password') : t('auth.show_password')"
           @click.stop="togglePasswordVisibility"
         >
           <svg v-if="!isPasswordVisible" viewBox="0 0 24 24" class="w-4 h-4 fill-current">
@@ -96,10 +96,13 @@
 
 <script setup lang="ts">
 import { ref, computed, useId } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 defineOptions({
   name: 'GoogleTextField'
 })
+
+const { t } = useI18n()
 
 interface Props {
   modelValue?: string | number

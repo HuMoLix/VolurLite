@@ -10,7 +10,7 @@
           :disabled="signinFlowStore.loading"
           :isScrim="true"
           @click="goBackIdentifier"
-          title="切换账号"
+          :title="t('auth.switch_account')"
         >
           <span class="auth-account-chip__avatar">
             {{ displayInitial }}
@@ -38,6 +38,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { provideCardHeader } from '@/composables/useCardHeader'
 import {
@@ -53,10 +54,11 @@ defineOptions({
   name: 'ChallengeView'
 })
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
-const { title: cardTitle, subtitle: cardSubtitle } = provideCardHeader('安全核验', '')
+const { title: cardTitle, subtitle: cardSubtitle } = provideCardHeader(() => t('auth.security_verification'), '')
 
 const challengeType = computed(() => {
   const p = route.params.type
@@ -85,7 +87,7 @@ const activeChallengeComponent = computed(() => {
 })
 
 const displayIdentifier = computed(() => {
-  return signinFlowStore.identifier || 'user@example.com'
+  return signinFlowStore.identifier || ''
 })
 
 const displayInitial = computed(() => {
@@ -96,7 +98,7 @@ onMounted(() => {
   signinFlowStore.ensureFlowParams(route, router)
 
   if (!signinFlowStore.identifier) {
-    window.$message?.warning?.('请先输入登录账号')
+    window.$message?.warning?.(t('auth.identifier_required'))
     router.replace({
       path: '/v1/signin/identifier',
       query: signinFlowStore.getQueryParams()
@@ -106,7 +108,7 @@ onMounted(() => {
 
   if (challengeType.value !== 'rejected' && challengeType.value !== 'reject') {
     if (!signinFlowStore.validateTransitionTicket(route)) {
-      window.$message?.warning?.('认证流转票据 (TL) 缺失或已失效，请重新输入账号')
+      window.$message?.warning?.(t('auth.tl_missing_warning'))
       router.replace({
         path: '/v1/signin/identifier',
         query: signinFlowStore.getQueryParams()

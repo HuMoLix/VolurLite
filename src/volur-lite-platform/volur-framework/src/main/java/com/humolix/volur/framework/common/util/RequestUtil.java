@@ -338,22 +338,43 @@ public class RequestUtil {
         if (request == null) {
             return null;
         }
-        // 1. 优先提取动态风控签名 Token (_v_dtk)
         String token = getCookieValue(request, COOKIE_DEVICE_TOKEN);
         if (StringUtils.hasText(token)) {
             return token.trim();
         }
-        // 2. 兜底提取长效持久化设备种子 (_v_did)
         String did = getCookieValue(request, COOKIE_DEVICE_ID);
         if (StringUtils.hasText(did)) {
             return did.trim();
         }
-        // 3. 兼容标准通用 fingerprint Cookie
         String fp = getCookieValue(request, COOKIE_DEVICE_FINGERPRINT);
         if (StringUtils.hasText(fp)) {
             return fp.trim();
         }
         return null;
+    }
+
+    public static String getDeviceToken() {
+        try {
+            return getDeviceToken(getCurrentRequest());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static String getDeviceToken(HttpServletRequest request) {
+        return getCookieValue(request, COOKIE_DEVICE_TOKEN);
+    }
+
+    public static String getDeviceId() {
+        try {
+            return getDeviceId(getCurrentRequest());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static String getDeviceId(HttpServletRequest request) {
+        return getCookieValue(request, COOKIE_DEVICE_ID);
     }
 
     /**

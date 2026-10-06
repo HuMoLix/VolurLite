@@ -16,7 +16,7 @@ import com.humolix.volur.framework.common.exception.MaintenanceModeException;
 import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
 import com.humolix.volur.framework.common.util.SpringContextHolder;
 import com.humolix.volur.notification.domain.enums.SecurityEventType;
-import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
+import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.auth.security.util.SecurityUtils;
 import com.humolix.volur.auth.service.TokenService;

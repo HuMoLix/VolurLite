@@ -32,8 +32,9 @@
    - 过期时间强制使用 `java.time.Duration`。
 5. **对象映射 (MapStruct)**：
    - 严禁手写转换方法与反射拷贝，统一使用 MapStruct 映射器接口。
-6. **服务层签名与返回值**：
+6. **服务层签名、返回值与入参校验规范**：
    - 业务动作/命令式方法强制返回 `void`；校验判定类方法强制返回基本类型 `boolean`（严禁返回包装类 `Boolean`）。
+   - **入参防冗余校验强约束（DTO `@Trimmed` 与 Service 层 `StringUtils.hasText` 禁令）**：若 DTO 中已声明 `@Trimmed`（或配合 `@NotBlank`），严禁在 Service 层使用 `StringUtils.hasText` 进行判断或重复手写 `.trim()`，彻底消除冗余防御性代码。
 7. **分页响应模型**：
    - 严禁直接暴露 `Page<T>`，统一使用 `PageResponse<T>`（传统表格）、`CursorResponse<T>`（流式/无限滚动）或 `SliceResponse<T>`（无总数切片）。
 8. **系统动态设置统一键名规范**：

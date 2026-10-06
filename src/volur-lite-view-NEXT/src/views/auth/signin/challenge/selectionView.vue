@@ -2,7 +2,7 @@
   <div class="flex flex-col justify-between h-full">
     <div>
       <p class="text-base text-google-text-primary dark:text-google-text-darkPrimary mb-5 font-normal leading-6">
-        选择您想要使用的登录方式：
+        {{ t('auth.select_method_title') }}
       </p>
 
       <div v-if="isFetchingSelection" class="py-12 flex justify-center">
@@ -47,7 +47,7 @@
                 <polyline points="3 7 12 13 21 7"/>
               </svg>
               <svg
-                v-else-if="item.icon === 'sms' || item.type === 'totp'"
+                v-else-if="item.icon === 'sms' || item.type === 'totp' || item.type === 'smsotp'"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -116,7 +116,7 @@
               </svg>
             </div>
             <div class="auth-selection-item__content">
-              <div class="auth-selection-item__title">试试其他方式</div>
+              <div class="auth-selection-item__title">{{ t('auth.try_another_way') }}</div>
             </div>
           </div>
         </div>
@@ -130,7 +130,7 @@
         :isScrim="true"
         @click="handleCancelSelection"
       >
-        取消
+        {{ t('common.cancel') }}
       </button>
     </div>
   </div>
@@ -140,6 +140,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NSpin } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { fetchChallengeSelectionApi } from '@/api/auth'
 import type { ChallengeOptionVO } from '@/types/auth/flow'
 import { useSigninFlowStore } from '@/store/modules/flow'
@@ -149,7 +150,8 @@ defineOptions({
   name: 'SelectionView'
 })
 
-useCardHeader('2 步验证', '')
+const { t } = useI18n()
+useCardHeader(() => t('auth.two_step_verification'), '')
 
 const route = useRoute()
 const router = useRouter()
@@ -205,7 +207,7 @@ async function loadSelectionMethods() {
 }
 
 function handleSelectionRejected() {
-  const msg = '您提供的信息不足以让 Volur 认定您确实是这个账号的所有者。Google 需要使用这类信息来保证您账号的安全。'
+  const msg = t('auth.selection_rejected_msg')
   router.replace({
     path: '/v1/signin/challenge/rejected',
     query: signinFlowStore.getQueryParams({
@@ -216,12 +218,16 @@ function handleSelectionRejected() {
 
 async function handleSelectMethod(item: ChallengeOptionVO) {
   if (signinFlowStore.loading) return
-  await signinFlowStore.triggerScrim(undefined, 1000)
-  const targetPath = item.path || `/v1/signin/challenge/${item.type}`
-  await router.push({
-    path: targetPath,
-    query: signinFlowStore.getQueryParams()
-  })
+  try {
+    await signinFlowStore.selectChallenge(item.type)
+    const targetPath = item.path || `/v1/signin/challenge/${item.type}`
+    await router.push({
+      path: targetPath,
+      query: signinFlowStore.getQueryParams()
+    })
+  } catch (err: any) {
+    window.$message?.error?.(err?.message || t('auth.switch_method_failed'))
+  }
 }
 
 async function handleTryAnotherWayInSelection() {
@@ -237,13 +243,7 @@ async function handleTryAnotherWayInSelection() {
       })
     })
   } else {
-    const msg = '您提供的信息不足以让 Volur 认定您确实是这个账号的所有者。Google 需要使用这类信息来保证您账号的安全。'
-    await router.push({
-      path: '/v1/signin/challenge/rejected',
-      query: signinFlowStore.getQueryParams({
-        rejectedmsg: encodeURIComponent(msg)
-      })
-    })
+    handleSelectionRejected()
   }
 }
 
@@ -301,107 +301,6 @@ async function handleCancelSelection() {
 
   &:active {
     background-color: rgba(138, 180, 248, 0.2) !important;
-  }
-}
-
-.auth-selection-list {
-  border: none;
-  border-radius: 0;
-  overflow: visible;
-  background-color: transparent;
-}
-
-:global(html.dark) .auth-selection-list {
-  border: none;
-}
-
-.auth-selection-item {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 16px 8px;
-  min-height: 56px;
-  border: none;
-  border-bottom: 1px solid var(--v-border-base, #dadce0);
-  background-color: transparent;
-  cursor: pointer;
-  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-  box-sizing: border-box;
-  outline: none;
-
-  &:hover {
-    background-color: rgba(11, 87, 208, 0.08);
-  }
-
-  &:active {
-    background-color: rgba(11, 87, 208, 0.16);
-  }
-
-  &:focus-visible {
-    outline: 2px solid #0b57d0;
-    outline-offset: -2px;
-  }
-
-  &__left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__icon {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #0b57d0;
-    flex-shrink: 0;
-
-    svg {
-      width: 24px;
-      height: 24px;
-    }
-  }
-
-  &__content {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  &__title {
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--v-text-primary, #1f1f1f);
-    line-height: 20px;
-  }
-}
-
-:global(html.dark) .auth-selection-item {
-  border-bottom-color: #3c4043;
-
-  &:hover {
-    background-color: rgba(138, 180, 248, 0.12);
-  }
-
-  &:active {
-    background-color: rgba(138, 180, 248, 0.2);
-  }
-
-  &:focus-visible {
-    outline-color: #8ab4f8;
-  }
-
-  &__icon {
-    color: #8ab4f8;
-  }
-
-  &__title {
-    color: var(--v-text-primary, #e3e3e3);
   }
 }
 </style>

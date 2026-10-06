@@ -1,9 +1,12 @@
 package com.humolix.volur.security.service;
 
+import com.humolix.volur.security.domain.dto.PasskeyAssertionVerifyRequestDTO;
 import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
 import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
+import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialCreationOptions;
+import org.springframework.security.web.webauthn.api.PublicKeyCredentialRequestOptions;
 
 import java.util.List;
 
@@ -19,4 +22,9 @@ public interface PasskeyService {
 
     PasskeyRegisterResponseVO registerPasskey(String dsh, String tl, PasskeyRegisterRequestDTO request);
 
+    PublicKeyCredentialRequestOptions getAssertionOptions(String dsh, String tl);
+
+    SignInFlowResponseVO verifyPasskeyAssertion(PasskeyAssertionVerifyRequestDTO request);
+
 }
+

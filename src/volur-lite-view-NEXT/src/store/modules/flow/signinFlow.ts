@@ -1,10 +1,19 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
-import { initFlowSessApi, submitSignInIdentifierApi, submitSignInChallengeApi } from '@/api/auth'
-import { getDeviceFingerprint } from '@/utils/fingerprint'
+import {
+  initSessionApi,
+  submitSignInIdentifierApi,
+  resendEmailOTPChallengeApi,
+  selectSignInChallengeApi,
+  submitSignInAuthenticateApi,
+  submitDynamicChallengeApi,
+  selectAccountChooserApi
+} from '@/api/auth'
+import { collectDeviceParams, getDeviceFingerprint, initDeviceFingerprint } from '@/utils/fingerprint'
 import { isDshExpired, buildSessionExpireLocation, buildSessionExpireHref } from '@/utils/flow'
 import { encryptFlowCredential } from '@/utils/flow-crypto'
+import { saveKnownAccount } from '@/utils/accountChooser'
 import { createFlowLoading } from './flowLoading'
 
 const STORAGE_IDENTIFIER_KEY = 'volur_auth_identifier'
@@ -103,14 +112,21 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       dsh.value = query.dsh
     } else if (!dsh.value) {
       try {
-        const fp = getDeviceFingerprint()
+        await initDeviceFingerprint().catch(() => {})
+        const deviceParams = collectDeviceParams()
+        const fp = deviceParams.fingerprint || getDeviceFingerprint()
         const t = Date.now()
-        const initRes = await initFlowSessApi({
+        const encryptedData = await encryptFlowCredential(
+          JSON.stringify(deviceParams),
+          newQuery.flowName,
+          newQuery.flowEntry
+        )
+        const initRes = await initSessionApi({
           flowName: newQuery.flowName,
           flowEntry: newQuery.flowEntry,
           fp,
           t,
-          dsh: typeof query.dsh === 'string' ? query.dsh : undefined
+          data: encryptedData
         })
         if (initRes.data?.dsh) {
           dsh.value = initRes.data.dsh
@@ -189,6 +205,36 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
     })
   }
 
+  async function selectAccount(chosenIdentifier: string): Promise<string> {
+    if (dsh.value && isDshExpired(dsh.value)) {
+      resetFlow()
+      if (typeof window !== 'undefined') {
+        window.location.href = buildSessionExpireHref()
+      }
+      throw new Error('会话已超时，请重新开始')
+    }
+    return withLoading(async () => {
+      const res = await selectAccountChooserApi({
+        dsh: dsh.value,
+        identifier: chosenIdentifier
+      })
+      const data = res.data
+      setIdentifier(chosenIdentifier)
+      if (data.dsh) {
+        dsh.value = data.dsh
+      }
+      if (data.tl) {
+        tl.value = data.tl
+      }
+      cid.value = typeof data.cid === 'number' ? data.cid : 1
+      if (!data.nextStep) {
+        throw new Error('服务端未返回下一步挑战流程')
+      }
+      activeChallengeType.value = data.nextStep
+      return activeChallengeType.value
+    })
+  }
+
   async function submitChallenge(
     challengeType: string,
     payload: {
@@ -197,6 +243,7 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       captchaTicket?: string
       verificationCode?: string
       rememberMe?: boolean
+      credential?: any
     }
   ): Promise<{ success: boolean; nextStep?: string; redirect?: string; errorMessage?: string }> {
     if (dsh.value && isDshExpired(dsh.value)) {
@@ -207,24 +254,37 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       throw new Error('会话已超时，请重新开始')
     }
     return withLoading(async () => {
-      const challengePayload = { ...payload }
-      if (challengeType === 'pwd' && typeof challengePayload.password === 'string' && challengePayload.password) {
-        challengePayload.password = await encryptFlowCredential(
-          challengePayload.password,
+      const targetStep = (challengeType || activeChallengeType.value || '').trim().toLowerCase()
+      if (!targetStep) {
+        throw new Error('未指定安全核验步骤')
+      }
+
+      let passwordVal = payload.password
+      if (typeof passwordVal === 'string' && passwordVal) {
+        passwordVal = await encryptFlowCredential(
+          passwordVal,
           flowName.value || 'VlifWebLogin',
           flowEntry.value || 'WebServiceLogin',
           dsh.value
         )
       }
 
-      const res = await submitSignInChallengeApi({
+      const requestBody: Record<string, any> = {
         dsh: dsh.value,
         tl: tl.value,
         cid: cid.value,
-        challengeType,
-        ...challengePayload
-      })
+        password: passwordVal,
+        code: payload.verificationCode,
+        recaptchaTicket: payload.captchaTicket || payload.captchaCode,
+        credential: payload.credential,
+        rememberMe: payload.rememberMe,
+        ...payload
+      }
+      if (passwordVal !== undefined) {
+        requestBody.password = passwordVal
+      }
 
+      const res = await submitDynamicChallengeApi(targetStep, requestBody)
       const data = res.data
 
       if (data.status === 'SUCCESS') {
@@ -244,11 +304,88 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
         activeChallengeType.value = data.nextStep
       }
 
+      if (data.nextStep === 'authenticate') {
+        const authRes = await submitSignInAuthenticateApi({
+          dsh: dsh.value,
+          tl: tl.value,
+          cid: cid.value,
+          rememberMe: Boolean(payload.rememberMe)
+        })
+        if (authRes.data?.status === 'SUCCESS') {
+          return {
+            success: true,
+            redirect: continueUrl.value || '/competitions'
+          }
+        }
+      }
+
       return {
         success: false,
         nextStep: data.nextStep,
         errorMessage: data.errorMessage
       }
+    })
+  }
+
+  async function selectChallenge(targetChallengeType: string): Promise<string> {
+    if (dsh.value && isDshExpired(dsh.value)) {
+      resetFlow()
+      if (typeof window !== 'undefined') {
+        window.location.href = buildSessionExpireHref()
+      }
+      throw new Error('会话已超时，请重新开始')
+    }
+    return withLoading(async () => {
+      const res = await selectSignInChallengeApi({
+        dsh: dsh.value,
+        tl: tl.value,
+        cid: cid.value,
+        targetChallengeType
+      })
+      const data = res.data
+      if (data.tl) {
+        tl.value = data.tl
+      }
+      if (typeof data.cid === 'number') {
+        cid.value = data.cid
+      }
+      if (data.nextStep) {
+        activeChallengeType.value = data.nextStep
+      }
+      return activeChallengeType.value
+    })
+  }
+
+  async function submitAuthenticate(rememberMe: boolean = true): Promise<{ success: boolean; redirect?: string }> {
+    if (dsh.value && isDshExpired(dsh.value)) {
+      resetFlow()
+      if (typeof window !== 'undefined') {
+        window.location.href = buildSessionExpireHref()
+      }
+      throw new Error('会话已超时，请重新开始')
+    }
+    return withLoading(async () => {
+      const res = await submitSignInAuthenticateApi({
+        dsh: dsh.value,
+        tl: tl.value,
+        cid: cid.value,
+        rememberMe
+      })
+      if (res.data?.status === 'SUCCESS') {
+        const authedUser = res.data.identifier || identifier.value
+        if (authedUser) {
+          saveKnownAccount({
+            identifier: authedUser,
+            username: authedUser,
+            lastLoginTime: Date.now()
+          })
+        }
+        return {
+          success: true,
+          redirect: continueUrl.value || '/competitions'
+        }
+      }
+      throw new Error('登录认证未通过，请重试')
     })
   }
 
@@ -308,6 +445,15 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
     flowEntry.value = entry
   }
 
+  async function resendEmailOTP(): Promise<void> {
+    if (!dsh.value || !tl.value) {
+      throw new Error('会话凭据已失效')
+    }
+    return withLoading(async () => {
+      await resendEmailOTPChallengeApi({ dsh: dsh.value, tl: tl.value })
+    })
+  }
+
   return {
     dsh,
     tl,
@@ -325,7 +471,11 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
     consumeAccountError,
     ensureFlowParams,
     submitIdentifier,
+    selectAccount,
     submitChallenge,
+    resendEmailOTP,
+    selectChallenge,
+    submitAuthenticate,
     validateTransitionTicket,
     getQueryParams,
     setIdentifier,

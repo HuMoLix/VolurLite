@@ -1,8 +1,8 @@
 <template>
   <div class="auth-card__body">
     <div class="auth-card__left">
-      <h1 class="auth-card__title">登录</h1>
-      <p class="auth-card__subtitle">使用您的 Volur 账号</p>
+      <h1 class="auth-card__title">{{ t('auth.signin_title') }}</h1>
+      <p class="auth-card__subtitle">{{ t('auth.signin_subtitle') }}</p>
       <div id="auth-header-extra" class="auth-card__header-extra" />
     </div>
 
@@ -12,30 +12,38 @@
           <div>
             <GoogleTextField
               v-model="identifier"
-              label="邮箱或账户名称"
+              :label="t('auth.identifier_label')"
               autocomplete="username"
               autofocus
               :error-msg="errorMsg"
-              @clear="errorMsg = ''"
+              @clear="clearError"
               @enter="handleNext"
             />
           </div>
 
-          <div class="text-left mt-2.5 mb-8">
+          <div class="flex items-center justify-between mt-2.5 mb-8">
             <a
               href="#"
               class="auth-forgot-link"
               @click.prevent="handleForgotAccount"
             >
-              忘记了邮箱？
+              {{ t('auth.forgot_email') }}
+            </a>
+            <a
+              v-if="hasKnownAccounts()"
+              href="#"
+              class="auth-forgot-link"
+              @click.prevent="handleBackToChooser"
+            >
+              {{ t('auth.choose_account') }}
             </a>
           </div>
 
           <p class="text-sm text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-            您用的不是自己的电脑？请使用访客模式无痕登录。<a
+            {{ t('auth.guest_mode_tip') }}<a
               href="#"
               class="auth-learn-more-link"
-            >了解详情</a>
+            >{{ t('auth.learn_more') }}</a>
           </p>
         </div>
 
@@ -47,7 +55,7 @@
             :isScrim="true"
             @click="handleCreateAccount"
           >
-            创建账号
+            {{ t('auth.create_account') }}
           </button>
           <n-button
             type="primary"
@@ -55,7 +63,7 @@
             :disabled="loading"
             @click="handleNext"
           >
-            下一步
+            {{ t('auth.next') }}
           </n-button>
         </div>
       </div>
@@ -67,25 +75,42 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
 import { useSigninFlowStore } from '@/store/modules/flow'
+import { hasKnownAccounts } from '@/utils/accountChooser'
 
 defineOptions({
   name: 'IdentifierView'
 })
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
 
 const identifier = ref(signinFlowStore.identifier || '')
-const errorMsg = ref('')
+const errorKey = ref('')
+const rawErrorMsg = ref('')
+
+const errorMsg = computed(() => {
+  if (errorKey.value) {
+    return t(errorKey.value)
+  }
+  return rawErrorMsg.value
+})
+
+function clearError(): void {
+  errorKey.value = ''
+  rawErrorMsg.value = ''
+}
+
 const loading = computed(() => signinFlowStore.loading)
 let hasMounted = false
 
 watch(identifier, () => {
-  if (hasMounted && errorMsg.value) {
-    errorMsg.value = ''
+  if (hasMounted && (errorKey.value || rawErrorMsg.value)) {
+    clearError()
   }
 })
 
@@ -94,7 +119,13 @@ function checkPendingError(): void {
   const fromQuery = (route.query.accountError as string) || ''
   const pending = fromStore || fromQuery
   if (pending) {
-    errorMsg.value = pending
+    if (pending.startsWith('auth.') || pending.startsWith('common.')) {
+      errorKey.value = pending
+      rawErrorMsg.value = ''
+    } else {
+      rawErrorMsg.value = pending
+      errorKey.value = ''
+    }
     if (fromQuery) {
       const nextQuery = { ...route.query }
       delete nextQuery.accountError
@@ -137,7 +168,8 @@ async function handleNext() {
 
   const trimmed = identifier.value.trim()
   if (!trimmed) {
-    errorMsg.value = '请输入邮箱或账户名称'
+    errorKey.value = 'auth.identifier_required'
+    rawErrorMsg.value = ''
     return
   }
 
@@ -148,13 +180,30 @@ async function handleNext() {
       query: signinFlowStore.getQueryParams()
     })
   } catch (err: any) {
-    errorMsg.value = err?.message || '账号核验失败，请重试'
+    if (err?.message) {
+      rawErrorMsg.value = err.message
+      errorKey.value = ''
+    } else {
+      errorKey.value = 'auth.identifier_failed'
+      rawErrorMsg.value = ''
+    }
   }
 }
 
 function handleForgotAccount() {
   if (signinFlowStore.loading) return
-  window.$message.info('跳转至账号找回 /v1/recovery/identifier')
+  router.push({
+    path: '/v1/recovery/identifier',
+    query: signinFlowStore.getQueryParams()
+  }).catch(() => {})
+}
+
+function handleBackToChooser() {
+  if (signinFlowStore.loading) return
+  router.push({
+    path: '/v1/signin/accountchooser',
+    query: signinFlowStore.getQueryParams()
+  })
 }
 
 async function handleCreateAccount() {

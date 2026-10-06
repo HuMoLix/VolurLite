@@ -5,14 +5,19 @@ import com.humolix.volur.auth.domain.dto.*;
 import com.humolix.volur.auth.domain.vo.SignUpFlowResponseVO;
 import com.humolix.volur.auth.domain.vo.SignUpOptionVO;
 import com.humolix.volur.auth.security.cookie.AuthCookieService;
-import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
+import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.auth.service.SignupService;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.framework.common.util.SpringContextHolder;
-import com.humolix.volur.security.domain.session.AuthFlowSession;
+import com.humolix.volur.security.domain.session.RequestDeviceParams;
+import com.humolix.volur.security.domain.session.RequestHeader;
+import com.humolix.volur.security.flow.domain.FlowNames;
 import com.humolix.volur.security.flow.TransitionLockManager;
+import com.humolix.volur.security.service.FlowCryptoService;
+import com.humolix.volur.security.session.SessionManager;
+import com.humolix.volur.security.session.domain.Session;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
@@ -23,7 +28,6 @@ import com.humolix.volur.user.event.UserStatusChangedEvent;
 import com.humolix.volur.user.repository.UserProfileRepository;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.verification.service.EmailService;
-import com.humolix.volur.security.service.FlowCryptoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -40,6 +44,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class SignupServiceImpl implements SignupService {
 
+    private final SessionManager sessionManager;
     private final TransitionLockManager transitionLockManager;
     private final SystemSettingService systemSettingService;
     private final UserRepository userRepository;
@@ -57,9 +62,9 @@ public class SignupServiceImpl implements SignupService {
         }
 
         String clientIp = RequestUtil.getClientIp();
-        String userAgent = RequestUtil.getUserAgent();
-        AuthFlowSession session = transitionLockManager.createOrGetSession(
-                request.getDsh(), "VlifWebSignUp", "WebSignUp", clientIp, userAgent
+        RequestHeader requestHeader = RequestHeader.fromCurrentRequest();
+        Session session = sessionManager.recoverySession(
+                request.getDsh(), FlowNames.VLIF_WEB_SIGNUP.getFlowName(), FlowNames.FlowEntry.WEB_SIGN_UP.getEntry(), requestHeader, null
         );
 
         String rawUsername = request.getUsername();
@@ -67,8 +72,11 @@ public class SignupServiceImpl implements SignupService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "用户名不能为空");
         }
 
+        String flowName = session.getFlow() != null ? session.getFlow().getFlowName() : FlowNames.VLIF_WEB_SIGNUP.getFlowName();
+        String flowEntry = session.getFlow() != null ? session.getFlow().getFlowEntry() : FlowNames.FlowEntry.WEB_SIGN_UP.getEntry();
+
         String username = rawUsername.startsWith("$V1$GCM$")
-                ? flowCryptoService.decrypt(rawUsername, session.getFlowName(), session.getFlowEntry(), session.getDsh())
+                ? flowCryptoService.decrypt(rawUsername, flowName, flowEntry, session.getDsh())
                 : rawUsername;
 
         if (username.length() < 3 || username.length() > 32 || !username.matches("^[a-zA-Z0-9_-]+$")) {
@@ -79,17 +87,20 @@ public class SignupServiceImpl implements SignupService {
             throw new BusinessException(HttpStatus.CONFLICT, "用户名已存在");
         }
 
-        session.setIdentifier(username);
-        transitionLockManager.setMetadata(session.getDsh(), "username", username);
+        if (session.getFlow() != null) {
+            session.getFlow().setIdentifier(username);
+        }
+        sessionManager.setMetadata(session.getDsh(), "username", username);
+        sessionManager.saveSession(session);
 
         boolean requireEmailVerification = systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true);
         String nextStep = requireEmailVerification ? "email" : "password";
 
         int currentCid = request.getCid() != null ? request.getCid() : 0;
         int nextCid = currentCid + 1;
-        String currentStep = session.getCurrentStep() != null ? session.getCurrentStep() : "init";
+        String currentStep = session.getFlow() != null && session.getFlow().getCurrentStep() != null ? session.getFlow().getCurrentStep() : "init";
 
-        String nextTl = transitionLockManager.advanceTransitionTicket(
+        String nextTl = transitionLockManager.nextTransLock(
                 session.getDsh(), request.getTl(), currentCid, currentStep, nextCid, nextStep, username
         );
 
@@ -105,12 +116,12 @@ public class SignupServiceImpl implements SignupService {
 
     @Override
     public SignUpFlowResponseVO email(SignUpEmailRequestDTO request) {
-        transitionLockManager.validateTransitionTicket(request.getDsh(), request.getTl(), request.getCid(), "email");
-        AuthFlowSession session = transitionLockManager.getSession(request.getDsh());
+        transitionLockManager.validateTransLock(request.getDsh(), request.getTl(), request.getCid(), "email");
+        Session session = sessionManager.getSession(request.getDsh());
 
-        String username = (String) transitionLockManager.getMetadata(session.getDsh(), "username");
-        if (!StringUtils.hasText(username)) {
-            username = session.getIdentifier();
+        String username = (String) sessionManager.getMetadata(session.getDsh(), "username");
+        if (!StringUtils.hasText(username) && session.getFlow() != null) {
+            username = session.getFlow().getIdentifier();
         }
         if (!StringUtils.hasText(username)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "会话用户名信息丢失，请重新开始注册");
@@ -138,11 +149,11 @@ public class SignupServiceImpl implements SignupService {
         }
 
         emailService.sendVerificationEmail(email, username);
-        transitionLockManager.setMetadata(session.getDsh(), "email", email);
+        sessionManager.setMetadata(session.getDsh(), "email", email);
 
         int nextCid = request.getCid() + 1;
         String nextStep = "challenge/etotp";
-        String nextTl = transitionLockManager.advanceTransitionTicket(
+        String nextTl = transitionLockManager.nextTransLock(
                 session.getDsh(), request.getTl(), request.getCid(), "email", nextCid, nextStep, username
         );
 
@@ -159,10 +170,10 @@ public class SignupServiceImpl implements SignupService {
 
     @Override
     public void resendEmailCode(SignUpEmailResendRequestDTO request) {
-        transitionLockManager.validateTransitionTicket(request.getDsh(), request.getTl(), request.getCid(), "challenge/etotp");
-        AuthFlowSession session = transitionLockManager.getSession(request.getDsh());
-        String email = (String) transitionLockManager.getMetadata(session.getDsh(), "email");
-        String username = (String) transitionLockManager.getMetadata(session.getDsh(), "username");
+        transitionLockManager.validateTransLock(request.getDsh(), request.getTl(), request.getCid(), "challenge/etotp");
+        Session session = sessionManager.getSession(request.getDsh());
+        String email = (String) sessionManager.getMetadata(session.getDsh(), "email");
+        String username = (String) sessionManager.getMetadata(session.getDsh(), "username");
         if (!StringUtils.hasText(email)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "未检测到关联邮箱，请重新输入邮箱");
         }
@@ -171,10 +182,10 @@ public class SignupServiceImpl implements SignupService {
 
     @Override
     public SignUpFlowResponseVO verifyEtotp(SignUpEtotpChallengeRequestDTO request) {
-        transitionLockManager.validateTransitionTicket(request.getDsh(), request.getTl(), request.getCid(), "challenge/etotp");
-        AuthFlowSession session = transitionLockManager.getSession(request.getDsh());
-        String email = (String) transitionLockManager.getMetadata(session.getDsh(), "email");
-        String username = (String) transitionLockManager.getMetadata(session.getDsh(), "username");
+        transitionLockManager.validateTransLock(request.getDsh(), request.getTl(), request.getCid(), "challenge/etotp");
+        Session session = sessionManager.getSession(request.getDsh());
+        String email = (String) sessionManager.getMetadata(session.getDsh(), "email");
+        String username = (String) sessionManager.getMetadata(session.getDsh(), "username");
         if (!StringUtils.hasText(email)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "会话邮箱信息丢失，请重新开始注册");
         }
@@ -184,11 +195,11 @@ public class SignupServiceImpl implements SignupService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "邮箱验证码错误或已失效");
         }
 
-        transitionLockManager.setMetadata(session.getDsh(), "emailVerified", true);
+        sessionManager.setMetadata(session.getDsh(), "emailVerified", true);
 
         int nextCid = request.getCid() + 1;
         String nextStep = "password";
-        String nextTl = transitionLockManager.advanceTransitionTicket(
+        String nextTl = transitionLockManager.nextTransLock(
                 session.getDsh(), request.getTl(), request.getCid(), "challenge/etotp", nextCid, nextStep, username
         );
 
@@ -206,8 +217,8 @@ public class SignupServiceImpl implements SignupService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SignUpFlowResponseVO password(SignUpPasswordRequestDTO request) {
-        transitionLockManager.validateTransitionTicket(request.getDsh(), request.getTl(), request.getCid(), "password");
-        AuthFlowSession session = transitionLockManager.getSession(request.getDsh());
+        transitionLockManager.validateTransLock(request.getDsh(), request.getTl(), request.getCid(), "password");
+        Session session = sessionManager.getSession(request.getDsh());
 
         String rawPassword = request.getPassword();
         String rawConfirmPassword = request.getConfirmPassword();
@@ -215,12 +226,15 @@ public class SignupServiceImpl implements SignupService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "密码不能为空");
         }
 
+        String flowName = session.getFlow() != null ? session.getFlow().getFlowName() : FlowNames.VLIF_WEB_SIGNUP.getFlowName();
+        String flowEntry = session.getFlow() != null ? session.getFlow().getFlowEntry() : FlowNames.FlowEntry.WEB_SIGN_UP.getEntry();
+
         String plainPassword = rawPassword.startsWith("$V1$GCM$")
-                ? flowCryptoService.decrypt(rawPassword, session.getFlowName(), session.getFlowEntry(), session.getDsh())
+                ? flowCryptoService.decrypt(rawPassword, flowName, flowEntry, session.getDsh())
                 : rawPassword;
 
         String plainConfirmPassword = rawConfirmPassword.startsWith("$V1$GCM$")
-                ? flowCryptoService.decrypt(rawConfirmPassword, session.getFlowName(), session.getFlowEntry(), session.getDsh())
+                ? flowCryptoService.decrypt(rawConfirmPassword, flowName, flowEntry, session.getDsh())
                 : rawConfirmPassword;
 
         if (!Objects.equals(plainPassword, plainConfirmPassword)) {
@@ -231,17 +245,17 @@ public class SignupServiceImpl implements SignupService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "密码长度必须在8-64位之间");
         }
 
-        String username = (String) transitionLockManager.getMetadata(session.getDsh(), "username");
-        if (!StringUtils.hasText(username)) {
-            username = session.getIdentifier();
+        String username = (String) sessionManager.getMetadata(session.getDsh(), "username");
+        if (!StringUtils.hasText(username) && session.getFlow() != null) {
+            username = session.getFlow().getIdentifier();
         }
         if (!StringUtils.hasText(username)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "会话用户名信息丢失，请重新开始注册");
         }
 
         boolean requireEmailVerification = systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true);
-        String email = (String) transitionLockManager.getMetadata(session.getDsh(), "email");
-        Boolean emailVerified = (Boolean) transitionLockManager.getMetadata(session.getDsh(), "emailVerified");
+        String email = (String) sessionManager.getMetadata(session.getDsh(), "email");
+        Boolean emailVerified = (Boolean) sessionManager.getMetadata(session.getDsh(), "emailVerified");
 
         if (requireEmailVerification) {
             if (!StringUtils.hasText(email) || !Boolean.TRUE.equals(emailVerified)) {
@@ -285,14 +299,14 @@ public class SignupServiceImpl implements SignupService {
 
         authCookieService.writeAuthCookies(accessToken, refreshToken, false);
 
-        transitionLockManager.setMetadata(session.getDsh(), "accessToken", accessToken);
-        transitionLockManager.setMetadata(session.getDsh(), "refreshToken", refreshToken);
-        transitionLockManager.setMetadata(session.getDsh(), "registeredUserId", savedUser.getId());
+        sessionManager.setMetadata(session.getDsh(), "accessToken", accessToken);
+        sessionManager.setMetadata(session.getDsh(), "refreshToken", refreshToken);
+        sessionManager.setMetadata(session.getDsh(), "registeredUserId", savedUser.getId());
 
         int nextCid = request.getCid() + 1;
         String nextStep = "pt/options";
         String status = "COMPLETE";
-        String nextTl = transitionLockManager.advanceTransitionTicket(
+        String nextTl = transitionLockManager.nextTransLock(
                 session.getDsh(), request.getTl(), request.getCid(), "password", nextCid, nextStep, username
         );
 
@@ -309,7 +323,7 @@ public class SignupServiceImpl implements SignupService {
 
     @Override
     public List<SignUpOptionVO> getOptions(String dsh, String tl) {
-        transitionLockManager.validateStepAndTl(dsh, tl, "pt/options");
+        transitionLockManager.validateTransLock(dsh, tl, "pt/options");
         return List.of(
                 SignUpOptionVO.builder()
                         .type("passkey")
@@ -328,15 +342,13 @@ public class SignupServiceImpl implements SignupService {
 
     @Override
     public SignUpFlowResponseVO complete(SignUpCompleteRequestDTO request) {
+        transitionLockManager.validateTransLock(request.getDsh(), request.getTl(), request.getCid(), "pt/options");
+        Session session = sessionManager.getSession(request.getDsh());
 
-
-        transitionLockManager.validateTransitionTicket(request.getDsh(), request.getTl(), request.getCid(), "pt/options");
-        AuthFlowSession session = transitionLockManager.getSession(request.getDsh());
-
-        String accessToken = (String) transitionLockManager.getMetadata(session.getDsh(), "accessToken");
-        String refreshToken = (String) transitionLockManager.getMetadata(session.getDsh(), "refreshToken");
-        String username = (String) transitionLockManager.getMetadata(session.getDsh(), "username");
-        String email = (String) transitionLockManager.getMetadata(session.getDsh(), "email");
+        String accessToken = (String) sessionManager.getMetadata(session.getDsh(), "accessToken");
+        String refreshToken = (String) sessionManager.getMetadata(session.getDsh(), "refreshToken");
+        String username = (String) sessionManager.getMetadata(session.getDsh(), "username");
+        String email = (String) sessionManager.getMetadata(session.getDsh(), "email");
 
         transitionLockManager.burnAndCompleteSession(request.getDsh(), request.getTl(), request.getCid(), "pt/options");
 

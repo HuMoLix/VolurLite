@@ -2,6 +2,7 @@ package com.humolix.volur.auth.security.crypto;
 
 import com.humolix.volur.auth.security.entity.UserDetails;
 import com.humolix.volur.auth.security.service.UserDetailsService;
+import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.authentication.AccountStatusUserDetailsChecker;

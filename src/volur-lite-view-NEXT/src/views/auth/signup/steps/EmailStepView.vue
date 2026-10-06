@@ -5,17 +5,17 @@
         <GoogleTextField
           v-model="email"
           type="email"
-          label="电子邮件地址"
+          :label="t('auth.email_label')"
           autocomplete="email"
           autofocus
           :error-msg="errorMsg"
-          @clear="errorMsg = ''"
+          @clear="clearError"
           @enter="handleNext"
         />
       </div>
 
       <p class="text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-        系统将向此邮箱发送包含 6 位一次性验证码的邮件以核实您的所有权。
+        {{ t('auth.email_tip') }}
       </p>
     </div>
 
@@ -27,7 +27,7 @@
         :isScrim="true"
         @click="goBackName"
       >
-        返回上一步
+        {{ t('auth.back_to_previous') }}
       </button>
       <n-button
         type="primary"
@@ -36,7 +36,7 @@
         :isScrim="true"
         @click="handleNext"
       >
-        下一步
+        {{ t('auth.next') }}
       </n-button>
     </div>
   </form>
@@ -46,6 +46,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
@@ -54,18 +55,33 @@ defineOptions({
   name: 'EmailStepView'
 })
 
-useCardHeader('添加电子邮件地址', '系统将向此邮箱发送一次性验证码以进行核验')
+const { t } = useI18n()
+useCardHeader(() => t('auth.email_label'), () => t('auth.email_tip'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
 
 const email = ref(signupFlowStore.email || '')
-const errorMsg = ref('')
+const errorKey = ref('')
+const rawErrorMsg = ref('')
+
+const errorMsg = computed(() => {
+  if (errorKey.value) {
+    return t(errorKey.value)
+  }
+  return rawErrorMsg.value
+})
+
+function clearError(): void {
+  errorKey.value = ''
+  rawErrorMsg.value = ''
+}
+
 const loading = computed(() => signupFlowStore.loading)
 
 watch(email, () => {
-  if (errorMsg.value) {
-    errorMsg.value = ''
+  if (errorKey.value || rawErrorMsg.value) {
+    clearError()
   }
 })
 
@@ -83,11 +99,13 @@ async function handleNext() {
   const trimmed = email.value.trim()
 
   if (!trimmed) {
-    errorMsg.value = '请输入电子邮件地址'
+    errorKey.value = 'auth.email_required'
+    rawErrorMsg.value = ''
     return
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-    errorMsg.value = '请输入有效的电子邮件格式'
+    errorKey.value = 'auth.email_format_error'
+    rawErrorMsg.value = ''
     return
   }
 
@@ -98,7 +116,13 @@ async function handleNext() {
       query: signupFlowStore.getQueryParams()
     })
   } catch (err: any) {
-    errorMsg.value = err?.message || '邮箱提交失败，请重试'
+    if (err?.message) {
+      rawErrorMsg.value = err.message
+      errorKey.value = ''
+    } else {
+      errorKey.value = 'auth.email_submit_failed'
+      rawErrorMsg.value = ''
+    }
   }
 }
 </script>
@@ -133,7 +157,6 @@ async function handleNext() {
 
   &:active {
     background-color: rgba(11, 87, 208, 0.16) !important;
-    color: #0b57d0 !important;
   }
 }
 
@@ -217,11 +240,6 @@ async function handleNext() {
   &:hover {
     background-color: #aecbfa !important;
     color: #202124 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #202124 !important;
-    }
   }
 
   &:active {

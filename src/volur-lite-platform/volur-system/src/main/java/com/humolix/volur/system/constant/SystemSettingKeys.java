@@ -108,4 +108,11 @@ public final class SystemSettingKeys {
     public static final String RISK_TLS_CHECK_ENABLED = "system.risk.tls_check.enabled";
     public static final String RISK_DEVICE_RATE_LIMIT_MAX = "system.risk.device_rate_limit_max";
 
+    public static final String WEBAUTHN_ENABLED = "system.security.webauthn.enabled";
+    public static final String WEBAUTHN_RP_ID = "system.security.webauthn.rp_id";
+    public static final String WEBAUTHN_RP_NAME = "system.security.webauthn.rp_name";
+    public static final String WEBAUTHN_ALLOWED_ORIGINS = "system.security.webauthn.allowed_origins";
+    public static final String WEBAUTHN_USER_VERIFICATION = "system.security.webauthn.user_verification";
+    public static final String WEBAUTHN_TIMEOUT_SECONDS = "system.security.webauthn.timeout_seconds";
+
 }

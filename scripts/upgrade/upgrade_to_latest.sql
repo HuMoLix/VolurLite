@@ -110,7 +110,29 @@ CREATE TABLE IF NOT EXISTS `user_credentials` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------------------------
--- 5. 存储过程执行表结构增量与字段迁移 (幂等执行)
+-- 5. 新增数据表：用户受信设备与风控资产表 (User Trusted Device)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `user_trusted_device` (
+  `id` bigint NOT NULL,
+  `user_id` bigint NOT NULL,
+  `device_hash` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `device_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `os_family` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `browser_family` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `first_login_ip` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `last_login_ip` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `first_login_time` timestamp NULL DEFAULT NULL,
+  `last_login_time` timestamp NULL DEFAULT NULL,
+  `is_trusted` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_device` (`user_id`, `device_hash`),
+  KEY `idx_trusted_device_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------------------------
+-- 6. 存储过程执行表结构增量与字段迁移 (幂等执行)
 -- ------------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS `migrate_volur_schema_20260921`;
 
@@ -304,6 +326,42 @@ BEGIN
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_credentials' AND COLUMN_NAME = 'public_key' AND DATA_TYPE NOT IN ('blob', 'mediumblob', 'longblob')
     ) THEN
         ALTER TABLE `user_credentials` MODIFY COLUMN `public_key` blob NOT NULL;
+    END IF;
+
+    -- 3.12 sys_setting 表：初始化 WebAuthn / 通行密钥动态配置项 (幂等写入)
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_setting'
+    ) THEN
+        IF NOT EXISTS (SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.security.webauthn.enabled') THEN
+            INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+            VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'SECURITY', 'system.security.webauthn.enabled', 'true', 'BOOLEAN', 1, '通行密钥 (WebAuthn/Passkey) 认证总开关', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.security.webauthn.rp_id') THEN
+            INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+            VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'SECURITY', 'system.security.webauthn.rp_id', 'localhost', 'STRING', 1, 'WebAuthn Relying Party 身份标识 (域名或localhost)', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.security.webauthn.rp_name') THEN
+            INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+            VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'SECURITY', 'system.security.webauthn.rp_name', 'Volur Lite', 'STRING', 1, 'WebAuthn 依赖方应用展示名称', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.security.webauthn.allowed_origins') THEN
+            INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+            VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'SECURITY', 'system.security.webauthn.allowed_origins', '', 'STRING', 0, '允许的额外 WebAuthn 来源列表 (逗号分隔，留空使用默认)', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.security.webauthn.user_verification') THEN
+            INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+            VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'SECURITY', 'system.security.webauthn.user_verification', 'preferred', 'STRING', 0, 'WebAuthn 用户验证偏好 (preferred/required/discouraged)', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.security.webauthn.timeout_seconds') THEN
+            INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+            VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'SECURITY', 'system.security.webauthn.timeout_seconds', '60', 'INTEGER', 0, 'WebAuthn 认证交互超时时间 (秒)', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        END IF;
     END IF;
 
 END //

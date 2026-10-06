@@ -4,19 +4,19 @@
       <div>
         <GoogleTextField
           v-model="code"
-          label="输入 6 位数字验证码"
+          :label="t('auth.enter_code_digits')"
           autocomplete="one-time-code"
           autofocus
           maxlength="6"
           :error-msg="errorMsg"
-          @clear="errorMsg = ''"
+          @clear="clearError"
           @enter="handleNext"
         />
       </div>
 
       <div class="flex items-center justify-between text-sm">
         <span class="text-google-text-muted dark:text-google-text-darkMuted">
-          验证码已发送至 {{ displayEmail }}
+          {{ t('auth.code_sent_to') }} {{ displayEmail }}
         </span>
         <button
           type="button"
@@ -24,9 +24,9 @@
           :disabled="countdown > 0 || isResending"
           @click="handleResend"
         >
-          <span v-if="countdown > 0">{{ countdown }} 秒后可重新发送</span>
-          <span v-else-if="isResending">发送中...</span>
-          <span v-else>重新发送验证码</span>
+          <span v-if="countdown > 0">{{ t('auth.resend_countdown', { seconds: countdown }) }}</span>
+          <span v-else-if="isResending">{{ t('auth.sending') }}</span>
+          <span v-else>{{ t('auth.resend_code') }}</span>
         </button>
       </div>
     </div>
@@ -39,7 +39,7 @@
         :isScrim="true"
         @click="goBackEmail"
       >
-        返回修改邮箱
+        {{ t('auth.back_to_email') }}
       </button>
       <n-button
         type="primary"
@@ -48,7 +48,7 @@
         :isScrim="true"
         @click="handleNext"
       >
-        下一步
+        {{ t('auth.next') }}
       </n-button>
     </div>
   </form>
@@ -58,6 +58,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
@@ -66,25 +67,40 @@ defineOptions({
   name: 'EtotpChallengeStepView'
 })
 
-useCardHeader('验证电子邮件', '请输入发送到您邮箱的 6 位安全验证码')
+const { t } = useI18n()
+useCardHeader(() => t('auth.email_label'), () => t('auth.enter_code_digits'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
 
 const code = ref('')
-const errorMsg = ref('')
+const errorKey = ref('')
+const rawErrorMsg = ref('')
+
+const errorMsg = computed(() => {
+  if (errorKey.value) {
+    return t(errorKey.value)
+  }
+  return rawErrorMsg.value
+})
+
+function clearError(): void {
+  errorKey.value = ''
+  rawErrorMsg.value = ''
+}
+
 const countdown = ref(60)
 const isResending = ref(false)
 const loading = computed(() => signupFlowStore.loading)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const displayEmail = computed(() => {
-  return signupFlowStore.email || '您的邮箱'
+  return signupFlowStore.email || ''
 })
 
 watch(code, () => {
-  if (errorMsg.value) {
-    errorMsg.value = ''
+  if (errorKey.value || rawErrorMsg.value) {
+    clearError()
   }
 })
 
@@ -113,10 +129,10 @@ async function handleResend() {
   isResending.value = true
   try {
     await signupFlowStore.resendSignUpEmail()
-    window.$message?.success?.('验证码已重新发送')
+    window.$message?.success?.(t('auth.code_resent_success'))
     startCountdown()
   } catch (err: any) {
-    window.$message?.error?.(err?.message || '重新发送失败，请稍后重试')
+    window.$message?.error?.(err?.message || t('auth.resend_failed'))
   } finally {
     isResending.value = false
   }
@@ -136,11 +152,13 @@ async function handleNext() {
   const trimmed = code.value.trim()
 
   if (!trimmed) {
-    errorMsg.value = '请输入 6 位验证码'
+    errorKey.value = 'auth.code_required'
+    rawErrorMsg.value = ''
     return
   }
   if (!/^\d{6}$/.test(trimmed)) {
-    errorMsg.value = '验证码必须为 6 位纯数字'
+    errorKey.value = 'auth.code_digits_only'
+    rawErrorMsg.value = ''
     return
   }
 
@@ -151,7 +169,13 @@ async function handleNext() {
       query: signupFlowStore.getQueryParams()
     })
   } catch (err: any) {
-    errorMsg.value = err?.message || '验证码核验未通过，请重试'
+    if (err?.message) {
+      rawErrorMsg.value = err.message
+      errorKey.value = ''
+    } else {
+      errorKey.value = 'auth.code_verify_failed'
+      rawErrorMsg.value = ''
+    }
   }
 }
 </script>
@@ -216,7 +240,6 @@ async function handleNext() {
 
   &:active {
     background-color: rgba(11, 87, 208, 0.16) !important;
-    color: #0b57d0 !important;
   }
 }
 
@@ -300,11 +323,6 @@ async function handleNext() {
   &:hover {
     background-color: #aecbfa !important;
     color: #202124 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #202124 !important;
-    }
   }
 
   &:active {

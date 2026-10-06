@@ -4,11 +4,14 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.dto.RecaptchaVerifyRequestDTO;
-import com.humolix.volur.security.domain.session.AuthFlowSession;
+import com.humolix.volur.security.domain.session.RequestDeviceParams;
 import com.humolix.volur.security.domain.vo.RecaptchaChallengeVO;
 import com.humolix.volur.security.domain.vo.RecaptchaVerifyResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
+import com.humolix.volur.security.flow.domain.Flow;
 import com.humolix.volur.security.service.impl.RecaptchaServiceImpl;
+import com.humolix.volur.security.session.SessionManager;
+import com.humolix.volur.security.session.domain.Session;
 import com.humolix.volur.verification.crypto.CaptchaCryptoService;
 import com.humolix.volur.verification.domain.vo.CaptchaResponseVO;
 import com.humolix.volur.verification.domain.vo.CaptchaTicketVO;
@@ -33,6 +36,7 @@ import static org.mockito.Mockito.verify;
 
 class RecaptchaServiceImplTest {
 
+    private SessionManager sessionManager;
     private TransitionLockManager transitionLockManager;
     private RiskEvaluationEngine riskEvaluationEngine;
     private CaptchaCryptoService captchaCryptoService;
@@ -50,6 +54,7 @@ class RecaptchaServiceImplTest {
         request.setRemoteAddr("127.0.0.1");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
+        sessionManager = Mockito.mock(SessionManager.class);
         transitionLockManager = Mockito.mock(TransitionLockManager.class);
         riskEvaluationEngine = Mockito.mock(RiskEvaluationEngine.class);
         captchaCryptoService = Mockito.mock(CaptchaCryptoService.class);
@@ -60,6 +65,7 @@ class RecaptchaServiceImplTest {
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
 
         recaptchaService = new RecaptchaServiceImpl(
+                sessionManager,
                 transitionLockManager,
                 riskEvaluationEngine,
                 captchaCryptoService,
@@ -74,14 +80,14 @@ class RecaptchaServiceImplTest {
         String dsh = "S-100200:1790000";
         String tl = "ADG-RECAPTCHA";
 
-        AuthFlowSession session = AuthFlowSession.builder()
+        Session session = Session.builder()
                 .dsh(dsh)
-                .identifier("testuser")
-                .deviceFingerprint("fp_123")
+                .flow(Flow.builder().identifier("testuser").build())
+                .requestDeviceParams(RequestDeviceParams.of("127.0.0.1", "fp_123"))
                 .riskLevel("LOW")
                 .build();
 
-        given(transitionLockManager.getSession(dsh)).willReturn(session);
+        given(sessionManager.getSession(dsh)).willReturn(session);
         given(riskEvaluationEngine.evaluateComprehensiveRisk(any(), any(), any(), any())).willReturn(RiskLevel.LOW);
         given(captchaCryptoService.getPublicKeyPem()).willReturn("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A");
 
@@ -99,14 +105,14 @@ class RecaptchaServiceImplTest {
         String dsh = "S-100200:1790000";
         String tl = "ADG-RECAPTCHA";
 
-        AuthFlowSession session = AuthFlowSession.builder()
+        Session session = Session.builder()
                 .dsh(dsh)
-                .identifier("testuser")
-                .deviceFingerprint("fp_123")
+                .flow(Flow.builder().identifier("testuser").build())
+                .requestDeviceParams(RequestDeviceParams.of("127.0.0.1", "fp_123"))
                 .riskLevel("HIGH")
                 .build();
 
-        given(transitionLockManager.getSession(dsh)).willReturn(session);
+        given(sessionManager.getSession(dsh)).willReturn(session);
         given(riskEvaluationEngine.evaluateComprehensiveRisk(any(), any(), any(), any())).willReturn(RiskLevel.HIGH);
         given(captchaCryptoService.getPublicKeyPem()).willReturn("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A");
 

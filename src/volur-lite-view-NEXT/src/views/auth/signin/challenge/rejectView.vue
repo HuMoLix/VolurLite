@@ -12,7 +12,7 @@
         :isScrim="true"
         @click="handleRejectedBack"
       >
-        返回
+        {{ t('common.back') }}
       </button>
       <n-button
         type="primary"
@@ -20,7 +20,7 @@
         :isScrim="true"
         @click="handleRejectedRetry"
       >
-        重试
+        {{ t('common.retry') }}
       </n-button>
     </div>
   </div>
@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
 
@@ -36,7 +37,8 @@ defineOptions({
   name: 'RejectView'
 })
 
-useCardHeader('无法登录', '')
+const { t } = useI18n()
+useCardHeader(() => t('auth.cannot_signin'), '')
 
 const route = useRoute()
 const router = useRouter()
@@ -45,7 +47,7 @@ const signinFlowStore = useSigninFlowStore()
 const rejectedMessage = computed(() => {
   let msg = (route.query.rejectedmsg as string) || ''
   if (!msg) {
-    return 'Volur 无法验证此账号归您所有。请稍后重试，或前往“账号恢复”页面寻求帮助。'
+    return t('auth.cannot_signin_default_msg')
   }
   try {
     while (msg.includes('%')) {

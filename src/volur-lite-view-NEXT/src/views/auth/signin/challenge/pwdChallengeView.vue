@@ -5,11 +5,11 @@
         <GoogleTextField
           v-model="password"
           :type="showPassword ? 'text' : 'password'"
-          label="输入您的密码"
+          :label="t('auth.password_label')"
           autocomplete="current-password"
           autofocus
           :error-msg="errorMsg"
-          @clear="errorMsg = ''"
+          @clear="clearError"
           @enter="handleVerifyChallenge"
         />
       </div>
@@ -21,14 +21,14 @@
             v-model="showPassword"
             class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
           />
-          <span>显示密码</span>
+          <span>{{ t('auth.show_password') }}</span>
         </label>
         <a
           href="#"
           class="auth-forgot-link"
           @click.prevent="handleForgotPassword"
         >
-          忘记密码？
+          {{ t('auth.forgot_password') }}
         </a>
       </div>
     </div>
@@ -40,7 +40,7 @@
         :isScrim="true"
         @click="handleTryAnotherWayClick"
       >
-        试试其他方式
+        {{ t('auth.try_another_way') }}
       </button>
       <n-button
         type="primary"
@@ -48,7 +48,7 @@
         :disabled="loading"
         @click="handleVerifyChallenge"
       >
-        下一步
+        {{ t('auth.next') }}
       </n-button>
     </div>
   </form>
@@ -58,6 +58,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
@@ -66,26 +67,41 @@ defineOptions({
   name: 'PwdChallengeView'
 })
 
-useCardHeader('欢迎', '')
+const { t } = useI18n()
+useCardHeader(() => t('auth.welcome'), '')
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
 
 const password = ref('')
 const showPassword = ref(false)
-const errorMsg = ref('')
+const errorKey = ref('')
+const rawErrorMsg = ref('')
+
+const errorMsg = computed(() => {
+  if (errorKey.value) {
+    return t(errorKey.value)
+  }
+  return rawErrorMsg.value
+})
+
+function clearError(): void {
+  errorKey.value = ''
+  rawErrorMsg.value = ''
+}
+
 const isSubmitting = ref(false)
 const loading = computed(() => signinFlowStore.loading)
 
 watch(password, () => {
-  if (errorMsg.value) {
-    errorMsg.value = ''
+  if (errorKey.value || rawErrorMsg.value) {
+    clearError()
   }
 })
 
 function handleForgotPassword() {
   if (signinFlowStore.loading) return
-  window.$message.info('跳转至重置密码 /v1/recovery/challenge')
+  router.push('/v1/recovery/challenge').catch(() => {})
 }
 
 async function handleTryAnotherWayClick() {
@@ -106,7 +122,8 @@ async function handleVerifyChallenge() {
 
   try {
     if (!password.value) {
-      errorMsg.value = '请输入密码'
+      errorKey.value = 'auth.password_required'
+      rawErrorMsg.value = ''
       return
     }
 
@@ -117,7 +134,7 @@ async function handleVerifyChallenge() {
       })
 
       if (res.success) {
-        window.$message?.success?.('登录成功！正在跳转至业务主页...')
+        window.$message?.success?.(t('auth.login_success'))
         router.push(res.redirect || signinFlowStore.continueUrl || '/competitions')
       } else if (res.nextStep) {
         router.push({
@@ -126,7 +143,13 @@ async function handleVerifyChallenge() {
         })
       }
     } catch (err: any) {
-      errorMsg.value = err?.message || '密码错误，请重新输入'
+      if (err?.message) {
+        rawErrorMsg.value = err.message
+        errorKey.value = ''
+      } else {
+        errorKey.value = 'auth.password_incorrect'
+        rawErrorMsg.value = ''
+      }
     }
   } finally {
     isSubmitting.value = false

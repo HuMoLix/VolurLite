@@ -3,7 +3,7 @@ package com.humolix.volur.auth;
 import com.humolix.volur.auth.domain.dto.RegisterRequestDTO;
 import com.humolix.volur.auth.exception.InvalidCaptchaException;
 import com.humolix.volur.auth.service.AuthService;
-import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
+import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.auth.service.impl.AuthServiceImpl;

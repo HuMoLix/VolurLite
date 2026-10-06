@@ -2,7 +2,7 @@
   <div class="flex flex-col justify-between h-full">
     <div>
       <p class="text-base text-google-text-primary dark:text-google-text-darkPrimary mb-5 font-normal leading-6">
-        选择是否立即开启更多快捷与高安全度的登录选项：
+        {{ t('auth.signup_options_prompt') }}
       </p>
 
       <div class="auth-selection-list">
@@ -46,7 +46,9 @@
               </svg>
             </div>
             <div class="auth-selection-item__content">
-              <div class="auth-selection-item__title">{{ opt.title }}</div>
+              <div class="auth-selection-item__title">
+                {{ opt.type === 'passkey' ? t('auth.passkey_verify_title') : t('auth.totp_protect_title') }}
+              </div>
             </div>
           </div>
         </div>
@@ -61,7 +63,7 @@
         :isScrim="true"
         @click="handleSkip"
       >
-        跳过
+        {{ t('auth.later') }}
       </button>
       <n-button
         type="primary"
@@ -70,7 +72,7 @@
         :isScrim="true"
         @click="handleContinue"
       >
-        继续
+        {{ t('common.next') }}
       </n-button>
     </div>
   </div>
@@ -80,6 +82,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { fetchSignUpOptionsApi } from '@/api/auth'
 import type { SignUpOptionVO } from '@/types/auth/flow'
@@ -89,7 +92,8 @@ defineOptions({
   name: 'OptionsChallengeStepView'
 })
 
-useCardHeader('为账号增加保护', '选择是否立即开启更多快捷与高安全度的登录选项')
+const { t } = useI18n()
+useCardHeader(() => t('auth.security_verification'), () => t('auth.signup_options_prompt'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
@@ -98,13 +102,13 @@ const loading = computed(() => signupFlowStore.loading)
 const options = ref<SignUpOptionVO[]>([
   {
     type: 'passkey',
-    title: '通行密钥',
+    title: '',
     icon: 'key',
     available: true
   },
   {
     type: 'totp',
-    title: '身份验证器',
+    title: '',
     icon: 'shield',
     available: true
   }
@@ -153,107 +157,6 @@ async function handleContinue() {
 </script>
 
 <style scoped lang="scss">
-.auth-selection-list {
-  border: none;
-  border-radius: 0;
-  overflow: visible;
-  background-color: transparent;
-}
-
-:global(html.dark) .auth-selection-list {
-  border: none;
-}
-
-.auth-selection-item {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 16px 8px;
-  min-height: 56px;
-  border: none;
-  border-bottom: 1px solid var(--v-border-base, #dadce0);
-  background-color: transparent;
-  cursor: pointer;
-  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-  box-sizing: border-box;
-  outline: none;
-
-  &:hover {
-    background-color: rgba(11, 87, 208, 0.08);
-  }
-
-  &:active {
-    background-color: rgba(11, 87, 208, 0.16);
-  }
-
-  &:focus-visible {
-    outline: 2px solid #0b57d0;
-    outline-offset: -2px;
-  }
-
-  &__left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__icon {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #0b57d0;
-    flex-shrink: 0;
-
-    svg {
-      width: 24px;
-      height: 24px;
-    }
-  }
-
-  &__content {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  &__title {
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--v-text-primary, #1f1f1f);
-    line-height: 20px;
-  }
-}
-
-:global(html.dark) .auth-selection-item {
-  border-bottom-color: #3c4043;
-
-  &:hover {
-    background-color: rgba(138, 180, 248, 0.12);
-  }
-
-  &:active {
-    background-color: rgba(138, 180, 248, 0.2);
-  }
-
-  &:focus-visible {
-    outline-color: #8ab4f8;
-  }
-
-  &__icon {
-    color: #8ab4f8;
-  }
-
-  &__title {
-    color: var(--v-text-primary, #e3e3e3);
-  }
-}
-
 .auth-action-btn {
   height: 36px !important;
   min-width: 88px !important;

@@ -4,17 +4,17 @@
       <div>
         <GoogleTextField
           v-model="username"
-          label="用户名"
+          :label="t('auth.username_label')"
           autocomplete="username"
           autofocus
           :error-msg="errorMsg"
-          @clear="errorMsg = ''"
+          @clear="clearError"
           @enter="handleNext"
         />
       </div>
 
       <p class="text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-        用户名将作为您在 Volur 平台中的公开唯一标识，支持 3 至 32 位字母、数字、下划线和连字符。
+        {{ t('auth.username_tip') }}
       </p>
     </div>
 
@@ -26,7 +26,7 @@
         :isScrim="true"
         @click="goToSignIn"
       >
-        改用现有账号登录
+        {{ t('auth.signin_instead') }}
       </button>
       <n-button
         type="primary"
@@ -35,7 +35,7 @@
         :isScrim="true"
         @click="handleNext"
       >
-        下一步
+        {{ t('auth.next') }}
       </n-button>
     </div>
   </form>
@@ -45,6 +45,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
 import { useSignupFlowStore, useSigninFlowStore } from '@/store/modules/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
@@ -53,19 +54,34 @@ defineOptions({
   name: 'NameStepView'
 })
 
-useCardHeader('创建 Volur 账号', '输入您的用户名')
+const { t } = useI18n()
+useCardHeader(() => t('auth.signup_create_title'), () => t('auth.username_label'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
 const signinFlowStore = useSigninFlowStore()
 
 const username = ref(signupFlowStore.username || '')
-const errorMsg = ref('')
+const errorKey = ref('')
+const rawErrorMsg = ref('')
+
+const errorMsg = computed(() => {
+  if (errorKey.value) {
+    return t(errorKey.value)
+  }
+  return rawErrorMsg.value
+})
+
+function clearError(): void {
+  errorKey.value = ''
+  rawErrorMsg.value = ''
+}
+
 const loading = computed(() => signupFlowStore.loading)
 
 watch(username, () => {
-  if (errorMsg.value) {
-    errorMsg.value = ''
+  if (errorKey.value || rawErrorMsg.value) {
+    clearError()
   }
 })
 
@@ -89,15 +105,18 @@ async function handleNext() {
   const trimmed = username.value.trim()
 
   if (!trimmed) {
-    errorMsg.value = '请输入用户名'
+    errorKey.value = 'auth.username_required'
+    rawErrorMsg.value = ''
     return
   }
   if (trimmed.length < 3 || trimmed.length > 32) {
-    errorMsg.value = '用户名长度需在 3 到 32 个字符之间'
+    errorKey.value = 'auth.username_length_error'
+    rawErrorMsg.value = ''
     return
   }
   if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
-    errorMsg.value = '用户名仅支持字母、数字、下划线和减号'
+    errorKey.value = 'auth.username_pattern_error'
+    rawErrorMsg.value = ''
     return
   }
 
@@ -112,7 +131,13 @@ async function handleNext() {
       query: signupFlowStore.getQueryParams()
     })
   } catch (err: any) {
-    errorMsg.value = err?.message || '用户名核验失败，请重试'
+    if (err?.message) {
+      rawErrorMsg.value = err.message
+      errorKey.value = ''
+    } else {
+      errorKey.value = 'auth.username_verify_failed'
+      rawErrorMsg.value = ''
+    }
   }
 }
 </script>
@@ -241,11 +266,6 @@ async function handleNext() {
   &:hover {
     background-color: #aecbfa !important;
     color: #202124 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #202124 !important;
-    }
   }
 
   &:active {

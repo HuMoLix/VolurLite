@@ -1,7 +1,7 @@
 package com.humolix.volur.auth.init;
 
 import cn.hutool.core.util.RandomUtil;
-import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
+import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.entity.UserProfile;
 import com.humolix.volur.user.domain.enums.UserRole;

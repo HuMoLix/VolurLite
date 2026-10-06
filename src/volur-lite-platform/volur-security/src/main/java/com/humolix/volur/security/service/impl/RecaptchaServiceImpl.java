@@ -6,11 +6,12 @@ import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.security.domain.dto.RecaptchaVerifyRequestDTO;
-import com.humolix.volur.security.domain.session.AuthFlowSession;
 import com.humolix.volur.security.domain.vo.RecaptchaChallengeVO;
 import com.humolix.volur.security.domain.vo.RecaptchaVerifyResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.service.RecaptchaService;
+import com.humolix.volur.security.session.SessionManager;
+import com.humolix.volur.security.session.domain.Session;
 import com.humolix.volur.verification.crypto.CaptchaCryptoService;
 import com.humolix.volur.verification.domain.dto.CaptchaVerifyDTO;
 import com.humolix.volur.verification.domain.vo.CaptchaResponseVO;
@@ -39,6 +40,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class RecaptchaServiceImpl implements RecaptchaService {
 
+    private final SessionManager sessionManager;
     private final TransitionLockManager transitionLockManager;
     private final RiskEvaluationEngine riskEvaluationEngine;
     private final CaptchaCryptoService captchaCryptoService;
@@ -67,12 +69,15 @@ public class RecaptchaServiceImpl implements RecaptchaService {
 
     @Override
     public RecaptchaChallengeVO getRecaptchaChallenge(String dsh, String tl) {
-        transitionLockManager.validateStepAndTl(dsh, tl, "recaptcha");
-        AuthFlowSession session = transitionLockManager.getSession(dsh);
+        transitionLockManager.validateTransLock(dsh, tl, "recaptcha");
+        Session session = sessionManager.getSession(dsh);
 
         String clientIp = RequestUtil.getClientIp();
-        String identifier = session.getIdentifier();
-        String fp = session.getDeviceFingerprint();
+        String identifier = session.getFlow() != null ? session.getFlow().getIdentifier() : null;
+        String fp = session.getRequestDeviceParams() != null ? session.getRequestDeviceParams().getFingerprint() : null;
+        if (!StringUtils.hasText(fp) && session.getMetadata() != null) {
+            fp = (String) session.getMetadata().get("fp");
+        }
 
         RiskLevel riskLevel = riskEvaluationEngine.evaluateComprehensiveRisk(clientIp, identifier, fp, CaptchaScene.LOGIN);
 
@@ -128,7 +133,7 @@ public class RecaptchaServiceImpl implements RecaptchaService {
 
     @Override
     public RecaptchaVerifyResponseVO verifyRecaptcha(String dsh, String tl, RecaptchaVerifyRequestDTO request) {
-        transitionLockManager.validateStepAndTl(dsh, tl, "recaptcha");
+        transitionLockManager.validateTransLock(dsh, tl, "recaptcha");
 
         String recaptchaToken = request.getRecaptchaToken().trim();
         String key = VREDIS_SECURITY_RECAPTCHA_CHALLENGE_KEY_PREFIX + recaptchaToken;

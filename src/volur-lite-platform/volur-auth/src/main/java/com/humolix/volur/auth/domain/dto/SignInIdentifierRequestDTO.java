@@ -6,9 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * 阶段化登录第一阶段：账号标识提交请求 DTO
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,7 +19,5 @@ public class SignInIdentifierRequestDTO {
     private String dsh;
 
     private Integer cid = 0;
-
-    private String deviceFingerprint;
 
 }

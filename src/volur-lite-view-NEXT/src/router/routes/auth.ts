@@ -10,7 +10,21 @@ export const authRoutes: RouteRecordRaw[] = [
         children: [
           {
             path: '',
-            redirect: '/v1/signin/identifier'
+            redirect: (to) => ({
+              path: '/v1/signin/accountchooser',
+              query: to.query
+            })
+          },
+          {
+            path: 'accountchooser',
+            name: 'V1SignInAccountChooser',
+            component: () => import('@/views/auth/signin/AccountChooserView.vue'),
+            meta: {
+              title: '选择账号 - Volur 账号',
+              cardTitle: '选择账号',
+              cardSubtitle: '以继续访问 Volur',
+              requiredAuth: false
+            }
           },
           {
             path: 'identifier',

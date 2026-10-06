@@ -139,3 +139,80 @@ export function getDeviceToken(): string {
   }
   return getCookie(COOKIE_DEVICE_TOKEN) || getDeviceFingerprint()
 }
+
+export function getCanvasHash(): string {
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = 200
+    canvas.height = 50
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return ''
+    ctx.textBaseline = 'top'
+    ctx.font = "14px 'Arial'"
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillStyle = '#f60'
+    ctx.fillRect(125, 1, 62, 20)
+    ctx.fillStyle = '#069'
+    ctx.fillText('Volur<canvas>2026', 2, 15)
+    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)'
+    ctx.fillText('Volur<canvas>2026', 4, 17)
+    const dataUrl = canvas.toDataURL()
+    let hash = 0
+    for (let i = 0; i < dataUrl.length; i++) {
+      hash = ((hash << 5) - hash) + dataUrl.charCodeAt(i)
+      hash |= 0
+    }
+    return Math.abs(hash).toString(16)
+  } catch {
+    return ''
+  }
+}
+
+export function getWebGLInfo(): { renderer: string; vendor: string } {
+  try {
+    const canvas = document.createElement('canvas')
+    const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null
+    if (!gl) return { renderer: '', vendor: '' }
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info')
+    const renderer = dbg ? (gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) as string) : ''
+    const vendor = dbg ? (gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) as string) : (navigator.vendor || '')
+    return { renderer: renderer || '', vendor: vendor || '' }
+  } catch {
+    return { renderer: '', vendor: '' }
+  }
+}
+
+export function getOsFamily(): string {
+  if (typeof navigator === 'undefined') return 'OTHER'
+  const ua = navigator.userAgent.toLowerCase()
+  if (ua.includes('win')) return 'WINDOWS'
+  if (ua.includes('mac') && !ua.includes('iphone') && !ua.includes('ipad')) return 'MACOS'
+  if (ua.includes('android')) return 'ANDROID'
+  if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) return 'IOS'
+  if (ua.includes('linux')) return 'LINUX'
+  return 'OTHER'
+}
+
+export function collectDeviceParams(): Record<string, any> {
+  if (typeof window === 'undefined') return {}
+  const webgl = getWebGLInfo()
+  const fp = getDeviceFingerprint()
+  const did = getDeviceId()
+  return {
+    deviceId: did,
+    fingerprint: fp,
+    deviceHash: fp,
+    deviceToken: getDeviceToken(),
+    canvasHash: getCanvasHash(),
+    browserFamily: getBrowserFamily(),
+    osFamily: getOsFamily(),
+    renderer: webgl.renderer,
+    vendor: webgl.vendor,
+    isHeadless: Boolean(navigator.webdriver),
+    screenResolution: `${window.screen?.width || 0}x${window.screen?.height || 0}`,
+    colorDepth: window.screen?.colorDepth || 24,
+    timezone: Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone || '',
+    language: navigator.language || '',
+    platform: navigator.platform || ''
+  }
+}

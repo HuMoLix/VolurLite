@@ -2,7 +2,7 @@ package com.humolix.volur.auth.security;
 
 import com.humolix.volur.auth.config.SecurityConfig;
 import com.humolix.volur.auth.security.crypto.Sm3AuthProvider;
-import com.humolix.volur.auth.security.crypto.Sm3PasswordEncoder;
+import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.exception.SecurityAccessDeniedHandler;
 import com.humolix.volur.auth.security.exception.SecurityAuthenticationEntryPoint;
 import com.humolix.volur.auth.security.filter.CsrfProtectionFilter;

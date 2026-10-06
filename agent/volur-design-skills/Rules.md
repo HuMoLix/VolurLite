@@ -108,6 +108,11 @@ com.humolix.volur.auth
   - 类声明 `@Data` 后，Lombok 会自动在编译期生成所有字段的标准 Getter / Setter 方法、`equals`、`hashCode`、`canEqual` 与 `toString` 方法。
   - **严禁在已有 `@Data` 的情况下显式编写 Getter / Setter 方法**（如 `getEmail()`, `setEmail(...)` 等），避免冗余样板代码污染类定义。
   - 严禁手动编写无参/全参构造函数。
+- **字符串修剪与输入清洗注解规范 (`@Trimmed`)**：
+  - 对所有需要去除首尾空白字符的字符串入参属性，统一声明 `@Trimmed`（`com.humolix.volur.framework.common.annotation.Trimmed`）；
+  - 邮箱等大小写不敏感属性可配置 `@Trimmed(toLowerCase = true)`；
+  - 配合 Jakarta Validation 注解（如 `@NotBlank`、`@Size`），在 Spring MVC / Jackson 反序列化阶段完成自动清洗与合法性断言；
+  - **核心铁律**：一旦在 DTO 字段上标记了 `@Trimmed`，后端 Service 层**严禁再次使用 `StringUtils.hasText(...)` 进行二次判断，严禁在 Service 层重复手写 `.trim()`**。
 
 #### DTO [反模式]
 ```java
@@ -449,11 +454,11 @@ public ApiResponse<Boolean> submitFlag(
 
 ---
 
-## 4. 服务层方法签名与返回值规范 (Service Method Signatures & Return Types)
+## 4. 服务层方法设计与入参处理规范 (Service Method Design & Parameter Handling)
 
 ### 4.1 基本原则与设计理念
 
-在领域服务接口（`*Service`）与实现类（`*ServiceImpl`）的方法定义中，必须遵循语义明确、空指针安全（NPE Safe）与异常驱动的现代化设计理念：
+在领域服务接口（`*Service`）与实现类（`*ServiceImpl`）的方法定义中，必须遵循语义明确、空指针安全（NPE Safe）、异常驱动与零冗余防御的现代化设计理念：
 
 1. **执行类/命令式业务方法 (Execution / Command Methods)**：
    - **核心定位**：执行具体业务动作的方法，如发送邮件（`sendVerificationEmail`）、修改密码（`changePassword`）、重置密码（`resetPassword`）、状态变更（`updateStatus`）、注销账号（`deleteAccount`）等。
@@ -473,6 +478,17 @@ public ApiResponse<Boolean> submitFlag(
    - ① **领域模型与持久化实体字段**：如 DTO / VO / Entity / PO 的属性，映射数据库允许为 `NULL` 的列，或者在 DTO 中配合 `@NotNull` 区分前端“未传参（null）”与“传了 false”；
    - ② **泛型参数与容器约束**：如 `ApiResponse<Boolean>`、`Optional<Boolean>`、`CompletableFuture<Boolean>`、`List<Boolean>`（Java 泛型机制不支持基本数据类型）。
 
+4. **入参防冗余校验强约束（DTO `@Trimmed` 与 Service 层 `StringUtils.hasText` 禁令）**：
+   - **架构分工与单一真实校验源**：
+     - HTTP 入参的首尾空白去除（`trim()`）与非空非空白校验，属于入口层（Controller / DTO / Jackson 反序列化 / Jakarta Validation）的职责范围；
+     - 当 DTO 中的字段声明了 `@Trimmed` 注解（如 `@Trimmed private String data;`，或结合 `@NotBlank`），框架反序列化层已确保该字段完成首尾空格修剪。
+   - **Service 层的强要求（禁令）**：
+     - **严禁在 Service 层再次使用 `StringUtils.hasText(...)` 判定带有 `@Trimmed` 的入参字段**；
+     - **严禁在 Service 层对已有 `@Trimmed` 保障的入参字段重复调用 `.trim()`**；
+     - **必填字段信任原则**：对于 DTO 中已标注 `@NotBlank` + `@Trimmed` 的字段，Controller 层通过 `@Valid` 已经保证了其非空且非空白，Service 层必须直接信任消费，严禁在方法入口编写防御性的 `if (!StringUtils.hasText(dto.getXxx())) throw ...` 重复校验样板代码；
+     - **可选字段判空规范**：对于仅标注 `@Trimmed`（未标注 `@NotBlank`）的可选字段，Service 层若需判断是否传递，仅允许使用基本引用判空 `field != null`（或 `!field.isEmpty()`），严禁使用 `StringUtils.hasText(field)`，严禁质疑框架底层已经完成的修剪保障；
+   - **消除代码膨胀与防御性冗余**：彻底杜绝 Service 层对 DTO 参数的层层防御性判白与重复修剪，保持 Service 业务逻辑的纯净度与极致自解释性。
+
 ### 4.2 [反模式]
 ```java
 // 错误示例 1: 执行类操作返回无意义的 true 布尔值
@@ -486,11 +502,26 @@ public interface CaptchaService {
     // 错误: 包装类型 Boolean 存在三态(true/false/null)，调用方 if(captchaService.verify(...)) 易引发 NPE
     Boolean verifyCaptcha(String captchaId, String code);
 }
+
+// 错误示例 3: DTO 中已声明 @Trimmed / @NotBlank，Service 层仍然重复使用 StringUtils.hasText 和 .trim()
+@Service
+public class SessionServiceImpl implements SessionService {
+    @Override
+    public SessionVO initSess(InitSessionRequestDTO requestDTO) {
+        // 错误: DTO 中 data 已标记 @NotBlank 和 @Trimmed，在 Service 层使用 hasText 重复校验
+        if (!StringUtils.hasText(requestDTO.getData())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "设备参数密文不能为空");
+        }
+        // 错误: @Trimmed 已经完成了首尾空白去除，此处重复手写 .trim()
+        String decryptedJson = flowCryptoService.decrypt(requestDTO.getData().trim(), flowName, flowEntry, dsh);
+        ...
+    }
+}
 ```
 
 ### 4.3 [推荐实践]
 ```java
-// 正确示例: 业务动作返回 void，状态校验返回 primitive boolean
+// 正确示例 1: 业务动作返回 void，状态校验返回 primitive boolean
 package com.humolix.volur.captcha.service;
 
 import com.humolix.volur.captcha.domain.dto.EmailCaptchaRequestDTO;
@@ -513,6 +544,18 @@ public interface EmailService {
     boolean verifyCode(String email, String code);
 
     String verifyChangePasswordCode(VerifyChangePasswordCodeRequestDTO request);
+}
+
+// 正确示例 2: DTO 声明 @NotBlank 与 @Trimmed，Service 层直接消费，杜绝 hasText 重复校验与手动 .trim()
+@Service
+public class SessionServiceImpl implements SessionService {
+    @Override
+    public SessionVO initSess(InitSessionRequestDTO requestDTO) {
+        // 正确: 直接消费已通过 @Valid 和 @Trimmed 清洗的字段，无需 hasText 校验与手动 .trim()
+        String encryptedData = requestDTO.getData();
+        String decryptedJson = flowCryptoService.decrypt(encryptedData, flowName, flowEntry, dsh);
+        ...
+    }
 }
 ```
 
@@ -1009,6 +1052,12 @@ public ApiResponse<CursorResponse<NotificationVO>> getNotificationFeed(
 | | `system.maintenance.notice_message` | 维护公告通知文本 (String) |
 | | `system.security.rate_limit_window` | 限流时间窗口秒数 (Integer) |
 | | `system.security.rate_limit_max_requests` | 窗口内最大请求次数 (Integer) |
+| **通行密钥与安全 (`security`)** | `system.security.webauthn.enabled` | 通行密钥 (WebAuthn/Passkey) 认证总开关 (Boolean) |
+| | `system.security.webauthn.rp_id` | WebAuthn Relying Party 身份标识 (String) |
+| | `system.security.webauthn.rp_name` | WebAuthn 依赖方应用展示名称 (String) |
+| | `system.security.webauthn.allowed_origins` | 允许的额外 WebAuthn 来源列表 (String) |
+| | `system.security.webauthn.user_verification` | WebAuthn 用户验证偏好 (String) |
+| | `system.security.webauthn.timeout_seconds` | WebAuthn 认证交互超时时间秒数 (Integer) |
 
 > **配置职责边界铁律**：
 > - **全局系统配置（System Settings）**：仅配置全站共用的基础设施参数（如宿主机端口池范围 `20000 - 30000`、邮件服务器、滑块验证码参数等）；

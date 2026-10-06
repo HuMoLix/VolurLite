@@ -151,17 +151,15 @@ export async function encryptFlowCredential(
   plainText: string,
   flowName: string,
   flowEntry: string,
-  dsh: string
+  dsh?: string | null
 ): Promise<string> {
   if (!plainText) {
     return plainText
   }
-  if (!dsh) {
-    throw new Error('Flow handle dsh is required for credential encryption')
-  }
 
+  const targetDsh = dsh || ''
   const timestamp = Date.now()
-  const dynamicStr = `${flowName || ''}:${flowEntry || ''}:${dsh || ''}:${timestamp}`
+  const dynamicStr = `${flowName || ''}:${flowEntry || ''}:${targetDsh}:${timestamp}`
   const dynamicHex = _0x2f99(dynamicStr)
   const rawKey = `${_0x4e12()}#${dynamicHex}`
 

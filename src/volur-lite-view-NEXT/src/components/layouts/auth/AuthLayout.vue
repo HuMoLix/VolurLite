@@ -18,7 +18,7 @@
         class="auth-card__progress"
         :class="{ 'is-active': isCardLoading }"
         role="progressbar"
-        aria-label="正在处理中，请稍候"
+        :aria-label="t('common.processing')"
         :aria-hidden="!isCardLoading"
         aria-valuemin="0"
         aria-valuemax="100"
@@ -78,9 +78,9 @@
       </div>
 
       <div class="auth-footer__meta flex items-center flex-wrap gap-1 text-[12px] text-google-text-muted dark:text-google-text-darkMuted shrink-0">
-        <a href="#" class="auth-btn-link text-[12px]">帮助</a>
-        <a href="#" class="auth-btn-link text-[12px]">隐私权</a>
-        <a href="#" class="auth-btn-link text-[12px]">条款</a>
+        <a :href="`/accounts/help?lang=${currentUrlLang}`" class="auth-btn-link text-[12px]">{{ t('common.help') }}</a>
+        <a :href="`/accounts/privacy?lang=${currentUrlLang}`" class="auth-btn-link text-[12px]">{{ t('common.privacy') }}</a>
+        <a :href="`/accounts/terms?lang=${currentUrlLang}`" class="auth-btn-link text-[12px]">{{ t('common.terms') }}</a>
 
         <span class="auth-footer__copyright whitespace-nowrap px-2 text-[12px] inline-flex items-center h-8 select-none">
           <span class="hidden md:inline">© 2026 Volur, Inc.</span>
@@ -92,7 +92,7 @@
           target="_blank"
           rel="noopener noreferrer"
           class="auth-btn-link text-[12px] gap-1.5 text-google-text-muted dark:text-google-text-darkMuted"
-          title="工信部备案"
+          :title="t('common.beian')"
         >
           <img
             src="/r/static/img/beian.png"
@@ -111,10 +111,13 @@ defineOptions({
   name: 'AuthLayout'
 })
 
-import { computed, provide, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, provide, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { NDropdown } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore, useSignupFlowStore, MIN_LOADING_DURATION_MS } from '@/store/modules/flow'
+import { useAppStore } from '@/store/modules/app'
+import { normalizeLocale, toUrlLang } from '@/i18n'
 
 const props = withDefaults(
   defineProps<{
@@ -125,9 +128,62 @@ const props = withDefaults(
   }
 )
 
+const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
+const appStore = useAppStore()
 const signinFlowStore = useSigninFlowStore()
 const signupFlowStore = useSignupFlowStore()
+
+const languageOptions = [
+  { label: '简体中文', key: 'zh-CN' },
+  { label: '繁体中文', key: 'zh-TW' },
+  { label: 'English', key: 'en-US' }
+]
+
+const currentUrlLang = computed(() => toUrlLang(appStore.locale))
+
+const currentLangLabel = computed(() => {
+  const match = languageOptions.find(item => item.key === appStore.locale)
+  return match?.label || '简体中文'
+})
+
+function syncLangFromQuery(): void {
+  if (route.query.lang) {
+    const rawLang = Array.isArray(route.query.lang) ? route.query.lang[0] : route.query.lang
+    const normalized = normalizeLocale(rawLang)
+    if (normalized && normalized !== appStore.locale) {
+      appStore.switchLanguage(normalized, route.path)
+    }
+  }
+}
+
+onMounted(() => {
+  syncLangFromQuery()
+})
+
+watch(
+  () => route.query.lang,
+  () => {
+    syncLangFromQuery()
+  }
+)
+
+async function handleLanguageSelect(key: string): Promise<void> {
+  const normalized = normalizeLocale(key)
+  if (!normalized) return
+  const nextLangParam = toUrlLang(normalized)
+  const currentQueryLang = Array.isArray(route.query.lang) ? route.query.lang[0] : route.query.lang
+  if (currentQueryLang !== nextLangParam) {
+    await router.replace({
+      query: {
+        ...route.query,
+        lang: nextLangParam
+      }
+    }).catch(() => {})
+  }
+  await appStore.switchLanguage(normalized, route.path)
+}
 
 const currentFlowStore = computed(() => {
   if (route.path.startsWith('/v1/signup')) {
@@ -188,22 +244,6 @@ provide('setAuthLoading', (val: boolean) => {
   currentFlowStore.value.setLoading(val)
 })
 provide('triggerScrim', triggerScrim)
-
-const currentLang = ref('zh-CN')
-const languageOptions = [
-  { label: '简体中文', key: 'zh-CN' },
-  { label: '繁体中文', key: 'zh-TW' },
-  { label: 'English', key: 'en-US' }
-]
-
-const currentLangLabel = computed(() => {
-  const match = languageOptions.find(item => item.key === currentLang.value)
-  return match?.label || '简体中文'
-})
-
-function handleLanguageSelect(key: string) {
-  currentLang.value = key
-}
 </script>
 
 <style scoped lang="scss">
@@ -577,12 +617,11 @@ function handleLanguageSelect(key: string) {
 
 @keyframes mdc-linear-progress-secondary-indeterminate-translate {
   0% {
-    animation-timing-function: cubic-bezier(0.15, 0, 0.515058, 0.409685);
     transform: translateX(0);
   }
   25% {
-    animation-timing-function: cubic-bezier(0.31033, 0.284058, 0.8, 0.733712);
-    transform: translateX(37.651913%);
+    animation-timing-function: cubic-bezier(0.15, 0, 0.515058, 0.409685);
+    transform: translateX(0);
   }
   48.35% {
     animation-timing-function: cubic-bezier(0.4, 0.627035, 0.6, 0.902026);
@@ -595,7 +634,6 @@ function handleLanguageSelect(key: string) {
 
 @keyframes mdc-linear-progress-secondary-indeterminate-scale {
   0% {
-    animation-timing-function: cubic-bezier(0.205028, 0.057051, 0.57661, 0.453971);
     transform: scaleX(0.08);
   }
   19.15% {

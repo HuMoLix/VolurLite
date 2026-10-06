@@ -1,5 +1,6 @@
-export interface FlowInitVO {
+export interface SessionVO {
   dsh: string
+  tl?: string
   flowName: string
   flowEntry: string
   cid: number
@@ -7,12 +8,12 @@ export interface FlowInitVO {
   serverTime?: number
 }
 
-export interface FlowInitParams {
-  flowName?: string
-  flowEntry?: string
-  fp?: string
-  t?: number
-  dsh?: string
+export interface SessionInitParams {
+  flowName: string
+  flowEntry: string
+  fp: string
+  t: number
+  data: string
 }
 
 export interface SignInFlowResponseVO {
@@ -29,7 +30,6 @@ export interface SignInIdentifierRequestDTO {
   identifier: string
   dsh: string
   cid?: number
-  deviceFingerprint?: string
 }
 
 export interface SignInChallengeRequestDTO {
@@ -41,6 +41,20 @@ export interface SignInChallengeRequestDTO {
   captchaCode?: string
   captchaTicket?: string
   verificationCode?: string
+  rememberMe?: boolean
+}
+
+export interface SignInChallengeSelectRequestDTO {
+  dsh: string
+  tl: string
+  cid: number
+  targetChallengeType: string
+}
+
+export interface SignInAuthenticateRequestDTO {
+  dsh: string
+  tl: string
+  cid: number
   rememberMe?: boolean
 }
 
@@ -154,5 +168,40 @@ export interface PasskeyRegisterRequestDTO {
 export interface PasskeyRegisterResponseVO {
   success: boolean
   credentialId?: string
+}
+
+export interface AccountChooserItemVO {
+  identifier: string
+  username?: string
+  email?: string
+  displayName?: string
+  avatarUrl?: string
+  sessionStatus: 'ACTIVE' | 'SIGNED_OUT' | 'DISABLED' | 'EXPIRED'
+}
+
+export interface AccountChooserProbeResponseVO {
+  accounts: AccountChooserItemVO[]
+}
+
+export interface AccountChooserProbeRequestDTO {
+  identifiers: string[]
+}
+
+export interface AccountChooserSelectRequestDTO {
+  dsh: string
+  identifier: string
+}
+
+export interface AccountChooserRemoveRequestDTO {
+  identifier: string
+}
+
+export interface KnownAccount {
+  identifier: string
+  username: string
+  email?: string
+  displayName?: string
+  avatarUrl?: string
+  lastLoginTime?: number
 }
 

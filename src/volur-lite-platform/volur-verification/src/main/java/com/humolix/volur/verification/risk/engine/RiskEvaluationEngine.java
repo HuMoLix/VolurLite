@@ -39,6 +39,7 @@ public class RiskEvaluationEngine {
     private final ApplicationEventPublisher eventPublisher;
 
     public record ParsedClientProfile(
+            String deviceId,
             String deviceHash,
             String canvasHash,
             String browserFamily,
@@ -369,17 +370,17 @@ public class RiskEvaluationEngine {
             }
             if (jsonStr.startsWith("{") && jsonStr.endsWith("}")) {
                 JSONObject obj = JSONUtil.parseObj(jsonStr);
+                String did = obj.getStr("did", "");
                 String dh = obj.getStr("dh", "");
                 String ch = obj.getStr("ch", "");
                 String bf = obj.getStr("bf", "OTHER");
                 boolean hl = obj.getInt("hl", 0) == 1;
                 long ts = obj.getLong("ts", 0L);
-                return new ParsedClientProfile(dh, ch, bf, hl, ts);
+                return new ParsedClientProfile(did, dh, ch, bf, hl, ts);
             }
         } catch (Exception ignored) {
-            // 降级为直接使用原始字符串
         }
-        return new ParsedClientProfile(clean, "", "OTHER", false, System.currentTimeMillis());
+        return new ParsedClientProfile("", clean, "", "OTHER", false, System.currentTimeMillis());
     }
 
     public void cacheClientProfile(String ip, String deviceToken, String userAgent, String tlsProtocol, String tlsCipher, String tlsAlpn) {

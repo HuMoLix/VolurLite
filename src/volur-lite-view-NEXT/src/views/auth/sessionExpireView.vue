@@ -1,15 +1,15 @@
 <template>
   <div class="auth-card__body">
     <div class="auth-card__left">
-      <h1 class="auth-card__title">会话已超时</h1>
-      <p class="auth-card__subtitle">由于长时间未进行任何操作，此会话已结束</p>
+      <h1 class="auth-card__title">{{ t('auth.session_expired') }}</h1>
+      <p class="auth-card__subtitle">{{ t('auth.session_expired_subtitle') }}</p>
     </div>
 
     <div class="auth-card__right">
       <div class="auth-form-content w-full h-full flex flex-col justify-between">
         <div class="flex flex-col text-left py-4">
           <p class="text-sm text-google-text-muted dark:text-google-text-darkMuted leading-relaxed max-w-sm mb-6">
-            为了保护您的账户信息，未完成的流程已自动失效。请重新开始。
+            {{ t('auth.session_expired_tip') }}
           </p>
         </div>
 
@@ -21,7 +21,7 @@
             :isScrim="true"
             @click="handleRetry"
           >
-            重试
+            {{ t('common.retry') }}
           </n-button>
         </div>
       </div>
@@ -37,7 +37,10 @@ defineOptions({
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore, useSignupFlowStore } from '@/store/modules/flow'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()

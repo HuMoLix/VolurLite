@@ -1,6 +1,7 @@
-@use './variables.scss' as *;;
+@use './variables.scss' as *;
 @use './mixins.scss';
 @use './tailwind.css';
+@use './auth-list.scss';
 
 :root,
 [data-theme='light'] {

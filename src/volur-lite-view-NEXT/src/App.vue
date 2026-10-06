@@ -2,8 +2,8 @@
   <n-config-provider
     :theme="theme"
     :theme-overrides="themeOverrides"
-    :locale="zhCN"
-    :date-locale="dateZhCN"
+    :locale="naiveLocale"
+    :date-locale="naiveDateLocale"
   >
     <n-loading-bar-provider>
       <n-dialog-provider>
@@ -11,6 +11,14 @@
           <n-message-provider>
             <naive-provider>
               <router-view />
+              <transition name="lang-mask-fade">
+                <div v-if="appStore.isLangSwitching" class="global-lang-loading-mask">
+                  <div class="lang-loading-card">
+                    <n-spin size="large" />
+                    <span class="lang-loading-text">{{ appStore.langSwitchingText }}</span>
+                  </div>
+                </div>
+              </transition>
             </naive-provider>
           </n-message-provider>
         </n-notification-provider>
@@ -30,9 +38,14 @@ import {
   NNotificationProvider,
   NMessageProvider,
   NGlobalStyle,
+  NSpin,
   darkTheme,
   zhCN,
   dateZhCN,
+  zhTW,
+  dateZhTW,
+  enUS,
+  dateEnUS,
   type GlobalThemeOverrides
 } from 'naive-ui'
 import NaiveProvider from '@/components/common/NaiveProvider.vue'
@@ -99,8 +112,7 @@ async function inspectAndRenewToken() {
 
 onMounted(() => {
   const launchRiskProbe = () => {
-    initDeviceFingerprint().catch(() => {
-    })
+    initDeviceFingerprint().catch(() => {})
   }
 
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -121,6 +133,30 @@ onUnmounted(() => {
 })
 
 const theme = computed(() => (appStore.theme === 'dark' ? darkTheme : null))
+
+const naiveLocale = computed(() => {
+  switch (appStore.locale) {
+    case 'zh-TW':
+      return zhTW
+    case 'en-US':
+      return enUS
+    case 'zh-CN':
+    default:
+      return zhCN
+  }
+})
+
+const naiveDateLocale = computed(() => {
+  switch (appStore.locale) {
+    case 'zh-TW':
+      return dateZhTW
+    case 'en-US':
+      return dateEnUS
+    case 'zh-CN':
+    default:
+      return dateZhCN
+  }
+})
 
 const themeOverrides = computed<GlobalThemeOverrides>(() => {
   const isDark = appStore.theme === 'dark'
@@ -182,6 +218,57 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
 })
 </script>
 
-<style>
-/* Base application styling handled by styles/index.scss */
+<style scoped lang="scss">
+.global-lang-loading-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background-color: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: wait;
+  user-select: none;
+}
+
+:global(html.dark) .global-lang-loading-mask {
+  background-color: rgba(32, 33, 36, 0.75);
+}
+
+.lang-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 32px;
+  background-color: var(--v-bg-card, #ffffff);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+:global(html.dark) .lang-loading-card {
+  background-color: #292a2d;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.lang-loading-text {
+  font-size: 14px;
+  color: var(--v-text-primary, #202124);
+  font-weight: 500;
+}
+
+:global(html.dark) .lang-loading-text {
+  color: #e8eaed;
+}
+
+.lang-mask-fade-enter-active,
+.lang-mask-fade-leave-active {
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lang-mask-fade-enter-from,
+.lang-mask-fade-leave-to {
+  opacity: 0;
+}
 </style>

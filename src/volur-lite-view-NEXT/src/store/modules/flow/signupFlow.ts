@@ -2,14 +2,14 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import {
-  initFlowSessApi,
+  initSessionApi,
   submitSignUpNameApi,
   submitSignUpEmailApi,
   resendSignUpEmailApi,
   submitSignUpEtotpApi,
   submitSignUpPasswordApi
 } from '@/api/auth'
-import { getDeviceFingerprint } from '@/utils/fingerprint'
+import { collectDeviceParams, getDeviceFingerprint, initDeviceFingerprint } from '@/utils/fingerprint'
 import { isDshExpired, buildSessionExpireHref, buildSessionExpireLocation } from '@/utils/flow'
 import { encryptFlowCredential } from '@/utils/flow-crypto'
 import { createFlowLoading } from './flowLoading'
@@ -108,14 +108,21 @@ export const useSignupFlowStore = defineStore('signupFlow', () => {
       dsh.value = query.dsh
     } else if (!dsh.value) {
       try {
-        const fp = getDeviceFingerprint()
+        await initDeviceFingerprint().catch(() => {})
+        const deviceParams = collectDeviceParams()
+        const fp = deviceParams.fingerprint || getDeviceFingerprint()
         const t = Date.now()
-        const initRes = await initFlowSessApi({
+        const encryptedData = await encryptFlowCredential(
+          JSON.stringify(deviceParams),
+          newQuery.flowName,
+          newQuery.flowEntry
+        )
+        const initRes = await initSessionApi({
           flowName: newQuery.flowName,
           flowEntry: newQuery.flowEntry,
           fp,
           t,
-          dsh: typeof query.dsh === 'string' ? query.dsh : undefined
+          data: encryptedData
         })
         if (initRes.data?.dsh) {
           dsh.value = initRes.data.dsh

@@ -39,7 +39,7 @@ public class SecurityWhitelistMatcherTest {
         // 2. 验证登录、注册、验证码、Flow 与 Signin 流转
         Assertions.assertTrue(matcher.match("/api/v1/auth/login"));
         Assertions.assertTrue(matcher.match("/api/v1/auth/signin/identifier"));
-        Assertions.assertTrue(matcher.match("/api/v1/flow/initSess"));
+        Assertions.assertTrue(matcher.match("/api/v1/session/initSess"));
         Assertions.assertTrue(matcher.match("/api/v1/captcha/slide/verify"));
 
         // 3. 验证公开竞赛接口（精确路径与子路径）
