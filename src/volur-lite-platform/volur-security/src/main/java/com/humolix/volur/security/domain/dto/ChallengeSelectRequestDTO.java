@@ -3,26 +3,18 @@ package com.humolix.volur.security.domain.dto;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-
-import java.io.Serial;
-import java.io.Serializable;
+import lombok.ToString;
+import lombok.experimental.SuperBuilder;
 
 @Data
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChallengeSelectRequestDTO implements Serializable {
-
-    @Serial
-    private static final long serialVersionUID = 1L;
-
-    @NotBlank(message = "会话句柄不能为空")
-    private String dsh;
-
-    @NotBlank(message = "流转票据不能为空")
-    private String tl;
-
-    private Integer cid;
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
+public class ChallengeSelectRequestDTO extends FlowRequestDTO {
 
     @NotBlank(message = "目标安全挑战类型不能为空")
     private String targetChallengeType;

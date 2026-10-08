@@ -144,29 +144,62 @@ function handleIframeLoaded(): void {
   })
 }
 
-async function handleBackendChallengeFlow(token: string, metrics: Record<string, unknown>) {
-  pendingToken = token
+async function withMinimumDelay<T>(action: () => Promise<T>, minDurationMs = 1500): Promise<T> {
+  const startTime = Date.now()
+  try {
+    return await action()
+  } finally {
+    const elapsed = Date.now() - startTime
+    if (elapsed < minDurationMs) {
+      await new Promise(resolve => setTimeout(resolve, minDurationMs - elapsed))
+    }
+  }
+}
+
+async function handleBackendChallengeFlow(metrics: Record<string, unknown>) {
+  if (!props.dsh || !props.tl) {
+    const msg = '缺少人机验证会话凭据'
+    internalError.value = msg
+    emit('update:errorMsg', msg)
+    sendToSandbox({ type: 'VM_SET_ERROR' })
+    emit('error', msg)
+    return
+  }
+
   pendingMetrics = metrics
   try {
-    const res = await getRecaptchaChallengeApi(props.dsh!, props.tl!)
-    const challenge = res.data
-    activeChallengeData = challenge
+    let challengeData: RecaptchaChallengeVO | null = null
+    let ticketResult = ''
+    let isClickPass = false
 
-    if (challenge.challengeType === 'CLICK') {
-      const payload = encryptPayload(metrics, challenge.publicKey)
-      const verifyRes = await verifyRecaptchaChallengeApi(props.dsh!, props.tl!, {
-        recaptchaToken: challenge.recaptchaToken,
-        payload
-      })
-      const ticket = verifyRes.data.recaptchaTicket
+    await withMinimumDelay(async () => {
+      const res = await getRecaptchaChallengeApi(props.dsh, props.tl)
+      const challenge = res.data
+      activeChallengeData = challenge
+      pendingToken = challenge.recaptchaToken
+      challengeData = challenge
+
+      if (challenge.challengeType === 'CLICK') {
+        const payload = encryptPayload(metrics, challenge.publicKey)
+        const verifyRes = await verifyRecaptchaChallengeApi(props.dsh, props.tl, {
+          recaptchaToken: challenge.recaptchaToken,
+          payload
+        })
+        ticketResult = verifyRes.data.recaptchaTicket
+        isClickPass = true
+      }
+    }, 1500)
+
+    if (isClickPass && challengeData) {
       sendToSandbox({ type: 'VM_CONFIRM_PASS' })
       emit('update:modelValue', true)
       emit('update:passed', true)
-      emit('update:token', token)
-      emit('update:ticket', ticket)
+      emit('update:token', (challengeData as RecaptchaChallengeVO).recaptchaToken)
+      emit('update:ticket', ticketResult)
       emit('change', true)
-      emit('success', { token, ticket, metrics })
-    } else {
+      emit('success', { token: (challengeData as RecaptchaChallengeVO).recaptchaToken, ticket: ticketResult, metrics })
+    } else if (challengeData) {
+      const challenge = challengeData as RecaptchaChallengeVO
       modalChallengeType.value = challenge.challengeType
       modalBgImage.value = challenge.backgroundImage || ''
       modalPuzzleImage.value = challenge.puzzleImage || ''
@@ -177,7 +210,7 @@ async function handleBackendChallengeFlow(token: string, metrics: Record<string,
       modalVisible.value = true
     }
   } catch (err: any) {
-    const msg = err?.message || '获取人机安全挑战失败'
+    const msg = err?.message || '人机安全核验失败，请重试'
     internalError.value = msg
     emit('update:errorMsg', msg)
     sendToSandbox({ type: 'VM_SET_ERROR' })
@@ -264,25 +297,11 @@ function handleWindowMessage(event: MessageEvent): void {
     return
   }
 
-  if (data.type === 'VM_CHALLENGE_SUCCESS') {
-    const token = typeof data.token === 'string' ? data.token : ''
+  if (data.type === 'VM_CHALLENGE_SUBMIT' || data.type === 'VM_CHALLENGE_SUCCESS') {
     const metrics = (data.metrics && typeof data.metrics === 'object') ? data.metrics : {}
-
     internalError.value = ''
     emit('update:errorMsg', '')
-
-    if (!props.dsh || !props.tl) {
-      sendToSandbox({ type: 'VM_CONFIRM_PASS' })
-      emit('update:modelValue', true)
-      emit('update:passed', true)
-      emit('update:token', token)
-      emit('update:ticket', token)
-      emit('change', true)
-      emit('success', { token, ticket: token, metrics })
-      return
-    }
-
-    handleBackendChallengeFlow(token, metrics)
+    handleBackendChallengeFlow(metrics)
     return
   }
 
@@ -901,135 +920,56 @@ const sandboxHtml = computed(() => {
         var checkRect = checkBox.getBoundingClientRect();
         var actionRect = actionTarget.getBoundingClientRect();
         var landingRes = evaluateClickDistribution(state.landingCoords, checkRect, actionRect);
-        var clickDuration = state.upTimestamp - state.downTimestamp;
+        var clickDuration = Math.max(1, Math.round(state.upTimestamp - state.downTimestamp));
+        var isTrusted = Boolean(state.downIsTrusted && state.upIsTrusted && state.clickIsTrusted);
+        checkBox.className = 'rc-checkbox-wrap rc-active';
+        slotElem.innerHTML = '<div class="rc-spinner"></div>';
 
-        var risk = 0.0;
+        var payload = {
+          v: 4,
+          isTrusted: isTrusted,
+          bio: {
+            accVar: trajectoryRes.accVariance,
+            curvVar: trajectoryRes.curvVariance,
+            smooth: trajectoryRes.bezierSmoothness,
+            pts: trajectoryRes.count,
+            dur: clickDuration,
+            radius: Number(landingRes.radius.toFixed(2)),
+            isCenterTarget: landingRes.isCenterTarget,
+            inActionBounds: landingRes.inActionBounds,
+            isNoMovement: trajectoryRes.isNoMovement,
+            isStraightLine: trajectoryRes.isStraightLine,
+            isTeleport: trajectoryRes.isTeleport
+          },
+          env: {
+            wd: autoRes.isWebdriver,
+            cdp: autoRes.cdpDetected,
+            protoTampered: autoRes.protoTampered,
+            headless: autoRes.headlessUa,
+            zeroOuter: autoRes.zeroOuter,
+            webglSoftware: hwRes.webglSoftware,
+            coreHook: hookRes.coreHook,
+            extHookCount: hookRes.extHookCount,
+            screenInconsistent: hwRes.screenInconsistent,
+            hardwareSpoofed: hwRes.hardwareSpoofed,
+            gpu: hwRes.webglRenderer.substring(0, 32),
+            cores: hwRes.cores,
+            mem: hwRes.mem
+          },
+          eco: {
+            hist: ecoRes.historyLength,
+            usage: ecoRes.storageUsage,
+            idb: ecoRes.idbCount,
+            navTimingZero: ecoRes.navTimingZero
+          },
+          ts: Date.now(),
+          nonce: Math.random().toString(36).substring(2, 10)
+        };
 
-        if (!state.downIsTrusted || !state.upIsTrusted || !state.clickIsTrusted) {
-          risk += 1.0;
-        }
-
-        if (autoRes.isWebdriver || autoRes.cdpDetected || autoRes.protoTampered) {
-          risk += 0.85;
-        }
-        if (autoRes.headlessUa || autoRes.zeroOuter) {
-          risk += 0.7;
-        }
-        if (hwRes.webglSoftware) {
-          risk += 0.45;
-        }
-
-        if (hookRes.coreHook) {
-          risk += 0.35;
-        } else if (hookRes.extHookCount > 0) {
-          risk += Math.min(0.18, hookRes.extHookCount * 0.05);
-        }
-
-        if (hwRes.screenInconsistent || hwRes.hardwareSpoofed) {
-          risk += 0.45;
-        }
-
-        if (clickDuration < 20 || clickDuration > 3000) {
-          risk += 0.45;
-        } else if (clickDuration >= 45 && clickDuration <= 350) {
-          risk -= 0.10;
-        }
-
-        if (landingRes.isCenterTarget) {
-          risk += 0.65;
-        } else if (landingRes.inActionBounds) {
-          risk -= 0.08;
-        }
-
-        if (trajectoryRes.isNoMovement) {
-          risk += 0.65;
-        } else if (trajectoryRes.isStraightLine) {
-          risk += 0.75;
-        } else if (trajectoryRes.isTeleport) {
-          risk += 0.8;
-        } else if (trajectoryRes.accVariance < 0.0000008 && trajectoryRes.count > 6) {
-          risk += 0.5;
-        } else if (trajectoryRes.count >= 4 && trajectoryRes.accVariance > 0.000005) {
-          risk -= 0.25;
-        }
-
-        if (ecoRes.historyLength <= 1 && ecoRes.storageUsage === 0) {
-          risk += 0.15;
-        }
-        if (ecoRes.navTimingZero) {
-          risk += 0.15;
-        }
-
-        risk = Math.max(0, Math.min(1.0, risk));
-
-        setTimeout(function() {
-          if (risk < 0.45) {
-            if (state.hasBackendSession) {
-              state.isProcessing = true;
-              checkBox.className = 'rc-checkbox-wrap rc-active';
-              slotElem.innerHTML = '<div class="rc-spinner"></div>';
-            } else {
-              state.isVerified = true;
-              state.isProcessing = false;
-              checkBox.className = 'rc-checkbox-wrap rc-passed';
-              slotElem.innerHTML = '<svg class="rc-checkmark-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-              labelElem.textContent = '验证已通过';
-            }
-
-            var payload = {
-              v: 4,
-              riskScore: Number(risk.toFixed(4)),
-              bio: {
-                accVar: trajectoryRes.accVariance,
-                curvVar: trajectoryRes.curvVariance,
-                smooth: trajectoryRes.bezierSmoothness,
-                pts: trajectoryRes.count,
-                dur: clickDuration,
-                radius: Number(landingRes.radius.toFixed(2))
-              },
-              env: {
-                wd: autoRes.isWebdriver,
-                cdp: autoRes.cdpDetected,
-                hook: hookRes.apiTampered,
-                gpu: hwRes.webglRenderer.substring(0, 32),
-                cores: hwRes.cores,
-                mem: hwRes.mem
-              },
-              eco: {
-                hist: ecoRes.historyLength,
-                usage: ecoRes.storageUsage,
-                idb: ecoRes.idbCount
-              },
-              ts: Date.now(),
-              nonce: Math.random().toString(36).substring(2, 10)
-            };
-
-            var serialized = JSON.stringify(payload);
-            var token = 'v4_rc_' + btoa(unescape(encodeURIComponent(serialized)));
-
-            window.parent.postMessage({
-              type: 'VM_CHALLENGE_SUCCESS',
-              token: token,
-              metrics: payload
-            }, '*');
-          } else {
-            state.isVerified = false;
-            state.isProcessing = false;
-            checkBox.className = 'rc-checkbox-wrap';
-            slotElem.innerHTML = '';
-            anchorElem.classList.add('rc-shake');
-
-            window.parent.postMessage({
-              type: 'VM_CHALLENGE_ERROR',
-              error: '行为模式与运行环境存在异常',
-              riskScore: risk
-            }, '*');
-
-            setTimeout(function() {
-              anchorElem.classList.remove('rc-shake');
-            }, 500);
-          }
-        }, 750);
+        window.parent.postMessage({
+          type: 'VM_CHALLENGE_SUBMIT',
+          metrics: payload
+        }, '*');
       }
 
       actionTarget.addEventListener('mousedown', function(e) {

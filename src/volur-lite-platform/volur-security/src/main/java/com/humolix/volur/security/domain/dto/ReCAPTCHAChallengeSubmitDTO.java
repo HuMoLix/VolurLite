@@ -1,30 +1,26 @@
 package com.humolix.volur.security.domain.dto;
 
+import com.humolix.volur.framework.common.annotation.Trimmed;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-
-import java.io.Serial;
-import java.io.Serializable;
+import lombok.ToString;
+import lombok.experimental.SuperBuilder;
 
 @Data
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ReCAPTCHAChallengeSubmitDTO implements Serializable {
-
-    @Serial
-    private static final long serialVersionUID = 1L;
-
-    @NotBlank(message = "会话句柄不能为空")
-    private String dsh;
-
-    @NotBlank(message = "流转票据不能为空")
-    private String tl;
-
-    private Integer cid;
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
+public class ReCAPTCHAChallengeSubmitDTO extends FlowRequestDTO {
 
     @NotBlank(message = "人机验证凭据不能为空")
     private String recaptchaTicket;
+
+    @Trimmed
+    private String recoveryType;
 
 }

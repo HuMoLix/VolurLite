@@ -11,8 +11,7 @@ public enum CaptchaType {
     LINE(1, "线段干扰验证码"),
     MATH(2, "算术计算验证码"),
     SHEAR(2, "扭曲字符验证码"),
-    SLIDE_PUZZLE(3, "滑块拼图验证码"),
-    CLOUD_TURNSTILE(4, "云端智能核验");
+    SLIDE_PUZZLE(3, "滑块拼图验证码");
 
     private final int level;
     private final String description;

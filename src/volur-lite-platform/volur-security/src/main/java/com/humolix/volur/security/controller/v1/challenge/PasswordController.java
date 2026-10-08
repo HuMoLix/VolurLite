@@ -3,7 +3,7 @@ package com.humolix.volur.security.controller.v1.challenge;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.security.domain.dto.PasswordChallengeRequestDTO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.service.ChallengeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +21,9 @@ public class PasswordController {
 
     @Syslog(module = "SECURITY", value = "核销密码挑战", logType = "AUTH", recordParams = false, recordResponse = false)
     @PostMapping
-    public ApiResponseEntity<SignInFlowResponseVO> verify(
+    public ApiResponseEntity<FlowResponseVO> verify(
             @Valid @RequestBody PasswordChallengeRequestDTO request) {
-        SignInFlowResponseVO response = challengeService.verifyPassword(request);
+        FlowResponseVO response = challengeService.verifyPassword(request);
         return ApiResponseEntity.ok("密码安全核验通过", response);
     }
 

@@ -288,9 +288,11 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       const data = res.data
 
       if (data.status === 'SUCCESS') {
+        const targetRedirect = continueUrl.value || '/competitions'
+        resetFlow(true)
         return {
           success: true,
-          redirect: continueUrl.value || '/competitions'
+          redirect: targetRedirect
         }
       }
 
@@ -312,9 +314,11 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
           rememberMe: Boolean(payload.rememberMe)
         })
         if (authRes.data?.status === 'SUCCESS') {
+          const targetRedirect = continueUrl.value || '/competitions'
+          resetFlow(true)
           return {
             success: true,
-            redirect: continueUrl.value || '/competitions'
+            redirect: targetRedirect
           }
         }
       }
@@ -372,17 +376,23 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
         rememberMe
       })
       if (res.data?.status === 'SUCCESS') {
-        const authedUser = res.data.identifier || identifier.value
-        if (authedUser) {
+        const rawIdentifier = identifier.value || res.data.identifier || res.data.username || ''
+        const canonicalUsername = res.data.username || res.data.identifier || rawIdentifier
+        if (rawIdentifier && canonicalUsername) {
           saveKnownAccount({
-            identifier: authedUser,
-            username: authedUser,
+            identifier: rawIdentifier,
+            username: canonicalUsername,
+            email: res.data.email,
+            displayName: res.data.displayName || canonicalUsername,
+            avatarUrl: res.data.avatarUrl,
             lastLoginTime: Date.now()
           })
         }
+        const targetRedirect = continueUrl.value || '/competitions'
+        resetFlow()
         return {
           success: true,
-          redirect: continueUrl.value || '/competitions'
+          redirect: targetRedirect
         }
       }
       throw new Error('登录认证未通过，请重试')
@@ -411,25 +421,31 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       followup: followup.value,
       flowName: flowName.value,
       flowEntry: flowEntry.value,
-      dsh: dsh.value,
       pstMsg: pstMsg.value
     }
 
+    if (dsh.value) {
+      params.dsh = dsh.value
+    }
     if (tl.value) {
       params.TL = tl.value
     }
-    params.cid = String(cid.value)
+    if (cid.value) {
+      params.cid = String(cid.value)
+    }
 
     return { ...params, ...extra }
   }
 
-  function resetFlow(): void {
+  function resetFlow(keepLoading = false): void {
     dsh.value = ''
     tl.value = ''
     cid.value = 0
     setIdentifier('')
     activeChallengeType.value = ''
-    loading.value = false
+    if (!keepLoading) {
+      loading.value = false
+    }
   }
 
   function setFlowEntry(val: string): void {

@@ -4,7 +4,7 @@ import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.security.domain.dto.ChallengeSelectRequestDTO;
 import com.humolix.volur.security.domain.vo.ChallengeOptionVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.service.ChallengeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,9 +26,9 @@ public class ChallengeController {
 
     @Syslog(module = "SECURITY", value = "选择安全挑战方式", logType = "AUTH", recordParams = false)
     @PostMapping("/select")
-    public ApiResponseEntity<SignInFlowResponseVO> selectChallenge(
+    public ApiResponseEntity<FlowResponseVO> selectChallenge(
             @Valid @RequestBody ChallengeSelectRequestDTO request) {
-        SignInFlowResponseVO response = challengeService.selectChallenge(request);
+        FlowResponseVO response = challengeService.selectChallenge(request);
         return ApiResponseEntity.ok("切换安全挑战方式成功", response);
     }
 

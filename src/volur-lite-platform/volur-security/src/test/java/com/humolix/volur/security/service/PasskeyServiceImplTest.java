@@ -4,7 +4,7 @@ import com.humolix.volur.security.domain.dto.PasskeyAssertionVerifyRequestDTO;
 import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
 import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.flow.domain.Flow;
 import com.humolix.volur.security.service.impl.PasskeyServiceImpl;
@@ -26,6 +26,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.web.webauthn.api.*;
 import org.springframework.security.web.webauthn.jackson.WebauthnJacksonModule;
+import org.springframework.security.web.webauthn.management.UserCredentialRepository;
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -53,6 +54,7 @@ class PasskeyServiceImplTest {
     private ObjectMapper objectMapper;
     private SessionDeviceBaselineValidator sessionDeviceBaselineValidator;
     private UserRepository userRepository;
+    private UserCredentialRepository userCredentialRepository;
     private UserTrustedDeviceService userTrustedDeviceService;
     private RiskEvaluationEngine riskEvaluationEngine;
     private SystemSettingService systemSettingService;
@@ -72,6 +74,7 @@ class PasskeyServiceImplTest {
         valueOperations = Mockito.mock(ValueOperations.class);
         sessionDeviceBaselineValidator = Mockito.mock(SessionDeviceBaselineValidator.class);
         userRepository = Mockito.mock(UserRepository.class);
+        userCredentialRepository = Mockito.mock(UserCredentialRepository.class);
         userTrustedDeviceService = Mockito.mock(UserTrustedDeviceService.class);
         riskEvaluationEngine = Mockito.mock(RiskEvaluationEngine.class);
         systemSettingService = Mockito.mock(SystemSettingService.class);
@@ -93,6 +96,7 @@ class PasskeyServiceImplTest {
                 objectMapper,
                 sessionDeviceBaselineValidator,
                 userRepository,
+                userCredentialRepository,
                 userTrustedDeviceService,
                 riskEvaluationEngine,
                 systemSettingService
@@ -254,9 +258,13 @@ class PasskeyServiceImplTest {
         given(sessionManager.getSession(dsh)).willReturn(session);
         given(userRepository.findByUsername("passkeyuser")).willReturn(Optional.of(user));
 
+        PublicKeyCredentialDescriptor descriptor = PublicKeyCredentialDescriptor.builder()
+                .id(new Bytes(new byte[16]))
+                .build();
         PublicKeyCredentialRequestOptions options = PublicKeyCredentialRequestOptions.builder()
                 .rpId("localhost")
                 .challenge(new Bytes(new byte[32]))
+                .allowCredentials(List.of(descriptor))
                 .build();
         given(rpOperations.createCredentialRequestOptions(any())).willReturn(options);
 
@@ -265,6 +273,41 @@ class PasskeyServiceImplTest {
         Assertions.assertNotNull(result);
         Assertions.assertEquals("localhost", result.getRpId());
         verify(valueOperations).set(eq("vredis:security:passkey:assertion:" + dsh), anyString(), eq(Duration.ofMinutes(5)));
+    }
+
+    @Test
+    void getAssertionOptions_whenNoCredentials_throwsBadRequest() {
+        String dsh = "S-100200:1790000";
+        String tl = "ADG-ASSERTION";
+
+        Flow flow = Flow.builder()
+                .identifier("passkeyuser")
+                .currentStep("pk")
+                .cid(1)
+                .build();
+
+        Session session = Session.builder()
+                .dsh(dsh)
+                .flow(flow)
+                .build();
+
+        User user = new User();
+        user.setId(1001L);
+        user.setUsername("passkeyuser");
+
+        given(sessionManager.getSession(dsh)).willReturn(session);
+        given(userRepository.findByUsername("passkeyuser")).willReturn(Optional.of(user));
+
+        PublicKeyCredentialRequestOptions options = PublicKeyCredentialRequestOptions.builder()
+                .rpId("localhost")
+                .challenge(new Bytes(new byte[32]))
+                .allowCredentials(List.of())
+                .build();
+        given(rpOperations.createCredentialRequestOptions(any())).willReturn(options);
+
+        Assertions.assertThrows(com.humolix.volur.framework.common.exception.BusinessException.class, () ->
+                passkeyService.getAssertionOptions(dsh, tl)
+        );
     }
 
     @Test
@@ -321,18 +364,115 @@ class PasskeyServiceImplTest {
                 "clientExtensionResults", Map.of()
         );
 
-        PasskeyAssertionVerifyRequestDTO request = new PasskeyAssertionVerifyRequestDTO(dsh, tl, 1, credentialMap, true);
+        PasskeyAssertionVerifyRequestDTO request = PasskeyAssertionVerifyRequestDTO.builder()
+                .dsh(dsh)
+                .tl(tl)
+                .cid(1)
+                .credential(credentialMap)
+                .rememberMe(true)
+                .build();
 
         given(transitionLockManager.nextTransLock(eq(dsh), eq(tl), eq(1), eq("pk"), eq(2), eq("authenticate"), eq("passkeyuser")))
                 .willReturn("ADG-NEXT-TL");
 
-        SignInFlowResponseVO response = passkeyService.verifyPasskeyAssertion(request);
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(Long.BYTES).putLong(1001L);
+        PublicKeyCredentialUserEntity userEntity = ImmutablePublicKeyCredentialUserEntity.builder()
+                .id(new Bytes(buffer.array()))
+                .name("passkeyuser")
+                .displayName("passkeyuser")
+                .build();
+        given(rpOperations.authenticate(any())).willReturn(userEntity);
+
+        FlowResponseVO response = passkeyService.verifyPasskeyAssertion(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals("authenticate", response.getNextStep());
         Assertions.assertEquals("ADG-NEXT-TL", response.getTl());
         verify(redisTemplate).delete("vredis:security:passkey:assertion:" + dsh);
         verify(rpOperations).authenticate(any());
+    }
+
+    @Test
+    void verifyPasskeyAssertion_whenUserMismatch_throwsUnauthorized() throws Exception {
+        String dsh = "S-100200:1790000";
+        String tl = "ADG-ASSERTION";
+
+        Flow flow = Flow.builder()
+                .identifier("passkeyuser")
+                .currentStep("pk")
+                .cid(1)
+                .build();
+
+        Session session = Session.builder()
+                .dsh(dsh)
+                .flow(flow)
+                .build();
+
+        User user = new User();
+        user.setId(1001L);
+        user.setUsername("passkeyuser");
+
+        given(sessionManager.getSession(dsh)).willReturn(session);
+        given(userRepository.findByUsername("passkeyuser")).willReturn(Optional.of(user));
+
+        PublicKeyCredentialRequestOptions options = PublicKeyCredentialRequestOptions.builder()
+                .rpId("localhost")
+                .challenge(new Bytes(new byte[32]))
+                .build();
+
+        byte[] serialized;
+        try (java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+             java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream(bos)) {
+            oos.writeObject(options);
+            oos.flush();
+            serialized = bos.toByteArray();
+        }
+        String base64 = java.util.Base64.getEncoder().encodeToString(serialized);
+        given(valueOperations.get("vredis:security:passkey:assertion:" + dsh)).willReturn(base64);
+
+        Map<String, Object> credentialMap = Map.of(
+                "id", "ARs287-assertion-id",
+                "rawId", java.util.Base64.getEncoder().encodeToString("ARs287-assertion-id".getBytes(StandardCharsets.UTF_8)),
+                "response", Map.of(
+                        "authenticatorData", java.util.Base64.getEncoder().encodeToString(new byte[37]),
+                        "clientDataJSON", java.util.Base64.getEncoder().encodeToString("{}".getBytes(StandardCharsets.UTF_8)),
+                        "signature", java.util.Base64.getEncoder().encodeToString("sig".getBytes(StandardCharsets.UTF_8))
+                ),
+                "type", "public-key",
+                "clientExtensionResults", Map.of()
+        );
+
+        PasskeyAssertionVerifyRequestDTO request = PasskeyAssertionVerifyRequestDTO.builder()
+                .dsh(dsh)
+                .tl(tl)
+                .cid(1)
+                .credential(credentialMap)
+                .rememberMe(true)
+                .build();
+
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(Long.BYTES).putLong(2002L);
+        PublicKeyCredentialUserEntity otherUserEntity = ImmutablePublicKeyCredentialUserEntity.builder()
+                .id(new Bytes(buffer.array()))
+                .name("otheruser")
+                .displayName("otheruser")
+                .build();
+        given(rpOperations.authenticate(any())).willReturn(otherUserEntity);
+
+        Assertions.assertThrows(com.humolix.volur.framework.common.exception.BusinessException.class, () ->
+                passkeyService.verifyPasskeyAssertion(request)
+        );
+    }
+
+    @Test
+    void hasPasskey_whenHasCredentials_returnsTrue() {
+        given(userCredentialRepository.findByUserId(any())).willReturn(List.of(Mockito.mock(CredentialRecord.class)));
+        Assertions.assertTrue(passkeyService.hasPasskey(1001L));
+    }
+
+    @Test
+    void hasPasskey_whenNoCredentials_returnsFalse() {
+        given(userCredentialRepository.findByUserId(any())).willReturn(List.of());
+        Assertions.assertFalse(passkeyService.hasPasskey(1001L));
     }
 
     @Test

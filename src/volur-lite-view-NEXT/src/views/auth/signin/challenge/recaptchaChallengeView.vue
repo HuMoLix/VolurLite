@@ -21,6 +21,7 @@
       <button
         type="button"
         class="auth-action-btn btn-try-another-way"
+        :disabled="loading || isSubmitting"
         :isScrim="true"
         @click="handleTryAnotherWayClick"
       >
@@ -29,7 +30,9 @@
       <n-button
         type="primary"
         class="auth-action-btn btn-verify-action"
-        :disabled="loading"
+        :loading="isSubmitting"
+        :disabled="loading || isSubmitting"
+        :isScrim="true"
         @click="handleVerifyChallenge"
       >
         {{ t('auth.next') }}
@@ -103,11 +106,11 @@ function handleRecaptchaError(err: string): void {
 async function handleTryAnotherWayClick() {
   if (signinFlowStore.loading) return
   await signinFlowStore.triggerScrim(undefined, 1000)
-  const msg = t('auth.cannot_signin_default_msg')
   await router.push({
-    path: '/v1/signin/challenge/rejected',
+    path: '/v1/signin/challenge/selection',
     query: signinFlowStore.getQueryParams({
-      rejectedmsg: encodeURIComponent(msg)
+      from: 'recaptcha',
+      page: '1'
     })
   })
 }
@@ -208,6 +211,11 @@ async function handleVerifyChallenge() {
   &:active {
     background-color: rgba(11, 87, 208, 0.16) !important;
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 }
 
 :global(html.dark) .btn-try-another-way {
@@ -221,9 +229,15 @@ async function handleVerifyChallenge() {
   &:active {
     background-color: rgba(138, 180, 248, 0.2) !important;
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 }
 
 .btn-verify-action {
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -233,6 +247,11 @@ async function handleVerifyChallenge() {
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   user-select: none;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   :deep(.n-button__content),
   .n-button__content {
@@ -281,6 +300,11 @@ async function handleVerifyChallenge() {
 :global(html.dark) .btn-verify-action {
   background-color: #8ab4f8 !important;
   color: #202124 !important;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   :deep(.n-button__content),
   .n-button__content {

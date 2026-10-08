@@ -54,8 +54,6 @@ public class SystemSettingInitializer implements ApplicationRunner {
             Map.entry("ALIYUN_DM_ACCESS_KEY", SystemSettingKeys.MAIL_ALIYUN_ACCESS_KEY),
             Map.entry("ALIYUN_DM_SECRET_KEY", SystemSettingKeys.MAIL_ALIYUN_SECRET_KEY),
             Map.entry("ALIYUN_DM_ACCOUNT", SystemSettingKeys.MAIL_ALIYUN_ACCOUNT),
-            Map.entry("TURNSTILE_SITE_KEY", SystemSettingKeys.CAPTCHA_TURNSTILE_SITE_KEY),
-            Map.entry("TURNSTILE_SECRET_KEY", SystemSettingKeys.CAPTCHA_TURNSTILE_SECRET_KEY),
             Map.entry("STORAGE_TYPE", SystemSettingKeys.STORAGE_TYPE),
             Map.entry("LOCAL_UPLOAD_DIR", SystemSettingKeys.STORAGE_LOCAL_UPLOAD_DIR),
             Map.entry("OSS_ENDPOINT", SystemSettingKeys.STORAGE_OSS_ENDPOINT),
@@ -180,6 +178,8 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_ALLOWED_ORIGINS, "", "SECURITY", "STRING", false, "允许的额外 WebAuthn 来源列表 (逗号分隔，留空使用默认)");
         initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_USER_VERIFICATION, "preferred", "SECURITY", "STRING", false, "WebAuthn 用户验证偏好 (preferred/required/discouraged)");
         initDefaultIfAbsent(SystemSettingKeys.WEBAUTHN_TIMEOUT_SECONDS, "60", "SECURITY", "INTEGER", false, "WebAuthn 认证交互超时时间 (秒)");
+        initDefaultIfAbsent(SystemSettingKeys.MAIL_ENABLED, "false", "MAIL", "BOOLEAN", true, "邮件服务总开关");
+        initDefaultIfAbsent(SystemSettingKeys.SMS_ENABLED, "false", "SMS", "BOOLEAN", true, "短信服务总开关");
     }
 
     private void initDefaultIfAbsent(String key, String defaultValue, String group, String type, boolean isPublic, String desc) {
@@ -202,6 +202,7 @@ public class SystemSettingInitializer implements ApplicationRunner {
         if (key.startsWith("system.auth.")) return "AUTH";
         if (key.startsWith("system.captcha.")) return "CAPTCHA";
         if (key.startsWith("system.mail.")) return "MAIL";
+        if (key.startsWith("system.sms.")) return "SMS";
         if (key.startsWith("system.container.")) return "CONTAINER";
         if (key.startsWith("system.challenge.")) return "CHALLENGE";
         if (key.startsWith("system.maintenance.")) return "MAINTENANCE";
@@ -217,6 +218,8 @@ public class SystemSettingInitializer implements ApplicationRunner {
                 || key.startsWith("system.security.webauthn.")
                 || SystemSettingKeys.CAPTCHA_ENABLED.equals(key)
                 || SystemSettingKeys.AUTH_REGISTRATION_ENABLED.equals(key)
-                || SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION.equals(key);
+                || SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION.equals(key)
+                || SystemSettingKeys.MAIL_ENABLED.equals(key)
+                || SystemSettingKeys.SMS_ENABLED.equals(key);
     }
 }

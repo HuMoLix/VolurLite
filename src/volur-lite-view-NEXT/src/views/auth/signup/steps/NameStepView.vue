@@ -4,7 +4,7 @@
       <div>
         <GoogleTextField
           v-model="username"
-          :label="t('auth.username_label')"
+          :label="t('auth.username_placeholder')"
           autocomplete="username"
           autofocus
           :error-msg="errorMsg"

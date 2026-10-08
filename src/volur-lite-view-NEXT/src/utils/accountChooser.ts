@@ -24,20 +24,39 @@ export function saveKnownAccount(account: KnownAccount): void {
   }
   const accounts = getKnownAccounts()
   const cleanId = account.identifier.trim().toLowerCase()
-  const existingIndex = accounts.findIndex(
-    (item) => item.identifier.trim().toLowerCase() === cleanId || item.username.trim().toLowerCase() === cleanId
-  )
+  const cleanUsername = (account.username || account.identifier).trim().toLowerCase()
+  const cleanEmail = (account.email || '').trim().toLowerCase()
+
+  const existingIndex = accounts.findIndex((item) => {
+    const itemId = item.identifier.trim().toLowerCase()
+    const itemUsername = item.username.trim().toLowerCase()
+    const itemEmail = (item.email || '').trim().toLowerCase()
+    return (
+      itemId === cleanId ||
+      (cleanUsername && itemUsername === cleanUsername) ||
+      (cleanUsername && itemId === cleanUsername) ||
+      (cleanEmail && itemEmail && itemEmail === cleanEmail) ||
+      (cleanEmail && itemId === cleanEmail)
+    )
+  })
+
   const updatedAccount: KnownAccount = {
-    ...account,
     identifier: account.identifier.trim(),
-    username: account.username.trim(),
+    username: (account.username || account.identifier).trim(),
+    email: account.email ? account.email.trim() : undefined,
+    displayName: account.displayName ? account.displayName.trim() : undefined,
+    avatarUrl: account.avatarUrl,
     lastLoginTime: account.lastLoginTime || Date.now()
   }
 
   if (existingIndex >= 0) {
+    const existing = accounts[existingIndex]
     accounts[existingIndex] = {
-      ...accounts[existingIndex],
-      ...updatedAccount
+      ...existing,
+      ...updatedAccount,
+      email: updatedAccount.email || existing.email,
+      displayName: updatedAccount.displayName || existing.displayName,
+      avatarUrl: updatedAccount.avatarUrl || existing.avatarUrl
     }
   } else {
     accounts.unshift(updatedAccount)
@@ -54,9 +73,12 @@ export function removeKnownAccount(identifier: string): void {
     return
   }
   const cleanId = identifier.trim().toLowerCase()
-  const accounts = getKnownAccounts().filter(
-    (item) => item.identifier.trim().toLowerCase() !== cleanId && item.username.trim().toLowerCase() !== cleanId
-  )
+  const accounts = getKnownAccounts().filter((item) => {
+    const itemId = item.identifier.trim().toLowerCase()
+    const itemUsername = item.username.trim().toLowerCase()
+    const itemEmail = (item.email || '').trim().toLowerCase()
+    return itemId !== cleanId && itemUsername !== cleanId && (!itemEmail || itemEmail !== cleanId)
+  })
   try {
     window.localStorage.setItem(STORAGE_KNOWN_ACCOUNTS_KEY, JSON.stringify(accounts))
   } catch {

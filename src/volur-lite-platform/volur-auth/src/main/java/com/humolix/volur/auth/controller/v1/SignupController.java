@@ -1,15 +1,18 @@
 package com.humolix.volur.auth.controller.v1;
 
-import com.humolix.volur.auth.domain.dto.*;
+import com.humolix.volur.auth.domain.dto.signup.SignUpCompleteRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpEmailRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpEmailResendRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpEtotpChallengeRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpNameRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpPasswordRequestDTO;
 import com.humolix.volur.auth.domain.vo.SignUpFlowResponseVO;
 import com.humolix.volur.auth.domain.vo.SignUpOptionVO;
 import com.humolix.volur.auth.service.SignupService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

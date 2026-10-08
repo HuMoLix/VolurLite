@@ -59,6 +59,7 @@ public class EmailServiceImpl implements EmailService {
     private static final String CHANGE_PASSWORD_TEMPLATE_NAME = "change_password_email";
     private static final String DELETE_ACCOUNT_TEMPLATE_NAME = "delete_account_email";
     private static final String TEST_TEMPLATE_NAME = "smtp_test_email";
+    private static final String RECOVER_USERNAME_TEMPLATE_NAME = "recover_username_email";
 
     private final Map<String, String> templateCache = new ConcurrentHashMap<>();
 
@@ -80,6 +81,7 @@ public class EmailServiceImpl implements EmailService {
             templateCache.put(CHANGE_PASSWORD_TEMPLATE_NAME, loadTemplate(CHANGE_PASSWORD_TEMPLATE_NAME));
             templateCache.put(DELETE_ACCOUNT_TEMPLATE_NAME, loadTemplate(DELETE_ACCOUNT_TEMPLATE_NAME));
             templateCache.put(TEST_TEMPLATE_NAME, loadTemplate(TEST_TEMPLATE_NAME));
+            templateCache.put(RECOVER_USERNAME_TEMPLATE_NAME, loadTemplate(RECOVER_USERNAME_TEMPLATE_NAME));
             log.info("[Volur-Verification] 邮件模板预加载完成");
         } catch (Exception ex) {
             log.warn("[Volur-Verification] 邮件模板预加载警告: {}", ex.getMessage());
@@ -262,6 +264,36 @@ public class EmailServiceImpl implements EmailService {
                         "resetLink", resetLink
                 ))
                 .type("RESET_PASSWORD")
+                .build());
+    }
+
+    @Override
+    public void sendRecoverUsernameEmail(String email, String username) {
+        String normalizedEmail = email.toLowerCase().trim();
+        String safeUsername = username != null ? HtmlUtils.htmlEscape(username) : "";
+
+        String frontendUrl = systemSettingService.getSettingValue("system.general.frontend_url", "");
+        if (!StringUtils.hasText(frontendUrl)) {
+            try {
+                frontendUrl = RequestUtil.getDomainUrl();
+            } catch (Exception ex) {
+                frontendUrl = DEFAULT_FRONTEND_URL;
+            }
+        }
+        if (frontendUrl.endsWith("/")) {
+            frontendUrl = frontendUrl.substring(0, frontendUrl.length() - 1);
+        }
+        String signinLink = frontendUrl + "/v1/signin/identifier";
+
+        sendEmail(SendEmailBO.builder()
+                .to(normalizedEmail)
+                .subject("[Volur Lite] 找回用户名")
+                .templateName(RECOVER_USERNAME_TEMPLATE_NAME)
+                .templateParams(Map.of(
+                        "username", safeUsername,
+                        "signinLink", signinLink
+                ))
+                .type("RECOVER_USERNAME")
                 .build());
     }
 

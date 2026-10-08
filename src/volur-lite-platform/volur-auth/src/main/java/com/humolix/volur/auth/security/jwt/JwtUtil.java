@@ -9,6 +9,7 @@ import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.user.domain.entity.User;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,12 +41,15 @@ public class JwtUtil {
     @Value("${volur.jwt.secret}")
     private String secretKeyStr;
 
+    @Getter
     @Value("${volur.jwt.expire-seconds:86400}")
     private Long expireSeconds;
 
+    @Getter
     @Value("${volur.jwt.refresh-expiration-ms:604800000}")
     private Long refreshTokenExpirationMs;
 
+    @Getter
     @Value("${volur.jwt.remember-me-refresh-expiration-ms:2592000000}")
     private Long rememberMeRefreshTokenExpirationMs;
 
@@ -243,18 +247,6 @@ public class JwtUtil {
 
     public List<String> getRolesFromToken(String token) {
         return getClaimsFromToken(token).getClaimAsStringList(AUTHORITIES_CLAIM);
-    }
-
-    public Long getExpireSeconds() {
-        return expireSeconds;
-    }
-
-    public Long getRefreshTokenExpirationMs() {
-        return refreshTokenExpirationMs;
-    }
-
-    public Long getRememberMeRefreshTokenExpirationMs() {
-        return rememberMeRefreshTokenExpirationMs;
     }
 
 }

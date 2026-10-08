@@ -42,6 +42,7 @@ export function submitRecaptchaChallengeApi(data: {
   tl: string
   cid?: number
   recaptchaTicket: string
+  recoveryType?: string
 }): Promise<ApiResponse<SignInFlowResponseVO>> {
   return post<SignInFlowResponseVO>('/captcha/challenge/recaptcha', data, { skipToast: true })
 }

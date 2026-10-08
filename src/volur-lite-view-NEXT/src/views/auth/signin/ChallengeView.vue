@@ -9,7 +9,7 @@
           class="auth-account-chip"
           :disabled="signinFlowStore.loading"
           :isScrim="true"
-          @click="goBackIdentifier"
+          @click="handleSwitchAccount"
           :title="t('auth.switch_account')"
         >
           <span class="auth-account-chip__avatar">
@@ -44,8 +44,9 @@ import { provideCardHeader } from '@/composables/useCardHeader'
 import {
   PwdChallengeView,
   RecaptchaChallengeView,
-  DeviceChallengeView,
-  TotpChallengeView,
+  PassKeyChallengeView,
+  EmailotpChallengeView,
+  SmsotpChallengeView,
   RejectView,
   SelectionView
 } from './challenge'
@@ -80,10 +81,16 @@ const activeChallengeComponent = computed(() => {
   if (type === 'recaptcha') {
     return RecaptchaChallengeView
   }
-  if (type === 'device' || type === 'pk') {
-    return DeviceChallengeView
+  if (type === 'passkey' || type === 'pk' || type === 'device') {
+    return PassKeyChallengeView
   }
-  return TotpChallengeView
+  if (type === 'emailotp' || type === 'etotp' || type === 'email') {
+    return EmailotpChallengeView
+  }
+  if (type === 'smsotp' || type === 'sms' || type === 'totp') {
+    return SmsotpChallengeView
+  }
+  return PwdChallengeView
 })
 
 const displayIdentifier = computed(() => {
@@ -98,7 +105,6 @@ onMounted(() => {
   signinFlowStore.ensureFlowParams(route, router)
 
   if (!signinFlowStore.identifier) {
-    window.$message?.warning?.(t('auth.identifier_required'))
     router.replace({
       path: '/v1/signin/identifier',
       query: signinFlowStore.getQueryParams()
@@ -117,11 +123,11 @@ onMounted(() => {
   }
 })
 
-async function goBackIdentifier() {
+async function handleSwitchAccount() {
   if (signinFlowStore.loading) return
   await signinFlowStore.triggerScrim(undefined, 1000)
   await router.push({
-    path: '/v1/signin/identifier',
+    path: '/v1/signin/accountchooser',
     query: signinFlowStore.getQueryParams()
   })
 }

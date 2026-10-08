@@ -1,12 +1,12 @@
 package com.humolix.volur.auth.service;
 
-import com.humolix.volur.auth.domain.dto.AccountChooserProbeRequestDTO;
-import com.humolix.volur.auth.domain.dto.AccountChooserRemoveRequestDTO;
-import com.humolix.volur.auth.domain.dto.AccountChooserSelectRequestDTO;
-import com.humolix.volur.auth.domain.dto.SignInAuthenticateRequestDTO;
-import com.humolix.volur.auth.domain.dto.SignInIdentifierRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserProbeRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserRemoveRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
 import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 
 public interface SigninService {
 

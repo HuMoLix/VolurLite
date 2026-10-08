@@ -15,9 +15,6 @@ import org.springframework.security.core.userdetails.UserDetailsChecker;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-/**
- * @author HuMoLix
- */
 @Component
 @RequiredArgsConstructor
 public class Sm3AuthProvider implements AuthenticationProvider {

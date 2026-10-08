@@ -25,14 +25,16 @@
             <a
               href="#"
               class="auth-forgot-link"
+              :isScrim="true"
               @click.prevent="handleForgotAccount"
             >
-              {{ t('auth.forgot_email') }}
+              {{ t('auth.forgot_username') }}
             </a>
             <a
               v-if="hasKnownAccounts()"
               href="#"
               class="auth-forgot-link"
+              :isScrim="true"
               @click.prevent="handleBackToChooser"
             >
               {{ t('auth.choose_account') }}
@@ -61,6 +63,7 @@
             type="primary"
             class="auth-action-btn btn-next-step"
             :disabled="loading"
+            :isScrim="true"
             @click="handleNext"
           >
             {{ t('auth.next') }}
@@ -190,17 +193,19 @@ async function handleNext() {
   }
 }
 
-function handleForgotAccount() {
+async function handleForgotAccount() {
   if (signinFlowStore.loading) return
-  router.push({
-    path: '/v1/recovery/identifier',
-    query: signinFlowStore.getQueryParams()
-  }).catch(() => {})
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
+    path: '/v1/recovery/username/selection',
+    query: signinFlowStore.getQueryParams({ recoveryType: 'username' })
+  })
 }
 
-function handleBackToChooser() {
+async function handleBackToChooser() {
   if (signinFlowStore.loading) return
-  router.push({
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
     path: '/v1/signin/accountchooser',
     query: signinFlowStore.getQueryParams()
   })
@@ -329,6 +334,7 @@ async function handleCreateAccount() {
 }
 
 .btn-next-step {
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -338,6 +344,11 @@ async function handleCreateAccount() {
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   user-select: none;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   :deep(.n-button__content),
   .n-button__content {
@@ -386,6 +397,11 @@ async function handleCreateAccount() {
 :global(.dark) .btn-next-step {
   background-color: #8ab4f8 !important;
   color: #202124 !important;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   :deep(.n-button__content),
   .n-button__content {

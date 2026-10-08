@@ -61,6 +61,8 @@ const rejectedMessage = computed(() => {
 
 async function handleRejectedBack() {
   if (signinFlowStore.loading) return
+  signinFlowStore.tl = ''
+  signinFlowStore.cid = 0
   await signinFlowStore.triggerScrim(undefined, 1000)
   await router.push({
     path: '/v1/signin/identifier',

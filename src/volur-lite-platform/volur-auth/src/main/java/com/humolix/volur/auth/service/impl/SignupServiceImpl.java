@@ -1,7 +1,12 @@
 package com.humolix.volur.auth.service.impl;
 
 import cn.hutool.core.util.IdUtil;
-import com.humolix.volur.auth.domain.dto.*;
+import com.humolix.volur.auth.domain.dto.signup.SignUpCompleteRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpEmailRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpEmailResendRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpEtotpChallengeRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpNameRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.SignUpPasswordRequestDTO;
 import com.humolix.volur.auth.domain.vo.SignUpFlowResponseVO;
 import com.humolix.volur.auth.domain.vo.SignUpOptionVO;
 import com.humolix.volur.auth.security.cookie.AuthCookieService;
@@ -80,7 +85,7 @@ public class SignupServiceImpl implements SignupService {
                 : rawUsername;
 
         if (username.length() < 3 || username.length() > 32 || !username.matches("^[a-zA-Z0-9_-]+$")) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "用户名长度必须在3-32位之间，只能包含字母、数字、下划线和连字符");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "用户名长度必须在3到32个字符之间，用户名只能包含字母、数字、下划线和连字符");
         }
 
         if (userRepository.existsByUsername(username)) {
@@ -241,8 +246,9 @@ public class SignupServiceImpl implements SignupService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "两次输入的密码不一致");
         }
 
-        if (plainPassword.length() < 8 || plainPassword.length() > 64) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "密码长度必须在8-64位之间");
+        if (plainPassword.length() < 6 || plainPassword.length() > 32 ||
+                !plainPassword.matches("^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*?&._#^&+=])[A-Za-z\\d@$!%*?&._#^&+=]{6,32}$")) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "密码必须包含字母、数字和至少一个特殊字符，且长度在6到32个字符之间");
         }
 
         String username = (String) sessionManager.getMetadata(session.getDsh(), "username");

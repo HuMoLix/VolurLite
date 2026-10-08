@@ -6,7 +6,7 @@ import com.humolix.volur.security.domain.dto.PasskeyAssertionVerifyRequestDTO;
 import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
 import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.flow.flows.SigninFlow;
 import com.humolix.volur.security.service.PasskeyService;
@@ -31,10 +31,13 @@ import org.springframework.security.web.webauthn.api.AuthenticatorAssertionRespo
 import org.springframework.security.web.webauthn.api.AuthenticatorAttachment;
 import org.springframework.security.web.webauthn.api.AuthenticatorAttestationResponse;
 import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
+import org.springframework.security.web.webauthn.api.Bytes;
 import org.springframework.security.web.webauthn.api.CredentialRecord;
 import org.springframework.security.web.webauthn.api.PublicKeyCredential;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialCreationOptions;
+import org.springframework.security.web.webauthn.api.PublicKeyCredentialDescriptor;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialRequestOptions;
+import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
 import org.springframework.security.web.webauthn.api.ResidentKeyRequirement;
 import org.springframework.security.web.webauthn.api.UserVerificationRequirement;
 import tools.jackson.core.type.TypeReference;
@@ -45,6 +48,7 @@ import org.springframework.security.web.webauthn.management.ImmutableRelyingPart
 import org.springframework.security.web.webauthn.management.RelyingPartyAuthenticationRequest;
 import org.springframework.security.web.webauthn.management.RelyingPartyPublicKey;
 import org.springframework.security.web.webauthn.management.RelyingPartyRegistrationRequest;
+import org.springframework.security.web.webauthn.management.UserCredentialRepository;
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -56,6 +60,7 @@ import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
@@ -72,6 +77,7 @@ public class PasskeyServiceImpl implements PasskeyService {
     private final ObjectMapper objectMapper;
     private final SessionDeviceBaselineValidator sessionDeviceBaselineValidator;
     private final UserRepository userRepository;
+    private final UserCredentialRepository userCredentialRepository;
     private final UserTrustedDeviceService userTrustedDeviceService;
     private final RiskEvaluationEngine riskEvaluationEngine;
     private final SystemSettingService systemSettingService;
@@ -266,6 +272,11 @@ public class PasskeyServiceImpl implements PasskeyService {
                 new ImmutablePublicKeyCredentialRequestOptionsRequest(authentication)
         );
 
+        List<PublicKeyCredentialDescriptor> allowCredentials = options.getAllowCredentials();
+        if (allowCredentials == null || allowCredentials.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "当前账号未绑定通行密钥，无法使用此方式验证");
+        }
+
         byte[] serialized = serialize(options);
         String base64 = Base64.getEncoder().encodeToString(serialized);
         String key = VREDIS_SECURITY_PASSKEY_ASSERTION_KEY_PREFIX + dsh;
@@ -275,7 +286,7 @@ public class PasskeyServiceImpl implements PasskeyService {
     }
 
     @Override
-    public SignInFlowResponseVO verifyPasskeyAssertion(PasskeyAssertionVerifyRequestDTO request) {
+    public FlowResponseVO verifyPasskeyAssertion(PasskeyAssertionVerifyRequestDTO request) {
         assertWebAuthnEnabled();
         String dsh = request.getDsh();
         String tl = request.getTl();
@@ -334,13 +345,31 @@ public class PasskeyServiceImpl implements PasskeyService {
 
         RelyingPartyAuthenticationRequest authRequest = new RelyingPartyAuthenticationRequest(requestOptions, credential);
         String clientIp = RequestUtil.getClientIp();
+        PublicKeyCredentialUserEntity authenticatedUser;
         try {
-            rpOperations.authenticate(authRequest);
+            authenticatedUser = rpOperations.authenticate(authRequest);
         } catch (Exception e) {
             riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
             riskEvaluationEngine.recordAccountFailure(cleanIdentifier, CaptchaScene.LOGIN);
             log.warn("WebAuthn assertion authenticate failed: {}", e.getMessage(), e);
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "通行密钥核验未通过: " + e.getMessage());
+        }
+
+        if (authenticatedUser == null || !user.getUsername().equalsIgnoreCase(authenticatedUser.getName())) {
+            riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
+            riskEvaluationEngine.recordAccountFailure(cleanIdentifier, CaptchaScene.LOGIN);
+            log.warn("WebAuthn assertion user mismatch: session user [{}], authenticated user [{}]",
+                    user.getUsername(), authenticatedUser != null ? authenticatedUser.getName() : "null");
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "所使用的通行密钥不属于当前登录账号");
+        }
+
+        Bytes expectedUserId = new Bytes(ByteBuffer.allocate(Long.BYTES).putLong(user.getId()).array());
+        if (authenticatedUser.getId() != null && !expectedUserId.equals(authenticatedUser.getId())) {
+            riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
+            riskEvaluationEngine.recordAccountFailure(cleanIdentifier, CaptchaScene.LOGIN);
+            log.warn("WebAuthn assertion userId mismatch: session userId [{}], authenticated userId [{}]",
+                    user.getId(), authenticatedUser.getId());
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "所使用的通行密钥不属于当前登录账号");
         }
 
         redisTemplate.delete(key);
@@ -369,7 +398,7 @@ public class PasskeyServiceImpl implements PasskeyService {
                 dsh, tl, cid, currentStep, nextCid, SigninFlow.STEP_AUTHENTICATE, cleanIdentifier
         );
 
-        return SignInFlowResponseVO.builder()
+        return FlowResponseVO.builder()
                 .dsh(dsh)
                 .tl(nextTL)
                 .cid(nextCid)
@@ -467,6 +496,19 @@ public class PasskeyServiceImpl implements PasskeyService {
             log.error("Failed to deserialize object: {}", e.getMessage(), e);
             throw new IllegalStateException("Failed to deserialize object", e);
         }
+    }
+
+    @Override
+    public boolean hasPasskey(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        if (!systemSettingService.getBoolean(SystemSettingKeys.WEBAUTHN_ENABLED, true)) {
+            return false;
+        }
+        Bytes userBytes = new Bytes(ByteBuffer.allocate(Long.BYTES).putLong(userId).array());
+        List<CredentialRecord> records = userCredentialRepository.findByUserId(userBytes);
+        return !records.isEmpty();
     }
 
 }

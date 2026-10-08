@@ -172,14 +172,18 @@ export const useSignupFlowStore = defineStore('signupFlow', () => {
       followup: followup.value,
       flowName: flowName.value,
       flowEntry: flowEntry.value,
-      dsh: dsh.value,
       pstMsg: pstMsg.value
     }
 
+    if (dsh.value) {
+      params.dsh = dsh.value
+    }
     if (tl.value) {
       params.TL = tl.value
     }
-    params.cid = String(cid.value)
+    if (cid.value) {
+      params.cid = String(cid.value)
+    }
 
     return { ...params, ...extra }
   }

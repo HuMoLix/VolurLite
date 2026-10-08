@@ -28,10 +28,9 @@ public final class SystemSettingKeys {
     public static final String CAPTCHA_TICKET_TTL_SECONDS = "system.captcha.ticket_ttl_seconds";
     public static final String CAPTCHA_MAX_ATTEMPTS = "system.captcha.max_attempts";
     public static final String CAPTCHA_FORCE_RESET = "system.captcha.force_reset_captcha";
-    public static final String CAPTCHA_TURNSTILE_SITE_KEY = "system.captcha.turnstile_site_key";
-    public static final String CAPTCHA_TURNSTILE_SECRET_KEY = "system.captcha.turnstile_secret_key";
 
     // ========== 4. 邮件服务 (Mail) ==========
+    public static final String MAIL_ENABLED = "system.mail.enabled";
     public static final String MAIL_SMTP_HOST = "system.mail.smtp_host";
     public static final String MAIL_SMTP_PORT = "system.mail.smtp_port";
     public static final String MAIL_SMTP_USER = "system.mail.smtp_user";
@@ -45,6 +44,9 @@ public final class SystemSettingKeys {
     public static final String MAIL_WEBHOOK_ENABLED = "system.mail.webhook_enabled";
     public static final String MAIL_WEBHOOK_SECRET = "system.mail.webhook_secret";
     public static final String MAIL_WEBHOOK_FALLBACK_STRATEGY = "system.mail.webhook_fallback_strategy";
+
+    // ========== 4.1 短信服务 (SMS) ==========
+    public static final String SMS_ENABLED = "system.sms.enabled";
 
     // ========== 5. 容器基础设施 (Container Infrastructure) ==========
     public static final String CONTAINER_TYPE = "system.container.type";

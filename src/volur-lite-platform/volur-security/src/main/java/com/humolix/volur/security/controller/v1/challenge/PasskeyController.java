@@ -4,9 +4,9 @@ import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.security.domain.dto.PasskeyAssertionVerifyRequestDTO;
 import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
 import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
 import com.humolix.volur.security.service.PasskeyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -66,9 +66,9 @@ public class PasskeyController {
 
     @Syslog(module = "SECURITY", value = "验证 Passkey 登录断言", logType = "AUTH", recordParams = false)
     @PostMapping(value = {"", "/verify"})
-    public ApiResponseEntity<SignInFlowResponseVO> verifyPasskeyAssertion(
+    public ApiResponseEntity<FlowResponseVO> verifyPasskeyAssertion(
             @Valid @RequestBody PasskeyAssertionVerifyRequestDTO request) {
-        SignInFlowResponseVO response = passkeyService.verifyPasskeyAssertion(request);
+        FlowResponseVO response = passkeyService.verifyPasskeyAssertion(request);
         return ApiResponseEntity.ok("通行密钥核验成功", response);
     }
 

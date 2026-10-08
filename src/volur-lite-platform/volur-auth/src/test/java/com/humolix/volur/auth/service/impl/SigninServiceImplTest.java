@@ -1,17 +1,17 @@
 package com.humolix.volur.auth.service.impl;
 
-import com.humolix.volur.auth.domain.dto.AccountChooserProbeRequestDTO;
-import com.humolix.volur.auth.domain.dto.AccountChooserRemoveRequestDTO;
-import com.humolix.volur.auth.domain.dto.AccountChooserSelectRequestDTO;
-import com.humolix.volur.auth.domain.dto.SignInAuthenticateRequestDTO;
-import com.humolix.volur.auth.domain.dto.SignInIdentifierRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserProbeRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserRemoveRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
 import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
 import com.humolix.volur.auth.security.cookie.AuthCookieService;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.framework.cache.redis.RedisOps;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.session.RequestDeviceParams;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.flow.domain.Flow;
 import com.humolix.volur.security.risk.DeviceEnvironmentMatrixEvaluator;
@@ -134,7 +134,10 @@ class SigninServiceImplTest {
 
     @Test
     void selectAccount_validRequest_shouldAdvanceToPwd() {
-        AccountChooserSelectRequestDTO request = new AccountChooserSelectRequestDTO("S-100200300:1790000000", "alice");
+        AccountChooserSelectRequestDTO request = AccountChooserSelectRequestDTO.builder()
+                .dsh("S-100200300:1790000000")
+                .identifier("alice")
+                .build();
 
         Session session = Session.builder()
                 .dsh(request.getDsh())

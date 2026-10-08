@@ -216,10 +216,15 @@ function handleCardActionClick(event: MouseEvent): void {
   if (
     scrimBtn.classList.contains('btn-next-step') ||
     scrimBtn.classList.contains('btn-verify-action') ||
+    scrimBtn.classList.contains('btn-primary-action') ||
+    scrimBtn.classList.contains('btn-secondary-action') ||
     scrimBtn.classList.contains('btn-try-another-way') ||
     scrimBtn.classList.contains('btn-create-account') ||
     scrimBtn.classList.contains('btn-signin-instead') ||
+    scrimBtn.classList.contains('btn-remove-account') ||
+    scrimBtn.classList.contains('remove-icon-btn') ||
     scrimBtn.classList.contains('auth-selection-item') ||
+    scrimBtn.classList.contains('auth-account-chip') ||
     scrimBtn.getAttribute('type') === 'submit'
   ) {
     return
@@ -497,7 +502,7 @@ provide('triggerScrim', triggerScrim)
 
     &__title,
     :deep(.auth-card__title) {
-      font-size: 32px;
+      font-size: 40px;
       line-height: 1.25;
       margin: 0 0 12px 0;
     }

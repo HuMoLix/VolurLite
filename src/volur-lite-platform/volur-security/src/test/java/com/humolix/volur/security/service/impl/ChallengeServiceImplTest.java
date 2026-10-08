@@ -8,10 +8,11 @@ import com.humolix.volur.security.domain.dto.PasswordChallengeRequestDTO;
 import com.humolix.volur.security.domain.dto.ReCAPTCHAChallengeSubmitDTO;
 import com.humolix.volur.security.domain.session.RequestDeviceParams;
 import com.humolix.volur.security.domain.vo.ChallengeOptionVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.flow.domain.Flow;
 import com.humolix.volur.security.service.FlowCryptoService;
+import com.humolix.volur.security.service.PasskeyService;
 import com.humolix.volur.security.service.RecaptchaService;
 import com.humolix.volur.security.session.SessionManager;
 import com.humolix.volur.security.session.domain.Session;
@@ -52,6 +53,7 @@ class ChallengeServiceImplTest {
     private EmailService emailService;
     private RecaptchaService recaptchaService;
     private FlowCryptoService flowCryptoService;
+    private PasskeyService passkeyService;
     private Sm3PasswordEncoder passwordEncoder;
     private RiskEvaluationEngine riskEvaluationEngine;
     private SystemSettingService systemSettingService;
@@ -74,6 +76,7 @@ class ChallengeServiceImplTest {
         emailService = Mockito.mock(EmailService.class);
         recaptchaService = Mockito.mock(RecaptchaService.class);
         flowCryptoService = Mockito.mock(FlowCryptoService.class);
+        passkeyService = Mockito.mock(PasskeyService.class);
         passwordEncoder = Mockito.mock(Sm3PasswordEncoder.class);
         riskEvaluationEngine = Mockito.mock(RiskEvaluationEngine.class);
         systemSettingService = Mockito.mock(SystemSettingService.class);
@@ -91,6 +94,7 @@ class ChallengeServiceImplTest {
                 emailService,
                 recaptchaService,
                 flowCryptoService,
+                passkeyService,
                 passwordEncoder,
                 riskEvaluationEngine,
                 systemSettingService,
@@ -121,7 +125,7 @@ class ChallengeServiceImplTest {
         given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("recaptcha"), eq(2), eq("pwd"), eq("validuser")))
                 .willReturn("ADG-PWD_TICKET");
 
-        SignInFlowResponseVO response = challengeService.verifyReCAPTCHA(request);
+        FlowResponseVO response = challengeService.verifyReCAPTCHA(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals("pwd", response.getNextStep());
@@ -158,7 +162,7 @@ class ChallengeServiceImplTest {
         given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(2), eq("authenticate"), eq("validuser")))
                 .willReturn("ADG-AUTH_TICKET");
 
-        SignInFlowResponseVO response = challengeService.verifyPassword(request);
+        FlowResponseVO response = challengeService.verifyPassword(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals("authenticate", response.getNextStep());
@@ -195,7 +199,7 @@ class ChallengeServiceImplTest {
         given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(2), eq("etotp"), eq("validuser")))
                 .willReturn("ADG-ETOTP_TICKET");
 
-        SignInFlowResponseVO response = challengeService.verifyPassword(request);
+        FlowResponseVO response = challengeService.verifyPassword(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals("etotp", response.getNextStep());
@@ -229,7 +233,7 @@ class ChallengeServiceImplTest {
         given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(2), eq("etotp"), eq(3), eq("authenticate"), eq("validuser")))
                 .willReturn("ADG-AUTH_TICKET");
 
-        SignInFlowResponseVO response = challengeService.verifyEmailOTP(request);
+        FlowResponseVO response = challengeService.verifyEmailOTP(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals("authenticate", response.getNextStep());
@@ -238,7 +242,7 @@ class ChallengeServiceImplTest {
     }
 
     @Test
-    void selectChallenge_toEtotp_shouldSendEmailAndAdvanceTL() {
+    void selectChallenge_toEtotp_shouldRequireRecaptchaAndNotSendEmailYet() {
         ChallengeSelectRequestDTO request = new ChallengeSelectRequestDTO();
         request.setDsh("S-100200300:1790000000");
         request.setTl("ADG-PWD_TICKET");
@@ -256,16 +260,91 @@ class ChallengeServiceImplTest {
 
         given(sessionManager.getSession(request.getDsh())).willReturn(session);
         given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
-        given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(1), eq("etotp"), eq("validuser")))
-                .willReturn("ADG-ETOTP_TICKET");
+        given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(1), eq("recaptcha"), eq("validuser")))
+                .willReturn("ADG-RECAPTCHA_TICKET");
 
-        SignInFlowResponseVO response = challengeService.selectChallenge(request);
+        FlowResponseVO response = challengeService.selectChallenge(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals("CHALLENGE", response.getStatus());
-        Assertions.assertEquals("etotp", response.getNextStep());
+        Assertions.assertEquals("recaptcha", response.getNextStep());
         Assertions.assertEquals(1, response.getCid());
+        Assertions.assertEquals("ADG-RECAPTCHA_TICKET", response.getTl());
+        Mockito.verify(sessionManager).setMetadata(eq(request.getDsh()), eq("pendingChallenge"), eq("etotp"));
+        Mockito.verify(emailService, Mockito.never()).sendVerificationEmail(anyString(), anyString(), Mockito.anyBoolean());
+    }
+
+    @Test
+    void verifyReCAPTCHA_withPendingEtotp_shouldSendEmailAndAdvanceToEtotp() {
+        ReCAPTCHAChallengeSubmitDTO request = new ReCAPTCHAChallengeSubmitDTO();
+        request.setDsh("S-100200300:1790000000");
+        request.setTl("ADG-RECAPTCHA_TICKET");
+        request.setCid(1);
+        request.setRecaptchaTicket("rctk_sample_valid");
+
+        Session session = Session.builder()
+                .dsh(request.getDsh())
+                .flow(Flow.builder().identifier("validuser").currentStep("recaptcha").cid(1).build())
+                .requestDeviceParams(RequestDeviceParams.of("127.0.0.1", "fp_sample_123"))
+                .build();
+
+        given(sessionManager.getSession(request.getDsh())).willReturn(session);
+        given(recaptchaService.validateAndBurnTicket(eq(request.getDsh()), eq("rctk_sample_valid"))).willReturn(true);
+        given(sessionManager.getMetadata(eq(request.getDsh()), eq("pendingChallenge"))).willReturn("etotp");
+
+        User mockUser = new User();
+        mockUser.setUsername("validuser");
+        mockUser.setEmail("valid@example.com");
+        given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
+        given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("recaptcha"), eq(2), eq("etotp"), eq("validuser")))
+                .willReturn("ADG-ETOTP_TICKET");
+
+        FlowResponseVO response = challengeService.verifyReCAPTCHA(request);
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals("etotp", response.getNextStep());
+        Assertions.assertEquals(2, response.getCid());
         Assertions.assertEquals("ADG-ETOTP_TICKET", response.getTl());
+        verify(emailService).sendVerificationEmail(eq("valid@example.com"), eq("validuser"), eq(true));
+        verify(sessionManager).removeMetadata(eq(request.getDsh()), eq("pendingChallenge"));
+    }
+
+    @Test
+    void verifyReCAPTCHA_withWaitingStepsFallback_shouldSendEmailAndAdvanceToEtotp() {
+        ReCAPTCHAChallengeSubmitDTO request = new ReCAPTCHAChallengeSubmitDTO();
+        request.setDsh("S-100200300:1790000000");
+        request.setTl("ADG-RECAPTCHA_TICKET");
+        request.setCid(1);
+        request.setRecaptchaTicket("rctk_sample_valid");
+
+        Session session = Session.builder()
+                .dsh(request.getDsh())
+                .flow(Flow.builder()
+                        .identifier("validuser")
+                        .currentStep("recaptcha")
+                        .waitingSteps(List.of("recaptcha", "etotp", "authenticate"))
+                        .cid(1)
+                        .build())
+                .requestDeviceParams(RequestDeviceParams.of("127.0.0.1", "fp_sample_123"))
+                .build();
+
+        given(sessionManager.getSession(request.getDsh())).willReturn(session);
+        given(recaptchaService.validateAndBurnTicket(eq(request.getDsh()), eq("rctk_sample_valid"))).willReturn(true);
+        given(sessionManager.getMetadata(eq(request.getDsh()), eq("pendingChallenge"))).willReturn(null);
+
+        User mockUser = new User();
+        mockUser.setUsername("validuser");
+        mockUser.setEmail("valid@example.com");
+        given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
+        given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("recaptcha"), eq(2), eq("etotp"), eq("validuser")))
+                .willReturn("ADG-ETOTP_TICKET_FALLBACK");
+
+        FlowResponseVO response = challengeService.verifyReCAPTCHA(request);
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals("etotp", response.getNextStep());
+        Assertions.assertEquals(2, response.getCid());
+        Assertions.assertEquals("ADG-ETOTP_TICKET_FALLBACK", response.getTl());
         verify(emailService).sendVerificationEmail(eq("valid@example.com"), eq("validuser"), eq(true));
     }
 
@@ -278,12 +357,14 @@ class ChallengeServiceImplTest {
                 .build();
 
         User mockUser = new User();
+        mockUser.setId(1001L);
         mockUser.setUsername("validuser");
         mockUser.setEmail("developer@volur.com");
         mockUser.setPhone("13800138000");
 
         given(sessionManager.getSession(dsh)).willReturn(session);
         given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
+        given(passkeyService.hasPasskey(1001L)).willReturn(true);
 
         List<ChallengeOptionVO> options = challengeService.getChallengeSelection(dsh, "pwd");
 
@@ -293,6 +374,34 @@ class ChallengeServiceImplTest {
         Assertions.assertFalse(hasPwd);
         boolean hasEtotp = options.stream().anyMatch(o -> "etotp".equalsIgnoreCase(o.getType()));
         Assertions.assertTrue(hasEtotp);
+        boolean hasSmsotp = options.stream().anyMatch(o -> "smsotp".equalsIgnoreCase(o.getType()));
+        Assertions.assertTrue(hasSmsotp);
+        boolean hasPk = options.stream().anyMatch(o -> "pk".equalsIgnoreCase(o.getType()));
+        Assertions.assertTrue(hasPk);
+    }
+
+    @Test
+    void getChallengeSelection_whenNoOtherMethods_returnsEmptyList() {
+        String dsh = "S-100200300:1790000000";
+        Session session = Session.builder()
+                .dsh(dsh)
+                .flow(Flow.builder().identifier("adminuser").build())
+                .build();
+
+        User mockUser = new User();
+        mockUser.setId(1002L);
+        mockUser.setUsername("adminuser");
+        mockUser.setEmail(null);
+        mockUser.setPhone(null);
+
+        given(sessionManager.getSession(dsh)).willReturn(session);
+        given(userRepository.findByUsername("adminuser")).willReturn(Optional.of(mockUser));
+        given(passkeyService.hasPasskey(1002L)).willReturn(false);
+
+        List<ChallengeOptionVO> options = challengeService.getChallengeSelection(dsh, "pwd");
+
+        Assertions.assertNotNull(options);
+        Assertions.assertTrue(options.isEmpty());
     }
 
 }

@@ -58,10 +58,16 @@ public class UserPublicKeyCredentialUserEntityRepository implements PublicKeyCre
 
     private PublicKeyCredentialUserEntity toUserEntity(User user) {
         Bytes id = new Bytes(ByteBuffer.allocate(Long.BYTES).putLong(user.getId()).array());
+        String displayName = StringUtils.hasText(user.getRealName())
+                ? user.getRealName().trim()
+                : user.getUsername();
+        if (!StringUtils.hasText(displayName)) {
+            displayName = "Volur User";
+        }
         return ImmutablePublicKeyCredentialUserEntity.builder()
                 .id(id)
                 .name(user.getUsername())
-                .displayName(StringUtils.hasText(user.getUsername()) ? user.getUsername() : "Volur User")
+                .displayName(displayName)
                 .build();
     }
 

@@ -118,6 +118,8 @@ watch(confirmPassword, () => {
   }
 })
 
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&._#^&+=])[A-Za-z\d@$!%*?&._#^&+=]{6,32}$/
+
 async function handleNext() {
   if (signupFlowStore.loading) return
 
@@ -125,18 +127,21 @@ async function handleNext() {
   clearConfirmPasswordError()
   let hasError = false
 
-  if (!password.value) {
+  const p = password.value.trim()
+  const cp = confirmPassword.value.trim()
+
+  if (!p) {
     passwordKey.value = 'auth.password_required'
     hasError = true
-  } else if (password.value.length < 8) {
-    passwordKey.value = 'auth.password_length_min8'
+  } else if (p.length < 6 || p.length > 32 || !PASSWORD_REGEX.test(p)) {
+    passwordKey.value = 'auth.password_complexity_error'
     hasError = true
   }
 
-  if (!confirmPassword.value) {
+  if (!cp) {
     confirmPasswordKey.value = 'auth.confirm_password_required'
     hasError = true
-  } else if (password.value !== confirmPassword.value) {
+  } else if (p !== cp) {
     confirmPasswordKey.value = 'auth.passwords_not_match'
     hasError = true
   }
@@ -144,7 +149,7 @@ async function handleNext() {
   if (hasError) return
 
   try {
-    const { nextStep, status } = await signupFlowStore.submitSignUpPassword(password.value, confirmPassword.value)
+    const { nextStep, status } = await signupFlowStore.submitSignUpPassword(p, cp)
     if (status === 'COMPLETE') {
       window.$message?.success?.(t('auth.account_created_success'))
     }

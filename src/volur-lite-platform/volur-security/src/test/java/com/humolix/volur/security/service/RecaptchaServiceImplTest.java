@@ -21,7 +21,11 @@ import com.humolix.volur.verification.service.CaptchaService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -30,49 +34,51 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Duration;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 
+@ExtendWith(MockitoExtension.class)
 class RecaptchaServiceImplTest {
 
-    private SessionManager sessionManager;
-    private TransitionLockManager transitionLockManager;
-    private RiskEvaluationEngine riskEvaluationEngine;
-    private CaptchaCryptoService captchaCryptoService;
-    private CaptchaService captchaService;
+    @Mock
     private StringRedisTemplate redisTemplate;
-    private ValueOperations<String, String> valueOperations;
-    private final ObjectMapper objectMapper = new JsonMapper();
 
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
+    @Mock
+    private CaptchaCryptoService captchaCryptoService;
+
+    @Mock
+    private CaptchaService captchaService;
+
+    @Mock
+    private RiskEvaluationEngine riskEvaluationEngine;
+
+    @Mock
+    private SessionManager sessionManager;
+
+    @Mock
+    private TransitionLockManager transitionLockManager;
+
+    @Spy
+    private ObjectMapper objectMapper = JsonMapper.builder().build();
+
+    @InjectMocks
     private RecaptchaServiceImpl recaptchaService;
 
     @BeforeEach
-    @SuppressWarnings("unchecked")
     void setUp() {
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr("127.0.0.1");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
-
-        sessionManager = Mockito.mock(SessionManager.class);
-        transitionLockManager = Mockito.mock(TransitionLockManager.class);
-        riskEvaluationEngine = Mockito.mock(RiskEvaluationEngine.class);
-        captchaCryptoService = Mockito.mock(CaptchaCryptoService.class);
-        captchaService = Mockito.mock(CaptchaService.class);
-        redisTemplate = Mockito.mock(StringRedisTemplate.class);
-        valueOperations = Mockito.mock(ValueOperations.class);
-
-        given(redisTemplate.opsForValue()).willReturn(valueOperations);
-
-        recaptchaService = new RecaptchaServiceImpl(
-                sessionManager,
-                transitionLockManager,
-                riskEvaluationEngine,
-                captchaCryptoService,
-                captchaService,
-                redisTemplate,
-                objectMapper
-        );
     }
 
     @Test
@@ -135,15 +141,15 @@ class RecaptchaServiceImplTest {
     }
 
     @Test
-    void verifyRecaptcha_clickMode_success_returnsTicket() {
+    void verifyRecaptcha_clickMode_validHuman_passesAndIssuesTicket() {
         String dsh = "S-100200:1790000";
         String tl = "ADG-RECAPTCHA";
         String token = "rctok_123456";
 
-        String contextJson = "{\"dsh\":\"" + dsh + "\",\"challengeType\":\"CLICK\",\"createdAt\":1790000}";
+        String contextJson = "{\"dsh\":\"" + dsh + "\",\"challengeType\":\"CLICK\",\"createdAt\":" + System.currentTimeMillis() + "}";
         given(valueOperations.get("vredis:security:recaptcha:challenge:" + token)).willReturn(contextJson);
 
-        String mockDecryptedPayload = "{\"ts\":" + System.currentTimeMillis() + ",\"webdriver\":false,\"isTrusted\":true}";
+        String mockDecryptedPayload = "{\"ts\":" + System.currentTimeMillis() + ",\"isTrusted\":true,\"bio\":{\"pts\":15,\"dur\":80,\"accVar\":0.005,\"inActionBounds\":true},\"env\":{\"wd\":false,\"cdp\":false,\"coreHook\":false}}";
         given(captchaCryptoService.decryptPayload("mock_payload_base64")).willReturn(mockDecryptedPayload);
 
         RecaptchaVerifyRequestDTO requestDTO = new RecaptchaVerifyRequestDTO(token, "mock_payload_base64");
@@ -157,12 +163,85 @@ class RecaptchaServiceImplTest {
     }
 
     @Test
+    void verifyRecaptcha_clickMode_realUserPayloadWithExtensions_passes() {
+        String dsh = "S-100200:1790000";
+        String tl = "ADG-RECAPTCHA";
+        String token = "rctok_123456";
+
+        String contextJson = "{\"dsh\":\"" + dsh + "\",\"challengeType\":\"CLICK\",\"createdAt\":" + System.currentTimeMillis() + "}";
+        given(valueOperations.get("vredis:security:recaptcha:challenge:" + token)).willReturn(contextJson);
+
+        String userPayload = "{\"v\":4,\"bio\":{\"accVar\":0.1454683864799204,\"curvVar\":0.40842813002096506,\"smooth\":0.9867001244196184,\"pts\":80,\"dur\":125,\"downUpDur\":67,\"radius\":8.06},\"env\":{\"wd\":false,\"cdp\":false,\"hook\":true,\"gpu\":\"ANGLE (NVIDIA, NVIDIA GeForce RT\",\"cores\":28,\"mem\":32},\"eco\":{\"hist\":24,\"usage\":0,\"idb\":0},\"ts\":" + System.currentTimeMillis() + ",\"nonce\":\"lpf7wkgv\",\"powNonce\":\"\"}";
+        given(captchaCryptoService.decryptPayload("user_real_payload")).willReturn(userPayload);
+
+        RecaptchaVerifyRequestDTO requestDTO = new RecaptchaVerifyRequestDTO(token, "user_real_payload");
+        RecaptchaVerifyResponseVO response = recaptchaService.verifyRecaptcha(dsh, tl, requestDTO);
+
+        Assertions.assertNotNull(response);
+        Assertions.assertTrue(response.isPassed());
+        Assertions.assertNotNull(response.getRecaptchaTicket());
+        Assertions.assertTrue(response.getRecaptchaTicket().startsWith("rctk_"));
+    }
+
+
+    @Test
+    void verifyRecaptcha_clickMode_untrustedEvent_fails() {
+        String dsh = "S-100200:1790000";
+        String tl = "ADG-RECAPTCHA";
+        String token = "rctok_123456";
+
+        String contextJson = "{\"dsh\":\"" + dsh + "\",\"challengeType\":\"CLICK\",\"createdAt\":" + System.currentTimeMillis() + "}";
+        given(valueOperations.get("vredis:security:recaptcha:challenge:" + token)).willReturn(contextJson);
+
+        String mockDecryptedPayload = "{\"ts\":" + System.currentTimeMillis() + ",\"isTrusted\":false,\"bio\":{\"pts\":15,\"dur\":80}}";
+        given(captchaCryptoService.decryptPayload("mock_payload_base64")).willReturn(mockDecryptedPayload);
+
+        RecaptchaVerifyRequestDTO requestDTO = new RecaptchaVerifyRequestDTO(token, "mock_payload_base64");
+        BusinessException ex = Assertions.assertThrows(BusinessException.class, () -> recaptchaService.verifyRecaptcha(dsh, tl, requestDTO));
+        Assertions.assertEquals("行为模式与运行环境存在异常，人机验证失败", ex.getMessage());
+    }
+
+    @Test
+    void verifyRecaptcha_clickMode_webdriver_fails() {
+        String dsh = "S-100200:1790000";
+        String tl = "ADG-RECAPTCHA";
+        String token = "rctok_123456";
+
+        String contextJson = "{\"dsh\":\"" + dsh + "\",\"challengeType\":\"CLICK\",\"createdAt\":" + System.currentTimeMillis() + "}";
+        given(valueOperations.get("vredis:security:recaptcha:challenge:" + token)).willReturn(contextJson);
+
+        String mockDecryptedPayload = "{\"ts\":" + System.currentTimeMillis() + ",\"isTrusted\":true,\"env\":{\"wd\":true}}";
+        given(captchaCryptoService.decryptPayload("mock_payload_base64")).willReturn(mockDecryptedPayload);
+
+        RecaptchaVerifyRequestDTO requestDTO = new RecaptchaVerifyRequestDTO(token, "mock_payload_base64");
+        BusinessException ex = Assertions.assertThrows(BusinessException.class, () -> recaptchaService.verifyRecaptcha(dsh, tl, requestDTO));
+        Assertions.assertEquals("行为模式与运行环境存在异常，人机验证失败", ex.getMessage());
+    }
+
+    @Test
+    void verifyRecaptcha_clickMode_emptyPayload_fails() {
+        String dsh = "S-100200:1790000";
+        String tl = "ADG-RECAPTCHA";
+        String token = "rctok_123456";
+
+        String contextJson = "{\"dsh\":\"" + dsh + "\",\"challengeType\":\"CLICK\",\"createdAt\":" + System.currentTimeMillis() + "}";
+        given(valueOperations.get("vredis:security:recaptcha:challenge:" + token)).willReturn(contextJson);
+
+        String mockDecryptedPayload = "{}";
+        given(captchaCryptoService.decryptPayload("mock_payload_base64")).willReturn(mockDecryptedPayload);
+
+        RecaptchaVerifyRequestDTO requestDTO = new RecaptchaVerifyRequestDTO(token, "mock_payload_base64");
+        BusinessException ex = Assertions.assertThrows(BusinessException.class, () -> recaptchaService.verifyRecaptcha(dsh, tl, requestDTO));
+        Assertions.assertEquals("人机验证凭据已过期或时间戳非法", ex.getMessage());
+    }
+
+    @Test
     void verifyRecaptcha_puzzleMode_success_returnsTicket() {
         String dsh = "S-100200:1790000";
         String tl = "ADG-RECAPTCHA";
         String token = "rctok_123456";
 
-        String contextJson = "{\"dsh\":\"" + dsh + "\",\"challengeType\":\"PUZZLE\",\"captchaId\":\"inner_cap_123\",\"createdAt\":1790000}";
+        String contextJson = "{\"dsh\":\"" + dsh + "\",\"challengeType\":\"PUZZLE\",\"captchaId\":\"inner_cap_123\",\"createdAt\":" + System.currentTimeMillis() + "}";
         given(valueOperations.get("vredis:security:recaptcha:challenge:" + token)).willReturn(contextJson);
 
         String mockDecryptedPayload = "{\"ts\":" + System.currentTimeMillis() + ",\"x\":140}";

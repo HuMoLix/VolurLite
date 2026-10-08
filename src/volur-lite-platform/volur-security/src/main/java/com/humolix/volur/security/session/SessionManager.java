@@ -180,6 +180,14 @@ public class SessionManager {
         return session.getMetadata().get(key);
     }
 
+    public void removeMetadata(String dsh, String key) {
+        Session session = getSessionOrNull(dsh);
+        if (session != null && session.getMetadata() != null) {
+            session.getMetadata().remove(key);
+            saveSession(session);
+        }
+    }
+
     public void destroySession(String dsh) {
         if (StringUtils.hasText(dsh)) {
             String key = VREDIS_SECURITY_FLOW_SESSION_KEY_PREFIX + dsh.trim();

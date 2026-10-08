@@ -3,6 +3,7 @@ import type { ApiResponse } from '@/types/common/api'
 import type {
   SessionVO,
   SessionInitParams,
+  RecoveryFlowResponseVO,
   SignInFlowResponseVO,
   SignInIdentifierRequestDTO,
   SignInChallengeSelectRequestDTO,
@@ -24,6 +25,13 @@ import type {
   AccountChooserSelectRequestDTO,
   AccountChooserRemoveRequestDTO
 } from '@/types/auth/flow'
+import type {
+  UsernameRecoveryOptionsVO,
+  PasswordRecoveryOptionsVO,
+  PasswordRecoverySelectRequestDTO,
+  PasswordRecoveryEmailOtpRequestDTO,
+  PasswordRecoveryResetRequestDTO
+} from '@/types/auth/recovery'
 
 export function initSessionApi(params: SessionInitParams): Promise<ApiResponse<SessionVO>> {
   return get<SessionVO>('/session/initSess', { params, skipToast: true })
@@ -77,14 +85,14 @@ export function submitEmailOTPChallengeApi(data: {
   code: string
   rememberMe?: boolean
 }): Promise<ApiResponse<SignInFlowResponseVO>> {
-  return post<SignInFlowResponseVO>('/captcha/challenge/etotp', data, { skipToast: true })
+  return post<SignInFlowResponseVO>('/captcha/challenge/emailotp', data, { skipToast: true })
 }
 
 export function resendEmailOTPChallengeApi(params: {
   dsh: string
   tl: string
 }): Promise<ApiResponse<void>> {
-  return post<void>('/captcha/challenge/etotp/send', undefined, { params, skipToast: true })
+  return post<void>('/captcha/challenge/emailotp/send', undefined, { params, skipToast: true })
 }
 
 export function submitSMSOTPChallengeApi(data: {
@@ -213,4 +221,53 @@ export function refreshTokenApi(): Promise<ApiResponse<void>> {
 export function logoutApi(): Promise<ApiResponse<void>> {
   return post<void>('/auth/logout', undefined, { skipToast: true })
 }
+
+export function getUsernameRecoveryOptionsApi(): Promise<ApiResponse<UsernameRecoveryOptionsVO>> {
+  return get<UsernameRecoveryOptionsVO>('/auth/recovery/username/options', { skipToast: true })
+}
+
+export function submitRecoveryEmailApi(data: {
+  dsh: string
+  email: string
+  tl?: string
+  cid?: number
+}): Promise<ApiResponse<RecoveryFlowResponseVO>> {
+  return post<RecoveryFlowResponseVO>('/auth/recovery/username/email', data, { skipToast: true })
+}
+
+export function selectRecoveryMethodApi(data: {
+  dsh: string
+  method: string
+  tl?: string
+  cid?: number
+}): Promise<ApiResponse<RecoveryFlowResponseVO>> {
+  return post<RecoveryFlowResponseVO>('/auth/recovery/username/select', data, { skipToast: true })
+}
+
+export function getPasswordRecoveryOptionsApi(dsh: string): Promise<ApiResponse<PasswordRecoveryOptionsVO>> {
+  return get<PasswordRecoveryOptionsVO>('/auth/recovery/password/options', { params: { dsh }, skipToast: true })
+}
+
+export function selectPasswordRecoveryMethodApi(
+  data: PasswordRecoverySelectRequestDTO
+): Promise<ApiResponse<RecoveryFlowResponseVO>> {
+  return post<RecoveryFlowResponseVO>('/auth/recovery/password/select', data, { skipToast: true })
+}
+
+export function sendPasswordRecoveryEmailOtpApi(dsh: string, tl: string): Promise<ApiResponse<void>> {
+  return post<void>('/auth/recovery/password/emailotp/send', undefined, { params: { dsh, tl }, skipToast: true })
+}
+
+export function verifyPasswordRecoveryEmailOtpApi(
+  data: PasswordRecoveryEmailOtpRequestDTO
+): Promise<ApiResponse<RecoveryFlowResponseVO>> {
+  return post<RecoveryFlowResponseVO>('/auth/recovery/password/emailotp/verify', data, { skipToast: true })
+}
+
+export function submitPasswordResetApi(
+  data: PasswordRecoveryResetRequestDTO
+): Promise<ApiResponse<RecoveryFlowResponseVO>> {
+  return post<RecoveryFlowResponseVO>('/auth/recovery/password/reset', data, { skipToast: true })
+}
+
 

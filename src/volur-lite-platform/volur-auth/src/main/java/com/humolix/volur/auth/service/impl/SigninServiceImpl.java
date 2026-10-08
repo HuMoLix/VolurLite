@@ -2,11 +2,11 @@ package com.humolix.volur.auth.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.crypto.digest.DigestUtil;
-import com.humolix.volur.auth.domain.dto.AccountChooserProbeRequestDTO;
-import com.humolix.volur.auth.domain.dto.AccountChooserRemoveRequestDTO;
-import com.humolix.volur.auth.domain.dto.AccountChooserSelectRequestDTO;
-import com.humolix.volur.auth.domain.dto.SignInAuthenticateRequestDTO;
-import com.humolix.volur.auth.domain.dto.SignInIdentifierRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserProbeRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserRemoveRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
 import com.humolix.volur.auth.domain.vo.AccountChooserItemVO;
 import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
 import com.humolix.volur.auth.security.cookie.AuthCookieService;
@@ -17,7 +17,7 @@ import com.humolix.volur.framework.cache.redis.RedisOps;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.security.domain.session.RequestHeader;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.flow.domain.FlowNames;
 import com.humolix.volur.security.flow.flows.SigninFlow;
@@ -81,11 +81,14 @@ public class SigninServiceImpl implements SigninService {
             if (currentUser != null) {
                 UserProfile profile = userProfileRepository.findById(currentUser.getId()).orElse(null);
                 String avatarUrl = profile != null ? profile.getAvatarUrl() : null;
+                String displayName = StringUtils.hasText(currentUser.getRealName())
+                        ? currentUser.getRealName().trim()
+                        : currentUser.getUsername();
                 list.add(AccountChooserItemVO.builder()
                         .identifier(currentUser.getUsername())
                         .username(currentUser.getUsername())
                         .email(currentUser.getEmail())
-                        .displayName(currentUser.getUsername())
+                        .displayName(displayName)
                         .avatarUrl(avatarUrl)
                         .sessionStatus(Boolean.TRUE.equals(currentUser.getStatus()) ? "ACTIVE" : "DISABLED")
                         .build());
@@ -131,11 +134,15 @@ public class SigninServiceImpl implements SigninService {
                 UserProfile profile = userProfileRepository.findById(user.getId()).orElse(null);
                 String avatarUrl = profile != null ? profile.getAvatarUrl() : null;
 
+                String displayName = StringUtils.hasText(user.getRealName())
+                        ? user.getRealName().trim()
+                        : user.getUsername();
+
                 list.add(AccountChooserItemVO.builder()
                         .identifier(trimmed)
                         .username(user.getUsername())
                         .email(user.getEmail())
-                        .displayName(user.getUsername())
+                        .displayName(displayName)
                         .avatarUrl(avatarUrl)
                         .sessionStatus(sessionStatus)
                         .build());
@@ -284,9 +291,19 @@ public class SigninServiceImpl implements SigninService {
 
         authCookieService.writeAuthCookies(accessToken, refreshToken, rememberMe);
 
+        UserProfile profile = user.getId() != null ? userProfileRepository.findById(user.getId()).orElse(null) : null;
+        String avatarUrl = profile != null ? profile.getAvatarUrl() : null;
+        String displayName = StringUtils.hasText(user.getRealName())
+                ? user.getRealName().trim()
+                : user.getUsername();
+
         return SignInFlowResponseVO.builder()
                 .status("SUCCESS")
-                .identifier(user.getUsername())
+                .identifier(identifier)
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(displayName)
+                .avatarUrl(avatarUrl)
                 .build();
     }
 

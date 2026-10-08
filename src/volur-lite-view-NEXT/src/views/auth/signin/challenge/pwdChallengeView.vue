@@ -26,6 +26,7 @@
         <a
           href="#"
           class="auth-forgot-link"
+          :isScrim="true"
           @click.prevent="handleForgotPassword"
         >
           {{ t('auth.forgot_password') }}
@@ -37,6 +38,7 @@
       <button
         type="button"
         class="auth-action-btn btn-try-another-way"
+        :disabled="loading || isSubmitting"
         :isScrim="true"
         @click="handleTryAnotherWayClick"
       >
@@ -45,7 +47,9 @@
       <n-button
         type="primary"
         class="auth-action-btn btn-verify-action"
-        :disabled="loading"
+        :loading="isSubmitting"
+        :disabled="loading || isSubmitting"
+        :isScrim="true"
         @click="handleVerifyChallenge"
       >
         {{ t('auth.next') }}
@@ -68,7 +72,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.welcome'), '')
+useCardHeader(() => t('auth.password_verification'), '')
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
@@ -99,9 +103,15 @@ watch(password, () => {
   }
 })
 
-function handleForgotPassword() {
+async function handleForgotPassword() {
   if (signinFlowStore.loading) return
-  router.push('/v1/recovery/challenge').catch(() => {})
+  signinFlowStore.tl = ''
+  signinFlowStore.cid = 0
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  await router.push({
+    path: '/v1/recovery/password/selection',
+    query: signinFlowStore.getQueryParams({ recoveryType: 'password' })
+  })
 }
 
 async function handleTryAnotherWayClick() {
@@ -134,7 +144,6 @@ async function handleVerifyChallenge() {
       })
 
       if (res.success) {
-        window.$message?.success?.(t('auth.login_success'))
         router.push(res.redirect || signinFlowStore.continueUrl || '/competitions')
       } else if (res.nextStep) {
         router.push({
@@ -221,6 +230,11 @@ async function handleVerifyChallenge() {
   &:active {
     background-color: rgba(11, 87, 208, 0.16) !important;
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 }
 
 :global(html.dark) .btn-try-another-way {
@@ -234,9 +248,15 @@ async function handleVerifyChallenge() {
   &:active {
     background-color: rgba(138, 180, 248, 0.2) !important;
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 }
 
 .btn-verify-action {
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -246,6 +266,11 @@ async function handleVerifyChallenge() {
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   user-select: none;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   :deep(.n-button__content),
   .n-button__content {
@@ -294,6 +319,11 @@ async function handleVerifyChallenge() {
 :global(html.dark) .btn-verify-action {
   background-color: #8ab4f8 !important;
   color: #202124 !important;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   :deep(.n-button__content),
   .n-button__content {

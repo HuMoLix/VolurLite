@@ -362,6 +362,16 @@ BEGIN
             INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
             VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'SECURITY', 'system.security.webauthn.timeout_seconds', '60', 'INTEGER', 0, 'WebAuthn 认证交互超时时间 (秒)', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
         END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.mail.enabled') THEN
+            INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+            VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'MAIL', 'system.mail.enabled', 'false', 'BOOLEAN', 1, '邮件服务总开关', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM `sys_setting` WHERE `setting_key` = 'system.sms.enabled') THEN
+            INSERT INTO `sys_setting` (`id`, `setting_group`, `setting_key`, `setting_value`, `value_type`, `is_public`, `description`, `created_at`, `updated_at`)
+            VALUES (FLOOR(RAND() * 900000000000000000 + 1000000000000000000), 'SMS', 'system.sms.enabled', 'false', 'BOOLEAN', 1, '短信服务总开关', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        END IF;
     END IF;
 
 END //

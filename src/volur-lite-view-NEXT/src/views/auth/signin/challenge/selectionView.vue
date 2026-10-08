@@ -35,7 +35,7 @@
                 <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2"/>
               </svg>
               <svg
-                v-else-if="item.icon === 'email' || item.type === 'etotp'"
+                v-else-if="item.icon === 'email' || item.type === 'emailotp' || item.type === 'etotp'"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -151,7 +151,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.two_step_verification'), '')
+useCardHeader(() => t('auth.more_signin_options'), '')
 
 const route = useRoute()
 const router = useRouter()
@@ -219,10 +219,12 @@ function handleSelectionRejected() {
 async function handleSelectMethod(item: ChallengeOptionVO) {
   if (signinFlowStore.loading) return
   try {
-    await signinFlowStore.selectChallenge(item.type)
-    const targetPath = item.path || `/v1/signin/challenge/${item.type}`
+    const nextStep = await signinFlowStore.selectChallenge(item.type)
+    if (!nextStep) {
+      throw new Error('服务端未返回下一步挑战流程')
+    }
     await router.push({
-      path: targetPath,
+      path: `/v1/signin/challenge/${nextStep}`,
       query: signinFlowStore.getQueryParams()
     })
   } catch (err: any) {

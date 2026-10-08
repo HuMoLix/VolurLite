@@ -9,12 +9,13 @@ import com.humolix.volur.security.domain.dto.PasswordChallengeRequestDTO;
 import com.humolix.volur.security.domain.dto.ReCAPTCHAChallengeSubmitDTO;
 import com.humolix.volur.security.domain.dto.SMSOTPChallengeRequestDTO;
 import com.humolix.volur.security.domain.vo.ChallengeOptionVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.flow.domain.FlowNames;
 import com.humolix.volur.security.flow.flows.SigninFlow;
 import com.humolix.volur.security.service.ChallengeService;
 import com.humolix.volur.security.service.FlowCryptoService;
+import com.humolix.volur.security.service.PasskeyService;
 import com.humolix.volur.security.service.RecaptchaService;
 import com.humolix.volur.security.session.SessionManager;
 import com.humolix.volur.security.session.domain.Session;
@@ -38,6 +39,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 @Slf4j
@@ -53,6 +55,7 @@ public class ChallengeServiceImpl implements ChallengeService {
     private final EmailService emailService;
     private final RecaptchaService recaptchaService;
     private final FlowCryptoService flowCryptoService;
+    private final PasskeyService passkeyService;
     private final PasswordEncoder passwordEncoder;
     private final RiskEvaluationEngine riskEvaluationEngine;
     private final SystemSettingService systemSettingService;
@@ -63,7 +66,7 @@ public class ChallengeServiceImpl implements ChallengeService {
     private static final String VREDIS_AUTH_IDENTIFIER_FAILURES_KEY_PREFIX = "vredis:auth:identifier:failures:";
 
     @Override
-    public SignInFlowResponseVO verifyPassword(PasswordChallengeRequestDTO request) {
+    public FlowResponseVO verifyPassword(PasswordChallengeRequestDTO request) {
         String dsh = request.getDsh();
         String tl = request.getTl();
         int cid = request.getCid() != null ? request.getCid() : 1;
@@ -156,7 +159,7 @@ public class ChallengeServiceImpl implements ChallengeService {
             String etotpTL = transitionLockManager.nextTransLock(
                     dsh, tl, cid, "pwd", nextCid, "etotp", cleanIdentifier
             );
-            return SignInFlowResponseVO.builder()
+            return FlowResponseVO.builder()
                     .dsh(dsh)
                     .tl(etotpTL)
                     .cid(nextCid)
@@ -182,7 +185,7 @@ public class ChallengeServiceImpl implements ChallengeService {
                 dsh, tl, cid, "pwd", nextCid, SigninFlow.STEP_AUTHENTICATE, cleanIdentifier
         );
 
-        return SignInFlowResponseVO.builder()
+        return FlowResponseVO.builder()
                 .dsh(dsh)
                 .tl(authTL)
                 .cid(nextCid)
@@ -193,7 +196,7 @@ public class ChallengeServiceImpl implements ChallengeService {
     }
 
     @Override
-    public SignInFlowResponseVO verifyEmailOTP(EmailOTPChallengeRequestDTO request) {
+    public FlowResponseVO verifyEmailOTP(EmailOTPChallengeRequestDTO request) {
         String dsh = request.getDsh();
         String tl = request.getTl();
         int cid = request.getCid() != null ? request.getCid() : 1;
@@ -245,7 +248,7 @@ public class ChallengeServiceImpl implements ChallengeService {
                 dsh, tl, cid, "etotp", nextCid, SigninFlow.STEP_AUTHENTICATE, identifier
         );
 
-        return SignInFlowResponseVO.builder()
+        return FlowResponseVO.builder()
                 .dsh(dsh)
                 .tl(authTL)
                 .cid(nextCid)
@@ -278,7 +281,7 @@ public class ChallengeServiceImpl implements ChallengeService {
     }
 
     @Override
-    public SignInFlowResponseVO verifySMSOTP(SMSOTPChallengeRequestDTO request) {
+    public FlowResponseVO verifySMSOTP(SMSOTPChallengeRequestDTO request) {
         String dsh = request.getDsh();
         String tl = request.getTl();
         int cid = request.getCid() != null ? request.getCid() : 1;
@@ -308,7 +311,7 @@ public class ChallengeServiceImpl implements ChallengeService {
                 dsh, tl, cid, currentStep, nextCid, SigninFlow.STEP_AUTHENTICATE, identifier
         );
 
-        return SignInFlowResponseVO.builder()
+        return FlowResponseVO.builder()
                 .dsh(dsh)
                 .tl(authTL)
                 .cid(nextCid)
@@ -319,7 +322,7 @@ public class ChallengeServiceImpl implements ChallengeService {
     }
 
     @Override
-    public SignInFlowResponseVO verifyReCAPTCHA(ReCAPTCHAChallengeSubmitDTO request) {
+    public FlowResponseVO verifyReCAPTCHA(ReCAPTCHAChallengeSubmitDTO request) {
         String dsh = request.getDsh();
         String tl = request.getTl();
         int cid = request.getCid() != null ? request.getCid() : 1;
@@ -335,8 +338,120 @@ public class ChallengeServiceImpl implements ChallengeService {
         }
 
         String identifier = session.getFlow() != null ? session.getFlow().getIdentifier() : null;
-        if (!StringUtils.hasText(identifier)) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "会话账号信息丢失，请重新输入账号");
+        String recoveryType = StringUtils.hasText(request.getRecoveryType())
+                ? request.getRecoveryType().trim()
+                : (String) sessionManager.getMetadata(dsh, "recoveryType");
+
+        if ("password".equalsIgnoreCase(recoveryType)) {
+            riskEvaluationEngine.reduceRisk(clientIp);
+            int nextCid = cid + 1;
+            String nextStep = "emailotp";
+            String nextTL = transitionLockManager.nextTransLock(
+                    dsh, tl, cid, "recaptcha", nextCid, nextStep, identifier
+            );
+            if (session.getFlow() != null) {
+                SigninFlow flow = SigninFlow.from(session.getFlow());
+                flow.setActiveTL(nextTL);
+                flow.setCid(nextCid);
+                flow.setCurrentStep(nextStep);
+                session.setFlow(flow);
+                sessionManager.saveSession(session);
+            }
+            return FlowResponseVO.builder()
+                    .dsh(dsh)
+                    .tl(nextTL)
+                    .cid(nextCid)
+                    .nextStep(nextStep)
+                    .status("CHALLENGE")
+                    .identifier(identifier)
+                    .build();
+        }
+
+        if ("username".equalsIgnoreCase(recoveryType) || !StringUtils.hasText(identifier)) {
+            riskEvaluationEngine.reduceRisk(clientIp);
+            int nextCid = cid + 1;
+            String nextTL = transitionLockManager.nextTransLock(
+                    dsh, tl, cid, "recaptcha", nextCid, "email", null
+            );
+            if (session.getFlow() != null) {
+                SigninFlow flow = SigninFlow.from(session.getFlow());
+                flow.setActiveTL(nextTL);
+                flow.setCid(nextCid);
+                flow.setCurrentStep("email");
+                session.setFlow(flow);
+                sessionManager.saveSession(session);
+            }
+            return FlowResponseVO.builder()
+                    .dsh(dsh)
+                    .tl(nextTL)
+                    .cid(nextCid)
+                    .nextStep("email")
+                    .status("CHALLENGE")
+                    .build();
+        }
+
+        String pendingChallenge = (String) sessionManager.getMetadata(dsh, "pendingChallenge");
+        if (!StringUtils.hasText(pendingChallenge) && session.getMetadata() != null) {
+            pendingChallenge = (String) session.getMetadata().get("pendingChallenge");
+        }
+        if (!StringUtils.hasText(pendingChallenge) && session.getFlow() != null && session.getFlow().getWaitingSteps() != null) {
+            List<String> waiting = session.getFlow().getWaitingSteps();
+            int idx = waiting.indexOf("recaptcha");
+            if (idx >= 0 && idx + 1 < waiting.size()) {
+                String candidate = waiting.get(idx + 1);
+                if ("etotp".equalsIgnoreCase(candidate) || "smsotp".equalsIgnoreCase(candidate) || "totp".equalsIgnoreCase(candidate)) {
+                    pendingChallenge = candidate;
+                }
+            }
+        }
+
+        if (StringUtils.hasText(pendingChallenge)) {
+            sessionManager.removeMetadata(dsh, "pendingChallenge");
+            if (session.getMetadata() != null) {
+                session.getMetadata().remove("pendingChallenge");
+            }
+            riskEvaluationEngine.reduceRisk(clientIp);
+
+            User user = userRepository.findByUsername(identifier)
+                    .or(() -> userRepository.findByEmail(identifier.toLowerCase()))
+                    .orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "用户名或邮箱不存在"));
+
+            String normalizedStep = pendingChallenge.trim().toLowerCase();
+            if ("etotp".equals(normalizedStep) || "emailotp".equals(normalizedStep)) {
+                if (!StringUtils.hasText(user.getEmail())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "未检测到关联邮箱");
+                }
+                emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), true);
+                normalizedStep = "etotp";
+            } else if ("smsotp".equals(normalizedStep) || "totp".equals(normalizedStep) || "sms".equals(normalizedStep)) {
+                if (!StringUtils.hasText(user.getPhone())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "未检测到关联手机号");
+                }
+                normalizedStep = "smsotp";
+            }
+
+            int nextCid = cid + 1;
+            String nextTL = transitionLockManager.nextTransLock(
+                    dsh, tl, cid, "recaptcha", nextCid, normalizedStep, identifier
+            );
+            if (session.getFlow() != null) {
+                SigninFlow flow = SigninFlow.from(session.getFlow());
+                flow.setWaitingSteps(new ArrayList<>(List.of(normalizedStep, SigninFlow.STEP_AUTHENTICATE)));
+                flow.setActiveTL(nextTL);
+                flow.setCid(nextCid);
+                flow.setCurrentStep(normalizedStep);
+                session.setFlow(flow);
+                sessionManager.saveSession(session);
+            }
+
+            return FlowResponseVO.builder()
+                    .dsh(dsh)
+                    .tl(nextTL)
+                    .cid(nextCid)
+                    .nextStep(normalizedStep)
+                    .status("CHALLENGE")
+                    .identifier(identifier)
+                    .build();
         }
 
         String deviceFp = session.getRequestDeviceParams() != null ? session.getRequestDeviceParams().getFingerprint() : null;
@@ -352,7 +467,7 @@ public class ChallengeServiceImpl implements ChallengeService {
             String nextTL = transitionLockManager.nextTransLock(
                     dsh, tl, cid, "recaptcha", nextCid, "identifier", identifier
             );
-            return SignInFlowResponseVO.builder()
+            return FlowResponseVO.builder()
                     .dsh(dsh)
                     .tl(nextTL)
                     .cid(nextCid)
@@ -371,7 +486,7 @@ public class ChallengeServiceImpl implements ChallengeService {
                 dsh, tl, cid, "recaptcha", nextCid, "pwd", identifier
         );
 
-        return SignInFlowResponseVO.builder()
+        return FlowResponseVO.builder()
                 .dsh(dsh)
                 .tl(pwdTL)
                 .cid(nextCid)
@@ -382,7 +497,7 @@ public class ChallengeServiceImpl implements ChallengeService {
     }
 
     @Override
-    public SignInFlowResponseVO selectChallenge(ChallengeSelectRequestDTO request) {
+    public FlowResponseVO selectChallenge(ChallengeSelectRequestDTO request) {
         String dsh = request.getDsh();
         String tl = request.getTl();
         int cid = request.getCid() != null ? request.getCid() : 1;
@@ -408,16 +523,55 @@ public class ChallengeServiceImpl implements ChallengeService {
                 if (!StringUtils.hasText(user.getEmail())) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "当前账号未绑定安全邮箱，无法使用邮箱验证码登录");
                 }
-                emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), true);
             }
             case "smsotp", "totp", "sms" -> {
                 if (!StringUtils.hasText(user.getPhone())) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "当前账号未绑定手机号，无法使用短信验证码登录");
                 }
             }
-            case "pwd", "pk", "device", "atcr", "backup_code" -> {
+            case "pk", "device" -> {
+                if (!passkeyService.hasPasskey(user.getId())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "当前账号未绑定通行密钥，无法使用此方式验证");
+                }
+            }
+            case "pwd", "atcr", "backup_code" -> {
             }
             default -> throw new BusinessException(HttpStatus.BAD_REQUEST, "不支持的安全挑战类型: " + targetType);
+        }
+
+        boolean requireRecaptcha = "etotp".equalsIgnoreCase(targetType)
+                || "smsotp".equalsIgnoreCase(targetType)
+                || "totp".equalsIgnoreCase(targetType)
+                || "sms".equalsIgnoreCase(targetType);
+
+        if (requireRecaptcha) {
+            String pendingStep = ("smsotp".equalsIgnoreCase(targetType) || "totp".equalsIgnoreCase(targetType) || "sms".equalsIgnoreCase(targetType))
+                    ? "smsotp"
+                    : "etotp";
+            if (session.getMetadata() == null) {
+                session.setMetadata(new HashMap<>());
+            }
+            session.getMetadata().put("pendingChallenge", pendingStep);
+            sessionManager.setMetadata(dsh, "pendingChallenge", pendingStep);
+            flow.setWaitingSteps(new ArrayList<>(List.of("recaptcha", pendingStep, SigninFlow.STEP_AUTHENTICATE)));
+            int nextCid = cid;
+            String nextTL = transitionLockManager.nextTransLock(
+                    dsh, tl, cid, currentStep, nextCid, "recaptcha", identifier
+            );
+            flow.setActiveTL(nextTL);
+            flow.setCid(nextCid);
+            flow.setCurrentStep("recaptcha");
+            session.setFlow(flow);
+            sessionManager.saveSession(session);
+
+            return FlowResponseVO.builder()
+                    .dsh(dsh)
+                    .tl(nextTL)
+                    .cid(nextCid)
+                    .nextStep("recaptcha")
+                    .status("CHALLENGE")
+                    .identifier(identifier)
+                    .build();
         }
 
         flow.setWaitingSteps(new ArrayList<>(List.of(targetType, SigninFlow.STEP_AUTHENTICATE)));
@@ -429,7 +583,7 @@ public class ChallengeServiceImpl implements ChallengeService {
                 dsh, tl, cid, currentStep, nextCid, targetType, identifier
         );
 
-        return SignInFlowResponseVO.builder()
+        return FlowResponseVO.builder()
                 .dsh(dsh)
                 .tl(nextTL)
                 .cid(nextCid)
@@ -447,6 +601,7 @@ public class ChallengeServiceImpl implements ChallengeService {
         String maskedPhone = null;
         boolean hasEmail = false;
         boolean hasPhone = false;
+        boolean hasPasskey = false;
 
         if (StringUtils.hasText(dsh)) {
             try {
@@ -464,6 +619,9 @@ public class ChallengeServiceImpl implements ChallengeService {
                         if (StringUtils.hasText(user.getPhone())) {
                             maskedPhone = maskPhone(user.getPhone());
                             hasPhone = true;
+                        }
+                        if (user.getId() != null) {
+                            hasPasskey = passkeyService.hasPasskey(user.getId());
                         }
                     }
                 }
@@ -493,20 +651,22 @@ public class ChallengeServiceImpl implements ChallengeService {
                     .build());
         }
 
+        if (hasPasskey) {
+            allOptions.add(ChallengeOptionVO.builder()
+                    .type("pk")
+                    .title("使用安全密钥或通行密钥")
+                    .subtitle("通过 FIDO2 / WebAuthn 设备或生物识别验证")
+                    .icon("device")
+                    .path("/v1/signin/challenge/pk")
+                    .build());
+        }
+
         allOptions.add(ChallengeOptionVO.builder()
                 .type("pwd")
                 .title("输入您的密码")
                 .subtitle("使用您之前设定的账号密码进行验证")
                 .icon("key")
                 .path("/v1/signin/challenge/pwd")
-                .build());
-
-        allOptions.add(ChallengeOptionVO.builder()
-                .type("pk")
-                .title("使用安全密钥或通行密钥")
-                .subtitle("通过 FIDO2 / WebAuthn 设备或生物识别验证")
-                .icon("device")
-                .path("/v1/signin/challenge/pk")
                 .build());
 
         return allOptions.stream()

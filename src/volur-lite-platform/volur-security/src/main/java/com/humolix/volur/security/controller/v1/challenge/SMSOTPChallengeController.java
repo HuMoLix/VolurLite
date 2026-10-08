@@ -3,7 +3,7 @@ package com.humolix.volur.security.controller.v1.challenge;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.security.domain.dto.SMSOTPChallengeRequestDTO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.service.ChallengeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +21,9 @@ public class SMSOTPChallengeController {
 
     @Syslog(module = "SECURITY", value = "核销安全动态口令", logType = "AUTH", recordParams = false, recordResponse = false)
     @PostMapping
-    public ApiResponseEntity<SignInFlowResponseVO> verify(
+    public ApiResponseEntity<FlowResponseVO> verify(
             @Valid @RequestBody SMSOTPChallengeRequestDTO request) {
-        SignInFlowResponseVO response = challengeService.verifySMSOTP(request);
+        FlowResponseVO response = challengeService.verifySMSOTP(request);
         return ApiResponseEntity.ok("安全口令验证通过", response);
     }
 

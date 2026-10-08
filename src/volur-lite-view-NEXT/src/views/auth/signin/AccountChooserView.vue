@@ -21,6 +21,7 @@
               :class="{ 'is-disabled': loading || (acc.sessionStatus === 'DISABLED' && !isRemoveMode) }"
               role="button"
               tabindex="0"
+              :isScrim="true"
               @click="handleSelect(acc)"
               @keydown.enter.space.prevent="handleSelect(acc)"
             >
@@ -39,8 +40,11 @@
                   <div class="auth-selection-item__title">
                     {{ acc.displayName || acc.username || acc.identifier }}
                   </div>
-                  <div class="auth-selection-item__subtitle">
-                    {{ acc.email || acc.username || acc.identifier }}
+                  <div
+                    v-if="getAccountSubtitle(acc)"
+                    class="auth-selection-item__subtitle"
+                  >
+                    {{ getAccountSubtitle(acc) }}
                   </div>
                 </div>
               </div>
@@ -51,6 +55,7 @@
                   type="button"
                   class="remove-icon-btn flex items-center justify-center w-8 h-8 rounded-full text-google-red-light dark:text-google-red-dark transition-colors"
                   :disabled="loading"
+                  :isScrim="true"
                   @click.stop="handleRemove(acc)"
                 >
                   <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -63,19 +68,13 @@
 
                 <template v-else>
                   <span
-                    v-if="acc.sessionStatus === 'ACTIVE'"
-                    class="status-tag status--active text-xs font-medium px-2 py-0.5 rounded-full"
-                  >
-                    {{ t('auth.status_signed_in') }}
-                  </span>
-                  <span
-                    v-else-if="acc.sessionStatus === 'DISABLED'"
+                    v-if="acc.sessionStatus === 'DISABLED'"
                     class="status-tag status--disabled text-xs font-medium px-2 py-0.5 rounded-full"
                   >
                     {{ t('auth.status_disabled') }}
                   </span>
                   <span
-                    v-else
+                    v-else-if="acc.sessionStatus !== 'ACTIVE'"
                     class="status-tag status--signed-out text-xs font-medium px-2 py-0.5 rounded-full"
                   >
                     {{ t('auth.status_signed_out') }}
@@ -90,6 +89,7 @@
               :class="{ 'is-disabled': loading }"
               role="button"
               tabindex="0"
+              :isScrim="true"
               @click="handleUseAnotherAccount"
               @keydown.enter.space.prevent="handleUseAnotherAccount"
             >
@@ -117,9 +117,10 @@
             <button
               v-if="!isRemoveMode && accountList.length > 0"
               type="button"
-              class="auth-forgot-link"
+              class="auth-action-btn btn-remove-account"
               :disabled="loading"
-              @click="isRemoveMode = true"
+              :isScrim="true"
+              @click="handleEnterRemoveMode"
             >
               {{ t('auth.remove_account') }}
             </button>
@@ -131,7 +132,8 @@
               type="primary"
               class="auth-action-btn btn-next-step"
               :disabled="loading"
-              @click="isRemoveMode = false"
+              :isScrim="true"
+              @click="handleExitRemoveMode"
             >
               {{ t('common.done') }}
             </n-button>
@@ -177,6 +179,20 @@ const errorMsg = computed(() => {
 })
 
 const accountList = ref<AccountChooserItemVO[]>([])
+
+function getAccountSubtitle(acc: AccountChooserItemVO): string {
+  if (acc.email) {
+    return acc.email
+  }
+  const title = acc.displayName || acc.username || acc.identifier
+  if (acc.username && acc.username !== title) {
+    return acc.username
+  }
+  if (acc.identifier && acc.identifier !== title) {
+    return acc.identifier
+  }
+  return ''
+}
 
 async function loadAndProbeAccounts(): Promise<void> {
   const cached = getKnownAccounts()
@@ -229,7 +245,9 @@ async function handleSelect(acc: AccountChooserItemVO): Promise<void> {
   }
 
   if (acc.sessionStatus === 'ACTIVE') {
+    await signinFlowStore.triggerScrim(undefined, 1000)
     const continueTarget = signinFlowStore.continueUrl || '/competitions'
+    signinFlowStore.resetFlow()
     await router.replace(continueTarget)
     return
   }
@@ -240,9 +258,9 @@ async function handleSelect(acc: AccountChooserItemVO): Promise<void> {
       path: `/v1/signin/challenge/${nextStep}`,
       query: signinFlowStore.getQueryParams()
     })
-  } catch (err: any) {
-    if (err?.message) {
-      rawErrorMsg.value = err.message
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
+      rawErrorMsg.value = (err as { message: string }).message
       errorKey.value = ''
     } else {
       errorKey.value = 'auth.account_flow_failed'
@@ -253,21 +271,39 @@ async function handleSelect(acc: AccountChooserItemVO): Promise<void> {
 
 async function handleRemove(acc: AccountChooserItemVO): Promise<void> {
   if (loading.value) return
-  try {
-    await removeAccountChooserApi({ identifier: acc.identifier })
-  } catch {
-  }
+  await signinFlowStore.withLoading(async () => {
+    try {
+      await removeAccountChooserApi({ identifier: acc.identifier })
+    } catch {
+    }
 
-  removeKnownAccount(acc.identifier)
-  accountList.value = accountList.value.filter((a) => a.identifier !== acc.identifier)
+    removeKnownAccount(acc.identifier)
+    accountList.value = accountList.value.filter((a) => a.identifier !== acc.identifier)
 
-  if (accountList.value.length === 0) {
-    isRemoveMode.value = false
-  }
+    if (accountList.value.length === 0) {
+      isRemoveMode.value = false
+    }
+  }, 1000)
+}
+
+async function handleEnterRemoveMode(): Promise<void> {
+  if (loading.value) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  isRemoveMode.value = true
+}
+
+async function handleExitRemoveMode(): Promise<void> {
+  if (loading.value) return
+  await signinFlowStore.triggerScrim(undefined, 1000)
+  isRemoveMode.value = false
 }
 
 async function handleUseAnotherAccount(): Promise<void> {
   if (loading.value) return
+  signinFlowStore.setIdentifier('')
+  signinFlowStore.tl = ''
+  signinFlowStore.cid = 0
+  await signinFlowStore.triggerScrim(undefined, 1000)
   await router.push({
     path: '/v1/signin/identifier',
     query: signinFlowStore.getQueryParams()
@@ -280,72 +316,103 @@ async function handleUseAnotherAccount(): Promise<void> {
   background-color: transparent;
   border: none;
   cursor: pointer;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     background-color: rgba(234, 67, 53, 0.12);
   }
+
+  &:active {
+    background-color: rgba(234, 67, 53, 0.24);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+:global(.dark) .remove-icon-btn {
+  &:hover {
+    background-color: rgba(242, 139, 130, 0.16);
+  }
+
+  &:active {
+    background-color: rgba(242, 139, 130, 0.28);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 }
 
 .status-tag {
-  &.status--active {
-    background-color: rgba(52, 168, 83, 0.12);
-    color: #1e8e3e;
-  }
-
   &.status--disabled {
     background-color: rgba(234, 67, 53, 0.12);
     color: #d93025;
   }
 
   &.status--signed-out {
-    background-color: rgba(95, 99, 104, 0.12);
+    background-color: transparent;
+    border: 1px solid #dadce0;
     color: #5f6368;
   }
 }
 
 :global(html.dark) .status-tag,
 html.dark .status-tag {
-  &.status--active {
-    background-color: rgba(129, 201, 149, 0.2);
-    color: #81c995;
-  }
-
   &.status--disabled {
     background-color: rgba(242, 139, 130, 0.2);
     color: #f28b82;
   }
 
   &.status--signed-out {
-    background-color: rgba(189, 193, 198, 0.2);
+    background-color: transparent;
+    border: 1px solid #3c4043;
     color: #bdc1c6;
   }
 }
 
-.auth-forgot-link {
+.btn-remove-account {
+  color: #0b57d0;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  padding: 4px 6px !important;
-  border-radius: 4px;
-  background-color: transparent !important;
-  color: #0b57d0 !important;
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none !important;
-  border: none;
+  justify-content: center;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
+  outline: none;
+  user-select: none;
 
   &:hover:not(:disabled) {
     background-color: rgba(11, 87, 208, 0.08) !important;
+    color: #0b57d0 !important;
+  }
+
+  &:active:not(:disabled) {
+    background-color: rgba(11, 87, 208, 0.16) !important;
+    color: #0b57d0 !important;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 
-:global(html.dark) .auth-forgot-link,
-html.dark .auth-forgot-link {
-  color: #8ab4f8 !important;
+:global(.dark) .btn-remove-account {
+  color: #8ab4f8;
 
   &:hover:not(:disabled) {
     background-color: rgba(138, 180, 248, 0.12) !important;
+    color: #8ab4f8 !important;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 
@@ -360,10 +427,16 @@ html.dark .auth-forgot-link {
 }
 
 .btn-next-step {
+  cursor: pointer;
   background-color: #0b57d0 !important;
   color: #ffffff !important;
   border: none !important;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   :deep(.n-button__content),
   .n-button__content {
@@ -379,6 +452,11 @@ html.dark .auth-forgot-link {
 html.dark .btn-next-step {
   background-color: #8ab4f8 !important;
   color: #202124 !important;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
 
   :deep(.n-button__content),
   .n-button__content {

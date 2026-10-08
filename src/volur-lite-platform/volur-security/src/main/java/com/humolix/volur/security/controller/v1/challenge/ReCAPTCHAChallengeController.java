@@ -4,9 +4,9 @@ import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.security.domain.dto.ReCAPTCHAChallengeSubmitDTO;
 import com.humolix.volur.security.domain.dto.RecaptchaVerifyRequestDTO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.domain.vo.RecaptchaChallengeVO;
 import com.humolix.volur.security.domain.vo.RecaptchaVerifyResponseVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
 import com.humolix.volur.security.service.ChallengeService;
 import com.humolix.volur.security.service.RecaptchaService;
 import jakarta.validation.Valid;
@@ -47,9 +47,9 @@ public class ReCAPTCHAChallengeController {
 
     @Syslog(module = "SECURITY", value = "提交并推进 reCAPTCHA 挑战", logType = "AUTH", recordParams = false, recordResponse = false)
     @PostMapping
-    public ApiResponseEntity<SignInFlowResponseVO> submitRecaptcha(
+    public ApiResponseEntity<FlowResponseVO> submitRecaptcha(
             @Valid @RequestBody ReCAPTCHAChallengeSubmitDTO request) {
-        SignInFlowResponseVO response = challengeService.verifyReCAPTCHA(request);
+        FlowResponseVO response = challengeService.verifyReCAPTCHA(request);
         return ApiResponseEntity.ok("人机验证流转处理完成", response);
     }
 

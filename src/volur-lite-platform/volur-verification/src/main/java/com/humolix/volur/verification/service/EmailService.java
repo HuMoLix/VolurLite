@@ -89,10 +89,9 @@ public interface EmailService {
      */
     void sendDeleteAccountEmail(String email, String username);
 
-    /**
-     * 找回密码重置链接发信
-     */
     void sendResetPasswordEmail(String email, String username);
+
+    void sendRecoverUsernameEmail(String email, String username);
 
     /**
      * 校验邮箱动态验证码 (原子核销)

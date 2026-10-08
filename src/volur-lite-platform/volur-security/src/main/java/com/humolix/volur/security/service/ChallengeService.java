@@ -6,23 +6,23 @@ import com.humolix.volur.security.domain.dto.PasswordChallengeRequestDTO;
 import com.humolix.volur.security.domain.dto.ReCAPTCHAChallengeSubmitDTO;
 import com.humolix.volur.security.domain.dto.SMSOTPChallengeRequestDTO;
 import com.humolix.volur.security.domain.vo.ChallengeOptionVO;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.security.domain.vo.FlowResponseVO;
 
 import java.util.List;
 
 public interface ChallengeService {
 
-    SignInFlowResponseVO verifyPassword(PasswordChallengeRequestDTO request);
+    FlowResponseVO verifyPassword(PasswordChallengeRequestDTO request);
 
-    SignInFlowResponseVO verifyEmailOTP(EmailOTPChallengeRequestDTO request);
+    FlowResponseVO verifyEmailOTP(EmailOTPChallengeRequestDTO request);
 
     void sendEmailOTP(String dsh, String tl);
 
-    SignInFlowResponseVO verifySMSOTP(SMSOTPChallengeRequestDTO request);
+    FlowResponseVO verifySMSOTP(SMSOTPChallengeRequestDTO request);
 
-    SignInFlowResponseVO verifyReCAPTCHA(ReCAPTCHAChallengeSubmitDTO request);
+    FlowResponseVO verifyReCAPTCHA(ReCAPTCHAChallengeSubmitDTO request);
 
-    SignInFlowResponseVO selectChallenge(ChallengeSelectRequestDTO request);
+    FlowResponseVO selectChallenge(ChallengeSelectRequestDTO request);
 
     List<ChallengeOptionVO> getChallengeSelection(String dsh, String currentType);
 

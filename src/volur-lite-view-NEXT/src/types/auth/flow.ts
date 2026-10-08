@@ -16,15 +16,25 @@ export interface SessionInitParams {
   data: string
 }
 
-export interface SignInFlowResponseVO {
+export interface FlowResponseVO {
   dsh?: string
   tl?: string
   cid?: number
   nextStep?: string
-  status: 'CHALLENGE' | 'SUCCESS'
+  status: 'CHALLENGE' | 'SUCCESS' | string
   identifier?: string
   errorMessage?: string
 }
+
+export interface SignInFlowResponseVO extends FlowResponseVO {
+  captchaType?: string
+  username?: string
+  email?: string
+  displayName?: string
+  avatarUrl?: string
+}
+
+export interface RecoveryFlowResponseVO extends FlowResponseVO {}
 
 export interface SignInIdentifierRequestDTO {
   identifier: string
@@ -66,15 +76,9 @@ export interface ChallengeOptionVO {
   path?: string
 }
 
-export interface SignUpFlowResponseVO {
-  dsh?: string
-  tl?: string
-  cid?: number
-  nextStep?: string
-  status: 'CHALLENGE' | 'SUCCESS'
+export interface SignUpFlowResponseVO extends FlowResponseVO {
   username?: string
   email?: string
-  errorMessage?: string
 }
 
 export interface SignUpNameRequestDTO {

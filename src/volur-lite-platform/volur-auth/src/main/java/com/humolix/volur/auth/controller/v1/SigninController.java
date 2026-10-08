@@ -1,15 +1,15 @@
 package com.humolix.volur.auth.controller.v1;
 
-import com.humolix.volur.auth.domain.dto.AccountChooserProbeRequestDTO;
-import com.humolix.volur.auth.domain.dto.AccountChooserRemoveRequestDTO;
-import com.humolix.volur.auth.domain.dto.AccountChooserSelectRequestDTO;
-import com.humolix.volur.auth.domain.dto.SignInAuthenticateRequestDTO;
-import com.humolix.volur.auth.domain.dto.SignInIdentifierRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserProbeRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserRemoveRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
 import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
 import com.humolix.volur.auth.service.SigninService;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
-import com.humolix.volur.security.domain.vo.SignInFlowResponseVO;
+import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,20 +48,19 @@ public class SigninController {
         return ApiResponseEntity.success("账号已成功移除");
     }
 
-    @Syslog(module = "AUTH", value = "提交账号标识", logType = "AUTH", recordParams = false)
     @PostMapping("/identifier")
     public ApiResponseEntity<SignInFlowResponseVO> identifier(
             @Valid @RequestBody SignInIdentifierRequestDTO request) {
         SignInFlowResponseVO response = signinService.identifier(request);
-        return ApiResponseEntity.ok("账号核验成功", response);
+        return ApiResponseEntity.okData(response);
     }
 
-    @Syslog(module = "AUTH", value = "完成最终认证授权", logType = "AUTH", recordParams = false, recordResponse = false)
+    @Syslog(module = "AUTH", value = "用户登录成功", logType = "AUTH", recordParams = false, recordResponse = true)
     @PostMapping("/authenticate")
     public ApiResponseEntity<SignInFlowResponseVO> authenticate(
             @Valid @RequestBody SignInAuthenticateRequestDTO request) {
         SignInFlowResponseVO response = signinService.authenticate(request);
-        return ApiResponseEntity.ok("登录认证成功", response);
+        return ApiResponseEntity.ok("用户登录成功", response);
     }
 
 }

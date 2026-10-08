@@ -40,18 +40,19 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class RecaptchaServiceImpl implements RecaptchaService {
 
-    private final SessionManager sessionManager;
-    private final TransitionLockManager transitionLockManager;
-    private final RiskEvaluationEngine riskEvaluationEngine;
-    private final CaptchaCryptoService captchaCryptoService;
-    private final CaptchaService captchaService;
-    private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper;
-
     private static final String VREDIS_SECURITY_RECAPTCHA_CHALLENGE_KEY_PREFIX = "vredis:security:recaptcha:challenge:";
     private static final String VREDIS_SECURITY_RECAPTCHA_TICKET_KEY_PREFIX = "vredis:security:recaptcha:ticket:";
-    private static final Duration RECAPTCHA_CHALLENGE_TTL = Duration.ofMinutes(3);
+
+    private static final Duration RECAPTCHA_CHALLENGE_TTL = Duration.ofMinutes(5);
     private static final Duration RECAPTCHA_TICKET_TTL = Duration.ofMinutes(5);
+
+    private final StringRedisTemplate redisTemplate;
+    private final CaptchaCryptoService captchaCryptoService;
+    private final CaptchaService captchaService;
+    private final RiskEvaluationEngine riskEvaluationEngine;
+    private final SessionManager sessionManager;
+    private final TransitionLockManager transitionLockManager;
+    private final ObjectMapper objectMapper;
 
     @Data
     @Builder
@@ -82,11 +83,7 @@ public class RecaptchaServiceImpl implements RecaptchaService {
         RiskLevel riskLevel = riskEvaluationEngine.evaluateComprehensiveRisk(clientIp, identifier, fp, CaptchaScene.LOGIN);
 
         String challengeType = "CLICK";
-        if (riskLevel == RiskLevel.HIGH) {
-            challengeType = "PUZZLE";
-        } else if (riskLevel == RiskLevel.MEDIUM) {
-            challengeType = "PUZZLE";
-        } else if ("HIGH".equalsIgnoreCase(session.getRiskLevel())) {
+        if (riskLevel == RiskLevel.HIGH || riskLevel == RiskLevel.MEDIUM || "HIGH".equalsIgnoreCase(session.getRiskLevel())) {
             challengeType = "PUZZLE";
         }
 
@@ -167,15 +164,15 @@ public class RecaptchaServiceImpl implements RecaptchaService {
 
         long ts = rootNode.has("ts") ? rootNode.get("ts").asLong() : 0L;
         long current = System.currentTimeMillis();
-        if (ts > 0 && Math.abs(current - ts) > 120_000L) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "人机验证凭据已过期，请重试");
+        if (ts <= 0 || Math.abs(current - ts) > 120_000L) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "人机验证凭据已过期或时间戳非法");
         }
 
         String challengeType = context.getChallengeType();
         if ("PUZZLE".equalsIgnoreCase(challengeType)) {
-            String userInput = rootNode.has("x") ? rootNode.get("x").asText() : "";
+            String userInput = rootNode.has("x") ? rootNode.get("x").asString() : "";
             if (!StringUtils.hasText(userInput) && rootNode.has("userInput")) {
-                userInput = rootNode.get("userInput").asText();
+                userInput = rootNode.get("userInput").asString();
             }
             if (!StringUtils.hasText(userInput)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "请先拖动滑块完成拼图");
@@ -187,9 +184,9 @@ public class RecaptchaServiceImpl implements RecaptchaService {
             verifyDTO.setScene("LOGIN");
             captchaService.verifyAndIssueTicket(verifyDTO);
         } else if ("IMAGE".equalsIgnoreCase(challengeType)) {
-            String userInput = rootNode.has("code") ? rootNode.get("code").asText() : "";
+            String userInput = rootNode.has("code") ? rootNode.get("code").asString() : "";
             if (!StringUtils.hasText(userInput) && rootNode.has("userInput")) {
-                userInput = rootNode.get("userInput").asText();
+                userInput = rootNode.get("userInput").asString();
             }
             if (!StringUtils.hasText(userInput)) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "请输入验证码");
@@ -201,11 +198,10 @@ public class RecaptchaServiceImpl implements RecaptchaService {
             verifyDTO.setScene("LOGIN");
             captchaService.verifyAndIssueTicket(verifyDTO);
         } else if ("CLICK".equalsIgnoreCase(challengeType)) {
-            if (rootNode.has("webdriver") && rootNode.get("webdriver").asBoolean(false)) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "检测到自动化程序驱动，验证失败");
-            }
-            if (rootNode.has("isTrusted") && !rootNode.get("isTrusted").asBoolean(true)) {
-                throw new BusinessException(HttpStatus.BAD_REQUEST, "人机交互真实性校验未通过");
+            double risk = evaluateClickRisk(rootNode);
+            if (risk >= 0.45) {
+                riskEvaluationEngine.recordFailure(RequestUtil.getClientIp(), CaptchaScene.LOGIN);
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "行为模式与运行环境存在异常，人机验证失败");
             }
         }
 
@@ -219,6 +215,122 @@ public class RecaptchaServiceImpl implements RecaptchaService {
                 .passed(true)
                 .recaptchaTicket(recaptchaTicket)
                 .build();
+    }
+
+    private double evaluateClickRisk(JsonNode rootNode) {
+        double risk = 0.0;
+
+        JsonNode envNode = rootNode.has("env") ? rootNode.get("env") : null;
+        JsonNode bioNode = rootNode.has("bio") ? rootNode.get("bio") : null;
+        JsonNode ecoNode = rootNode.has("eco") ? rootNode.get("eco") : null;
+
+        int pts = bioNode != null ? bioNode.path("pts").asInt(0) : 0;
+        double accVar = bioNode != null ? bioNode.path("accVar").asDouble(0.0) : 0.0;
+
+        if (rootNode.has("isTrusted")) {
+            boolean isTrusted = rootNode.get("isTrusted").asBoolean(false);
+            if (!isTrusted) {
+                risk += 1.0;
+            }
+        } else {
+            if (pts < 3 || accVar < 0.0000008) {
+                risk += 0.85;
+            }
+        }
+
+        boolean isWd = (envNode != null && envNode.path("wd").asBoolean(false))
+                || rootNode.path("webdriver").asBoolean(false);
+        boolean isCdp = (envNode != null && envNode.path("cdp").asBoolean(false))
+                || rootNode.path("cdpDetected").asBoolean(false);
+        boolean protoTampered = (envNode != null && envNode.path("protoTampered").asBoolean(false))
+                || rootNode.path("protoTampered").asBoolean(false);
+        if (isWd || isCdp) {
+            risk += 0.85;
+        } else if (protoTampered) {
+            risk += 0.40;
+        }
+
+        boolean headless = (envNode != null && envNode.path("headless").asBoolean(false))
+                || rootNode.path("headlessUa").asBoolean(false);
+        boolean zeroOuter = (envNode != null && envNode.path("zeroOuter").asBoolean(false))
+                || rootNode.path("zeroOuter").asBoolean(false);
+        if (headless || zeroOuter) {
+            risk += 0.70;
+        }
+
+        boolean webglSoftware = (envNode != null && envNode.path("webglSoftware").asBoolean(false))
+                || rootNode.path("webglSoftware").asBoolean(false);
+        if (webglSoftware) {
+            risk += 0.45;
+        }
+
+        boolean coreHook = (envNode != null && envNode.path("coreHook").asBoolean(false))
+                || rootNode.path("coreHook").asBoolean(false);
+        if (coreHook && (isWd || isCdp)) {
+            risk += 0.35;
+        } else if (coreHook) {
+            risk += 0.15;
+        } else {
+            int extHookCount = envNode != null ? envNode.path("extHookCount").asInt(0) : rootNode.path("extHookCount").asInt(0);
+            if (extHookCount > 0) {
+                risk += Math.min(0.10, extHookCount * 0.03);
+            }
+        }
+
+        boolean screenInconsistent = (envNode != null && envNode.path("screenInconsistent").asBoolean(false))
+                || rootNode.path("screenInconsistent").asBoolean(false);
+        boolean hardwareSpoofed = (envNode != null && envNode.path("hardwareSpoofed").asBoolean(false))
+                || rootNode.path("hardwareSpoofed").asBoolean(false);
+        if (screenInconsistent || hardwareSpoofed) {
+            risk += 0.45;
+        }
+
+        long dur = bioNode != null ? bioNode.path("dur").asLong(0L) : rootNode.path("clickDuration").asLong(0L);
+        if (dur < 20L || dur > 4000L) {
+            risk += 0.45;
+        } else if (dur >= 45L && dur <= 450L) {
+            risk -= 0.10;
+        }
+
+        boolean isCenterTarget = bioNode != null && bioNode.path("isCenterTarget").asBoolean(false);
+        boolean inActionBounds = bioNode != null && bioNode.path("inActionBounds").asBoolean(false);
+        if (isCenterTarget) {
+            risk += 0.65;
+        } else if (inActionBounds) {
+            risk -= 0.08;
+        }
+
+        boolean isNoMovement = bioNode != null && bioNode.path("isNoMovement").asBoolean(false);
+        boolean isStraightLine = bioNode != null && bioNode.path("isStraightLine").asBoolean(false);
+        boolean isTeleport = bioNode != null && bioNode.path("isTeleport").asBoolean(false);
+        if (isStraightLine) {
+            risk += 0.75;
+        } else if (isTeleport) {
+            risk += 0.80;
+        } else if (isNoMovement) {
+            risk += 0.35;
+        }
+
+        if (accVar < 0.0000008 && pts > 6) {
+            risk += 0.50;
+        } else if (pts >= 15 && accVar > 0.001) {
+            risk -= 0.35;
+        } else if (pts >= 4 && accVar > 0.000005) {
+            risk -= 0.20;
+        }
+
+        if (ecoNode != null) {
+            int hist = ecoNode.path("hist").asInt(1);
+            long usage = ecoNode.path("usage").asLong(-1L);
+            if (hist <= 1 && usage == 0L) {
+                risk += 0.10;
+            }
+            if (ecoNode.path("navTimingZero").asBoolean(false) && hist <= 1) {
+                risk += 0.10;
+            }
+        }
+
+        return Math.clamp(risk, 0.0, 1.0);
     }
 
     @Override
