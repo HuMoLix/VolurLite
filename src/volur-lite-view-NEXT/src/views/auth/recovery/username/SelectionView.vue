@@ -96,15 +96,17 @@
         </div>
 
         <div class="flex items-center justify-end pt-6 sm:pt-8">
-          <button
-            type="button"
+          <n-button
+            quaternary
+            type="primary"
+            :round="true"
             class="auth-action-btn btn-secondary-action"
             :disabled="loading"
             :isScrim="true"
             @click="handleBackToSignin"
           >
             {{ t('auth.back_to_signin') }}
-          </button>
+          </n-button>
         </div>
       </div>
     </div>
@@ -114,6 +116,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { NButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { getUsernameRecoveryOptionsApi, selectRecoveryMethodApi } from '@/api/auth'
@@ -247,9 +250,9 @@ async function handleBackToSignin(): Promise<void> {
 }
 
 .btn-secondary-action {
-  color: #0b57d0;
-  background-color: transparent;
-  border: none;
+  color: #0b57d0 !important;
+  background-color: transparent !important;
+  border: none !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -258,9 +261,23 @@ async function handleBackToSignin(): Promise<void> {
   outline: none;
   user-select: none;
 
+  :deep(.n-button__content),
+  .n-button__content {
+    color: #0b57d0 !important;
+  }
+
+  :deep(.n-button__state-border) {
+    border: none !important;
+  }
+
   &:hover:not(:disabled) {
     background-color: rgba(11, 87, 208, 0.08) !important;
     color: #0b57d0 !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #0b57d0 !important;
+    }
   }
 
   &:active:not(:disabled) {
@@ -268,21 +285,33 @@ async function handleBackToSignin(): Promise<void> {
     color: #0b57d0 !important;
   }
 
-  &:disabled {
+  &:disabled,
+  &.n-button--disabled {
     cursor: not-allowed;
     opacity: 0.6;
   }
 }
 
 :global(.dark) .btn-secondary-action {
-  color: #8ab4f8;
+  color: #8ab4f8 !important;
+
+  :deep(.n-button__content),
+  .n-button__content {
+    color: #8ab4f8 !important;
+  }
 
   &:hover:not(:disabled) {
     background-color: rgba(138, 180, 248, 0.12) !important;
     color: #8ab4f8 !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #8ab4f8 !important;
+    }
   }
 
-  &:disabled {
+  &:disabled,
+  &.n-button--disabled {
     cursor: not-allowed;
     opacity: 0.6;
   }

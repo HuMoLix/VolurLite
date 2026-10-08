@@ -114,16 +114,18 @@
 
         <div class="flex items-center justify-between pt-6 sm:pt-8">
           <div>
-            <button
+            <n-button
               v-if="!isRemoveMode && accountList.length > 0"
-              type="button"
+              quaternary
+              type="primary"
+              :round="true"
               class="auth-action-btn btn-remove-account"
               :disabled="loading"
               :isScrim="true"
               @click="handleEnterRemoveMode"
             >
               {{ t('auth.remove_account') }}
-            </button>
+            </n-button>
           </div>
 
           <div class="flex items-center gap-2.5">
@@ -375,9 +377,9 @@ html.dark .status-tag {
 }
 
 .btn-remove-account {
-  color: #0b57d0;
-  background-color: transparent;
-  border: none;
+  color: #0b57d0 !important;
+  background-color: transparent !important;
+  border: none !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -386,9 +388,23 @@ html.dark .status-tag {
   outline: none;
   user-select: none;
 
+  :deep(.n-button__content),
+  .n-button__content {
+    color: #0b57d0 !important;
+  }
+
+  :deep(.n-button__state-border) {
+    border: none !important;
+  }
+
   &:hover:not(:disabled) {
     background-color: rgba(11, 87, 208, 0.08) !important;
     color: #0b57d0 !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #0b57d0 !important;
+    }
   }
 
   &:active:not(:disabled) {
@@ -396,21 +412,33 @@ html.dark .status-tag {
     color: #0b57d0 !important;
   }
 
-  &:disabled {
+  &:disabled,
+  &.n-button--disabled {
     cursor: not-allowed;
     opacity: 0.6;
   }
 }
 
 :global(.dark) .btn-remove-account {
-  color: #8ab4f8;
+  color: #8ab4f8 !important;
+
+  :deep(.n-button__content),
+  .n-button__content {
+    color: #8ab4f8 !important;
+  }
 
   &:hover:not(:disabled) {
     background-color: rgba(138, 180, 248, 0.12) !important;
     color: #8ab4f8 !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #8ab4f8 !important;
+    }
   }
 
-  &:disabled {
+  &:disabled,
+  &.n-button--disabled {
     cursor: not-allowed;
     opacity: 0.6;
   }

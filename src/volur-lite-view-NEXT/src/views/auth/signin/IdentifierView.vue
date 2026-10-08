@@ -50,15 +50,17 @@
         </div>
 
         <div class="flex items-center justify-end gap-2.5 pt-6 sm:pt-8">
-          <button
-            type="button"
+          <n-button
+            quaternary
+            type="primary"
+            :round="true"
             class="auth-action-btn btn-create-account"
             :disabled="loading"
             :isScrim="true"
             @click="handleCreateAccount"
           >
             {{ t('auth.create_account') }}
-          </button>
+          </n-button>
           <n-button
             type="primary"
             class="auth-action-btn btn-next-step"
@@ -292,9 +294,9 @@ async function handleCreateAccount() {
 }
 
 .btn-create-account {
-  color: #0b57d0;
-  background-color: transparent;
-  border: none;
+  color: #0b57d0 !important;
+  background-color: transparent !important;
+  border: none !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -303,9 +305,23 @@ async function handleCreateAccount() {
   outline: none;
   user-select: none;
 
+  :deep(.n-button__content),
+  .n-button__content {
+    color: #0b57d0 !important;
+  }
+
+  :deep(.n-button__state-border) {
+    border: none !important;
+  }
+
   &:hover:not(:disabled) {
     background-color: rgba(11, 87, 208, 0.08) !important;
     color: #0b57d0 !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #0b57d0 !important;
+    }
   }
 
   &:active:not(:disabled) {
@@ -313,21 +329,33 @@ async function handleCreateAccount() {
     color: #0b57d0 !important;
   }
 
-  &:disabled {
+  &:disabled,
+  &.n-button--disabled {
     cursor: not-allowed;
     opacity: 0.6;
   }
 }
 
 :global(.dark) .btn-create-account {
-  color: #8ab4f8;
+  color: #8ab4f8 !important;
+
+  :deep(.n-button__content),
+  .n-button__content {
+    color: #8ab4f8 !important;
+  }
 
   &:hover:not(:disabled) {
     background-color: rgba(138, 180, 248, 0.12) !important;
     color: #8ab4f8 !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #8ab4f8 !important;
+    }
   }
 
-  &:disabled {
+  &:disabled,
+  &.n-button--disabled {
     cursor: not-allowed;
     opacity: 0.6;
   }

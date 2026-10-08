@@ -34,15 +34,17 @@
     </div>
 
     <div class="flex items-center justify-end gap-2.5 pt-6 sm:pt-8">
-      <button
-        type="button"
+      <n-button
+        quaternary
+        type="primary"
+        :round="true"
         class="auth-action-btn btn-secondary-action"
         :disabled="loading || isRegistering"
         :isScrim="true"
         @click="handleBackOptions"
       >
         {{ passkeyRegistered ? t('auth.back_options') : t('auth.later') }}
-      </button>
+      </n-button>
       <n-button
         v-if="!passkeyRegistered"
         type="primary"
@@ -334,9 +336,9 @@ async function handleFinish() {
 }
 
 .btn-secondary-action {
-  color: #0b57d0;
-  background-color: transparent;
-  border: none;
+  color: #0b57d0 !important;
+  background-color: transparent !important;
+  border: none !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -345,26 +347,62 @@ async function handleFinish() {
   outline: none;
   user-select: none;
 
-  &:hover {
-    background-color: rgba(11, 87, 208, 0.08) !important;
+  :deep(.n-button__content),
+  .n-button__content {
     color: #0b57d0 !important;
   }
 
-  &:active {
+  :deep(.n-button__state-border) {
+    border: none !important;
+  }
+
+  &:hover:not(:disabled) {
+    background-color: rgba(11, 87, 208, 0.08) !important;
+    color: #0b57d0 !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #0b57d0 !important;
+    }
+  }
+
+  &:active:not(:disabled) {
     background-color: rgba(11, 87, 208, 0.16) !important;
+  }
+
+  &:disabled,
+  &.n-button--disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 
 :global(html.dark) .btn-secondary-action {
-  color: #8ab4f8;
+  color: #8ab4f8 !important;
 
-  &:hover {
-    background-color: rgba(138, 180, 248, 0.12) !important;
+  :deep(.n-button__content),
+  .n-button__content {
     color: #8ab4f8 !important;
   }
 
-  &:active {
+  &:hover:not(:disabled) {
+    background-color: rgba(138, 180, 248, 0.12) !important;
+    color: #8ab4f8 !important;
+
+    :deep(.n-button__content),
+    .n-button__content {
+      color: #8ab4f8 !important;
+    }
+  }
+
+  &:active:not(:disabled) {
     background-color: rgba(138, 180, 248, 0.2) !important;
+  }
+
+  &:disabled,
+  &.n-button--disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 
