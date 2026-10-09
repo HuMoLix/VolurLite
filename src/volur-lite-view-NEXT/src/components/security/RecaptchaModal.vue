@@ -9,7 +9,7 @@
               <button
                 type="button"
                 class="rc-tool-btn"
-                title="刷新验证码"
+                :title="t('auth.recaptcha_refresh')"
                 :disabled="loading"
                 @click="emit('refresh')"
               >
@@ -20,7 +20,7 @@
               <button
                 type="button"
                 class="rc-tool-btn"
-                title="关闭"
+                :title="t('common.close')"
                 @click="handleClose"
               >
                 <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current">
@@ -58,7 +58,7 @@
               >
                 <div class="rc-slider-track-highlight" :style="{ width: sliderProgress + 'px' }" />
                 <div class="rc-slider-track-text" :class="{ 'opacity-0': isDragging || sliderProgress > 20 }">
-                  拖动滑块完成拼图
+                  {{ t('auth.recaptcha_drag_slider') }}
                 </div>
                 <div
                   class="rc-slider-thumb"
@@ -73,7 +73,7 @@
             </div>
 
             <div v-else-if="challengeType === 'IMAGE'" class="rc-image-container">
-              <div class="rc-image-wrap" @click="emit('refresh')" title="点击刷新">
+              <div class="rc-image-wrap" @click="emit('refresh')" :title="t('auth.recaptcha_click_to_refresh')">
                 <img
                   v-if="captchaImage"
                   :src="formattedCaptchaImage"
@@ -87,7 +87,7 @@
                   type="text"
                   v-model="imageInput"
                   class="rc-image-input"
-                  placeholder="请输入图片中的文字"
+                  :placeholder="t('auth.recaptcha_enter_image_text')"
                   maxlength="8"
                   autofocus
                   @keydown.enter="handleImageSubmit"
@@ -112,7 +112,7 @@
               @click="handleModalSubmit"
             >
               <span v-if="loading" class="rc-spinner" />
-              <span v-else>验证</span>
+              <span v-else>{{ t('common.verify') }}</span>
             </button>
           </div>
         </div>
@@ -123,10 +123,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 defineOptions({
   name: 'RecaptchaModal'
 })
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -169,9 +172,9 @@ const imageInput = ref('')
 
 const displayTitle = computed(() => {
   if (props.promptText) return props.promptText
-  if (props.challengeType === 'PUZZLE') return '请完成滑动拼图'
-  if (props.challengeType === 'IMAGE') return '请输入字符验证码'
-  return '安全验证'
+  if (props.challengeType === 'PUZZLE') return t('auth.recaptcha_puzzle_title')
+  if (props.challengeType === 'IMAGE') return t('auth.recaptcha_image_title')
+  return t('auth.security_verification')
 })
 
 const formattedBgImage = computed(() => {
