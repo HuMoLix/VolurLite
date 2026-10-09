@@ -1,6 +1,7 @@
 <template>
-  <button
-    type="button"
+  <n-button
+    quaternary
+    :round="true"
     class="auth-account-chip"
     :disabled="disabled"
     :isScrim="true"
@@ -18,11 +19,12 @@
     >
       <polygon points="7 10 12 15 17 10" />
     </svg>
-  </button>
+  </n-button>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { NButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 
 defineOptions({
