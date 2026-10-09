@@ -5,7 +5,7 @@
         v-if="showAccountChip"
         :identifier="displayIdentifier"
         :disabled="signupFlowStore.loading"
-        :title="t('auth.back_to_name')"
+        :title="t('auth.signup.back_to_name')"
         @click="goBackName"
       />
     </template>

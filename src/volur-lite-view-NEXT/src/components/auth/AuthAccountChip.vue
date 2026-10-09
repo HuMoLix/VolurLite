@@ -5,7 +5,7 @@
     class="auth-account-chip"
     :disabled="disabled"
     :isScrim="true"
-    :title="title || t('auth.switch_account')"
+    :title="title || t('auth.signin.switch_account')"
     @click="emit('click')"
   >
     <span class="auth-account-chip__avatar">

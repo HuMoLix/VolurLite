@@ -5,7 +5,7 @@
         <GoogleTextField
           v-model="password"
           :type="showPassword ? 'text' : 'password'"
-          :label="t('auth.password_label')"
+          :label="t('auth.signin.password_label')"
           autocomplete="current-password"
           autofocus
           :error-msg="errorMsg"
@@ -21,7 +21,7 @@
             type="checkbox"
             class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
           />
-          <span>{{ t('auth.show_password') }}</span>
+          <span>{{ t('auth.signin.show_password') }}</span>
         </label>
         <a
           href="#"
@@ -29,14 +29,14 @@
           :isScrim="true"
           @click.prevent="handleForgotPassword"
         >
-          {{ t('auth.forgot_password') }}
+          {{ t('auth.signin.forgot_password') }}
         </a>
       </div>
     </div>
 
     <AuthActionBar
       :primary-text="t('auth.next')"
-      :secondary-text="t('auth.try_another_way')"
+      :secondary-text="t('auth.signin.try_another_way')"
       :primary-disabled="loading || isSubmitting"
       :secondary-disabled="loading || isSubmitting"
       :primary-loading="isSubmitting"
@@ -63,7 +63,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.password_verification'), '')
+useCardHeader(() => t('auth.signin.password_verification'), '')
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
@@ -104,7 +104,7 @@ async function handleVerifyChallenge() {
 
   try {
     if (!password.value) {
-      setErrorKey('auth.password_required')
+      setErrorKey('auth.signin.password_required')
       return
     }
 
@@ -126,7 +126,7 @@ async function handleVerifyChallenge() {
       if (err?.message) {
         setRawError(err.message)
       } else {
-        setErrorKey('auth.password_incorrect')
+        setErrorKey('auth.signin.password_incorrect')
       }
     }
   } finally {

@@ -2,7 +2,7 @@
   <form class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleVerifyChallenge">
     <div class="space-y-5">
       <p class="text-sm text-google-text-desc dark:text-google-text-darkDesc leading-relaxed">
-        {{ t('auth.recaptcha_tip') }}
+        {{ t('captcha.recaptcha.tip') }}
       </p>
 
       <Recaptcha
@@ -19,7 +19,7 @@
 
     <AuthActionBar
       :primary-text="t('auth.next')"
-      :secondary-text="t('auth.try_another_way')"
+      :secondary-text="t('auth.signin.try_another_way')"
       :primary-disabled="loading || isSubmitting"
       :secondary-disabled="loading || isSubmitting"
       :primary-loading="isSubmitting"
@@ -46,7 +46,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.security_verification'), () => t('auth.security_verification_prompt'))
+useCardHeader(() => t('auth.security_verification'), () => t('auth.signin.security_verification_prompt'))
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
@@ -69,7 +69,7 @@ function handleRecaptchaError(err: string): void {
   if (err) {
     setRawRecaptchaError(err)
   } else {
-    setRecaptchaErrorKey('auth.recaptcha_failed')
+    setRecaptchaErrorKey('captcha.recaptcha.failed')
   }
 }
 
@@ -91,7 +91,7 @@ async function handleVerifyChallenge() {
 
   try {
     if (!isRecaptchaPassed.value || !recaptchaTicket.value) {
-      setRecaptchaErrorKey('auth.recaptcha_required')
+      setRecaptchaErrorKey('captcha.recaptcha.required')
       return
     }
 
@@ -138,7 +138,7 @@ async function handleVerifyChallenge() {
       if (msg) {
         setRawRecaptchaError(msg)
       } else {
-        setRecaptchaErrorKey('auth.recaptcha_failed')
+        setRecaptchaErrorKey('captcha.recaptcha.failed')
       }
     }
   } finally {

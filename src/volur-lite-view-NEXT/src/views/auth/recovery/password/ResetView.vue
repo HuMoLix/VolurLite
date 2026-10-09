@@ -1,7 +1,7 @@
 <template>
   <AuthCardShell
-    :title="t('auth.recovery_password_reset_title')"
-    :subtitle="t('auth.recovery_password_reset_subtitle')"
+    :title="t('auth.recovery.reset_title')"
+    :subtitle="t('auth.recovery.reset_subtitle')"
   >
     <form class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleResetPassword">
       <div class="space-y-4">
@@ -10,7 +10,7 @@
             <GoogleTextField
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              :label="t('auth.recovery_password_new_label')"
+              :label="t('auth.recovery.new_password_label')"
               autocomplete="new-password"
               autofocus
               :error-msg="errorMsg"
@@ -23,7 +23,7 @@
             <GoogleTextField
               v-model="confirmPassword"
               :type="showPassword ? 'text' : 'password'"
-              :label="t('auth.recovery_password_confirm_label')"
+              :label="t('auth.recovery.confirm_password_label')"
               autocomplete="new-password"
               :error-msg="confirmErrorMsg"
               @clear="clearError"
@@ -39,12 +39,12 @@
               type="checkbox"
               class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
             />
-            <span>{{ t('auth.show_password') }}</span>
+            <span>{{ t('auth.signin.show_password') }}</span>
           </label>
         </div>
 
         <p class="text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-          {{ t('auth.password_hint') }}
+          {{ t('auth.signup.password_hint') }}
         </p>
       </div>
 
@@ -135,7 +135,7 @@ async function handleResetPassword(): Promise<void> {
   const cp = confirmPassword.value.trim()
 
   if (!p) {
-    setErrorKey('auth.password_required')
+    setErrorKey('auth.signin.password_required')
     return
   }
   if (p.length < 6 || p.length > 32 || !PASSWORD_REGEX.test(p)) {
@@ -186,7 +186,7 @@ async function handleResetPassword(): Promise<void> {
     if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
       setRawError((err as { message: string }).message)
     } else {
-      setErrorKey('auth.password_setup_failed')
+      setErrorKey('auth.signup.password_setup_failed')
     }
   } finally {
     isSubmitting.value = false

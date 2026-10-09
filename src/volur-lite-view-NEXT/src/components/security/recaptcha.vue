@@ -161,7 +161,7 @@ async function withMinimumDelay<T>(action: () => Promise<T>, minDurationMs = 150
 
 async function handleBackendChallengeFlow(metrics: Record<string, unknown>) {
   if (!props.dsh || !props.tl) {
-    const msg = t('auth.recaptcha_missing_credentials')
+    const msg = t('captcha.recaptcha.missing_credentials')
     internalError.value = msg
     emit('update:errorMsg', msg)
     sendToSandbox({ type: 'VM_SET_ERROR' })
@@ -213,7 +213,7 @@ async function handleBackendChallengeFlow(metrics: Record<string, unknown>) {
       modalVisible.value = true
     }
   } catch (err: any) {
-    const msg = err?.message || t('auth.recaptcha_failed')
+    const msg = err?.message || t('captcha.recaptcha.failed')
     internalError.value = msg
     emit('update:errorMsg', msg)
     sendToSandbox({ type: 'VM_SET_ERROR' })
@@ -235,7 +235,7 @@ async function handleModalRefresh() {
     modalCaptchaImage.value = res.data.captchaImage || ''
     modalPromptText.value = res.data.promptText || ''
   } catch (err: any) {
-    modalErrorMsg.value = err?.message || t('auth.recaptcha_refresh_failed')
+    modalErrorMsg.value = err?.message || t('captcha.recaptcha.refresh_failed')
   } finally {
     modalLoading.value = false
   }
@@ -271,7 +271,7 @@ async function handleModalSubmit(result: { x?: number; code?: string; userInput?
     emit('change', true)
     emit('success', { token: pendingToken, ticket, metrics: pendingMetrics })
   } catch (err: any) {
-    modalErrorMsg.value = err?.message || t('auth.recaptcha_verify_failed')
+    modalErrorMsg.value = err?.message || t('captcha.recaptcha.verify_failed')
     handleModalRefresh()
   } finally {
     modalLoading.value = false
@@ -309,7 +309,7 @@ function handleWindowMessage(event: MessageEvent): void {
   }
 
   if (data.type === 'VM_CHALLENGE_ERROR') {
-    const errText = typeof data.error === 'string' ? data.error : t('auth.recaptcha_failed')
+    const errText = typeof data.error === 'string' ? data.error : t('captcha.recaptcha.failed')
     internalError.value = errText
     emit('update:errorMsg', errText)
     emit('update:modelValue', false)
@@ -331,8 +331,8 @@ watch(
   () => {
     sendToSandbox({
       type: 'VM_LOCALE_CHANGE',
-      notRobot: t('auth.recaptcha_not_robot'),
-      verified: t('auth.recaptcha_verified')
+      notRobot: t('captcha.recaptcha.not_robot'),
+      verified: t('captcha.recaptcha.verified')
     })
   }
 )
@@ -378,10 +378,10 @@ const sandboxHtml = computed(() => {
   const isDark = effectiveTheme.value === 'dark'
   const htmlClass = isDark ? 'dark' : ''
   const currentLang = appStore.locale || 'zh-CN'
-  const notRobotLabel = t('auth.recaptcha_not_robot')
+  const notRobotLabel = t('captcha.recaptcha.not_robot')
   const privacyLabel = t('common.privacy')
   const termsLabel = t('common.terms')
-  const verifiedLabel = t('auth.recaptcha_verified')
+  const verifiedLabel = t('captcha.recaptcha.verified')
   return `<!DOCTYPE html>
 <html lang="${currentLang}" class="${htmlClass}">
 <head>

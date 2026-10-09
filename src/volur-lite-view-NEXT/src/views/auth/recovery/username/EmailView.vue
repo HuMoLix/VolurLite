@@ -10,12 +10,12 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span class="text-base font-medium text-google-text-primary dark:text-google-text-darkPrimary">
-            {{ t('auth.recovery_email_sent_title') }}
+            {{ t('auth.recovery.email_sent_title') }}
           </span>
         </div>
 
         <p class="text-sm text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-          {{ t('auth.recovery_email_sent_desc') }}
+          {{ t('auth.recovery.email_sent_desc') }}
         </p>
       </div>
 
@@ -43,7 +43,7 @@
         </div>
 
         <p class="text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-          {{ t('auth.recovery_email_tip') }}
+          {{ t('auth.recovery.email_tip') }}
         </p>
       </div>
 
@@ -86,12 +86,12 @@ const isSubmitted = ref(false)
 const loading = computed(() => signinFlowStore.loading)
 const { errorMsg, clearError, setErrorKey, setRawError } = useFormError(email)
 
-const cardTitle = computed(() => t('auth.recovery_username_title'))
+const cardTitle = computed(() => t('auth.recovery.username_title'))
 const cardSubtitle = computed(() => {
   if (isSubmitted.value) {
-    return t('auth.recovery_email_sent_title')
+    return t('auth.recovery.email_sent_title')
   }
-  return t('auth.recovery_method_email_desc')
+  return t('auth.recovery.method_email_desc')
 })
 
 onMounted(() => {
@@ -146,7 +146,7 @@ async function handleNext(): Promise<void> {
     if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
       setRawError((err as { message: string }).message)
     } else {
-      setErrorKey('auth.recovery_email_submit_failed')
+      setErrorKey('auth.recovery.email_submit_failed')
     }
   } finally {
     isSubmitting.value = false

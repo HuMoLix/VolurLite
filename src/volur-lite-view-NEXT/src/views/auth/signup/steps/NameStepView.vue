@@ -4,7 +4,7 @@
       <div>
         <GoogleTextField
           v-model="username"
-          :label="t('auth.username_placeholder')"
+          :label="t('auth.signup.username_placeholder')"
           autocomplete="username"
           autofocus
           :error-msg="errorMsg"
@@ -14,7 +14,7 @@
       </div>
 
       <p class="text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-        {{ t('auth.username_tip') }}
+        {{ t('auth.signup.username_tip') }}
       </p>
     </div>
 
@@ -45,7 +45,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.signup_create_title'), () => t('auth.username_label'))
+useCardHeader(() => t('auth.signup.title'), () => t('auth.username_label'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()

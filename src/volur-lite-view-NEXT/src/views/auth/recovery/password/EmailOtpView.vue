@@ -1,7 +1,7 @@
 <template>
   <AuthCardShell
-    :title="t('auth.recovery_password_emailotp_title')"
-    :subtitle="t('auth.recovery_password_emailotp_subtitle')"
+    :title="t('auth.recovery.emailotp_title')"
+    :subtitle="t('auth.recovery.emailotp_subtitle')"
   >
     <form class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleVerify">
       <div class="space-y-4">
@@ -10,7 +10,7 @@
             v-model="code"
             type="text"
             maxlength="6"
-            :label="t('auth.enter_code_digits')"
+            :label="t('auth.signup.enter_code_digits')"
             autocomplete="one-time-code"
             autofocus
             :error-msg="errorMsg"
@@ -21,7 +21,7 @@
 
         <div class="flex items-center justify-between">
           <span class="text-xs text-google-text-muted dark:text-google-text-darkMuted">
-            {{ t('auth.two_step_email_tip') }}
+            {{ t('auth.signin.two_step_email_tip') }}
           </span>
           <button
             type="button"
@@ -30,10 +30,10 @@
             @click="sendCode"
           >
             <span v-if="isCounting">
-              {{ t('auth.resend_countdown', { seconds: countdown }) }}
+              {{ t('auth.signup.resend_countdown', { seconds: countdown }) }}
             </span>
             <span v-else>
-              {{ isSending ? t('auth.sending') : t('auth.resend_code') }}
+              {{ isSending ? t('auth.sending') : t('auth.signup.resend_code') }}
             </span>
           </button>
         </div>
@@ -90,7 +90,7 @@ async function sendCode(): Promise<void> {
     if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
       setRawError((err as { message: string }).message)
     } else {
-      setErrorKey('auth.resend_failed')
+      setErrorKey('auth.signup.resend_failed')
     }
   } finally {
     isSending.value = false

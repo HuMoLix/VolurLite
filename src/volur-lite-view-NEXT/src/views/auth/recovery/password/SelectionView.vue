@@ -1,7 +1,7 @@
 <template>
   <AuthCardShell
-    :title="t('auth.recovery_password_title')"
-    :subtitle="t('auth.recovery_password_subtitle')"
+    :title="t('auth.recovery.password_title')"
+    :subtitle="t('auth.recovery.password_subtitle')"
   >
     <div class="flex flex-col">
       <div v-if="errorMsg" class="mb-4 text-sm text-google-red-light dark:text-google-red-dark">
@@ -11,7 +11,7 @@
       <AuthMethodSelector
         :items="mappedMethods"
         :loading="isFetching"
-        :empty-tip="t('auth.recovery_password_disabled_tip')"
+        :empty-tip="t('auth.recovery.password_disabled_tip')"
         :disabled="loading"
         @select="handleSelectMethod"
       />
@@ -54,20 +54,20 @@ const maskedPhone = ref('')
 
 function getMethodTitle(item: RecoveryMethodVO): string {
   if (item.method === 'EMAIL') {
-    return t('auth.recovery_method_email')
+    return t('auth.recovery.method_email')
   }
   if (item.method === 'PHONE') {
-    return t('auth.recovery_method_phone')
+    return t('auth.recovery.method_phone')
   }
   return item.name || item.method
 }
 
 function getMethodDesc(item: RecoveryMethodVO): string {
   if (item.method === 'EMAIL' && maskedEmail.value) {
-    return t('auth.recovery_password_emailotp_desc', { email: maskedEmail.value })
+    return t('auth.recovery.emailotp_desc', { email: maskedEmail.value })
   }
   if (item.method === 'PHONE' && maskedPhone.value) {
-    return t('auth.two_step_sms_tip')
+    return t('auth.signin.two_step_sms_tip')
   }
   return item.description || ''
 }
@@ -103,7 +103,7 @@ async function loadOptions(): Promise<void> {
     if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
       setRawError((err as { message: string }).message)
     } else {
-      setErrorKey('auth.recovery_password_options_failed')
+      setErrorKey('auth.recovery.password_options_failed')
     }
   } finally {
     isFetching.value = false

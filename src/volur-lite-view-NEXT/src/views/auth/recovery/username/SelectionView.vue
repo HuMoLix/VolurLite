@@ -1,7 +1,7 @@
 <template>
   <AuthCardShell
-    :title="t('auth.recovery_username_title')"
-    :subtitle="t('auth.recovery_username_subtitle')"
+    :title="t('auth.recovery.username_title')"
+    :subtitle="t('auth.recovery.username_subtitle')"
   >
     <div class="flex flex-col">
       <div v-if="errorMsg" class="mb-4 text-sm text-google-red-light dark:text-google-red-dark">
@@ -11,7 +11,7 @@
       <AuthMethodSelector
         :items="mappedMethods"
         :loading="isFetching"
-        :empty-tip="t('auth.recovery_disabled_tip')"
+        :empty-tip="t('auth.recovery.disabled_tip')"
         :disabled="loading"
         @select="handleSelectMethod"
       />
@@ -52,20 +52,20 @@ const methods = ref<RecoveryMethodVO[]>([])
 
 function getMethodTitle(item: RecoveryMethodVO): string {
   if (item.method === 'EMAIL') {
-    return t('auth.recovery_method_email')
+    return t('auth.recovery.method_email')
   }
   if (item.method === 'PHONE') {
-    return t('auth.recovery_method_phone')
+    return t('auth.recovery.method_phone')
   }
   return item.name || item.method
 }
 
 function getMethodDesc(item: RecoveryMethodVO): string {
   if (item.method === 'EMAIL') {
-    return t('auth.recovery_method_email_desc')
+    return t('auth.recovery.method_email_desc')
   }
   if (item.method === 'PHONE') {
-    return t('auth.recovery_method_phone_desc')
+    return t('auth.recovery.method_phone_desc')
   }
   return item.description || ''
 }
@@ -92,7 +92,7 @@ async function loadOptions(): Promise<void> {
     if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
       setRawError((err as { message: string }).message)
     } else {
-      setErrorKey('auth.recovery_options_failed')
+      setErrorKey('auth.recovery.options_failed')
     }
   } finally {
     isFetching.value = false

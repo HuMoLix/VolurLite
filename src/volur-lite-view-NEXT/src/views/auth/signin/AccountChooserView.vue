@@ -1,7 +1,7 @@
 <template>
   <AuthCardShell
-    :title="t('auth.choose_account')"
-    :subtitle="t('auth.choose_account_subtitle')"
+    :title="t('auth.signin.choose_account')"
+    :subtitle="t('auth.signin.choose_account_subtitle')"
   >
     <div class="flex flex-col">
       <div v-if="errorMsg" class="mb-4 text-sm text-google-red-light dark:text-google-red-dark">

@@ -64,7 +64,7 @@
           type="button"
           tabindex="-1"
           class="google-text-field__action-btn"
-          :title="isPasswordVisible ? t('auth.hide_password') : t('auth.show_password')"
+          :title="isPasswordVisible ? t('auth.signin.hide_password') : t('auth.signin.show_password')"
           @click.stop="togglePasswordVisibility"
         >
           <svg v-if="!isPasswordVisible" viewBox="0 0 24 24" class="w-4 h-4 fill-current">

@@ -5,7 +5,7 @@
         <GoogleTextField
           v-model="password"
           :type="showPassword ? 'text' : 'password'"
-          :label="t('auth.password_label')"
+          :label="t('auth.signin.password_label')"
           autocomplete="new-password"
           autofocus
           :error-msg="passwordError"
@@ -15,7 +15,7 @@
         <GoogleTextField
           v-model="confirmPassword"
           :type="showPassword ? 'text' : 'password'"
-          :label="t('auth.confirm_password_label')"
+          :label="t('auth.signin.confirm_password_label')"
           autocomplete="new-password"
           :error-msg="confirmPasswordError"
           @clear="clearConfirmPasswordError"
@@ -30,17 +30,17 @@
             type="checkbox"
             class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
           />
-          <span>{{ t('auth.show_password') }}</span>
+          <span>{{ t('auth.signin.show_password') }}</span>
         </label>
       </div>
 
       <p class="text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-        {{ t('auth.password_hint') }}
+        {{ t('auth.signup.password_hint') }}
       </p>
     </div>
 
     <AuthActionBar
-      :primary-text="t('auth.finish_signup')"
+      :primary-text="t('auth.signup.finish_signup')"
       :primary-disabled="loading"
       :show-secondary="false"
       @primary="handleNext"
@@ -62,7 +62,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.password_label'), () => t('auth.password_hint'))
+useCardHeader(() => t('auth.signin.password_label'), () => t('auth.signup.password_hint'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
@@ -126,7 +126,7 @@ async function handleNext() {
   const cp = confirmPassword.value.trim()
 
   if (!p) {
-    passwordKey.value = 'auth.password_required'
+    passwordKey.value = 'auth.signin.password_required'
     hasError = true
   } else if (p.length < 6 || p.length > 32 || !PASSWORD_REGEX.test(p)) {
     passwordKey.value = 'auth.password_complexity_error'
@@ -158,7 +158,7 @@ async function handleNext() {
       rawPasswordMsg.value = err.message
       passwordKey.value = ''
     } else {
-      passwordKey.value = 'auth.password_setup_failed'
+      passwordKey.value = 'auth.signup.password_setup_failed'
       rawPasswordMsg.value = ''
     }
   }

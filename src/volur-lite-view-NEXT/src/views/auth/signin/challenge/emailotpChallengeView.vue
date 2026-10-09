@@ -4,7 +4,7 @@
       <div>
         <GoogleTextField
           v-model="verificationCode"
-          :label="t('auth.enter_email_code_label')"
+          :label="t('auth.signin.enter_email_code_label')"
           autocomplete="one-time-code"
           autofocus
           :error-msg="errorMsg"
@@ -20,14 +20,14 @@
             type="checkbox"
             class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
           />
-          <span>{{ t('auth.trust_device_30_days') }}</span>
+          <span>{{ t('auth.signin.trust_device_30_days') }}</span>
         </label>
       </div>
     </div>
 
     <AuthActionBar
       :primary-text="t('common.verify')"
-      :secondary-text="t('auth.try_another_way')"
+      :secondary-text="t('auth.signin.try_another_way')"
       :primary-disabled="loading || isSubmitting"
       :secondary-disabled="loading || isSubmitting"
       :primary-loading="isSubmitting"
@@ -54,7 +54,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.email_verification'), '')
+useCardHeader(() => t('auth.signin.email_verification'), '')
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
@@ -84,7 +84,7 @@ async function handleVerifyChallenge() {
 
   try {
     if (!verificationCode.value.trim()) {
-      setErrorKey('auth.security_code_required')
+      setErrorKey('auth.signin.security_code_required')
       return
     }
 
@@ -105,7 +105,7 @@ async function handleVerifyChallenge() {
       if (err?.message) {
         setRawError(err.message)
       } else {
-        setErrorKey('auth.security_code_invalid')
+        setErrorKey('auth.signin.security_code_invalid')
       }
     }
   } finally {

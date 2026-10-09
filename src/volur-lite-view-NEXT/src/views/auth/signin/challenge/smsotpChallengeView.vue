@@ -9,16 +9,16 @@
         </svg>
         <div class="text-xs text-google-text-desc dark:text-google-text-darkDesc leading-relaxed">
           <p class="font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-0.5">
-            {{ t('auth.two_step_verification') }}
+            {{ t('auth.signin.two_step_verification') }}
           </p>
-          {{ t('auth.two_step_sms_tip') }}
+          {{ t('auth.signin.two_step_sms_tip') }}
         </div>
       </div>
 
       <div>
         <GoogleTextField
           v-model="verificationCode"
-          :label="t('auth.enter_code_label')"
+          :label="t('auth.signin.enter_code_label')"
           autocomplete="one-time-code"
           autofocus
           :error-msg="errorMsg"
@@ -34,7 +34,7 @@
             type="checkbox"
             class="w-4 h-4 rounded border-google-border-light text-google-blue focus:ring-google-blue cursor-pointer"
           />
-          <span>{{ t('auth.trust_device_30_days') }}</span>
+          <span>{{ t('auth.signin.trust_device_30_days') }}</span>
         </label>
         <a
           href="#"
@@ -42,14 +42,14 @@
           :isScrim="true"
           @click.prevent="handleTryAnotherWayClick"
         >
-          {{ t('auth.another_way') }}
+          {{ t('auth.signin.another_way') }}
         </a>
       </div>
     </div>
 
     <AuthActionBar
       :primary-text="t('common.verify')"
-      :secondary-text="t('auth.try_another_way')"
+      :secondary-text="t('auth.signin.try_another_way')"
       :primary-disabled="loading || isSubmitting"
       :secondary-disabled="loading || isSubmitting"
       :primary-loading="isSubmitting"
@@ -76,7 +76,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.security_verification_and_challenge'), '')
+useCardHeader(() => t('auth.signin.security_verification_and_challenge'), '')
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
@@ -106,7 +106,7 @@ async function handleVerifyChallenge() {
 
   try {
     if (!verificationCode.value.trim()) {
-      setErrorKey('auth.security_code_required')
+      setErrorKey('auth.signin.security_code_required')
       return
     }
 
@@ -127,7 +127,7 @@ async function handleVerifyChallenge() {
       if (err?.message) {
         setRawError(err.message)
       } else {
-        setErrorKey('auth.security_code_invalid')
+        setErrorKey('auth.signin.security_code_invalid')
       }
     }
   } finally {

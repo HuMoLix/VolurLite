@@ -2,7 +2,7 @@
   <div class="flex flex-col justify-between h-full">
     <div>
       <p class="text-base text-google-text-primary dark:text-google-text-darkPrimary mb-5 font-normal leading-6">
-        {{ t('auth.signup_options_prompt') }}
+        {{ t('auth.signup.options_prompt') }}
       </p>
 
       <AuthMethodSelector
@@ -38,7 +38,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.security_verification'), () => t('auth.signup_options_prompt'))
+useCardHeader(() => t('auth.security_verification'), () => t('auth.signup.options_prompt'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
@@ -63,7 +63,7 @@ const mappedOptions = computed<AuthMethodOption[]>(() => {
   return options.value.map((opt) => ({
     ...opt,
     icon: opt.type === 'passkey' ? 'key' : 'shield',
-    title: opt.type === 'passkey' ? t('auth.passkey_verify_title') : t('auth.totp_protect_title')
+    title: opt.type === 'passkey' ? t('auth.signin.passkey_verify_title') : t('auth.signup.totp_protect_title')
   }))
 })
 

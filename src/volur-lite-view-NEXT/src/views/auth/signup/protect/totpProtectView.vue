@@ -9,13 +9,13 @@
           </svg>
         </div>
         <h2 class="text-base font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-2">
-          {{ t('auth.totp_protect_title') }}
+          {{ t('auth.signup.totp_protect_title') }}
         </h2>
         <p class="text-sm text-google-text-secondary dark:text-google-text-darkSecondary max-w-sm leading-relaxed mb-4">
-          {{ t('auth.totp_protect_desc') }}
+          {{ t('auth.signup.totp_protect_desc') }}
         </p>
         <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-neutral-800/60 border border-google-border-base dark:border-neutral-700/60 max-w-sm text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed text-left">
-          {{ t('auth.totp_protect_notice') }}
+          {{ t('auth.signup.totp_protect_notice') }}
         </div>
       </div>
     </div>
@@ -44,7 +44,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.totp_protect_title'), () => t('auth.totp_protect_desc'))
+useCardHeader(() => t('auth.signup.totp_protect_title'), () => t('auth.signup.totp_protect_desc'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()

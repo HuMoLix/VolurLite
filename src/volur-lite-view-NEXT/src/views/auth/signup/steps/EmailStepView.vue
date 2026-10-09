@@ -15,13 +15,13 @@
       </div>
 
       <p class="text-xs text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
-        {{ t('auth.email_tip') }}
+        {{ t('auth.signup.email_tip') }}
       </p>
     </div>
 
     <AuthActionBar
       :primary-text="t('auth.next')"
-      :secondary-text="t('auth.back_to_previous')"
+      :secondary-text="t('auth.signup.back_to_previous')"
       :primary-disabled="loading"
       :secondary-disabled="loading"
       @primary="handleNext"
@@ -45,7 +45,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.email_label'), () => t('auth.email_tip'))
+useCardHeader(() => t('auth.email_label'), () => t('auth.signup.email_tip'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()

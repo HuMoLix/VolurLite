@@ -11,10 +11,10 @@
           </svg>
         </div>
         <h2 class="text-base font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-2">
-          {{ t('auth.passkey_protect_title') }}
+          {{ t('auth.signup.passkey_protect_title') }}
         </h2>
         <p class="text-sm text-google-text-secondary dark:text-google-text-darkSecondary max-w-sm leading-relaxed">
-          {{ t('auth.passkey_protect_desc') }}
+          {{ t('auth.signup.passkey_protect_desc') }}
         </p>
       </div>
 
@@ -25,17 +25,17 @@
           </svg>
         </div>
         <h2 class="text-base font-medium text-google-text-primary dark:text-google-text-darkPrimary mb-2">
-          {{ t('auth.passkey_registered_title') }}
+          {{ t('auth.signup.passkey_registered_title') }}
         </h2>
         <p class="text-sm text-google-text-secondary dark:text-google-text-darkSecondary max-w-sm leading-relaxed">
-          {{ t('auth.passkey_registered_desc') }}
+          {{ t('auth.signup.passkey_registered_desc') }}
         </p>
       </div>
     </div>
 
     <AuthActionBar
-      :primary-text="passkeyRegistered ? t('common.next') : t('auth.create_passkey')"
-      :secondary-text="passkeyRegistered ? t('auth.back_options') : t('auth.later')"
+      :primary-text="passkeyRegistered ? t('common.next') : t('auth.signup.create_passkey')"
+      :secondary-text="passkeyRegistered ? t('auth.signup.back_options') : t('auth.later')"
       :primary-disabled="loading || isRegistering"
       :secondary-disabled="loading || isRegistering"
       :primary-loading="isRegistering"
@@ -60,7 +60,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.passkey_method_name'), () => t('auth.passkey_protect_desc'))
+useCardHeader(() => t('auth.signin.passkey_method_name'), () => t('auth.signup.passkey_protect_desc'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
@@ -265,7 +265,7 @@ async function handleCreatePasskey() {
 
       if (regRes.data?.success) {
         passkeyRegistered.value = true
-        window.$message?.success?.(t('auth.passkey_registered_title'))
+        window.$message?.success?.(t('auth.signup.passkey_registered_title'))
       } else {
         throw new Error(regRes.message || '通行密钥注册未通过')
       }

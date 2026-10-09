@@ -2,7 +2,7 @@
   <div class="flex flex-col justify-between h-full">
     <div>
       <p class="text-base text-google-text-primary dark:text-google-text-darkPrimary mb-5 font-normal leading-6">
-        {{ t('auth.select_method_title') }}
+        {{ t('auth.signin.select_method_title') }}
       </p>
 
       <div v-if="isFetchingSelection" class="py-12 flex justify-center">
@@ -40,7 +40,7 @@
                 </svg>
               </div>
               <div class="auth-selection-item__content">
-                <div class="auth-selection-item__title">{{ t('auth.try_another_way') }}</div>
+                <div class="auth-selection-item__title">{{ t('auth.signin.try_another_way') }}</div>
               </div>
             </div>
           </div>
@@ -73,7 +73,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.more_signin_options'), '')
+useCardHeader(() => t('auth.signin.more_signin_options'), '')
 
 const route = useRoute()
 const router = useRouter()
@@ -136,7 +136,7 @@ async function loadSelectionMethods() {
 }
 
 function handleSelectionRejected() {
-  const msg = t('auth.selection_rejected_msg')
+  const msg = t('auth.signin.selection_rejected_msg')
   router.replace({
     path: '/v1/signin/challenge/rejected',
     query: signinFlowStore.getQueryParams({

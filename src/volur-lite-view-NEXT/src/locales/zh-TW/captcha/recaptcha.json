@@ -1,0 +1,16 @@
+{
+  "tip": "為了保護您的帳號不受自動化程式攻擊，請勾選下方驗證框完成人機身分驗證。",
+  "required": "請完成人機驗證框以繼續",
+  "failed": "人機驗證失敗，請重試",
+  "refresh": "重新整理驗證碼",
+  "drag_slider": "拖曳滑塊完成拼圖",
+  "click_to_refresh": "點擊重新整理",
+  "enter_image_text": "請輸入圖片中的文字",
+  "puzzle_title": "請完成滑動拼圖",
+  "image_title": "請輸入字元驗證碼",
+  "not_robot": "我不是機器人",
+  "verified": "驗證已通過",
+  "missing_credentials": "缺少人機驗證會話憑據",
+  "refresh_failed": "重新整理挑戰失敗",
+  "verify_failed": "驗證失敗，請重試"
+}

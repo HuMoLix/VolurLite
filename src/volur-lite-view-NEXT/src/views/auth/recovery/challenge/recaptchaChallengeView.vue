@@ -2,7 +2,7 @@
   <form class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleVerifyChallenge">
     <div class="space-y-5">
       <p class="text-sm text-google-text-desc dark:text-google-text-darkDesc leading-relaxed">
-        {{ t('auth.recaptcha_tip') }}
+        {{ t('captcha.recaptcha.tip') }}
       </p>
 
       <Recaptcha
@@ -45,7 +45,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.security_verification'), () => t('auth.security_verification_prompt'))
+useCardHeader(() => t('auth.security_verification'), () => t('auth.signin.security_verification_prompt'))
 
 const route = useRoute()
 const router = useRouter()
@@ -73,7 +73,7 @@ function handleRecaptchaError(err: string): void {
   if (err) {
     setRawRecaptchaError(err)
   } else {
-    setRecaptchaErrorKey('auth.recaptcha_failed')
+    setRecaptchaErrorKey('captcha.recaptcha.failed')
   }
 }
 
@@ -90,7 +90,7 @@ async function handleBackToSelection(): Promise<void> {
 async function handleVerifyChallenge(): Promise<void> {
   if (loading.value || isSubmitting.value) return
   if (!isRecaptchaPassed.value || !recaptTicket.value) {
-    setRecaptchaErrorKey('auth.recaptcha_required')
+    setRecaptchaErrorKey('captcha.recaptcha.required')
     return
   }
 
@@ -137,7 +137,7 @@ async function handleVerifyChallenge(): Promise<void> {
     if (err?.message) {
       setRawRecaptchaError(err.message)
     } else {
-      setRecaptchaErrorKey('auth.recaptcha_failed')
+      setRecaptchaErrorKey('captcha.recaptcha.failed')
     }
   } finally {
     isSubmitting.value = false

@@ -3,16 +3,16 @@
     <div class="space-y-4">
       <div class="p-4 rounded-lg border border-google-border-light dark:border-google-border-dark space-y-2 text-xs">
         <div class="flex justify-between">
-          <span class="text-google-text-muted">{{ t('auth.login_account') }}</span>
+          <span class="text-google-text-muted">{{ t('auth.signin.login_account') }}</span>
           <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">{{ signinFlowStore.identifier }}</span>
         </div>
         <div class="flex justify-between">
-          <span class="text-google-text-muted">{{ t('auth.attempt_time') }}</span>
+          <span class="text-google-text-muted">{{ t('auth.signin.attempt_time') }}</span>
           <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">{{ currentTimeFormatted }}</span>
         </div>
         <div class="flex justify-between">
-          <span class="text-google-text-muted">{{ t('auth.verify_method') }}</span>
-          <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">{{ t('auth.passkey_method_name') }}</span>
+          <span class="text-google-text-muted">{{ t('auth.signin.verify_method') }}</span>
+          <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">{{ t('auth.signin.passkey_method_name') }}</span>
         </div>
       </div>
 
@@ -26,7 +26,7 @@
 
     <AuthActionBar
       :primary-text="t('common.verify')"
-      :secondary-text="t('auth.try_another_way')"
+      :secondary-text="t('auth.signin.try_another_way')"
       :primary-disabled="loading || isSubmitting"
       :secondary-disabled="loading || isSubmitting"
       :primary-loading="isSubmitting"
@@ -62,7 +62,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.passkey_verify_title'), () => t('auth.passkey_verify_desc'))
+useCardHeader(() => t('auth.signin.passkey_verify_title'), () => t('auth.signin.passkey_verify_desc'))
 
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()

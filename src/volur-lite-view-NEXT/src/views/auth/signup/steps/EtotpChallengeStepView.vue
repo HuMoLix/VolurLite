@@ -4,7 +4,7 @@
       <div>
         <GoogleTextField
           v-model="code"
-          :label="t('auth.enter_code_digits')"
+          :label="t('auth.signup.enter_code_digits')"
           autocomplete="one-time-code"
           autofocus
           maxlength="6"
@@ -16,7 +16,7 @@
 
       <div class="flex items-center justify-between text-sm">
         <span class="text-google-text-muted dark:text-google-text-darkMuted">
-          {{ t('auth.code_sent_to') }} {{ displayEmail }}
+          {{ t('auth.signup.code_sent_to') }} {{ displayEmail }}
         </span>
         <button
           type="button"
@@ -24,16 +24,16 @@
           :disabled="isCounting || isResending"
           @click="handleResend"
         >
-          <span v-if="isCounting">{{ t('auth.resend_countdown', { seconds: countdown }) }}</span>
+          <span v-if="isCounting">{{ t('auth.signup.resend_countdown', { seconds: countdown }) }}</span>
           <span v-else-if="isResending">{{ t('auth.sending') }}</span>
-          <span v-else>{{ t('auth.resend_code') }}</span>
+          <span v-else>{{ t('auth.signup.resend_code') }}</span>
         </button>
       </div>
     </div>
 
     <AuthActionBar
       :primary-text="t('auth.next')"
-      :secondary-text="t('auth.back_to_email')"
+      :secondary-text="t('auth.signup.back_to_email')"
       :primary-disabled="loading"
       :secondary-disabled="loading"
       @primary="handleNext"
@@ -58,7 +58,7 @@ defineOptions({
 })
 
 const { t } = useI18n()
-useCardHeader(() => t('auth.email_label'), () => t('auth.enter_code_digits'))
+useCardHeader(() => t('auth.email_label'), () => t('auth.signup.enter_code_digits'))
 
 const router = useRouter()
 const signupFlowStore = useSignupFlowStore()
@@ -83,10 +83,10 @@ async function handleResend() {
   isResending.value = true
   try {
     await signupFlowStore.resendSignUpEmail()
-    window.$message?.success?.(t('auth.code_resent_success'))
+    window.$message?.success?.(t('auth.signup.code_resent_success'))
     startCountdown(60)
   } catch (err: any) {
-    window.$message?.error?.(err?.message || t('auth.resend_failed'))
+    window.$message?.error?.(err?.message || t('auth.signup.resend_failed'))
   } finally {
     isResending.value = false
   }

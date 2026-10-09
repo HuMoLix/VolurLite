@@ -1,13 +1,13 @@
 <template>
   <AuthCardShell
-    :title="t('auth.signin_title')"
-    :subtitle="t('auth.signin_subtitle')"
+    :title="t('auth.signin.title')"
+    :subtitle="t('auth.signin.subtitle')"
   >
     <div class="flex flex-col">
       <div>
         <GoogleTextField
           v-model="identifier"
-          :label="t('auth.identifier_label')"
+          :label="t('auth.signin.identifier_label')"
           autocomplete="username"
           autofocus
           :error-msg="errorMsg"
@@ -23,7 +23,7 @@
           :isScrim="true"
           @click.prevent="handleForgotAccount"
         >
-          {{ t('auth.forgot_username') }}
+          {{ t('auth.signin.forgot_username') }}
         </a>
         <a
           v-if="hasKnownAccounts()"
@@ -32,7 +32,7 @@
           :isScrim="true"
           @click.prevent="handleBackToChooser"
         >
-          {{ t('auth.choose_account') }}
+          {{ t('auth.signin.choose_account') }}
         </a>
       </div>
 
@@ -126,7 +126,7 @@ async function handleNext() {
 
   const trimmed = identifier.value.trim()
   if (!trimmed) {
-    setErrorKey('auth.identifier_required')
+    setErrorKey('auth.signin.identifier_required')
     return
   }
 
@@ -140,7 +140,7 @@ async function handleNext() {
     if (err?.message) {
       setRawError(err.message)
     } else {
-      setErrorKey('auth.identifier_failed')
+      setErrorKey('auth.signin.identifier_failed')
     }
   }
 }

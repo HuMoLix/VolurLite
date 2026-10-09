@@ -9,7 +9,7 @@
               <button
                 type="button"
                 class="rc-tool-btn"
-                :title="t('auth.recaptcha_refresh')"
+                :title="t('captcha.recaptcha.refresh')"
                 :disabled="loading"
                 @click="emit('refresh')"
               >
@@ -58,7 +58,7 @@
               >
                 <div class="rc-slider-track-highlight" :style="{ width: sliderProgress + 'px' }" />
                 <div class="rc-slider-track-text" :class="{ 'opacity-0': isDragging || sliderProgress > 20 }">
-                  {{ t('auth.recaptcha_drag_slider') }}
+                  {{ t('captcha.recaptcha.drag_slider') }}
                 </div>
                 <div
                   class="rc-slider-thumb"
@@ -73,7 +73,7 @@
             </div>
 
             <div v-else-if="challengeType === 'IMAGE'" class="rc-image-container">
-              <div class="rc-image-wrap" @click="emit('refresh')" :title="t('auth.recaptcha_click_to_refresh')">
+              <div class="rc-image-wrap" @click="emit('refresh')" :title="t('captcha.recaptcha.click_to_refresh')">
                 <img
                   v-if="captchaImage"
                   :src="formattedCaptchaImage"
@@ -87,7 +87,7 @@
                   type="text"
                   v-model="imageInput"
                   class="rc-image-input"
-                  :placeholder="t('auth.recaptcha_enter_image_text')"
+                  :placeholder="t('captcha.recaptcha.enter_image_text')"
                   maxlength="8"
                   autofocus
                   @keydown.enter="handleImageSubmit"
@@ -172,8 +172,8 @@ const imageInput = ref('')
 
 const displayTitle = computed(() => {
   if (props.promptText) return props.promptText
-  if (props.challengeType === 'PUZZLE') return t('auth.recaptcha_puzzle_title')
-  if (props.challengeType === 'IMAGE') return t('auth.recaptcha_image_title')
+  if (props.challengeType === 'PUZZLE') return t('captcha.recaptcha.puzzle_title')
+  if (props.challengeType === 'IMAGE') return t('captcha.recaptcha.image_title')
   return t('auth.security_verification')
 })
 
