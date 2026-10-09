@@ -38,6 +38,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/store/modules/app'
 import RecaptchaModal from './RecaptchaModal.vue'
 import { getRecaptchaChallengeApi, verifyRecaptchaChallengeApi, type RecaptchaChallengeVO } from '@/api/captcha'
@@ -46,6 +47,8 @@ import { encryptPayload } from '@/utils/captcha-crypto'
 defineOptions({
   name: 'Recaptcha'
 })
+
+const { t } = useI18n()
 
 interface TrajectoryPoint {
   x: number
@@ -158,7 +161,7 @@ async function withMinimumDelay<T>(action: () => Promise<T>, minDurationMs = 150
 
 async function handleBackendChallengeFlow(metrics: Record<string, unknown>) {
   if (!props.dsh || !props.tl) {
-    const msg = '缺少人机验证会话凭据'
+    const msg = t('auth.recaptcha_missing_credentials')
     internalError.value = msg
     emit('update:errorMsg', msg)
     sendToSandbox({ type: 'VM_SET_ERROR' })
@@ -210,7 +213,7 @@ async function handleBackendChallengeFlow(metrics: Record<string, unknown>) {
       modalVisible.value = true
     }
   } catch (err: any) {
-    const msg = err?.message || '人机安全核验失败，请重试'
+    const msg = err?.message || t('auth.recaptcha_failed')
     internalError.value = msg
     emit('update:errorMsg', msg)
     sendToSandbox({ type: 'VM_SET_ERROR' })
@@ -232,7 +235,7 @@ async function handleModalRefresh() {
     modalCaptchaImage.value = res.data.captchaImage || ''
     modalPromptText.value = res.data.promptText || ''
   } catch (err: any) {
-    modalErrorMsg.value = err?.message || '刷新挑战失败'
+    modalErrorMsg.value = err?.message || t('auth.recaptcha_refresh_failed')
   } finally {
     modalLoading.value = false
   }
@@ -268,7 +271,7 @@ async function handleModalSubmit(result: { x?: number; code?: string; userInput?
     emit('change', true)
     emit('success', { token: pendingToken, ticket, metrics: pendingMetrics })
   } catch (err: any) {
-    modalErrorMsg.value = err?.message || '验证失败，请重试'
+    modalErrorMsg.value = err?.message || t('auth.recaptcha_verify_failed')
     handleModalRefresh()
   } finally {
     modalLoading.value = false
@@ -306,7 +309,7 @@ function handleWindowMessage(event: MessageEvent): void {
   }
 
   if (data.type === 'VM_CHALLENGE_ERROR') {
-    const errText = typeof data.error === 'string' ? data.error : '人机身份验证失败'
+    const errText = typeof data.error === 'string' ? data.error : t('auth.recaptcha_failed')
     internalError.value = errText
     emit('update:errorMsg', errText)
     emit('update:modelValue', false)
@@ -322,6 +325,17 @@ watch(effectiveTheme, (newTheme) => {
     theme: newTheme
   })
 })
+
+watch(
+  () => appStore.locale,
+  () => {
+    sendToSandbox({
+      type: 'VM_LOCALE_CHANGE',
+      notRobot: t('auth.recaptcha_not_robot'),
+      verified: t('auth.recaptcha_verified')
+    })
+  }
+)
 
 watch(() => props.passed, (val) => {
   if (!val) {
@@ -363,8 +377,13 @@ defineExpose({
 const sandboxHtml = computed(() => {
   const isDark = effectiveTheme.value === 'dark'
   const htmlClass = isDark ? 'dark' : ''
+  const currentLang = appStore.locale || 'zh-CN'
+  const notRobotLabel = t('auth.recaptcha_not_robot')
+  const privacyLabel = t('common.privacy')
+  const termsLabel = t('common.terms')
+  const verifiedLabel = t('auth.recaptcha_verified')
   return `<!DOCTYPE html>
-<html lang="zh-CN" class="${htmlClass}">
+<html lang="${currentLang}" class="${htmlClass}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -534,15 +553,15 @@ const sandboxHtml = computed(() => {
       <div id="rc-check-box" class="rc-checkbox-wrap">
         <div id="rc-slot"></div>
       </div>
-      <span id="rc-text-label" class="rc-label">我不是机器人</span>
+      <span id="rc-text-label" class="rc-label">${notRobotLabel}</span>
     </div>
     <div class="rc-brand">
       <img src="/r/static/svg/favicon-simple.svg" alt="reCAPTCHA" class="rc-brand-logo" />
       <span class="rc-brand-title">reCAPTCHA</span>
       <div class="rc-brand-legal">
-        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">隐私权</a>
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">${privacyLabel}</a>
         <span>-</span>
-        <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">条款</a>
+        <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">${termsLabel}</a>
       </div>
     </div>
   </div>
@@ -569,6 +588,10 @@ const sandboxHtml = computed(() => {
       var checkBox = document.getElementById('rc-check-box');
       var slotElem = document.getElementById('rc-slot');
       var labelElem = document.getElementById('rc-text-label');
+      var I18N = {
+        notRobot: ${JSON.stringify(notRobotLabel)},
+        verified: ${JSON.stringify(verifiedLabel)}
+      };
 
       function recordLocalMovement(e) {
         state.localPoints.push({
@@ -1022,14 +1045,14 @@ const sandboxHtml = computed(() => {
             state.isVerified = true;
             checkBox.className = 'rc-checkbox-wrap rc-passed';
             slotElem.innerHTML = '<svg class="rc-checkmark-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-            labelElem.textContent = '验证已通过';
+            labelElem.textContent = I18N.verified;
           }
         } else if (msg.type === 'VM_CONFIRM_PASS') {
           state.isVerified = true;
           state.isProcessing = false;
           checkBox.className = 'rc-checkbox-wrap rc-passed';
           slotElem.innerHTML = '<svg class="rc-checkmark-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-          labelElem.textContent = '验证已通过';
+          labelElem.textContent = I18N.verified;
           anchorElem.classList.remove('rc-shake');
         } else if (msg.type === 'VM_THEME_CHANGE') {
           if (msg.theme === 'dark') {
@@ -1048,7 +1071,7 @@ const sandboxHtml = computed(() => {
           state.remotePoints = [];
           checkBox.className = 'rc-checkbox-wrap';
           slotElem.innerHTML = '';
-          labelElem.textContent = '我不是机器人';
+          labelElem.textContent = I18N.notRobot;
           anchorElem.classList.remove('rc-shake');
         } else if (msg.type === 'VM_SET_ERROR') {
           state.isVerified = false;
@@ -1057,11 +1080,19 @@ const sandboxHtml = computed(() => {
           state.remotePoints = [];
           checkBox.className = 'rc-checkbox-wrap';
           slotElem.innerHTML = '';
-          labelElem.textContent = '我不是机器人';
+          labelElem.textContent = I18N.notRobot;
           anchorElem.classList.add('rc-shake');
           setTimeout(function() {
             anchorElem.classList.remove('rc-shake');
           }, 500);
+        } else if (msg.type === 'VM_LOCALE_CHANGE') {
+          if (msg.notRobot) I18N.notRobot = msg.notRobot;
+          if (msg.verified) I18N.verified = msg.verified;
+          if (state.isVerified) {
+            labelElem.textContent = I18N.verified;
+          } else if (!state.isProcessing) {
+            labelElem.textContent = I18N.notRobot;
+          }
         }
       });
     })();

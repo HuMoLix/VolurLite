@@ -68,6 +68,7 @@ export function getNamespacesForRoute(routePath: string): LocaleNamespace[] {
   if (
     routePath.startsWith('/v1/signin') ||
     routePath.startsWith('/v1/signup') ||
+    routePath.startsWith('/v1/recovery') ||
     routePath.startsWith('/v1/info') ||
     routePath.startsWith('/accounts')
   ) {

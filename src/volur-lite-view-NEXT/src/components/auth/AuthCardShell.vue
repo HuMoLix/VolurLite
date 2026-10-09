@@ -17,7 +17,9 @@
 </template>
 
 <script setup lang="ts">
-import { watchEffect } from 'vue'
+import { computed, watchEffect } from 'vue'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { provideCardHeader } from '@/composables/useCardHeader'
 
 defineOptions({
@@ -34,14 +36,31 @@ const props = withDefaults(defineProps<Props>(), {
   subtitle: ''
 })
 
+const route = useRoute()
+const { t } = useI18n()
+
+const effectiveTitle = computed(() => {
+  if (props.title) return props.title
+  if (route.meta?.cardTitleKey) return t(route.meta.cardTitleKey as string)
+  if (route.meta?.cardTitle) return route.meta.cardTitle
+  return ''
+})
+
+const effectiveSubtitle = computed(() => {
+  if (props.subtitle) return props.subtitle
+  if (route.meta?.cardSubtitleKey) return t(route.meta.cardSubtitleKey as string)
+  if (route.meta?.cardSubtitle) return route.meta.cardSubtitle
+  return ''
+})
+
 const { title: cardTitle, subtitle: cardSubtitle, setHeader } = provideCardHeader(
-  () => props.title,
-  () => props.subtitle
+  () => effectiveTitle.value,
+  () => effectiveSubtitle.value
 )
 
 watchEffect(() => {
-  if (props.title || props.subtitle) {
-    setHeader(props.title, props.subtitle)
+  if (effectiveTitle.value || effectiveSubtitle.value) {
+    setHeader(effectiveTitle.value, effectiveSubtitle.value)
   }
 })
 </script>

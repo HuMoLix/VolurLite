@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { routes } from './router'
 import { isDshExpired, buildSessionExpireLocation } from '@/utils/flow'
 import { useAppStore } from '@/store/modules/app'
-import { normalizeLocale, loadLocaleForRouteAsync } from '@/i18n'
+import { normalizeLocale, loadLocaleForRouteAsync, i18n } from '@/i18n'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -13,10 +13,6 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  if (to.meta.title && typeof document !== 'undefined') {
-    document.title = `${to.meta.title}`
-  }
-
   const appStore = useAppStore()
   if (to.query.lang) {
     const rawLang = Array.isArray(to.query.lang) ? to.query.lang[0] : to.query.lang
@@ -29,6 +25,14 @@ router.beforeEach(async (to) => {
   try {
     await loadLocaleForRouteAsync(appStore.locale, to.path)
   } catch {}
+
+  if (typeof document !== 'undefined') {
+    if (to.meta.titleKey) {
+      document.title = `${(i18n.global as any).t(to.meta.titleKey)}`
+    } else if (to.meta.title) {
+      document.title = `${to.meta.title}`
+    }
+  }
 
   if (to.path !== '/v1/info/sessionexpire') {
     const dshParam = typeof to.query.dsh === 'string' ? to.query.dsh : ''

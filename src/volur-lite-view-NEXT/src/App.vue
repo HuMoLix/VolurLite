@@ -29,8 +29,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, watchEffect } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import {
   NConfigProvider,
   NLoadingBarProvider,
@@ -56,6 +57,17 @@ import { refreshTokenApi } from '@/api/auth'
 const appStore = useAppStore()
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
+
+watchEffect(() => {
+  if (typeof document === 'undefined') return
+  const titleKey = route.meta?.titleKey as string | undefined
+  if (titleKey) {
+    document.title = `${t(titleKey)}`
+  } else if (route.meta?.title) {
+    document.title = `${route.meta.title}`
+  }
+})
 
 let tokenRefreshTimer: ReturnType<typeof setInterval> | null = null
 let isTokenRenewing = false
