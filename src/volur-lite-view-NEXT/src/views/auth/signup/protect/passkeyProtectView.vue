@@ -33,52 +33,27 @@
       </div>
     </div>
 
-    <div class="flex items-center justify-end gap-2.5 pt-6 sm:pt-8">
-      <n-button
-        quaternary
-        type="primary"
-        :round="true"
-        class="auth-action-btn btn-secondary-action"
-        :disabled="loading || isRegistering"
-        :isScrim="true"
-        @click="handleBackOptions"
-      >
-        {{ passkeyRegistered ? t('auth.back_options') : t('auth.later') }}
-      </n-button>
-      <n-button
-        v-if="!passkeyRegistered"
-        type="primary"
-        class="auth-action-btn btn-primary-action"
-        :disabled="loading || isRegistering"
-        :loading="isRegistering"
-        :isScrim="true"
-        @click="handleCreatePasskey"
-      >
-        {{ t('auth.create_passkey') }}
-      </n-button>
-      <n-button
-        v-else
-        type="primary"
-        class="auth-action-btn btn-primary-action"
-        :disabled="loading"
-        :isScrim="true"
-        @click="handleFinish"
-      >
-        {{ t('common.next') }}
-      </n-button>
-    </div>
+    <AuthActionBar
+      :primary-text="passkeyRegistered ? t('common.next') : t('auth.create_passkey')"
+      :secondary-text="passkeyRegistered ? t('auth.back_options') : t('auth.later')"
+      :primary-disabled="loading || isRegistering"
+      :secondary-disabled="loading || isRegistering"
+      :primary-loading="isRegistering"
+      @primary="passkeyRegistered ? handleFinish() : handleCreatePasskey()"
+      @secondary="handleBackOptions"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { fetchPasskeyCreationOptionsApi, submitPasskeyRegisterApi } from '@/api/auth'
 import type { PasskeyRegisterRequestDTO, PasskeyCreationOptionsVO } from '@/types/auth/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
+import { AuthActionBar } from '@/components/auth'
 
 defineOptions({
   name: 'PasskeyProtectView'
@@ -323,167 +298,3 @@ async function handleFinish() {
   await router.push(redirect)
 }
 </script>
-
-<style scoped lang="scss">
-.auth-action-btn {
-  height: 36px !important;
-  min-width: 88px !important;
-  padding: 0 16px !important;
-  border-radius: 9999px !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  box-sizing: border-box;
-}
-
-.btn-secondary-action {
-  color: #0b57d0 !important;
-  background-color: transparent !important;
-  border: none !important;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  outline: none;
-  user-select: none;
-
-  :deep(.n-button__content),
-  .n-button__content {
-    color: #0b57d0 !important;
-  }
-
-  :deep(.n-button__state-border) {
-    border: none !important;
-  }
-
-  &:hover:not(:disabled) {
-    background-color: rgba(11, 87, 208, 0.08) !important;
-    color: #0b57d0 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #0b57d0 !important;
-    }
-  }
-
-  &:active:not(:disabled) {
-    background-color: rgba(11, 87, 208, 0.16) !important;
-  }
-
-  &:disabled,
-  &.n-button--disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-}
-
-:global(html.dark) .btn-secondary-action {
-  color: #8ab4f8 !important;
-
-  :deep(.n-button__content),
-  .n-button__content {
-    color: #8ab4f8 !important;
-  }
-
-  &:hover:not(:disabled) {
-    background-color: rgba(138, 180, 248, 0.12) !important;
-    color: #8ab4f8 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #8ab4f8 !important;
-    }
-  }
-
-  &:active:not(:disabled) {
-    background-color: rgba(138, 180, 248, 0.2) !important;
-  }
-
-  &:disabled,
-  &.n-button--disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-}
-
-.btn-primary-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #0b57d0 !important;
-  color: #ffffff !important;
-  border: none !important;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  outline: none;
-  user-select: none;
-
-  :deep(.n-button__content),
-  .n-button__content {
-    color: #ffffff !important;
-  }
-
-  :deep(.n-button__state-border) {
-    border: none !important;
-  }
-
-  &:hover {
-    background-color: #0842a0 !important;
-    color: #ffffff !important;
-    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #ffffff !important;
-    }
-  }
-
-  &:active {
-    background-color: #063980 !important;
-    color: #ffffff !important;
-    transform: scale(0.98);
-    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3);
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #ffffff !important;
-    }
-  }
-
-  &:focus,
-  &:focus-visible {
-    background-color: #0b57d0 !important;
-    color: #ffffff !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #ffffff !important;
-    }
-  }
-}
-
-:global(html.dark) .btn-primary-action {
-  background-color: #8ab4f8 !important;
-  color: #202124 !important;
-
-  :deep(.n-button__content),
-  .n-button__content {
-    color: #202124 !important;
-  }
-
-  &:hover {
-    background-color: #aecbfa !important;
-    color: #202124 !important;
-  }
-
-  &:active {
-    background-color: #669df6 !important;
-    color: #202124 !important;
-    transform: scale(0.98);
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #202124 !important;
-    }
-  }
-}
-</style>

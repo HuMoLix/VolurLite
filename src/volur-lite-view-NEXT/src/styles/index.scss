@@ -2,6 +2,7 @@
 @use './mixins.scss';
 @use './tailwind.css';
 @use './auth-list.scss';
+@use './buttons.scss';
 
 :root,
 [data-theme='light'] {

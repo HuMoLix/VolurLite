@@ -1,44 +1,33 @@
 <template>
-  <div class="auth-card__body">
-    <div class="auth-card__left">
-      <h1 class="auth-card__title">{{ t('auth.session_expired') }}</h1>
-      <p class="auth-card__subtitle">{{ t('auth.session_expired_subtitle') }}</p>
+  <AuthCardShell
+    :title="t('auth.session_expired')"
+    :subtitle="t('auth.session_expired_subtitle')"
+  >
+    <div class="flex flex-col text-left py-4">
+      <p class="text-sm text-google-text-muted dark:text-google-text-darkMuted leading-relaxed max-w-sm mb-6">
+        {{ t('auth.session_expired_tip') }}
+      </p>
     </div>
 
-    <div class="auth-card__right">
-      <div class="auth-form-content w-full h-full flex flex-col justify-between">
-        <div class="flex flex-col text-left py-4">
-          <p class="text-sm text-google-text-muted dark:text-google-text-darkMuted leading-relaxed max-w-sm mb-6">
-            {{ t('auth.session_expired_tip') }}
-          </p>
-        </div>
-
-        <div class="flex items-center justify-end pt-6 sm:pt-8">
-          <n-button
-            type="primary"
-            class="auth-action-btn btn-primary-action btn-next-step"
-            :disabled="loading"
-            :isScrim="true"
-            @click="handleRetry"
-          >
-            {{ t('common.retry') }}
-          </n-button>
-        </div>
-      </div>
-    </div>
-  </div>
+    <AuthActionBar
+      :primary-text="t('common.retry')"
+      :primary-disabled="loading"
+      :show-secondary="false"
+      @primary="handleRetry"
+    />
+  </AuthCardShell>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useSigninFlowStore, useSignupFlowStore } from '@/store/modules/flow'
+import { AuthCardShell, AuthActionBar } from '@/components/auth'
+
 defineOptions({
   name: 'SessionExpireView'
 })
-
-import { computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { NButton } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
-import { useSigninFlowStore, useSignupFlowStore } from '@/store/modules/flow'
 
 const { t } = useI18n()
 
@@ -115,101 +104,3 @@ async function handleRetry() {
   await router.push(target)
 }
 </script>
-
-<style scoped lang="scss">
-.auth-action-btn {
-  height: 36px !important;
-  min-width: 88px !important;
-  padding: 0 16px !important;
-  border-radius: 9999px !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  box-sizing: border-box;
-}
-
-.btn-primary-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #0b57d0 !important;
-  color: #ffffff !important;
-  border: none !important;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  outline: none;
-  user-select: none;
-
-  :deep(.n-button__content),
-  .n-button__content {
-    color: #ffffff !important;
-  }
-
-  :deep(.n-button__state-border) {
-    border: none !important;
-  }
-
-  &:hover {
-    background-color: #0842a0 !important;
-    color: #ffffff !important;
-    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #ffffff !important;
-    }
-  }
-
-  &:active {
-    background-color: #063980 !important;
-    color: #ffffff !important;
-    transform: scale(0.98);
-    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3);
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #ffffff !important;
-    }
-  }
-
-  &:focus,
-  &:focus-visible {
-    background-color: #0b57d0 !important;
-    color: #ffffff !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #ffffff !important;
-    }
-  }
-}
-
-:global(html.dark) .btn-primary-action {
-  background-color: #8ab4f8 !important;
-  color: #202124 !important;
-
-  :deep(.n-button__content),
-  .n-button__content {
-    color: #202124 !important;
-  }
-
-  &:hover {
-    background-color: #aecbfa !important;
-    color: #202124 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #202124 !important;
-    }
-  }
-
-  &:active {
-    background-color: #669df6 !important;
-    color: #202124 !important;
-    transform: scale(0.98);
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #202124 !important;
-    }
-  }
-}
-</style>

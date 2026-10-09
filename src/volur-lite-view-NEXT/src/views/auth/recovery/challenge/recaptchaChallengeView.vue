@@ -17,41 +17,28 @@
       />
     </div>
 
-    <div class="flex items-center justify-end gap-2.5 pt-6 sm:pt-8">
-      <n-button
-        quaternary
-        type="primary"
-        :round="true"
-        class="auth-action-btn btn-secondary-action"
-        :disabled="loading || isSubmitting"
-        :isScrim="true"
-        @click="handleBackToSelection"
-      >
-        {{ t('common.back') }}
-      </n-button>
-      <n-button
-        type="primary"
-        class="auth-action-btn btn-primary-action"
-        :loading="isSubmitting"
-        :disabled="loading || isSubmitting"
-        :isScrim="true"
-        @click="handleVerifyChallenge"
-      >
-        {{ t('auth.next') }}
-      </n-button>
-    </div>
+    <AuthActionBar
+      :primary-text="t('auth.next')"
+      :secondary-text="t('common.back')"
+      :primary-disabled="loading || isSubmitting"
+      :secondary-disabled="loading || isSubmitting"
+      :primary-loading="isSubmitting"
+      @primary="handleVerifyChallenge"
+      @secondary="handleBackToSelection"
+    />
   </form>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { NButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import Recaptcha from '@/components/security/recaptcha.vue'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { submitRecaptchaChallengeApi } from '@/api/captcha'
 import { useCardHeader } from '@/composables/useCardHeader'
+import { AuthActionBar } from '@/components/auth'
+import { useFormError } from '@/composables/useFormError'
 
 defineOptions({
   name: 'RecaptchaChallengeView'
@@ -67,29 +54,10 @@ const signinFlowStore = useSigninFlowStore()
 const isRecaptchaPassed = ref(false)
 const recaptToken = ref('')
 const recaptTicket = ref('')
-const recaptchaErrorKey = ref('')
-const rawRecaptchaError = ref('')
 const isSubmitting = ref(false)
-
-const recaptchaError = computed(() => {
-  if (recaptchaErrorKey.value) {
-    return t(recaptchaErrorKey.value)
-  }
-  return rawRecaptchaError.value
-})
-
-function clearRecaptchaError(): void {
-  recaptchaErrorKey.value = ''
-  rawRecaptchaError.value = ''
-}
-
 const loading = computed(() => signinFlowStore.loading)
 
-watch(isRecaptchaPassed, (val) => {
-  if (val && (recaptchaErrorKey.value || rawRecaptchaError.value)) {
-    clearRecaptchaError()
-  }
-})
+const { errorMsg: recaptchaError, clearError: clearRecaptchaError, setErrorKey: setRecaptchaErrorKey, setRawError: setRawRecaptchaError } = useFormError(isRecaptchaPassed)
 
 onMounted(() => {
   signinFlowStore.ensureFlowParams(route, router)
@@ -103,11 +71,9 @@ function handleRecaptchaSuccess(payload: { token: string; ticket: string }): voi
 
 function handleRecaptchaError(err: string): void {
   if (err) {
-    rawRecaptchaError.value = err
-    recaptchaErrorKey.value = ''
+    setRawRecaptchaError(err)
   } else {
-    recaptchaErrorKey.value = 'auth.recaptcha_failed'
-    rawRecaptchaError.value = ''
+    setRecaptchaErrorKey('auth.recaptcha_failed')
   }
 }
 
@@ -124,8 +90,7 @@ async function handleBackToSelection(): Promise<void> {
 async function handleVerifyChallenge(): Promise<void> {
   if (loading.value || isSubmitting.value) return
   if (!isRecaptchaPassed.value || !recaptTicket.value) {
-    recaptchaErrorKey.value = 'auth.recaptcha_required'
-    rawRecaptchaError.value = ''
+    setRecaptchaErrorKey('auth.recaptcha_required')
     return
   }
 
@@ -170,132 +135,12 @@ async function handleVerifyChallenge(): Promise<void> {
     }
   } catch (err: any) {
     if (err?.message) {
-      rawRecaptchaError.value = err.message
-      recaptchaErrorKey.value = ''
+      setRawRecaptchaError(err.message)
     } else {
-      recaptchaErrorKey.value = 'auth.recaptcha_failed'
-      rawRecaptchaError.value = ''
+      setRecaptchaErrorKey('auth.recaptcha_failed')
     }
   } finally {
     isSubmitting.value = false
   }
 }
 </script>
-
-<style scoped lang="scss">
-.auth-action-btn {
-  height: 36px !important;
-  min-width: 88px !important;
-  padding: 0 16px !important;
-  border-radius: 9999px !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  box-sizing: border-box;
-  cursor: pointer;
-}
-
-.btn-secondary-action {
-  color: #0b57d0 !important;
-  background-color: transparent !important;
-  border: none !important;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  outline: none;
-  user-select: none;
-
-  :deep(.n-button__content),
-  .n-button__content {
-    color: #0b57d0 !important;
-  }
-
-  :deep(.n-button__state-border) {
-    border: none !important;
-  }
-
-  &:hover:not(:disabled) {
-    background-color: rgba(11, 87, 208, 0.08) !important;
-    color: #0b57d0 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #0b57d0 !important;
-    }
-  }
-
-  &:active:not(:disabled) {
-    background-color: rgba(11, 87, 208, 0.16) !important;
-    color: #0b57d0 !important;
-  }
-
-  &:disabled,
-  &.n-button--disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-}
-
-.btn-primary-action {
-  background-color: #0b57d0 !important;
-  color: #ffffff !important;
-  border: none !important;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  outline: none;
-  user-select: none;
-
-  &:hover:not(:disabled) {
-    background-color: #0842a0 !important;
-    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
-  }
-
-  &:active:not(:disabled) {
-    background-color: #0b57d0 !important;
-  }
-
-  &:disabled,
-  &.n-button--disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-}
-
-:global(.dark) .btn-secondary-action {
-  color: #8ab4f8 !important;
-
-  :deep(.n-button__content),
-  .n-button__content {
-    color: #8ab4f8 !important;
-  }
-
-  &:hover:not(:disabled) {
-    background-color: rgba(138, 180, 248, 0.12) !important;
-    color: #8ab4f8 !important;
-
-    :deep(.n-button__content),
-    .n-button__content {
-      color: #8ab4f8 !important;
-    }
-  }
-
-  &:disabled,
-  &.n-button--disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-}
-
-:global(.dark) .btn-primary-action {
-  background-color: #8ab4f8 !important;
-  color: #041e49 !important;
-
-  &:hover:not(:disabled) {
-    background-color: #aecbfa !important;
-  }
-}
-</style>
