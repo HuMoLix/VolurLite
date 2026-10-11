@@ -28,8 +28,8 @@ Volur Lite NEXT 全面弃用过往纯冷黑硬切风格，深度对齐 **Google 
 
 | 语义角色 | 亮色模式 (Light Mode) | 暗色模式 (Google Dark Mode) | 场景与说明 |
 | :--- | :--- | :--- | :--- |
-| **Primary (Google Blue)** | `#1a73e8` (Google Blue 600) | `#8ab4f8` (Google Blue 200) | 核心主色、主要操作按钮、激活菜单项、焦点边框 |
-| **Primary Hover** | `#1765cc` | `#aecbfa` | 主色悬停态 |
+| **Primary (Google Blue)** | `#1a73e8` (Google Blue 600) | `#a8c7fa` (Google Blue 100/200) | 核心主色、主要操作按钮、激活菜单项、焦点边框 |
+| **Primary Hover** | `#1765cc` | `#b6d0f8` | 主色悬停态 |
 | **Primary Active** | `#1557b0` | `#669df6` | 主色按下态 |
 | **Success (Google Green)** | `#34a853` (Google Green 600) | `#81c995` (Google Green 200) | 挑战通过、评测成功、安全状态徽章 |
 | **Warning (Google Yellow)** | `#fbbc04` (Google Yellow 600) | `#fdd663` (Google Yellow 200) | 风险警告、未提交提示、临时通知 |
@@ -49,21 +49,25 @@ Volur Lite NEXT 全面弃用过往纯冷黑硬切风格，深度对齐 **Google 
 - **弱化文本 (Disabled / Muted)**：`#80868b` (Google Gray 500)。
 
 #### 暗色模式 (Google Dark Workspace)
-- **基底背景 (Page Base)**：`#202124` (Google Dark 900，沉浸深灰黑，非压抑死黑)；
+- **基底背景 (Page Base)**：`#1e1f20` (Google Material 3 Dark Surface Container)；
 - **认证/容器表面 (Surface Container / `sys-color-surface-container-dark`)**：`#1e1f20` (Material 3 Dark Surface Container)；
-- **卡片/容器表面 (Surface Card)**：`#292a2d` (Google Dark 800)；
+- **卡片/容器表面 (Surface Card)**：`#0e0e0e` (深黑卡片表面)；
 - **次级/浮层卡片 (Elevated Surface)**：`#303134` (Google Dark 700)；
 - **边框与分割线 (Borders & Dividers)**：`#3c4043` (Google Dark 600)；
-- **主要文本 (Primary Text)**：`#e8eaed` (高对比柔和灰白)；
+- **主要文本 (Primary Text)**：`#e3e3e3` (高对比柔和灰白)；
 - **次级描述文本 (Description Text)**：`#bdc1c6` (次级信息清晰易读)；
+- **认证页底栏文本 (Footer Links & Meta)**：`#e8eaed`；
 - **弱化文本 (Disabled / Muted)**：`#9aa0a6`。
 
 ### 2.3 按钮与组件视觉约束
 1. **主要操作按钮**：
    - 亮色模式：采用 Google Blue `#1a73e8` 底色，搭配纯白文本，`border-radius: 8px` 至 `9999px`（支持 Pill 药丸按钮）；
-   - 暗色模式：采用 Google Blue `#8ab4f8` 底色，搭配深色 `#202124` 文本，确保在暗色环境下保持顶级反差与视觉醒目；
-2. **文本颜色铁律**：严禁在正文中使用刺眼的全黑 `#000000`；所有描述文本、副标题与表单 label 统一采用 Google Gray 体系（`#3c4043` / `#5f6368`，暗色 `#bdc1c6`）；
-3. **全局控制器定位**：中英文多语言切换与夜间/亮色主题切换按钮继续固定在页面视口左下角（`bottom: 20px; left: 20px; z-index: 1000;`）。
+   - 暗色模式：采用 Google Blue `#a8c7fa` 底色，搭配深色 `#062e6f` 文本，hover 态背景为 `#b6d0f8`，确保在暗色环境下保持顶级反差与视觉醒目；
+2. **次要操作按钮**：
+   - 亮色模式：采用透明底色，搭配 Google Blue `#0b57d0` 文本，hover 态展示浅色背景；
+   - 暗色模式：采用文本色 `#a8c7fa`，hover 态背景为 `#141517`；
+3. **文本颜色铁律**：严禁在正文中使用刺眼的全黑 `#000000`；所有描述文本、副标题与表单 label 统一采用 Google Gray 体系（`#3c4043` / `#5f6368`，暗色 `#bdc1c6`）；
+4. **全局控制器定位**：中英文多语言切换与夜间/亮色主题切换按钮继续固定在页面视口左下角（`bottom: 20px; left: 20px; z-index: 1000;`）。
 
 ---
 
@@ -219,11 +223,11 @@ body {
 }
 
 html.dark {
-  --v-bg-base: #202124;
-  --v-bg-card: #292a2d;
-  --v-text-primary: #e8eaed;
+  --v-bg-base: #1e1f20;
+  --v-bg-card: #0e0e0e;
+  --v-text-primary: #e3e3e3;
   --v-text-desc: #bdc1c6;
-  --v-color-primary: #8ab4f8;
+  --v-color-primary: #a8c7fa;
   --v-border-base: #3c4043;
 }
 ```

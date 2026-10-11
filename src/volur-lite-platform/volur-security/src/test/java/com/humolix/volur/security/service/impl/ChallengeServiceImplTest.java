@@ -1,10 +1,8 @@
 package com.humolix.volur.security.service.impl;
 
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.security.domain.dto.ChallengeSelectRequestDTO;
 import com.humolix.volur.security.domain.dto.EmailOTPChallengeRequestDTO;
-import com.humolix.volur.security.domain.dto.PasswordChallengeRequestDTO;
 import com.humolix.volur.security.domain.dto.ReCAPTCHAChallengeSubmitDTO;
 import com.humolix.volur.security.domain.session.RequestDeviceParams;
 import com.humolix.volur.security.domain.vo.ChallengeOptionVO;
@@ -19,7 +17,6 @@ import com.humolix.volur.security.session.domain.Session;
 import com.humolix.volur.security.session.validator.SessionDeviceBaselineValidator;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
-import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.user.service.UserTrustedDeviceService;
 import com.humolix.volur.verification.service.EmailService;
@@ -54,7 +51,6 @@ class ChallengeServiceImplTest {
     private RecaptchaService recaptchaService;
     private FlowCryptoService flowCryptoService;
     private PasskeyService passkeyService;
-    private Sm3PasswordEncoder passwordEncoder;
     private RiskEvaluationEngine riskEvaluationEngine;
     private SystemSettingService systemSettingService;
     private StringRedisTemplate redisTemplate;
@@ -77,7 +73,6 @@ class ChallengeServiceImplTest {
         recaptchaService = Mockito.mock(RecaptchaService.class);
         flowCryptoService = Mockito.mock(FlowCryptoService.class);
         passkeyService = Mockito.mock(PasskeyService.class);
-        passwordEncoder = Mockito.mock(Sm3PasswordEncoder.class);
         riskEvaluationEngine = Mockito.mock(RiskEvaluationEngine.class);
         systemSettingService = Mockito.mock(SystemSettingService.class);
         redisTemplate = Mockito.mock(StringRedisTemplate.class);
@@ -95,7 +90,6 @@ class ChallengeServiceImplTest {
                 recaptchaService,
                 flowCryptoService,
                 passkeyService,
-                passwordEncoder,
                 riskEvaluationEngine,
                 systemSettingService,
                 redisTemplate
@@ -133,80 +127,6 @@ class ChallengeServiceImplTest {
         Assertions.assertEquals("ADG-PWD_TICKET", response.getTl());
     }
 
-    @Test
-    void verifyPassword_success_trustedDevice_shouldAdvanceToAuthenticate() {
-        PasswordChallengeRequestDTO request = new PasswordChallengeRequestDTO();
-        request.setDsh("S-100200300:1790000000");
-        request.setTl("ADG-PWD_TICKET");
-        request.setCid(1);
-        request.setPassword("correct_password");
-
-        Session session = Session.builder()
-                .dsh(request.getDsh())
-                .flow(Flow.builder().identifier("validuser").currentStep("pwd").cid(1).build())
-                .requestDeviceParams(RequestDeviceParams.of("127.0.0.1", "fp_sample_123"))
-                .build();
-
-        User mockUser = new User();
-        mockUser.setId(1001L);
-        mockUser.setUsername("validuser");
-        mockUser.setPassword("encodedPassword");
-        mockUser.setStatus(true);
-        mockUser.setRole(UserRole.USER);
-        mockUser.setEmail("valid@example.com");
-
-        given(sessionManager.getSession(request.getDsh())).willReturn(session);
-        given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
-        given(passwordEncoder.matches("correct_password", "encodedPassword")).willReturn(true);
-        given(userTrustedDeviceService.isTrustedDevice(eq(1001L), anyString())).willReturn(true);
-        given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(2), eq("authenticate"), eq("validuser")))
-                .willReturn("ADG-AUTH_TICKET");
-
-        FlowResponseVO response = challengeService.verifyPassword(request);
-
-        Assertions.assertNotNull(response);
-        Assertions.assertEquals("authenticate", response.getNextStep());
-        Assertions.assertEquals(2, response.getCid());
-        Assertions.assertEquals("ADG-AUTH_TICKET", response.getTl());
-    }
-
-    @Test
-    void verifyPassword_untrustedDevice_shouldTriggerEtotp() {
-        PasswordChallengeRequestDTO request = new PasswordChallengeRequestDTO();
-        request.setDsh("S-100200300:1790000000");
-        request.setTl("ADG-PWD_TICKET");
-        request.setCid(1);
-        request.setPassword("correct_password");
-
-        Session session = Session.builder()
-                .dsh(request.getDsh())
-                .flow(Flow.builder().identifier("validuser").currentStep("pwd").cid(1).build())
-                .requestDeviceParams(RequestDeviceParams.of("127.0.0.1", "fp_sample_123"))
-                .build();
-
-        User mockUser = new User();
-        mockUser.setId(1001L);
-        mockUser.setUsername("validuser");
-        mockUser.setPassword("encodedPassword");
-        mockUser.setStatus(true);
-        mockUser.setRole(UserRole.USER);
-        mockUser.setEmail("valid@example.com");
-
-        given(sessionManager.getSession(request.getDsh())).willReturn(session);
-        given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
-        given(passwordEncoder.matches("correct_password", "encodedPassword")).willReturn(true);
-        given(userTrustedDeviceService.isTrustedDevice(eq(1001L), anyString())).willReturn(false);
-        given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(2), eq("etotp"), eq("validuser")))
-                .willReturn("ADG-ETOTP_TICKET");
-
-        FlowResponseVO response = challengeService.verifyPassword(request);
-
-        Assertions.assertNotNull(response);
-        Assertions.assertEquals("etotp", response.getNextStep());
-        Assertions.assertEquals(2, response.getCid());
-        Assertions.assertEquals("ADG-ETOTP_TICKET", response.getTl());
-        verify(emailService).sendVerificationEmail(eq("valid@example.com"), eq("validuser"), eq(true));
-    }
 
     @Test
     void verifyEmailOTP_success_shouldAdvanceToAuthenticate() {

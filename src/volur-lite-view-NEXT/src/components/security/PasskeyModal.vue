@@ -82,7 +82,6 @@
             <n-button
               type="primary"
               class="auth-action-btn btn-next-step"
-              :loading="isScrimLoading && activeAction === 'primary'"
               :disabled="isScrimLoading"
               :isScrim="true"
               @click="handlePrimaryAction"
@@ -156,7 +155,6 @@ const errorKey = ref('')
 const rawErrorMsg = ref('')
 
 const isScrimLoading = ref(false)
-const activeAction = ref<'close' | 'other' | 'primary' | null>(null)
 
 const displayTitle = computed(() => {
   if (props.title) return props.title
@@ -213,14 +211,12 @@ async function runWithScrim(action: () => Promise<void> | void): Promise<void> {
       await new Promise(resolve => setTimeout(resolve, 1000 - elapsed))
     }
     isScrimLoading.value = false
-    activeAction.value = null
   }
 }
 
 async function handleClose(): Promise<void> {
   if (isScrimLoading.value) return
   clearError()
-  activeAction.value = 'close'
   await runWithScrim(async () => {
     emit('update:visible', false)
     emit('close')
@@ -231,7 +227,6 @@ async function handleClose(): Promise<void> {
 async function handleOtherDevice(): Promise<void> {
   if (isScrimLoading.value) return
   clearError()
-  activeAction.value = 'other'
   await runWithScrim(async () => {
     try {
       if (props.mode === 'create') {
@@ -256,7 +251,6 @@ async function handleOtherDevice(): Promise<void> {
 async function handlePrimaryAction(): Promise<void> {
   if (isScrimLoading.value) return
   clearError()
-  activeAction.value = 'primary'
   await runWithScrim(async () => {
     try {
       if (props.mode === 'create') {
@@ -318,7 +312,7 @@ function handlePasskeyCancel(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(32, 33, 36, 0.6);
+  background-color: rgba(0, 0, 0, 0.6);
   padding: 16px;
   backdrop-filter: blur(2px);
 }
@@ -342,7 +336,7 @@ function handlePasskeyCancel(): void {
   }
 }
 
-:global(.dark) .passkey-modal-card {
+html.dark .passkey-modal-card {
   background-color: #282a2d;
   box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.4), 0 8px 16px -8px rgba(0, 0, 0, 0.3);
 }
@@ -428,7 +422,7 @@ function handlePasskeyCancel(): void {
   }
 }
 
-:global(.dark) .passkey-modal__progress {
+html.dark .passkey-modal__progress {
   &-track {
     background-color: #29384d;
   }
@@ -449,8 +443,8 @@ function handlePasskeyCancel(): void {
   transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-:global(.dark) .passkey-modal__blocker {
-  background-color: rgba(40, 42, 45, 0.6);
+html.dark .passkey-modal__blocker {
+  background-color: rgba(0, 0, 0, 0.6);
 }
 
 @keyframes mdc-linear-progress-primary-indeterminate-translate {
@@ -535,7 +529,7 @@ function handlePasskeyCancel(): void {
   margin: 0;
 }
 
-:global(.dark) .passkey-modal-title {
+html.dark .passkey-modal-title {
   color: #e8eaed;
 }
 
@@ -571,7 +565,7 @@ function handlePasskeyCancel(): void {
   margin: 0;
 }
 
-:global(.dark) .passkey-modal-description {
+html.dark .passkey-modal-description {
   color: #c4c7c5;
 }
 
@@ -585,12 +579,15 @@ function handlePasskeyCancel(): void {
   color: #b3261e;
 }
 
-:global(.dark) .passkey-modal-error {
+html.dark .passkey-modal-error {
   color: #f28b82;
 }
 
 .passkey-modal-footer {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
 }
 </style>

@@ -28,6 +28,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSignupFlowStore } from '@/store/modules/flow'
+import { useUserStore } from '@/store/modules/user'
 import { fetchSignUpOptionsApi } from '@/api/auth'
 import type { SignUpOptionVO } from '@/types/auth/flow'
 import { useCardHeader } from '@/composables/useCardHeader'
@@ -96,6 +97,15 @@ async function handleSkip() {
   if (signupFlowStore.loading) return
   const redirect = signupFlowStore.continueUrl || '/competitions'
   await signupFlowStore.triggerScrim(undefined, 1000)
+  if (signupFlowStore.username) {
+    const userStore = useUserStore()
+    userStore.setAuthenticatedUser({
+      identifier: signupFlowStore.username,
+      username: signupFlowStore.username,
+      email: signupFlowStore.email
+    })
+    userStore.fetchCurrentUser(true).catch(() => {})
+  }
   signupFlowStore.resetFlow()
   await router.push(redirect)
 }
@@ -104,6 +114,15 @@ async function handleContinue() {
   if (signupFlowStore.loading) return
   const redirect = signupFlowStore.continueUrl || '/competitions'
   await signupFlowStore.triggerScrim(undefined, 1000)
+  if (signupFlowStore.username) {
+    const userStore = useUserStore()
+    userStore.setAuthenticatedUser({
+      identifier: signupFlowStore.username,
+      username: signupFlowStore.username,
+      email: signupFlowStore.email
+    })
+    userStore.fetchCurrentUser(true).catch(() => {})
+  }
   signupFlowStore.resetFlow()
   await router.push(redirect)
 }

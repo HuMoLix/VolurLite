@@ -118,29 +118,29 @@ body.dark {
   .btn-primary-action,
   .btn-next-step,
   .btn-verify-action {
-    background-color: #8ab4f8 !important;
-    color: #202124 !important;
+    background-color: #a8c7fa !important;
+    color: #062e6f !important;
 
     .n-button__content {
-      color: #202124 !important;
+      color: #062e6f !important;
     }
 
     &:hover {
-      background-color: #aecbfa !important;
-      color: #202124 !important;
+      background-color: #b6d0f8 !important;
+      color: #062e6f !important;
 
       .n-button__content {
-        color: #202124 !important;
+        color: #062e6f !important;
       }
     }
 
     &:active {
-      background-color: #669df6 !important;
-      color: #202124 !important;
+      background-color: #a8c7fa !important;
+      color: #062e6f !important;
       transform: scale(0.98);
 
       .n-button__content {
-        color: #202124 !important;
+        color: #062e6f !important;
       }
     }
 
@@ -156,29 +156,35 @@ body.dark {
   .btn-try-another-way,
   .btn-signin-instead,
   .btn-remove-account {
-    color: #8ab4f8 !important;
+    color: #a8c7fa !important;
 
     .n-button__content {
-      color: #8ab4f8 !important;
+      color: #a8c7fa !important;
     }
 
     &:hover:not(:disabled) {
-      background-color: rgba(138, 180, 248, 0.12) !important;
-      color: #8ab4f8 !important;
+      background-color: #141517 !important;
+      color: #a8c7fa !important;
 
       .n-button__content {
-        color: #8ab4f8 !important;
+        color: #a8c7fa !important;
       }
     }
 
     &:active:not(:disabled) {
-      background-color: rgba(138, 180, 248, 0.2) !important;
+      background-color: #141517 !important;
     }
 
     &:disabled,
     &.n-button--disabled {
       cursor: not-allowed;
       opacity: 0.38;
+      background: transparent !important;
+      color: #a8c7fa !important;
+
+      .n-button__content {
+        color: #a8c7fa !important;
+      }
     }
   }
 }
@@ -210,11 +216,11 @@ body.dark {
 html.dark .auth-forgot-link,
 body.dark .auth-forgot-link {
   background-color: transparent !important;
-  color: #8ab4f8 !important;
+  color: #a8c7fa !important;
 
   &:hover {
-    background-color: rgba(138, 180, 248, 0.12) !important;
-    color: #8ab4f8 !important;
+    background-color: #141517 !important;
+    color: #a8c7fa !important;
   }
 }
 
@@ -232,10 +238,10 @@ body.dark .auth-forgot-link {
 
 html.dark .auth-learn-more-link,
 body.dark .auth-learn-more-link {
-  color: #8ab4f8 !important;
+  color: #a8c7fa !important;
 
   &:hover {
-    color: #8ab4f8 !important;
+    color: #a8c7fa !important;
   }
 }
 
@@ -268,10 +274,10 @@ html.dark .auth-resend-link,
 html.dark .auth-resend-btn,
 body.dark .auth-resend-link,
 body.dark .auth-resend-btn {
-  color: #8ab4f8 !important;
+  color: #a8c7fa !important;
 
   &:hover:not(:disabled) {
-    background-color: rgba(138, 180, 248, 0.12);
+    background-color: #141517 !important;
   }
 
   &:disabled {
@@ -358,11 +364,11 @@ body.dark .auth-account-chip {
   }
 
   .auth-account-chip__avatar {
-    background-color: #8ab4f8;
-    color: #202124;
+    background-color: #a8c7fa;
+    color: #062e6f;
   }
 
   .auth-account-chip__label {
-    color: var(--v-text-primary, #e8eaed);
+    color: var(--v-text-primary, #e3e3e3);
   }
 }

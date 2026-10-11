@@ -5,6 +5,7 @@ import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
 import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
 import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
+import com.humolix.volur.security.domain.vo.PasskeyCredentialVO;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialCreationOptions;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialRequestOptions;
 
@@ -27,4 +28,8 @@ public interface PasskeyService {
     FlowResponseVO verifyPasskeyAssertion(PasskeyAssertionVerifyRequestDTO request);
 
     boolean hasPasskey(Long userId);
+
+    List<PasskeyCredentialVO> listCredentials(Long userId);
+
+    void deleteCredential(Long userId, String credentialId);
 }

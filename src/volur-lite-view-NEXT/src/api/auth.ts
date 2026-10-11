@@ -1,4 +1,4 @@
-import { get, post } from '@/utils/request'
+import { get, post, del } from '@/utils/request'
 import type { ApiResponse } from '@/types/common/api'
 import type {
   SessionVO,
@@ -17,9 +17,15 @@ import type {
   SignUpPasswordRequestDTO,
   SignUpOptionVO,
   SignUpCompleteRequestDTO,
+  TotpSetupVO,
+  TotpEnableRequestDTO,
+  TotpEnableResponseVO,
+  TOTPChallengeRequestDTO,
   PasskeyCreationOptionsVO,
   PasskeyRegisterRequestDTO,
   PasskeyRegisterResponseVO,
+  PasskeyCredentialVO,
+  TotpStatusVO,
   AccountChooserProbeRequestDTO,
   AccountChooserProbeResponseVO,
   AccountChooserSelectRequestDTO,
@@ -167,6 +173,25 @@ export function completeSignUpApi(
   return post<SignUpFlowResponseVO>('/auth/signup/complete', data, { skipToast: true })
 }
 
+export function fetchTotpSetupApi(params: {
+  dsh: string
+  tl: string
+}): Promise<ApiResponse<TotpSetupVO>> {
+  return get<TotpSetupVO>('/captcha/challenge/totp/setup', { params, skipToast: true })
+}
+
+export function submitTotpEnableApi(
+  data: TotpEnableRequestDTO
+): Promise<ApiResponse<TotpEnableResponseVO>> {
+  return post<TotpEnableResponseVO>('/captcha/challenge/totp/enable', data, { skipToast: true })
+}
+
+export function submitTotpChallengeApi(
+  data: TOTPChallengeRequestDTO
+): Promise<ApiResponse<SignInFlowResponseVO>> {
+  return post<SignInFlowResponseVO>('/captcha/challenge/totp/verify', data, { skipToast: true })
+}
+
 export function fetchPasskeyCreationOptionsApi(params: {
   dsh: string
   tl: string
@@ -268,6 +293,22 @@ export function submitPasswordResetApi(
   data: PasswordRecoveryResetRequestDTO
 ): Promise<ApiResponse<RecoveryFlowResponseVO>> {
   return post<RecoveryFlowResponseVO>('/auth/recovery/password/reset', data, { skipToast: true })
+}
+
+export function fetchPasskeyCredentialsApi(): Promise<ApiResponse<PasskeyCredentialVO[]>> {
+  return get<PasskeyCredentialVO[]>('/captcha/challenge/pk/credentials', { skipToast: true })
+}
+
+export function deletePasskeyCredentialApi(credentialId: string): Promise<ApiResponse<void>> {
+  return del<void>(`/captcha/challenge/pk/credentials/${credentialId}`, { skipToast: true })
+}
+
+export function fetchTotpStatusApi(): Promise<ApiResponse<TotpStatusVO>> {
+  return get<TotpStatusVO>('/captcha/challenge/totp/status', { skipToast: true })
+}
+
+export function disableTotpApi(): Promise<ApiResponse<void>> {
+  return post<void>('/captcha/challenge/totp/disable', undefined, { skipToast: true })
 }
 
 

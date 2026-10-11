@@ -106,3 +106,7 @@ export function put<T>(url: string, data?: any, config?: AxiosRequestConfig): Pr
 export function del<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
   return service.delete(url, config)
 }
+
+export function patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  return service.patch(url, data, config)
+}

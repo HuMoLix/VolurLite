@@ -6,8 +6,8 @@
 $google-blue: #1a73e8;
 $google-blue-hover: #1765cc;
 $google-blue-active: #1557b0;
-$google-blue-dark: #8ab4f8;
-$google-blue-dark-hover: #aecbfa;
+$google-blue-dark: #a8c7fa;
+$google-blue-dark-hover: #b6d0f8;
 
 $google-red: #ea4335;
 $google-red-dark: #f28b82;
@@ -40,13 +40,12 @@ $text-desc: #3c4043;             // Google Gray 700
 $text-muted: #5f6368;            // Google Gray 600
 $text-sub: #80868b;              // Google Gray 500
 
-// Google Workspace Surface Grays (Dark Mode)
-$bg-color-dark: #202124;         // Google Dark 900
-$bg-color-dark-card: #292a2d;    // Google Dark 800
-$bg-color-dark-elevated: #303134;// Google Dark 700
-$sys-color-surface-container-dark: #1e1f20; // Material 3 Surface Container Dark
-$border-color-dark: #3c4043;     // Google Dark 600
-$text-color-dark-primary: #e8eaed;
+$bg-color-dark: #1e1f20;
+$bg-color-dark-card: #0e0e0e;
+$bg-color-dark-elevated: #303134;
+$sys-color-surface-container-dark: #1e1f20;
+$border-color-dark: #3c4043;
+$text-color-dark-primary: #e3e3e3;
 $text-color-dark-secondary: #bdc1c6;
 $text-color-dark-muted: #9aa0a6;
 
@@ -60,3 +59,8 @@ $footer-height: 48px;
 $transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 $transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 $transition-slow: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+$scrollbar-thumb-light: rgba(60, 64, 67, 0.28);
+$scrollbar-thumb-light-hover: rgba(60, 64, 67, 0.45);
+$scrollbar-thumb-dark: rgba(255, 255, 255, 0.22);
+$scrollbar-thumb-dark-hover: rgba(255, 255, 255, 0.38);

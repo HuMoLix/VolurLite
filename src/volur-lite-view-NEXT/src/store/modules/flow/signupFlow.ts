@@ -7,11 +7,13 @@ import {
   submitSignUpEmailApi,
   resendSignUpEmailApi,
   submitSignUpEtotpApi,
-  submitSignUpPasswordApi
+  submitSignUpPasswordApi,
+  submitTotpEnableApi
 } from '@/api/auth'
 import { collectDeviceParams, getDeviceFingerprint, initDeviceFingerprint } from '@/utils/fingerprint'
 import { isDshExpired, buildSessionExpireHref, buildSessionExpireLocation } from '@/utils/flow'
 import { encryptFlowCredential } from '@/utils/flow-crypto'
+import { useUserStore } from '@/store/modules/user'
 import { createFlowLoading } from './flowLoading'
 
 const STORAGE_SIGNUP_USERNAME_KEY = 'volur_signup_username'
@@ -312,6 +314,15 @@ export const useSignupFlowStore = defineStore('signupFlow', () => {
       if (!data.nextStep) {
         throw new Error('服务端未返回下一步认证流程')
       }
+      if (username.value) {
+        const userStore = useUserStore()
+        userStore.setAuthenticatedUser({
+          identifier: username.value,
+          username: username.value,
+          email: email.value
+        })
+        userStore.fetchCurrentUser(true).catch(() => {})
+      }
       return {
         nextStep: data.nextStep,
         status: data.status || 'COMPLETE'
@@ -319,7 +330,23 @@ export const useSignupFlowStore = defineStore('signupFlow', () => {
     })
   }
 
-  function resetFlow(): void {
+  async function submitTotpEnable(code: string): Promise<boolean> {
+    checkDshExpiration()
+    return withLoading(async () => {
+      const res = await submitTotpEnableApi({
+        dsh: dsh.value,
+        tl: tl.value,
+        cid: cid.value,
+        code
+      })
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || '动态验证码核验失败')
+      }
+      return true
+    })
+  }
+
+  function resetFlow(keepLoading = false): void {
     dsh.value = ''
     tl.value = ''
     cid.value = 0
@@ -329,7 +356,9 @@ export const useSignupFlowStore = defineStore('signupFlow', () => {
       window.sessionStorage.removeItem(STORAGE_SIGNUP_USERNAME_KEY)
       window.sessionStorage.removeItem(STORAGE_SIGNUP_EMAIL_KEY)
     }
-    loading.value = false
+    if (!keepLoading) {
+      loading.value = false
+    }
   }
 
   return {
@@ -354,6 +383,7 @@ export const useSignupFlowStore = defineStore('signupFlow', () => {
     resendSignUpEmail,
     submitSignUpEtotp,
     submitSignUpPassword,
+    submitTotpEnable,
     setLoading,
     startLoading,
     stopLoading,

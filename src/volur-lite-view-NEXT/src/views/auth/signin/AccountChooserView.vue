@@ -146,8 +146,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore } from '@/store/modules/flow'
+import { useUserStore } from '@/store/modules/user'
 import { probeAccountChooserApi, removeAccountChooserApi } from '@/api/auth'
-import { getKnownAccounts, saveKnownAccount, removeKnownAccount } from '@/utils/accountChooser'
 import type { AccountChooserItemVO } from '@/types/auth/flow'
 import { AuthCardShell } from '@/components/auth'
 import { useFormError } from '@/composables/useFormError'
@@ -160,6 +160,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
+const userStore = useUserStore()
 
 const loading = computed(() => signinFlowStore.loading)
 const isRemoveMode = ref(false)
@@ -182,7 +183,7 @@ function getAccountSubtitle(acc: AccountChooserItemVO): string {
 }
 
 async function loadAndProbeAccounts(): Promise<void> {
-  const cached = getKnownAccounts()
+  const cached = userStore.knownAccounts
   if (cached.length === 0) {
     await router.replace({
       path: '/v1/signin/identifier',
@@ -207,7 +208,7 @@ async function loadAndProbeAccounts(): Promise<void> {
     if (probeRes.data?.accounts && probeRes.data.accounts.length > 0) {
       accountList.value = probeRes.data.accounts
       probeRes.data.accounts.forEach((acc) => {
-        saveKnownAccount({
+        userStore.saveAccount({
           identifier: acc.identifier,
           username: acc.username || acc.identifier,
           email: acc.email,
@@ -242,7 +243,6 @@ async function handleSelect(acc: AccountChooserItemVO): Promise<void> {
     return
   }
 
-  await signinFlowStore.triggerScrim(undefined, 1000)
   signinFlowStore.setIdentifier(acc.username || acc.email || acc.identifier)
 
   if (acc.sessionStatus === 'ACTIVE') {
@@ -275,7 +275,7 @@ async function handleRemove(acc: AccountChooserItemVO): Promise<void> {
     await removeAccountChooserApi({ identifier: acc.identifier })
   } catch {
   }
-  removeKnownAccount(acc.identifier)
+  userStore.removeAccount(acc.identifier)
   accountList.value = accountList.value.filter((item) => item.identifier !== acc.identifier)
 
   if (accountList.value.length === 0) {
@@ -329,7 +329,7 @@ async function handleUseAnotherAccount(): Promise<void> {
   }
 }
 
-:global(.dark) .remove-icon-btn {
+html.dark .remove-icon-btn {
   &:hover {
     background-color: rgba(242, 139, 130, 0.16);
   }
@@ -357,7 +357,6 @@ async function handleUseAnotherAccount(): Promise<void> {
   }
 }
 
-:global(html.dark) .status-tag,
 html.dark .status-tag {
   &.status--disabled {
     background-color: rgba(242, 139, 130, 0.2);

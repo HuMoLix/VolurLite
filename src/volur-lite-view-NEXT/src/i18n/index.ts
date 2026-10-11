@@ -5,6 +5,7 @@ import zhCnAuthSignin from '../locales/zh-CN/auth/signin.json'
 import zhCnAuthSignup from '../locales/zh-CN/auth/signup.json'
 import zhCnAuthRecovery from '../locales/zh-CN/auth/recovery.json'
 import zhCnCaptchaRecaptcha from '../locales/zh-CN/captcha/recaptcha.json'
+import zhCnCompetition from '../locales/zh-CN/competition.json'
 
 const zhCnAuth = {
   ...zhCnAuthCommon,
@@ -20,7 +21,7 @@ const zhCnCaptcha = {
 const localeModules = import.meta.glob(['../locales/**/*.json', '!../locales/zh-CN/**/*.json', '!../locales/zh-CN/*.json'])
 
 export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en-US'
-export type LocaleNamespace = 'common' | 'auth' | 'captcha' | 'admin' | 'all'
+export type LocaleNamespace = 'common' | 'auth' | 'captcha' | 'admin' | 'competition' | 'all'
 
 export const DEFAULT_LOCALE: SupportedLocale = 'zh-CN'
 
@@ -30,7 +31,8 @@ const loadedPaths = new Set<string>([
   '../locales/zh-CN/auth/signin.json',
   '../locales/zh-CN/auth/signup.json',
   '../locales/zh-CN/auth/recovery.json',
-  '../locales/zh-CN/captcha/recaptcha.json'
+  '../locales/zh-CN/captcha/recaptcha.json',
+  '../locales/zh-CN/competition.json'
 ])
 
 export function normalizeLocale(val: unknown): SupportedLocale | null {
@@ -82,6 +84,9 @@ export function getNamespaceForPath(filePath: string): LocaleNamespace {
   if (filePath.endsWith('/admin.json') || filePath.includes('/admin/')) {
     return 'admin'
   }
+  if (filePath.endsWith('/competition.json') || filePath.includes('/competition/')) {
+    return 'competition'
+  }
   return 'common'
 }
 
@@ -98,6 +103,9 @@ export function getNamespacesForRoute(routePath: string): LocaleNamespace[] {
   }
   if (routePath.startsWith('/admin')) {
     namespaces.push('admin')
+  }
+  if (routePath.startsWith('/competitions') || routePath.startsWith('/c/')) {
+    namespaces.push('competition')
   }
   return namespaces
 }
@@ -189,12 +197,14 @@ export const i18n = createI18n({
     'zh-CN': {
       common: zhCnCommon,
       auth: zhCnAuth,
-      captcha: zhCnCaptcha
+      captcha: zhCnCaptcha,
+      competition: zhCnCompetition
     },
     'zh': {
       common: zhCnCommon,
       auth: zhCnAuth,
-      captcha: zhCnCaptcha
+      captcha: zhCnCaptcha,
+      competition: zhCnCompetition
     }
   }
 })

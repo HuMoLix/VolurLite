@@ -1,6 +1,7 @@
 package com.humolix.volur.competition.controller.v1;
 
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.vo.CompetitionAboutVO;
 import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
 import com.humolix.volur.competition.domain.vo.CompetitionDetailVO;
@@ -9,6 +10,7 @@ import com.humolix.volur.competition.service.CompetitionService;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
+import com.humolix.volur.framework.common.api.SliceResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +29,15 @@ public class CompetitionController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword) {
         return ApiResponseEntity.ok("获取竞赛列表成功", competitionService.listCompetitions(page, size, keyword));
+    }
+
+    @GetMapping("/slice")
+    public ApiResponseEntity<SliceResponse<CompetitionSummaryVO>> listCompetitionSlice(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) CompetitionType type) {
+        return ApiResponseEntity.ok("获取竞赛切片列表成功", competitionService.listCompetitionSlice(page, size, keyword, type));
     }
 
     @GetMapping("/by-slug/{slug}")

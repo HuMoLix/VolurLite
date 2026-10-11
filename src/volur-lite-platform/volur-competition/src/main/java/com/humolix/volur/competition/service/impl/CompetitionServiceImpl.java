@@ -3,6 +3,7 @@ package com.humolix.volur.competition.service.impl;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionAnnouncement;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
+import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.CompetitionAboutVO;
 import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
@@ -16,6 +17,7 @@ import com.humolix.volur.competition.service.CompetitionService;
 import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.common.api.PageResponse;
+import com.humolix.volur.framework.common.api.SliceResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.SortUtils;
 import jakarta.persistence.criteria.Predicate;
@@ -68,6 +70,40 @@ public class CompetitionServiceImpl implements CompetitionService {
                 });
 
         return PageResponse.of(pageResult);
+    }
+
+    @Override
+    public SliceResponse<CompetitionSummaryVO> listCompetitionSlice(Integer page, Integer size, String keyword, CompetitionType type) {
+        Pageable pageable = SortUtils.createPageable(page, size);
+
+        Specification<Competition> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.DRAFT));
+
+            if (type != null) {
+                predicates.add(cb.equal(root.get("type"), type));
+            }
+
+            if (StringUtils.hasText(keyword)) {
+                String kw = "%" + keyword.trim() + "%";
+                predicates.add(cb.or(
+                        cb.like(root.get("title"), kw),
+                        cb.like(root.get("slug"), kw)
+                ));
+            }
+            query.orderBy(cb.desc(root.get("startTime")), cb.desc(root.get("id")));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<CompetitionSummaryVO> pageResult = competitionRepository.findAll(spec, pageable)
+                .map(comp -> {
+                    if (comp.refreshStatus()) {
+                        competitionRepository.save(comp);
+                    }
+                    return competitionMapper.toSummaryVO(comp);
+                });
+
+        return SliceResponse.of(pageResult);
     }
 
     @Override

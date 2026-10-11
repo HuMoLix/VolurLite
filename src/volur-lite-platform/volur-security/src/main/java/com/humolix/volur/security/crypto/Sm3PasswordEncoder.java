@@ -40,7 +40,7 @@ public class Sm3PasswordEncoder implements PasswordEncoder {
         byte[] saltBytes = new byte[SALT_BYTE_LENGTH];
         SECURE_RANDOM.nextBytes(saltBytes);
         String saltHex = Hex.toHexString(saltBytes);
-        String hashHex = computeHash(rawPwd, saltHex, ITERATIONS);
+        String hashHex = computeHash(rawPwd, saltHex);
         return PREFIX + "$" + ITERATIONS + "$" + saltHex + "$" + hashHex;
     }
 
@@ -113,11 +113,11 @@ public class Sm3PasswordEncoder implements PasswordEncoder {
         }
     }
 
-    private String computeHash(String password, String saltHex, int iterations) {
+    private String computeHash(String password, String saltHex) {
         if (threadManager != null) {
-            return threadManager.supplyCompute(() -> pbkdf2Sm3(password, saltHex, iterations)).join();
+            return threadManager.supplyCompute(() -> pbkdf2Sm3(password, saltHex, Sm3PasswordEncoder.ITERATIONS)).join();
         }
-        return pbkdf2Sm3(password, saltHex, iterations);
+        return pbkdf2Sm3(password, saltHex, Sm3PasswordEncoder.ITERATIONS);
     }
 
     private boolean verifyHash(String rawPassword, String saltHex, int iterations, String expectedHashHex) {

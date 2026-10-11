@@ -36,11 +36,13 @@ import com.humolix.volur.verification.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
@@ -59,6 +61,7 @@ public class SignupServiceImpl implements SignupService {
     private final JwtUtil jwtUtil;
     private final AuthCookieService authCookieService;
     private final FlowCryptoService flowCryptoService;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     public SignUpFlowResponseVO name(SignUpNameRequestDTO request) {
@@ -345,6 +348,8 @@ public class SignupServiceImpl implements SignupService {
                         .build()
         );
     }
+
+
 
     @Override
     public SignUpFlowResponseVO complete(SignUpCompleteRequestDTO request) {

@@ -26,7 +26,7 @@
           {{ t('auth.signin.forgot_username') }}
         </a>
         <a
-          v-if="hasKnownAccounts()"
+          v-if="userStore.hasKnownAccounts"
           href="#"
           class="auth-forgot-link"
           :isScrim="true"
@@ -63,7 +63,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import GoogleTextField from '@/components/google/GoogleTextField.vue'
 import { useSigninFlowStore } from '@/store/modules/flow'
-import { hasKnownAccounts } from '@/utils/accountChooser'
+import { useUserStore } from '@/store/modules/user'
 import { AuthCardShell, AuthActionBar } from '@/components/auth'
 import { useFormError } from '@/composables/useFormError'
 
@@ -75,6 +75,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const signinFlowStore = useSigninFlowStore()
+const userStore = useUserStore()
 
 const identifier = ref(signinFlowStore.identifier || '')
 const { errorMsg, clearError, setError, setErrorKey, setRawError } = useFormError(identifier)

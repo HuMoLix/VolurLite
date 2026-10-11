@@ -68,6 +68,8 @@ public class SignupController {
         return ApiResponseEntity.ok("获取可选安全选项成功", response);
     }
 
+
+
     @Syslog(module = "AUTH", value = "完成注册流程", logType = "AUTH", recordParams = false)
     @PostMapping("/complete")
     public ApiResponseEntity<SignUpFlowResponseVO> complete(@Valid @RequestBody SignUpCompleteRequestDTO request) {

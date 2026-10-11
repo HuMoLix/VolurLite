@@ -3,6 +3,7 @@ package com.humolix.volur.security.service;
 import com.humolix.volur.security.domain.dto.PasskeyAssertionVerifyRequestDTO;
 import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
+import com.humolix.volur.security.domain.vo.PasskeyCredentialVO;
 import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
 import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
@@ -490,6 +491,49 @@ class PasskeyServiceImplTest {
 
         Assertions.assertThrows(com.humolix.volur.framework.common.exception.BusinessException.class, () ->
                 passkeyService.getCreationOptions("dsh", "tl", "windows_hello")
+        );
+    }
+
+    @Test
+    void listCredentials_whenValidUser_returnsList() {
+        CredentialRecord mockRecord = Mockito.mock(CredentialRecord.class);
+        Bytes credId = new Bytes("test-cred-id".getBytes(StandardCharsets.UTF_8));
+        given(mockRecord.getCredentialId()).willReturn(credId);
+        given(mockRecord.getLabel()).willReturn("My Passkey");
+        given(userCredentialRepository.findByUserId(any())).willReturn(List.of(mockRecord));
+
+        List<PasskeyCredentialVO> list = passkeyService.listCredentials(1001L);
+
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertEquals("My Passkey", list.get(0).getLabel());
+        Assertions.assertEquals(credId.toBase64UrlString(), list.get(0).getCredentialId());
+    }
+
+    @Test
+    void listCredentials_whenNullUser_throwsUnauthorized() {
+        Assertions.assertThrows(com.humolix.volur.framework.common.exception.BusinessException.class, () ->
+                passkeyService.listCredentials(null)
+        );
+    }
+
+    @Test
+    void deleteCredential_whenFound_deletesSuccessfully() {
+        CredentialRecord mockRecord = Mockito.mock(CredentialRecord.class);
+        Bytes credId = new Bytes("test-cred-id".getBytes(StandardCharsets.UTF_8));
+        given(mockRecord.getCredentialId()).willReturn(credId);
+        given(userCredentialRepository.findByUserId(any())).willReturn(List.of(mockRecord));
+
+        passkeyService.deleteCredential(1001L, credId.toBase64UrlString());
+
+        verify(userCredentialRepository).delete(credId);
+    }
+
+    @Test
+    void deleteCredential_whenNotFound_throwsNotFound() {
+        given(userCredentialRepository.findByUserId(any())).willReturn(List.of());
+
+        Assertions.assertThrows(com.humolix.volur.framework.common.exception.BusinessException.class, () ->
+                passkeyService.deleteCredential(1001L, "non-existent")
         );
     }
 

@@ -392,14 +392,14 @@ defineExpose({
   opacity: 0;
 }
 
-:global(html.dark) {
+html.dark {
   .google-text-field {
     &__box {
-      border-color: #3c4043;
+      border-color: #1e1f20;
 
       &--focused {
-        border-color: #8ab4f8 !important;
-        box-shadow: 0 0 0 1px #8ab4f8 !important;
+        border-color: #a8c7fa !important;
+        box-shadow: 0 0 0 1px #a8c7fa !important;
       }
 
       &--error,
@@ -409,12 +409,13 @@ defineExpose({
       }
 
       &--disabled {
-        border-color: #3c4043 !important;
+        border-color: #1e1f20 !important;
       }
     }
 
     &__input {
-      color: var(--v-text-primary, #e8eaed);
+      color: var(--v-text-primary, #e3e3e3);
+      caret-color: #fff;
 
       &:disabled {
         color: var(--v-text-sub, #80868b);
@@ -429,11 +430,11 @@ defineExpose({
       color: var(--v-text-muted, #bdc1c6);
 
       &--floating {
-        background-color: var(--v-bg-card, #292a2d);
+        background-color: var(--v-bg-card, #0e0e0e);
       }
 
       &--focused {
-        color: #8ab4f8;
+        color: #a8c7fa;
       }
 
       &--error,
@@ -444,11 +445,11 @@ defineExpose({
 
     &__input:focus ~ &__label,
     &__input:not(:placeholder-shown) ~ &__label {
-      background-color: var(--v-bg-card, #292a2d);
+      background-color: var(--v-bg-card, #0e0e0e);
     }
 
     &:not(&--error) &__input:focus ~ &__label {
-      color: #8ab4f8 !important;
+      color: #a8c7fa !important;
     }
 
     &--error &__label,
@@ -487,10 +488,10 @@ defineExpose({
     background-color: var(--v-bg-surface, #ffffff) !important;
   }
 
-  :global(html.dark) .google-text-field__label--floating,
-  :global(html.dark) .google-text-field__input:focus ~ .google-text-field__label,
-  :global(html.dark) .google-text-field__input:not(:placeholder-shown) ~ .google-text-field__label {
-    background-color: #202124 !important;
+  html.dark .google-text-field__label--floating,
+  html.dark .google-text-field__input:focus ~ .google-text-field__label,
+  html.dark .google-text-field__input:not(:placeholder-shown) ~ .google-text-field__label {
+    background-color: #1e1f20 !important;
   }
 }
 </style>

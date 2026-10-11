@@ -63,11 +63,11 @@
         <n-dropdown :options="languageOptions" trigger="click" @select="handleLanguageSelect">
           <button
             type="button"
-            class="auth-btn-link text-[12px] text-google-text-muted dark:text-google-text-darkMuted"
+            class="auth-btn-link text-[12px] text-google-text-muted dark:text-[#e8eaed]"
           >
             <span>{{ currentLangLabel }}</span>
             <svg
-              class="w-2.5 h-1.5 ml-2.5 text-google-text-muted dark:text-google-text-darkMuted fill-current shrink-0"
+              class="w-2.5 h-1.5 ml-2.5 text-google-text-muted dark:text-[#e8eaed] fill-current shrink-0"
               viewBox="7 10 10 5"
               aria-hidden="true"
             >
@@ -77,7 +77,7 @@
         </n-dropdown>
       </div>
 
-      <div class="auth-footer__meta flex items-center flex-wrap gap-1 text-[12px] text-google-text-muted dark:text-google-text-darkMuted shrink-0">
+      <div class="auth-footer__meta flex items-center flex-wrap gap-1 text-[12px] text-google-text-muted dark:text-[#e8eaed] shrink-0">
         <a :href="`/accounts/help?lang=${currentUrlLang}`" class="auth-btn-link text-[12px]">{{ t('common.help') }}</a>
         <a :href="`/accounts/privacy?lang=${currentUrlLang}`" class="auth-btn-link text-[12px]">{{ t('common.privacy') }}</a>
         <a :href="`/accounts/terms?lang=${currentUrlLang}`" class="auth-btn-link text-[12px]">{{ t('common.terms') }}</a>
@@ -91,7 +91,7 @@
           href="https://beian.miit.gov.cn/"
           target="_blank"
           rel="noopener noreferrer"
-          class="auth-btn-link text-[12px] gap-1.5 text-google-text-muted dark:text-google-text-darkMuted"
+          class="auth-btn-link text-[12px] gap-1.5 text-google-text-muted dark:text-[#e8eaed]"
           :title="t('common.beian')"
         >
           <img
@@ -276,9 +276,6 @@ provide('triggerScrim', triggerScrim)
   cursor: wait;
 }
 
-:global(html.dark) .auth-scrim {
-  background-color: rgba(32, 33, 36, 0.6);
-}
 
 .auth-scrim-fade-enter-active,
 .auth-scrim-fade-leave-active {
@@ -396,9 +393,6 @@ provide('triggerScrim', triggerScrim)
     transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  :global(html.dark) &__blocker {
-    background-color: rgba(32, 33, 36, 0.6);
-  }
 
   &__header {
     width: 100%;
@@ -535,11 +529,7 @@ provide('triggerScrim', triggerScrim)
   }
 }
 
-:global(html.dark) .auth-card {
-  @media (min-width: 840px) {
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4) !important;
-  }
-}
+
 
 .auth-footer {
   width: 100%;
@@ -576,13 +566,55 @@ provide('triggerScrim', triggerScrim)
   transform: translateY(-6px);
 }
 
-:global(html.dark) {
+html.dark {
+  .auth-layout {
+    background-color: #1e1f20;
+  }
+
+  .auth-scrim {
+    background-color: rgba(0, 0, 0, 0.6);
+  }
+
+  .auth-card {
+    color: #e3e3e3;
+
+    @media (min-width: 840px) {
+      background-color: #0e0e0e !important;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4) !important;
+    }
+
+    &__blocker {
+      background-color: rgba(0, 0, 0, 0.6);
+    }
+
+    &__title,
+    :deep(.auth-card__title) {
+      color: #e3e3e3;
+    }
+
+    &__subtitle,
+    :deep(.auth-card__subtitle) {
+      color: #bdc1c6;
+    }
+  }
+
+  .auth-footer {
+    color: #e8eaed;
+
+    .auth-btn-link,
+    .auth-footer__meta,
+    .auth-footer__copyright,
+    svg {
+      color: #e8eaed;
+    }
+  }
+
   .auth-card__progress-track {
-    background-color: rgba(138, 180, 248, 0.24) !important;
+    background-color: rgba(168, 199, 250, 0.24) !important;
   }
 
   .auth-card__progress-inner {
-    background-color: #8ab4f8 !important;
+    background-color: #a8c7fa !important;
   }
 }
 

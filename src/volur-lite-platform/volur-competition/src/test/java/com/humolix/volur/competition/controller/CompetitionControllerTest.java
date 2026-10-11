@@ -4,6 +4,7 @@ import com.humolix.volur.competition.controller.v1.CompetitionController;
 import com.humolix.volur.competition.domain.vo.CompetitionSummaryVO;
 import com.humolix.volur.competition.service.CompetitionService;
 import com.humolix.volur.framework.common.api.PageResponse;
+import com.humolix.volur.framework.common.api.SliceResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,5 +61,29 @@ class CompetitionControllerTest {
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.message").value("获取竞赛列表成功"))
                 .andExpect(jsonPath("$.data.list[0].title").value("Volur 2026 迎新赛"));
+    }
+
+    @Test
+    @DisplayName("验证 GET /api/v1/competitions/slice 接口切片路由正常")
+    void testListCompetitionSliceRoute() throws Exception {
+        CompetitionSummaryVO summaryVO = CompetitionSummaryVO.builder()
+                .id(1L)
+                .title("Volur 2026 迎新赛")
+                .slug("volur-2026-welcome")
+                .build();
+
+        SliceResponse<CompetitionSummaryVO> sliceResponse = SliceResponse.of(List.of(summaryVO), false, false, 1, 5);
+        when(competitionService.listCompetitionSlice(anyInt(), anyInt(), any(), any())).thenReturn(sliceResponse);
+
+        mockMvc.perform(get("/api/v1/competitions/slice")
+                        .param("page", "1")
+                        .param("size", "5")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("获取竞赛切片列表成功"))
+                .andExpect(jsonPath("$.data.list[0].title").value("Volur 2026 迎新赛"))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.pageSize").value(5));
     }
 }

@@ -5,7 +5,6 @@
   background-color: transparent;
 }
 
-:global(html.dark) .auth-selection-list,
 html.dark .auth-selection-list {
   border: none;
 }
@@ -124,8 +123,7 @@ html.dark .auth-selection-list {
   }
 }
 
-html.dark .auth-selection-item,
-:global(html.dark) .auth-selection-item {
+html.dark .auth-selection-item {
   border-bottom-color: #3c4043;
 
   &:hover:not(.is-disabled) {

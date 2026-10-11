@@ -374,6 +374,25 @@ BEGIN
         END IF;
     END IF;
 
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'totp_secret'
+        ) THEN
+            ALTER TABLE `user` ADD COLUMN `totp_secret` VARCHAR(64) DEFAULT NULL AFTER `phone`;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'is_totp_enabled'
+        ) THEN
+            ALTER TABLE `user` ADD COLUMN `is_totp_enabled` TINYINT(1) NOT NULL DEFAULT 0 AFTER `totp_secret`;
+        END IF;
+    END IF;
+
 END //
 DELIMITER ;
 

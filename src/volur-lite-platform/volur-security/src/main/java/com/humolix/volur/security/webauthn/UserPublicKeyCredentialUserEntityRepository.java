@@ -3,6 +3,7 @@ package com.humolix.volur.security.webauthn;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.security.web.webauthn.api.Bytes;
 import org.springframework.security.web.webauthn.api.ImmutablePublicKeyCredentialUserEntity;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
@@ -20,10 +21,7 @@ public class UserPublicKeyCredentialUserEntityRepository implements PublicKeyCre
     private final UserRepository userRepository;
 
     @Override
-    public PublicKeyCredentialUserEntity findById(Bytes id) {
-        if (id == null) {
-            return null;
-        }
+    public PublicKeyCredentialUserEntity findById(@NonNull Bytes id) {
         try {
             byte[] bytes = id.getBytes();
             if (bytes.length == Long.BYTES) {
@@ -39,7 +37,7 @@ public class UserPublicKeyCredentialUserEntityRepository implements PublicKeyCre
     }
 
     @Override
-    public PublicKeyCredentialUserEntity findByUsername(String username) {
+    public PublicKeyCredentialUserEntity findByUsername(@NonNull String username) {
         if (!StringUtils.hasText(username)) {
             return null;
         }
@@ -49,11 +47,11 @@ public class UserPublicKeyCredentialUserEntityRepository implements PublicKeyCre
     }
 
     @Override
-    public void save(PublicKeyCredentialUserEntity userEntity) {
+    public void save(@NonNull PublicKeyCredentialUserEntity userEntity) {
     }
 
     @Override
-    public void delete(Bytes id) {
+    public void delete(@NonNull Bytes id) {
     }
 
     private PublicKeyCredentialUserEntity toUserEntity(User user) {

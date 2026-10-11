@@ -40,6 +40,13 @@ public class User implements Serializable {
     @Column(name = "phone", unique = true, length = 20, columnDefinition = "VARCHAR(20)")
     private String phone;
 
+    @Column(name = "totp_secret", length = 64, columnDefinition = "VARCHAR(64)")
+    private String totpSecret;
+
+    @Builder.Default
+    @Column(name = "is_totp_enabled", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    private Boolean isTotpEnabled = false;
+
     @Column(name = "real_name", length = 64)
     @JsonIgnore
     private String realName;

@@ -133,6 +133,33 @@ export interface SignUpCompleteRequestDTO {
   selectedOptions?: string[]
 }
 
+export interface TotpSetupVO {
+  secret: string
+  otpAuthUrl: string
+  account: string
+  issuer: string
+}
+
+export interface TotpEnableRequestDTO {
+  dsh: string
+  tl: string
+  cid: number
+  code: string
+}
+
+export interface TotpEnableResponseVO {
+  success: boolean
+  message?: string
+}
+
+export interface TOTPChallengeRequestDTO {
+  dsh: string
+  tl: string
+  cid: number
+  code: string
+  rememberMe?: boolean
+}
+
 export interface PasskeyCreationOptionsVO {
   rp: {
     name: string
@@ -207,5 +234,19 @@ export interface KnownAccount {
   displayName?: string
   avatarUrl?: string
   lastLoginTime?: number
+}
+
+export interface PasskeyCredentialVO {
+  credentialId: string
+  label?: string
+  created?: string
+  lastUsed?: string
+  signatureCount?: number
+  authenticatorTransports?: string
+}
+
+export interface TotpStatusVO {
+  enabled: boolean
+  updatedAt?: string
 }
 

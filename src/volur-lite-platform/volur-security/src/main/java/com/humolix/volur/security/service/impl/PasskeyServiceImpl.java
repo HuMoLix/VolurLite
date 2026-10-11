@@ -5,6 +5,7 @@ import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.security.domain.dto.PasskeyAssertionVerifyRequestDTO;
 import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
+import com.humolix.volur.security.domain.vo.PasskeyCredentialVO;
 import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
 import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
@@ -31,6 +32,7 @@ import org.springframework.security.web.webauthn.api.AuthenticatorAssertionRespo
 import org.springframework.security.web.webauthn.api.AuthenticatorAttachment;
 import org.springframework.security.web.webauthn.api.AuthenticatorAttestationResponse;
 import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
+import org.springframework.security.web.webauthn.api.AuthenticatorTransport;
 import org.springframework.security.web.webauthn.api.Bytes;
 import org.springframework.security.web.webauthn.api.CredentialRecord;
 import org.springframework.security.web.webauthn.api.PublicKeyCredential;
@@ -64,6 +66,8 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -509,6 +513,53 @@ public class PasskeyServiceImpl implements PasskeyService {
         Bytes userBytes = new Bytes(ByteBuffer.allocate(Long.BYTES).putLong(userId).array());
         List<CredentialRecord> records = userCredentialRepository.findByUserId(userBytes);
         return !records.isEmpty();
+    }
+
+    @Override
+    public List<PasskeyCredentialVO> listCredentials(Long userId) {
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
+        }
+        Bytes userBytes = new Bytes(ByteBuffer.allocate(Long.BYTES).putLong(userId).array());
+        List<CredentialRecord> records = userCredentialRepository.findByUserId(userBytes);
+        return records.stream()
+                .map(record -> PasskeyCredentialVO.builder()
+                        .credentialId(record.getCredentialId().toBase64UrlString())
+                        .label(StringUtils.hasText(record.getLabel()) ? record.getLabel() : "通行密钥")
+                        .created(record.getCreated())
+                        .lastUsed(record.getLastUsed())
+                        .signatureCount(record.getSignatureCount())
+                        .authenticatorTransports(formatTransports(record.getTransports()))
+                        .build())
+                .toList();
+    }
+
+    @Override
+    public void deleteCredential(Long userId, String credentialId) {
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
+        }
+        if (!StringUtils.hasText(credentialId)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "通行密钥凭据ID不能为空");
+        }
+        Bytes userBytes = new Bytes(ByteBuffer.allocate(Long.BYTES).putLong(userId).array());
+        List<CredentialRecord> records = userCredentialRepository.findByUserId(userBytes);
+        CredentialRecord target = records.stream()
+                .filter(r -> r.getCredentialId().toBase64UrlString().equals(credentialId.trim())
+                        || r.getCredentialId().toString().equals(credentialId.trim()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "未找到指定的通行密钥凭据或无权操作"));
+
+        userCredentialRepository.delete(target.getCredentialId());
+    }
+
+    private String formatTransports(Set<AuthenticatorTransport> transports) {
+        if (transports == null || transports.isEmpty()) {
+            return null;
+        }
+        return transports.stream()
+                .map(AuthenticatorTransport::getValue)
+                .collect(Collectors.joining(","));
     }
 
 }

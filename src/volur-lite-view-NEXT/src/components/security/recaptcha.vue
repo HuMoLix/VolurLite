@@ -1136,7 +1136,7 @@ const sandboxHtml = computed(() => {
   }
 }
 
-:global(html.dark) .recaptcha-error-msg {
+html.dark .recaptcha-error-msg {
   color: #f28b82;
 }
 

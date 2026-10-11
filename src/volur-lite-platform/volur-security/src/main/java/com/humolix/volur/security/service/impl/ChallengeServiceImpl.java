@@ -1,17 +1,14 @@
 package com.humolix.volur.security.service.impl;
 
 import com.humolix.volur.framework.common.exception.BusinessException;
-import com.humolix.volur.framework.common.exception.MaintenanceModeException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.security.domain.dto.ChallengeSelectRequestDTO;
 import com.humolix.volur.security.domain.dto.EmailOTPChallengeRequestDTO;
-import com.humolix.volur.security.domain.dto.PasswordChallengeRequestDTO;
 import com.humolix.volur.security.domain.dto.ReCAPTCHAChallengeSubmitDTO;
 import com.humolix.volur.security.domain.dto.SMSOTPChallengeRequestDTO;
 import com.humolix.volur.security.domain.vo.ChallengeOptionVO;
 import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
-import com.humolix.volur.security.flow.domain.FlowNames;
 import com.humolix.volur.security.flow.flows.SigninFlow;
 import com.humolix.volur.security.service.ChallengeService;
 import com.humolix.volur.security.service.FlowCryptoService;
@@ -20,10 +17,9 @@ import com.humolix.volur.security.service.RecaptchaService;
 import com.humolix.volur.security.session.SessionManager;
 import com.humolix.volur.security.session.domain.Session;
 import com.humolix.volur.security.session.validator.SessionDeviceBaselineValidator;
-import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.security.util.MaskUtil;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
-import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.user.service.UserTrustedDeviceService;
 import com.humolix.volur.verification.risk.engine.RiskEvaluationEngine;
@@ -33,7 +29,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -56,144 +51,12 @@ public class ChallengeServiceImpl implements ChallengeService {
     private final RecaptchaService recaptchaService;
     private final FlowCryptoService flowCryptoService;
     private final PasskeyService passkeyService;
-    private final PasswordEncoder passwordEncoder;
     private final RiskEvaluationEngine riskEvaluationEngine;
     private final SystemSettingService systemSettingService;
     private final StringRedisTemplate redisTemplate;
 
-    private static final String VREDIS_AUTH_LOGIN_ATTEMPTS_KEY_PREFIX = "vredis:auth:login:attempts:";
-    private static final String VREDIS_AUTH_LOGIN_LOCK_KEY_PREFIX = "vredis:auth:login:lock:";
     private static final String VREDIS_AUTH_IDENTIFIER_FAILURES_KEY_PREFIX = "vredis:auth:identifier:failures:";
 
-    @Override
-    public FlowResponseVO verifyPassword(PasswordChallengeRequestDTO request) {
-        String dsh = request.getDsh();
-        String tl = request.getTl();
-        int cid = request.getCid() != null ? request.getCid() : 1;
-
-        Session session = sessionManager.getSession(dsh);
-        sessionDeviceBaselineValidator.validateBaseline(session);
-        transitionLockManager.validateTransLock(dsh, tl, "pwd");
-
-        String identifier = session.getFlow() != null ? session.getFlow().getIdentifier() : null;
-        if (!StringUtils.hasText(identifier)) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "会话账号信息丢失，请重新输入账号");
-        }
-
-        String clientIp = RequestUtil.getClientIp();
-        String flowName = session.getFlow() != null ? session.getFlow().getFlowName() : FlowNames.VLIF_WEB_LOGIN.getFlowName();
-        String flowEntry = session.getFlow() != null ? session.getFlow().getFlowEntry() : FlowNames.FlowEntry.WEB_SERVICE_LOGIN.getEntry();
-        String plainPassword = request.getPassword().startsWith("$V1$GCM$")
-                ? flowCryptoService.decrypt(request.getPassword(), flowName, flowEntry, session.getDsh())
-                : request.getPassword();
-
-        String cleanIdentifier = identifier.trim();
-        String lusername = cleanIdentifier.toLowerCase();
-
-        int maxAttempts = systemSettingService.getInt("system.auth.max_login_attempts", 5);
-        String lockKey = VREDIS_AUTH_LOGIN_LOCK_KEY_PREFIX + lusername;
-        String attemptsKey = VREDIS_AUTH_LOGIN_ATTEMPTS_KEY_PREFIX + lusername;
-
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "密码错误次数过多，账号已锁定15分钟");
-        }
-
-        User user = userRepository.findByUsername(cleanIdentifier)
-                .or(() -> userRepository.findByEmail(cleanIdentifier.toLowerCase()))
-                .orElse(null);
-
-        if (user == null || !passwordEncoder.matches(plainPassword, user.getPassword())) {
-            riskEvaluationEngine.recordFailure(clientIp, CaptchaScene.LOGIN);
-            riskEvaluationEngine.recordAccountFailure(cleanIdentifier, CaptchaScene.LOGIN);
-
-            Long attempts = redisTemplate.opsForValue().increment(attemptsKey);
-            if (attempts != null && attempts == 1) {
-                redisTemplate.expire(attemptsKey, Duration.ofMinutes(30));
-            }
-            if (attempts != null && attempts >= maxAttempts) {
-                redisTemplate.opsForValue().set(lockKey, "LOCKED", Duration.ofMinutes(15));
-                redisTemplate.delete(attemptsKey);
-                throw new BusinessException(HttpStatus.FORBIDDEN, "密码错误次数过多，账号已锁定15分钟");
-            }
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
-        }
-
-        if (!Boolean.TRUE.equals(user.getStatus())) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "账号已被封禁");
-        }
-
-        boolean isMaintenance = systemSettingService.getBoolean(SystemSettingKeys.MAINTENANCE_ENABLED, false);
-        if (isMaintenance) {
-            boolean isAdmin = user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.SUPER_ADMIN;
-            if (!isAdmin) {
-                String notice = systemSettingService.getSettingValue(
-                        SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE,
-                        "系统正在全站维护升级中，暂仅限管理员登录"
-                );
-                throw new MaintenanceModeException(notice);
-            }
-        }
-
-        redisTemplate.delete(attemptsKey);
-        riskEvaluationEngine.recordSuccess(clientIp, CaptchaScene.LOGIN);
-        riskEvaluationEngine.recordAccountSuccess(cleanIdentifier, CaptchaScene.LOGIN);
-
-        String deviceHash = session.getRequestDeviceParams() != null
-                ? session.getRequestDeviceParams().getDeviceHash()
-                : null;
-        if (!StringUtils.hasText(deviceHash) && session.getRequestDeviceParams() != null) {
-            deviceHash = session.getRequestDeviceParams().getFingerprint();
-        }
-
-        boolean isTrusted = StringUtils.hasText(deviceHash)
-                && userTrustedDeviceService.isTrustedDevice(user.getId(), deviceHash);
-
-        if (!isTrusted && StringUtils.hasText(user.getEmail())) {
-            if (session.getFlow() != null) {
-                session.getFlow().addWaitingStepFirst(SigninFlow.STEP_ETOTP);
-                sessionManager.saveSession(session);
-            }
-            emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), true);
-
-            int nextCid = cid + 1;
-            String etotpTL = transitionLockManager.nextTransLock(
-                    dsh, tl, cid, "pwd", nextCid, "etotp", cleanIdentifier
-            );
-            return FlowResponseVO.builder()
-                    .dsh(dsh)
-                    .tl(etotpTL)
-                    .cid(nextCid)
-                    .nextStep("etotp")
-                    .status("CHALLENGE")
-                    .identifier(cleanIdentifier)
-                    .build();
-        }
-
-        if (StringUtils.hasText(deviceHash)) {
-            String osFamily = session.getRequestDeviceParams() != null ? session.getRequestDeviceParams().getOsFamily() : null;
-            String browserFamily = session.getRequestDeviceParams() != null ? session.getRequestDeviceParams().getBrowserFamily() : null;
-            userTrustedDeviceService.recordLoginDevice(user.getId(), deviceHash, osFamily, browserFamily, clientIp);
-        }
-
-        if (session.getFlow() != null) {
-            session.getFlow().completeStep("pwd");
-            sessionManager.saveSession(session);
-        }
-
-        int nextCid = cid + 1;
-        String authTL = transitionLockManager.nextTransLock(
-                dsh, tl, cid, "pwd", nextCid, SigninFlow.STEP_AUTHENTICATE, cleanIdentifier
-        );
-
-        return FlowResponseVO.builder()
-                .dsh(dsh)
-                .tl(authTL)
-                .cid(nextCid)
-                .nextStep(SigninFlow.STEP_AUTHENTICATE)
-                .status("CHALLENGE")
-                .identifier(cleanIdentifier)
-                .build();
-    }
 
     @Override
     public FlowResponseVO verifyEmailOTP(EmailOTPChallengeRequestDTO request) {
@@ -423,11 +286,16 @@ public class ChallengeServiceImpl implements ChallengeService {
                 }
                 emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), true);
                 normalizedStep = "etotp";
-            } else if ("smsotp".equals(normalizedStep) || "totp".equals(normalizedStep) || "sms".equals(normalizedStep)) {
+            } else if ("smsotp".equals(normalizedStep) || "sms".equals(normalizedStep)) {
                 if (!StringUtils.hasText(user.getPhone())) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "未检测到关联手机号");
                 }
                 normalizedStep = "smsotp";
+            } else if ("totp".equals(normalizedStep)) {
+                if (!Boolean.TRUE.equals(user.getIsTotpEnabled()) || !StringUtils.hasText(user.getTotpSecret())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "用户未配置动态身份验证器");
+                }
+                normalizedStep = "totp";
             }
 
             int nextCid = cid + 1;
@@ -524,9 +392,14 @@ public class ChallengeServiceImpl implements ChallengeService {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "当前账号未绑定安全邮箱，无法使用邮箱验证码登录");
                 }
             }
-            case "smsotp", "totp", "sms" -> {
+            case "smsotp", "sms" -> {
                 if (!StringUtils.hasText(user.getPhone())) {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "当前账号未绑定手机号，无法使用短信验证码登录");
+                }
+            }
+            case "totp" -> {
+                if (!Boolean.TRUE.equals(user.getIsTotpEnabled()) || !StringUtils.hasText(user.getTotpSecret())) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "当前账号未绑定动态身份验证器，无法使用此方式验证");
                 }
             }
             case "pk", "device" -> {
@@ -541,11 +414,10 @@ public class ChallengeServiceImpl implements ChallengeService {
 
         boolean requireRecaptcha = "etotp".equalsIgnoreCase(targetType)
                 || "smsotp".equalsIgnoreCase(targetType)
-                || "totp".equalsIgnoreCase(targetType)
                 || "sms".equalsIgnoreCase(targetType);
 
         if (requireRecaptcha) {
-            String pendingStep = ("smsotp".equalsIgnoreCase(targetType) || "totp".equalsIgnoreCase(targetType) || "sms".equalsIgnoreCase(targetType))
+            String pendingStep = ("smsotp".equalsIgnoreCase(targetType) || "sms".equalsIgnoreCase(targetType))
                     ? "smsotp"
                     : "etotp";
             if (session.getMetadata() == null) {
@@ -602,6 +474,7 @@ public class ChallengeServiceImpl implements ChallengeService {
         boolean hasEmail = false;
         boolean hasPhone = false;
         boolean hasPasskey = false;
+        boolean hasTotp = false;
 
         if (StringUtils.hasText(dsh)) {
             try {
@@ -613,15 +486,18 @@ public class ChallengeServiceImpl implements ChallengeService {
                             .orElse(null);
                     if (user != null) {
                         if (StringUtils.hasText(user.getEmail())) {
-                            maskedEmail = maskEmail(user.getEmail());
+                            maskedEmail = MaskUtil.emailMask(user.getEmail());
                             hasEmail = true;
                         }
                         if (StringUtils.hasText(user.getPhone())) {
-                            maskedPhone = maskPhone(user.getPhone());
+                            maskedPhone = MaskUtil.phoneMask(user.getPhone());
                             hasPhone = true;
                         }
                         if (user.getId() != null) {
                             hasPasskey = passkeyService.hasPasskey(user.getId());
+                        }
+                        if (Boolean.TRUE.equals(user.getIsTotpEnabled()) && StringUtils.hasText(user.getTotpSecret())) {
+                            hasTotp = true;
                         }
                     }
                 }
@@ -661,6 +537,16 @@ public class ChallengeServiceImpl implements ChallengeService {
                     .build());
         }
 
+        if (hasTotp) {
+            allOptions.add(ChallengeOptionVO.builder()
+                    .type("totp")
+                    .title("使用身份验证器动态口令")
+                    .subtitle("输入验证器应用生成的 6 位动态验证码")
+                    .icon("shield")
+                    .path("/v1/signin/challenge/totp")
+                    .build());
+        }
+
         allOptions.add(ChallengeOptionVO.builder()
                 .type("pwd")
                 .title("输入您的密码")
@@ -692,27 +578,6 @@ public class ChallengeServiceImpl implements ChallengeService {
     private void resetIdentifierFailures(String subjectKey) {
         String key = VREDIS_AUTH_IDENTIFIER_FAILURES_KEY_PREFIX + subjectKey;
         redisTemplate.delete(key);
-    }
-
-    private String maskEmail(String email) {
-        int atIdx = email.indexOf('@');
-        if (atIdx <= 1) {
-            return email;
-        }
-        String prefix = email.substring(0, atIdx);
-        String domain = email.substring(atIdx);
-        if (prefix.length() <= 2) {
-            return prefix.charAt(0) + "***" + domain;
-        }
-        return prefix.charAt(0) + "***" + prefix.charAt(prefix.length() - 1) + domain;
-    }
-
-    private String maskPhone(String phone) {
-        if (phone.length() <= 4) {
-            return phone;
-        }
-        int len = phone.length();
-        return phone.substring(0, 3) + "****" + phone.substring(len - 4);
     }
 
 }

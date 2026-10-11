@@ -11,14 +11,7 @@
           <n-message-provider>
             <naive-provider>
               <router-view />
-              <transition name="lang-mask-fade">
-                <div v-if="appStore.isLangSwitching" class="global-lang-loading-mask">
-                  <div class="lang-loading-card">
-                    <n-spin size="large" />
-                    <span class="lang-loading-text">{{ appStore.langSwitchingText }}</span>
-                  </div>
-                </div>
-              </transition>
+              <LanguageSwitcher />
             </naive-provider>
           </n-message-provider>
         </n-notification-provider>
@@ -39,7 +32,6 @@ import {
   NNotificationProvider,
   NMessageProvider,
   NGlobalStyle,
-  NSpin,
   darkTheme,
   zhCN,
   dateZhCN,
@@ -50,6 +42,7 @@ import {
   type GlobalThemeOverrides
 } from 'naive-ui'
 import NaiveProvider from '@/components/common/NaiveProvider.vue'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher.vue'
 import { useAppStore } from '@/store/modules/app'
 import { initDeviceFingerprint } from '@/utils/fingerprint'
 import { refreshTokenApi } from '@/api/auth'
@@ -110,9 +103,9 @@ async function inspectAndRenewToken() {
           !path.startsWith('/v1/signup') &&
           path !== '/v1/info/sessionexpire'
         ) {
-          router.push({
+          await router.push({
             path: '/v1/signin/identifier',
-            query: { redirect: route.fullPath }
+            query: {redirect: route.fullPath}
           })
         }
       }
@@ -174,25 +167,25 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
   const isDark = appStore.theme === 'dark'
   return {
     common: {
-      primaryColor: isDark ? '#8ab4f8' : '#1a73e8',
-      primaryColorHover: isDark ? '#aecbfa' : '#1765cc',
-      primaryColorPressed: isDark ? '#669df6' : '#1557b0',
-      primaryColorSuppl: isDark ? '#8ab4f8' : '#4285f4',
+      primaryColor: isDark ? '#a8c7fa' : '#1a73e8',
+      primaryColorHover: isDark ? '#b6d0f8' : '#1765cc',
+      primaryColorPressed: isDark ? '#a8c7fa' : '#1557b0',
+      primaryColorSuppl: isDark ? '#a8c7fa' : '#4285f4',
       successColor: isDark ? '#81c995' : '#34a853',
       warningColor: isDark ? '#fdd663' : '#fbbc04',
       errorColor: isDark ? '#f28b82' : '#ea4335',
       infoColor: isDark ? '#78d9ec' : '#24c1e0',
-      baseColor: isDark ? '#202124' : '#ffffff',
-      bodyColor: isDark ? '#202124' : '#f8f9fa',
-      cardColor: isDark ? '#292a2d' : '#ffffff',
+      baseColor: isDark ? '#1e1f20' : '#ffffff',
+      bodyColor: isDark ? '#1e1f20' : '#f8f9fa',
+      cardColor: isDark ? '#0e0e0e' : '#ffffff',
       modalColor: isDark ? '#303134' : '#ffffff',
       popoverColor: isDark ? '#303134' : '#ffffff',
       tableColor: isDark ? '#292a2d' : '#ffffff',
       inputColor: isDark ? '#303134' : '#ffffff',
       borderColor: isDark ? '#3c4043' : '#dadce0',
       dividerColor: isDark ? '#3c4043' : '#e8eaed',
-      textColorBase: isDark ? '#e8eaed' : '#202124',
-      textColor1: isDark ? '#e8eaed' : '#202124',
+      textColorBase: isDark ? '#e3e3e3' : '#202124',
+      textColor1: isDark ? '#e3e3e3' : '#202124',
       textColor2: isDark ? '#bdc1c6' : '#3c4043',
       textColor3: isDark ? '#9aa0a6' : '#5f6368',
       textColorDisabled: isDark ? '#80868b' : '#9aa0a6',
@@ -200,87 +193,45 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
       borderRadius: '8px'
     },
     Button: {
-      colorPrimary: isDark ? '#8ab4f8' : '#1a73e8',
-      colorHoverPrimary: isDark ? '#aecbfa' : '#1765cc',
-      colorPressedPrimary: isDark ? '#669df6' : '#1557b0',
-      colorFocusPrimary: isDark ? '#aecbfa' : '#1765cc',
-      textColorPrimary: isDark ? '#202124' : '#ffffff',
-      textColorHoverPrimary: isDark ? '#202124' : '#ffffff',
-      textColorPressedPrimary: isDark ? '#202124' : '#ffffff',
-      textColorFocusPrimary: isDark ? '#202124' : '#ffffff',
+      colorPrimary: isDark ? '#a8c7fa' : '#1a73e8',
+      colorHoverPrimary: isDark ? '#b6d0f8' : '#1765cc',
+      colorPressedPrimary: isDark ? '#a8c7fa' : '#1557b0',
+      colorFocusPrimary: isDark ? '#b6d0f8' : '#1765cc',
+      textColorPrimary: isDark ? '#062e6f' : '#ffffff',
+      textColorHoverPrimary: isDark ? '#062e6f' : '#ffffff',
+      textColorPressedPrimary: isDark ? '#062e6f' : '#ffffff',
+      textColorFocusPrimary: isDark ? '#062e6f' : '#ffffff',
       borderRadiusMedium: '8px',
       borderRadiusLarge: '8px'
     },
     Card: {
-      color: isDark ? '#292a2d' : '#ffffff',
+      color: isDark ? '#0e0e0e' : '#ffffff',
       borderColor: isDark ? '#3c4043' : '#dadce0',
       textColor: isDark ? '#bdc1c6' : '#3c4043',
-      titleTextColor: isDark ? '#e8eaed' : '#202124'
+      titleTextColor: isDark ? '#e3e3e3' : '#202124'
     },
     Layout: {
-      color: isDark ? '#202124' : '#f8f9fa',
+      color: isDark ? '#1e1f20' : '#f8f9fa',
       siderColor: isDark ? '#292a2d' : '#ffffff',
       headerColor: isDark ? '#292a2d' : '#ffffff',
       footerColor: isDark ? '#292a2d' : '#ffffff'
     },
     Form: {
       labelTextColor: isDark ? '#bdc1c6' : '#3c4043'
+    },
+    Modal: {
+      maskColor: isDark ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.4)'
+    },
+    Tooltip: {
+      color: isDark ? '#292a2d' : '#ffffff',
+      textColor: isDark ? '#bdc1c6' : '#2b2d31',
+      boxShadow: isDark
+        ? '0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.4)'
+        : '0 1px 3px 0 rgba(10, 13, 18, 0.1), 0 1px 2px -1px rgba(10, 13, 18, 0.1)',
+      padding: '8px 12px',
+      borderRadius: '8px'
     }
   }
 })
 </script>
 
-<style scoped lang="scss">
-.global-lang-loading-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  background-color: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: wait;
-  user-select: none;
-}
-
-:global(html.dark) .global-lang-loading-mask {
-  background-color: rgba(32, 33, 36, 0.75);
-}
-
-.lang-loading-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 24px 32px;
-  background-color: var(--v-bg-card, #ffffff);
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-:global(html.dark) .lang-loading-card {
-  background-color: #292a2d;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-.lang-loading-text {
-  font-size: 14px;
-  color: var(--v-text-primary, #202124);
-  font-weight: 500;
-}
-
-:global(html.dark) .lang-loading-text {
-  color: #e8eaed;
-}
-
-.lang-mask-fade-enter-active,
-.lang-mask-fade-leave-active {
-  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.lang-mask-fade-enter-from,
-.lang-mask-fade-leave-to {
-  opacity: 0;
-}
-</style>

@@ -13,7 +13,7 @@ import {
 import { collectDeviceParams, getDeviceFingerprint, initDeviceFingerprint } from '@/utils/fingerprint'
 import { isDshExpired, buildSessionExpireLocation, buildSessionExpireHref } from '@/utils/flow'
 import { encryptFlowCredential } from '@/utils/flow-crypto'
-import { saveKnownAccount } from '@/utils/accountChooser'
+import { useUserStore } from '@/store/modules/user'
 import { createFlowLoading } from './flowLoading'
 
 const STORAGE_IDENTIFIER_KEY = 'volur_auth_identifier'
@@ -288,6 +288,20 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       const data = res.data
 
       if (data.status === 'SUCCESS') {
+        const rawIdentifier = identifier.value || data.identifier || data.username || ''
+        const canonicalUsername = data.username || data.identifier || rawIdentifier
+        if (rawIdentifier) {
+          const userStore = useUserStore()
+          userStore.setAuthenticatedUser({
+            identifier: rawIdentifier,
+            username: canonicalUsername,
+            email: data.email,
+            displayName: data.displayName || canonicalUsername,
+            avatarUrl: data.avatarUrl,
+            lastLoginTime: Date.now()
+          })
+          userStore.fetchCurrentUser(true).catch(() => {})
+        }
         const targetRedirect = continueUrl.value || '/competitions'
         resetFlow(true)
         return {
@@ -314,6 +328,21 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
           rememberMe: Boolean(payload.rememberMe)
         })
         if (authRes.data?.status === 'SUCCESS') {
+          const authData = authRes.data
+          const rawIdentifier = identifier.value || authData.identifier || authData.username || ''
+          const canonicalUsername = authData.username || authData.identifier || rawIdentifier
+          if (rawIdentifier) {
+            const userStore = useUserStore()
+            userStore.setAuthenticatedUser({
+              identifier: rawIdentifier,
+              username: canonicalUsername,
+              email: authData.email,
+              displayName: authData.displayName || canonicalUsername,
+              avatarUrl: authData.avatarUrl,
+              lastLoginTime: Date.now()
+            })
+            userStore.fetchCurrentUser(true).catch(() => {})
+          }
           const targetRedirect = continueUrl.value || '/competitions'
           resetFlow(true)
           return {
@@ -378,8 +407,9 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       if (res.data?.status === 'SUCCESS') {
         const rawIdentifier = identifier.value || res.data.identifier || res.data.username || ''
         const canonicalUsername = res.data.username || res.data.identifier || rawIdentifier
-        if (rawIdentifier && canonicalUsername) {
-          saveKnownAccount({
+        if (rawIdentifier) {
+          const userStore = useUserStore()
+          userStore.setAuthenticatedUser({
             identifier: rawIdentifier,
             username: canonicalUsername,
             email: res.data.email,
@@ -387,6 +417,7 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
             avatarUrl: res.data.avatarUrl,
             lastLoginTime: Date.now()
           })
+          userStore.fetchCurrentUser(true).catch(() => {})
         }
         const targetRedirect = continueUrl.value || '/competitions'
         resetFlow()
