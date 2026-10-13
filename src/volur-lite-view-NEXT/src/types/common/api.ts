@@ -13,6 +13,9 @@ export interface PageResponse<T> {
   total: number
   totalPages: number
   currentPage: number
+  records?: T[]
+  content?: T[]
+  totalElements?: number
 }
 
 export interface CursorResponse<T> {

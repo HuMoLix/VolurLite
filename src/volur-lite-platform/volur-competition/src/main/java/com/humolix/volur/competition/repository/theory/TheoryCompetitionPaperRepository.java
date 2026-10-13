@@ -20,10 +20,22 @@ public interface TheoryCompetitionPaperRepository extends JpaRepository<TheoryCo
             "ORDER BY p.sortOrder ASC")
     List<TheoryCompetitionPaper> findByCompetitionIdWithChallenge(@Param("competitionId") Long competitionId);
 
+    @Query("SELECT p FROM TheoryCompetitionPaper p " +
+            "JOIN FETCH p.challenge " +
+            "WHERE p.userPaper.id = :userPaperId " +
+            "ORDER BY p.sortOrder ASC")
+    List<TheoryCompetitionPaper> findByUserPaperIdWithChallenge(@Param("userPaperId") Long userPaperId);
+
+    List<TheoryCompetitionPaper> findByUserPaperIdOrderBySortOrderAsc(Long userPaperId);
+
+    List<TheoryCompetitionPaper> findByCompetitionIdAndUserIdOrderBySortOrderAsc(Long competitionId, Long userId);
+
     Optional<TheoryCompetitionPaper> findByCompetitionIdAndChallengeId(Long competitionId, Long challengeId);
 
     boolean existsByCompetitionIdAndChallengeId(Long competitionId, Long challengeId);
 
     void deleteByCompetitionId(Long competitionId);
+
+    void deleteByUserPaperId(Long userPaperId);
 
 }

@@ -46,3 +46,18 @@ export function submitRecaptchaChallengeApi(data: {
 }): Promise<ApiResponse<SignInFlowResponseVO>> {
   return post<SignInFlowResponseVO>('/captcha/challenge/recaptcha', data, { skipToast: true })
 }
+
+export interface CaptchaImageChallengeVO {
+  captchaId: string
+  captchaType?: string
+  imageBase64: string
+}
+
+export function getImageCaptchaApi(params?: {
+  scene?: string
+  type?: string
+  oldCaptchaId?: string
+}): Promise<ApiResponse<CaptchaImageChallengeVO>> {
+  return get<CaptchaImageChallengeVO>('/captcha/challenge', { params, skipToast: true })
+}
+

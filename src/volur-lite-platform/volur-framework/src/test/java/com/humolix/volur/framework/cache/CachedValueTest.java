@@ -196,4 +196,49 @@ class CachedValueTest {
         assertThat(CachedValue.decode("")).isNull();
         assertThat(CachedValue.decode("not-json-at-all{{{")).isNull();
     }
+
+    @Test
+    @DisplayName("List 中的 POJO 元素可精确还原其泛型类型，不退化为 LinkedHashMap")
+    void pojoListPreservesElementType() {
+        List<SampleEntity> list = List.of(new SampleEntity(1L, "first"), new SampleEntity(2L, "second"));
+        CachedValue cv = CachedValue.of(list);
+        CachedValue decoded = CachedValue.decode(cv.encode());
+
+        assertThat(decoded).isNotNull();
+        Object back = decoded.unwrap(null);
+        assertThat(back).isInstanceOf(List.class);
+        List<?> backList = (List<?>) back;
+        assertThat(backList).hasSize(2);
+        assertThat(backList.get(0)).isInstanceOf(SampleEntity.class);
+        assertThat(backList.get(0)).isEqualTo(new SampleEntity(1L, "first"));
+        assertThat(backList.get(1)).isInstanceOf(SampleEntity.class);
+        assertThat(backList.get(1)).isEqualTo(new SampleEntity(2L, "second"));
+    }
+
+    @Test
+    @DisplayName("Set 中的 POJO 元素可精确还原其泛型类型")
+    void pojoSetPreservesElementType() {
+        Set<SampleEntity> set = Set.of(new SampleEntity(1L, "item"));
+        CachedValue cv = CachedValue.of(set);
+        CachedValue decoded = CachedValue.decode(cv.encode());
+
+        assertThat(decoded).isNotNull();
+        Object back = decoded.unwrap(null);
+        assertThat(back).isInstanceOf(Set.class);
+        Set<?> backSet = (Set<?>) back;
+        assertThat(backSet).hasSize(1);
+        assertThat(backSet.iterator().next()).isInstanceOf(SampleEntity.class);
+    }
+
+    @Test
+    @DisplayName("白名单外的 elementType 在反序列化时被拒绝")
+    void rejectsElementTypeOutsideWhitelist() {
+        String tampered = "{\"n\":false,\"t\":\"java.util.List\",\"e\":\"javax.script.ScriptEngineManager\",\"v\":\"[]\"}";
+        CachedValue cv = CachedValue.decode(tampered);
+
+        assertThat(cv).isNotNull();
+        assertThatThrownBy(() -> cv.unwrap(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("白名单");
+    }
 }

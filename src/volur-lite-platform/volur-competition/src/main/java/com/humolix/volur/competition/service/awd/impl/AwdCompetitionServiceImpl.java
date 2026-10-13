@@ -22,6 +22,9 @@ import com.humolix.volur.competition.repository.awd.AwdCompetitionLogRepository;
 import com.humolix.volur.competition.repository.awd.AwdCompetitionRoundRepository;
 import com.humolix.volur.competition.service.awd.AwdCompetitionService;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.UserRole;
+import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -43,9 +46,11 @@ public class AwdCompetitionServiceImpl implements AwdCompetitionService {
     private final AwdCompetitionChallengeRepository challengeRepository;
     private final AwdCompetitionRoundRepository roundRepository;
     private final AwdCompetitionLogRepository logRepository;
+    private final UserRepository userRepository;
 
     @Override
     public AwdCurrentRoundVO getCurrentRound(Long competitionId, Long userId) {
+        validateUserParticipationOrAdmin(competitionId, userId);
         Optional<AwdCompetitionRound> runningRoundOpt = roundRepository.findFirstByCompetitionIdAndStatus(competitionId, AwdRoundStatus.RUNNING);
         int roundNumber = runningRoundOpt.map(AwdCompetitionRound::getRoundNumber).orElse(1);
         Instant startTime = runningRoundOpt.map(AwdCompetitionRound::getStartTime).orElse(Instant.now());
@@ -130,6 +135,22 @@ public class AwdCompetitionServiceImpl implements AwdCompetitionService {
             }
         }
         return null;
+    }
+
+    private void validateUserParticipationOrAdmin(Long competitionId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
+        }
+        CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
+        if (team != null) {
+            return;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        boolean isAdmin = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
+        if (!isAdmin) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "您尚未加入已审核通过的参赛队伍");
+        }
     }
 
 }

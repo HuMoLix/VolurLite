@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import { getCookie } from '@/utils/cookie'
+import { getCookie, setCookie, removeCookie } from '@/utils/cookie'
 import { getCurrentUserApi } from '@/api/user'
 import type { UserSummaryVO } from '@/types/user'
 import type { KnownAccount } from '@/types/auth/flow'
@@ -41,6 +41,9 @@ export const useUserStore = defineStore('user', () => {
   const cachedAccount = ref<KnownAccount | null>(
     knownAccounts.value.length > 0 ? knownAccounts.value[0] : null
   )
+  const isCookieLoggedIn = ref<boolean>(
+    typeof document !== 'undefined' && getCookie('logged_in') === 'true'
+  )
 
   let inFlightPromise: Promise<UserSummaryVO | null> | null = null
 
@@ -73,11 +76,13 @@ export const useUserStore = defineStore('user', () => {
   )
 
   const isLoggedIn = computed<boolean>(() => {
-    const cookieLoggedIn = typeof document !== 'undefined' && getCookie('logged_in') === 'true'
-    return cookieLoggedIn || !!user.value
+    return isCookieLoggedIn.value || !!user.value
   })
 
   const currentUser = computed<KnownAccount | null>(() => {
+    if (!isLoggedIn.value) {
+      return null
+    }
     if (user.value) {
       return {
         identifier: user.value.username,
@@ -88,28 +93,37 @@ export const useUserStore = defineStore('user', () => {
         lastLoginTime: Date.now()
       }
     }
-    if (knownAccounts.value.length > 0) {
-      return knownAccounts.value[0]
-    }
     return cachedAccount.value
   })
 
   const displayName = computed<string>(() => {
-    return currentUser.value?.displayName || currentUser.value?.username || 'Volur User'
+    if (!isLoggedIn.value) {
+      return ''
+    }
+    return currentUser.value?.displayName || currentUser.value?.username || ''
   })
 
   const userEmail = computed<string>(() => {
+    if (!isLoggedIn.value) {
+      return ''
+    }
     return currentUser.value?.email || ''
   })
 
   const avatarUrl = computed<string | undefined>(() => {
+    if (!isLoggedIn.value) {
+      return undefined
+    }
     return currentUser.value?.avatarUrl
   })
 
   const userInitial = computed<string>(() => {
+    if (!isLoggedIn.value) {
+      return ''
+    }
     const name = displayName.value || userEmail.value
-    if (!name || name === 'Volur User') {
-      return 'U'
+    if (!name) {
+      return ''
     }
     return name.charAt(0).toUpperCase()
   })
@@ -192,7 +206,7 @@ export const useUserStore = defineStore('user', () => {
     cachedAccount.value = null
   }
 
-  function setAuthenticatedUser(accountData: Partial<KnownAccount> & { identifier: string; username?: string }): void {
+  function setAuthenticatedUser(accountData: Partial<KnownAccount> & { identifier: string; username?: string; role?: string }): void {
     const identifier = accountData.identifier.trim()
     const username = (accountData.username || identifier).trim()
     const known: KnownAccount = {
@@ -204,10 +218,26 @@ export const useUserStore = defineStore('user', () => {
       lastLoginTime: accountData.lastLoginTime || Date.now()
     }
     saveAccount(known)
+    isCookieLoggedIn.value = true
+    if (typeof document !== 'undefined') {
+      setCookie('logged_in', 'true')
+    }
+    user.value = {
+      id: identifier,
+      username,
+      email: accountData.email ? accountData.email.trim() : '',
+      avatarUrl: accountData.avatarUrl || null,
+      role: accountData.role || 'USER'
+    }
   }
 
   async function fetchCurrentUser(force = false): Promise<UserSummaryVO | null> {
-    if (!isLoggedIn.value) {
+    const hasCookie = typeof document !== 'undefined' && getCookie('logged_in') === 'true'
+    if (hasCookie) {
+      isCookieLoggedIn.value = true
+    }
+
+    if (!force && !isLoggedIn.value) {
       user.value = null
       return null
     }
@@ -221,6 +251,10 @@ export const useUserStore = defineStore('user', () => {
         const res = await getCurrentUserApi()
         if (res?.data) {
           user.value = res.data
+          isCookieLoggedIn.value = true
+          if (typeof document !== 'undefined') {
+            setCookie('logged_in', 'true')
+          }
           saveAccount({
             identifier: res.data.username,
             username: res.data.username,
@@ -232,7 +266,10 @@ export const useUserStore = defineStore('user', () => {
           return res.data
         }
         return null
-      } catch {
+      } catch (err: any) {
+        if (err?.response?.status === 401 || err?.status === 401) {
+          clearUser()
+        }
         return null
       } finally {
         inFlightPromise = null
@@ -245,6 +282,10 @@ export const useUserStore = defineStore('user', () => {
   function clearUser(): void {
     user.value = null
     cachedAccount.value = null
+    isCookieLoggedIn.value = false
+    if (typeof document !== 'undefined') {
+      removeCookie('logged_in')
+    }
   }
 
   return {

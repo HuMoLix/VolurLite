@@ -1,5 +1,5 @@
 <template>
-  <div class="app-layout min-h-screen flex bg-google-surface-light dark:bg-[#191919] transition-colors duration-300">
+  <div class="app-layout h-screen max-h-screen flex overflow-hidden bg-white dark:bg-[#191919] transition-colors duration-300">
     <slot name="sidebar" :collapsed="isCollapsed" :toggle-collapse="toggleCollapse">
       <SideBar
         v-if="showSidebar"
@@ -117,12 +117,13 @@
     </slot>
 
     <div
-      class="app-main flex-1 flex flex-col min-w-0 pb-16 md:pb-0"
+      ref="appMainRef"
+      class="app-main flex-1 flex flex-col min-w-0 h-full overflow-y-auto pb-16 md:pb-0"
       :class="mainClass"
       :style="mainStyle"
     >
       <slot name="header" />
-      <main class="app-content flex-1 flex flex-col min-w-0">
+      <main class="app-content flex-1 flex flex-col min-w-0 max-w-[100rem] w-full mx-auto">
         <slot>
           <router-view />
         </slot>
@@ -133,7 +134,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import type { Component, CSSProperties } from 'vue'
 import type { MenuOption } from 'naive-ui'
 import SideBar from '@/components/sidebar/SideBar.vue'
@@ -287,8 +289,17 @@ const modelCollapsed = defineModel<boolean>('collapsed')
 const modelValue = defineModel<string>('value')
 
 const appStore = useAppStore()
+const route = useRoute()
 
 const sideBarRef = ref<InstanceType<typeof SideBar> | null>(null)
+const appMainRef = ref<HTMLElement | null>(null)
+
+watch(
+  () => route?.path,
+  () => {
+    appMainRef.value?.scrollTo({ top: 0, behavior: 'auto' })
+  }
+)
 
 const isCollapsed = computed<boolean>({
   get() {
@@ -350,14 +361,13 @@ function closeSearch() {
 }
 
 function scrollToTop(options?: ScrollToOptions) {
-  if (typeof window !== 'undefined') {
-    window.scrollTo(options ?? { top: 0, behavior: 'smooth' })
-  }
+  appMainRef.value?.scrollTo(options ?? { top: 0, behavior: 'smooth' })
   sideBarRef.value?.scrollToTop(options)
 }
 
 defineExpose({
   sideBarRef,
+  appMainRef,
   isCollapsed,
   toggleCollapse,
   expand,
@@ -372,6 +382,12 @@ defineExpose({
 .app-layout {
   position: relative;
   width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
+  background-color: #fff;
 
   html.dark & {
     background-color: #191919;
@@ -380,8 +396,41 @@ defineExpose({
 
 .app-main {
   position: relative;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--v-scrollbar-thumb) transparent;
   background: #fff;
   transition: background-color 0.3s ease;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--v-scrollbar-thumb);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+
+    &:hover {
+      background-color: var(--v-scrollbar-thumb-hover);
+    }
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 
   html.dark & {
     background-color: #191919;
@@ -390,5 +439,11 @@ defineExpose({
 
 .app-content {
   position: relative;
+}
+
+main {
+  max-width: 100rem;
+  width: 100%;
+  margin: 0 auto;
 }
 </style>

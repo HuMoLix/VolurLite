@@ -146,13 +146,13 @@ import type {
   CompetitionStatus,
   CompetitionType
 } from '@/types/competition'
-import type { VSearchProps } from './types'
+import type { VSearchToolProps } from './types'
 
 defineOptions({
-  name: 'VSearch'
+  name: 'VSearchTool'
 })
 
-const props = withDefaults(defineProps<VSearchProps>(), {
+const props = withDefaults(defineProps<VSearchToolProps>(), {
   show: undefined,
   placeholder: '',
   debounceDelay: 3000,

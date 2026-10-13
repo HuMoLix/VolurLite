@@ -246,6 +246,14 @@ async function handleSelect(acc: AccountChooserItemVO): Promise<void> {
   signinFlowStore.setIdentifier(acc.username || acc.email || acc.identifier)
 
   if (acc.sessionStatus === 'ACTIVE') {
+    userStore.setAuthenticatedUser({
+      identifier: acc.identifier,
+      username: acc.username || acc.identifier,
+      email: acc.email,
+      displayName: acc.displayName || acc.username || acc.identifier,
+      avatarUrl: acc.avatarUrl
+    })
+    await userStore.fetchCurrentUser(true).catch(() => {})
     await signinFlowStore.triggerScrim(undefined, 1000)
     const continueTarget = signinFlowStore.continueUrl || '/competitions'
     signinFlowStore.resetFlow()

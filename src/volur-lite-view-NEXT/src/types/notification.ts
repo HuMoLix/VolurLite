@@ -45,3 +45,32 @@ export interface BroadcastMessageVO {
   createdAt?: string
   expireTime?: string
 }
+
+export interface BroadcastMessageDTO {
+  title: string
+  content: string
+  displayType: BroadcastDisplayType
+  coverImageUrl?: string
+  linkUrl?: string
+  forcePopup?: boolean
+  priority?: number
+  expireTime?: string
+}
+
+export interface AdminBroadcastPageRequestDTO {
+  page?: number
+  size?: number
+  keyword?: string
+  displayType?: BroadcastDisplayType | string
+  category?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface AdminBroadcastStatisticsVO {
+  totalAnnouncements: number
+  totalPromotions: number
+  urgentModals: number
+  sseOnlineStatus?: boolean
+}
+

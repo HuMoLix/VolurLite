@@ -23,7 +23,7 @@ public class IswCompetitionController {
     @GetMapping("/scenarios")
     public ApiResponseEntity<List<IswCompetitionTopologyVO>> listScenarios(
             @PathVariable Long competitionId,
-            @CurrentUserId(required = false) Long userId) {
+            @CurrentUserId Long userId) {
         return ApiResponseEntity.ok("获取综合渗透场景拓扑成功", iswCompetitionService.listScenarios(competitionId, userId));
     }
 

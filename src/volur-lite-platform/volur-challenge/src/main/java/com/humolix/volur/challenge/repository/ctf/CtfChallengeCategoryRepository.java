@@ -15,4 +15,6 @@ public interface CtfChallengeCategoryRepository extends JpaRepository<CtfChallen
 
     boolean existsByName(String name);
 
+    boolean existsByNameAndIdNot(String name, Long id);
+
 }

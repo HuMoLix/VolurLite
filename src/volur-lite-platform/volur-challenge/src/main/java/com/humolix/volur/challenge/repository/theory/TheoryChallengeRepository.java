@@ -17,4 +17,16 @@ public interface TheoryChallengeRepository extends JpaRepository<TheoryChallenge
 
     boolean existsByName(String name);
 
+    boolean existsByNameAndIdNot(String name, Long id);
+
+    long countByBankId(Long bankId);
+
+    List<TheoryChallenge> findByBankId(Long bankId);
+
+    List<TheoryChallenge> findByBankIdIn(List<Long> bankIds);
+
+    List<TheoryChallenge> findByBankIdInAndType(List<Long> bankIds, TheoryType type);
+
+    void deleteByBankId(Long bankId);
+
 }

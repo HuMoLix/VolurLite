@@ -18,6 +18,7 @@ import com.humolix.volur.competition.repository.awdp.AwdPlusCompetitionPatchRepo
 import com.humolix.volur.competition.service.awdp.AwdPlusCompetitionService;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -42,6 +43,7 @@ public class AwdPlusCompetitionServiceImpl implements AwdPlusCompetitionService 
 
     @Override
     public List<AwdPlusTargetStatusVO> listTargets(Long competitionId, Long userId) {
+        validateUserParticipationOrAdmin(competitionId, userId);
         List<AwdPlusCompetitionChallenge> challenges = challengeRepository.findByCompetitionIdWithChallenge(competitionId);
         CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
 
@@ -107,6 +109,22 @@ public class AwdPlusCompetitionServiceImpl implements AwdPlusCompetitionService 
             }
         }
         return null;
+    }
+
+    private void validateUserParticipationOrAdmin(Long competitionId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
+        }
+        CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
+        if (team != null) {
+            return;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        boolean isAdmin = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
+        if (!isAdmin) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "您尚未加入已审核通过的参赛队伍");
+        }
     }
 
 }

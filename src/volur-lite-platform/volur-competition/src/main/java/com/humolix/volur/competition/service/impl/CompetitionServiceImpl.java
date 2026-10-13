@@ -65,6 +65,7 @@ public class CompetitionServiceImpl implements CompetitionService {
                 .map(comp -> {
                     if (comp.refreshStatus()) {
                         competitionRepository.save(comp);
+                        evictCompetitionDetailCache(comp);
                     }
                     return competitionMapper.toSummaryVO(comp);
                 });
@@ -99,6 +100,7 @@ public class CompetitionServiceImpl implements CompetitionService {
                 .map(comp -> {
                     if (comp.refreshStatus()) {
                         competitionRepository.save(comp);
+                        evictCompetitionDetailCache(comp);
                     }
                     return competitionMapper.toSummaryVO(comp);
                 });
@@ -119,9 +121,10 @@ public class CompetitionServiceImpl implements CompetitionService {
                     try {
                         if (competition.refreshStatus()) {
                             competitionRepository.save(competition);
+                            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:id:" + competition.getId());
+                            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "about:" + competition.getId());
                         }
                     } catch (Exception ignored) {
-                        // 抑制高并发读时的乐观锁或并发写入异常
                     }
                     if (competition.getStatus() == CompetitionStatus.DRAFT) {
                         return null;
@@ -144,9 +147,12 @@ public class CompetitionServiceImpl implements CompetitionService {
                     try {
                         if (competition.refreshStatus()) {
                             competitionRepository.save(competition);
+                            if (StringUtils.hasText(competition.getSlug())) {
+                                cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:slug:" + competition.getSlug());
+                            }
+                            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "about:" + competition.getId());
                         }
                     } catch (Exception ignored) {
-                        // 抑制高并发读时的乐观锁或并发写入异常
                     }
                     if (competition.getStatus() == CompetitionStatus.DRAFT) {
                         return null;
@@ -200,6 +206,14 @@ public class CompetitionServiceImpl implements CompetitionService {
         long teamCount = teamRepository.countByCompetitionIdAndStatus(competition.getId(), TeamStatus.AUDIT_PASSED);
         vo.setTeamCount(teamCount);
         return vo;
+    }
+
+    private void evictCompetitionDetailCache(Competition comp) {
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:id:" + comp.getId());
+        if (StringUtils.hasText(comp.getSlug())) {
+            cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "detail:slug:" + comp.getSlug());
+        }
+        cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "about:" + comp.getId());
     }
 
 }

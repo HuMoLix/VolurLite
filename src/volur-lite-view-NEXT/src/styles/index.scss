@@ -1,60 +1,9 @@
+@use './vcss.scss';
 @use './variables.scss' as *;
 @use './mixins.scss';
 @use './tailwind.css';
 @use './auth-list.scss';
 @use './buttons.scss';
-
-:root,
-[data-theme='light'] {
-  color-scheme: light;
-  --v-bg-base: #f8f9fa;            // Google Gray 50
-  --v-bg-card: #ffffff;
-  --v-bg-surface: #ffffff;
-  --v-bg-elevated: #f1f3f4;        // Google Gray 100
-  --sys-color-surface-container: #f0f4f9; // Material 3 Surface Container
-  --v-text-primary: #202124;       // Google Gray 900
-  --v-text-desc: #3c4043;          // Google Gray 700
-  --v-text-muted: #5f6368;         // Google Gray 600
-  --v-text-sub: #80868b;           // Google Gray 500
-  --v-border-base: #dadce0;        // Google Gray 300
-  --v-btn-primary-bg: #1a73e8;     // Google Blue 600
-  --v-btn-primary-text: #ffffff;
-  --v-btn-primary-hover: #1765cc;
-  --v-btn-primary-active: #1557b0;
-  --v-color-primary: #1a73e8;
-  --v-color-success: #34a853;      // Google Green 600
-  --v-color-warning: #fbbc04;      // Google Yellow 600
-  --v-color-error: #ea4335;        // Google Red 600
-  --v-color-info: #24c1e0;         // Google Cyan
-  --v-scrollbar-thumb: rgba(60, 64, 67, 0.28);
-  --v-scrollbar-thumb-hover: rgba(60, 64, 67, 0.45);
-}
-
-html.dark,
-[data-theme='dark'] {
-  color-scheme: dark;
-  --v-bg-base: #1e1f20;
-  --v-bg-card: #0e0e0e;
-  --v-bg-surface: #1e1f20;
-  --v-bg-elevated: #303134;
-  --sys-color-surface-container: #1e1f20;
-  --v-text-primary: #e3e3e3;
-  --v-text-desc: #bdc1c6;
-  --v-text-muted: #9aa0a6;
-  --v-text-sub: #80868b;
-  --v-border-base: #3c4043;
-  --v-btn-primary-bg: #a8c7fa;
-  --v-btn-primary-text: #062e6f;
-  --v-btn-primary-hover: #b6d0f8;
-  --v-btn-primary-active: #a8c7fa;
-  --v-color-primary: #a8c7fa;
-  --v-color-success: #81c995;
-  --v-color-warning: #fdd663;
-  --v-color-error: #f28b82;
-  --v-color-info: #78d9ec;
-  --v-scrollbar-thumb: rgba(255, 255, 255, 0.22);
-  --v-scrollbar-thumb-hover: rgba(255, 255, 255, 0.38);
-}
 
 html,
 body {
@@ -210,12 +159,18 @@ html.dark button.auth-btn-link:hover {
   color: #e8eaed;
 }
 
-.n-popover.n-tooltip:not(.user-card-tooltip) {
+.n-popover.n-tooltip:not(.user-card-tooltip),
+.n-popover.n-tooltip.v-tooltip-popover {
   border: 1px solid #d7d8da80 !important;
   padding: 8px 12px !important;
   font-size: 12px !important;
   color: #2b2d31 !important;
   box-shadow: 0 1px 3px 0 rgba(10, 13, 18, 0.1), 0 1px 2px -1px rgba(10, 13, 18, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+.n-popover.n-tooltip:not(.user-card-tooltip),
+.n-popover.n-tooltip.v-tooltip-popover.is-nowrap {
   white-space: nowrap !important;
   writing-mode: horizontal-tb !important;
   width: max-content !important;
@@ -231,6 +186,20 @@ html.dark button.auth-btn-link:hover {
     max-width: none !important;
     word-break: keep-all !important;
     display: inline-block !important;
+  }
+}
+
+.n-popover.n-tooltip.v-tooltip-popover {
+  &.size-small {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
+  }
+
+  &.size-large {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    border-radius: 10px !important;
   }
 }
 
@@ -259,9 +228,11 @@ html.dark button.auth-btn-link:hover {
   }
 }
 
-html.dark .n-popover.n-tooltip {
+html.dark .n-popover.n-tooltip,
+.n-popover.n-tooltip.v-tooltip-popover.theme-dark {
   border: 1px solid #262626 !important;
   color: #bdc1c6 !important;
+  background-color: #292a2d !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.4) !important;
 }
 

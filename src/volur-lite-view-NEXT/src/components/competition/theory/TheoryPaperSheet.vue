@@ -41,21 +41,36 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-5 gap-2 max-h-[340px] overflow-y-auto pr-1">
-      <button
-        v-for="(q, idx) in questions"
-        :key="q.paperId"
-        type="button"
-        class="relative h-10 rounded-xl font-mono text-xs font-medium transition-all flex items-center justify-center cursor-pointer border"
-        :class="getQuestionButtonClass(q.paperId, idx)"
-        @click="emit('select-question', idx)"
+    <div class="space-y-4 max-h-[360px] overflow-y-auto pr-1">
+      <div
+        v-for="group in questionGroups"
+        :key="group.type"
+        class="space-y-2"
       >
-        <span>{{ idx + 1 }}</span>
-        <span
-          v-if="isQuestionMarked(q.paperId)"
-          class="absolute top-1 right-1 w-2 h-2 rounded-full bg-google-yellow dark:bg-google-yellow-dark"
-        />
-      </button>
+        <div class="flex items-center justify-between text-xs font-medium text-google-text-desc dark:text-google-text-darkDesc px-0.5">
+          <span>{{ group.title }}</span>
+          <span class="font-mono text-[11px] text-google-text-muted dark:text-google-text-darkMuted">
+            ({{ group.items.length }})
+          </span>
+        </div>
+        <div class="grid grid-cols-5 gap-2">
+          <VBtn
+            v-for="item in group.items"
+            :key="item.question.paperId"
+            :clz="isCurrentAndAnswered(item.question.paperId, item.index) ? 'primary' : 'normal'"
+            :radius="12"
+            class="theory-sheet-item font-mono text-xs font-medium w-full relative"
+            :class="getQuestionButtonClass(item.question.paperId, item.index)"
+            @click="emit('select-question', item.index)"
+          >
+            <span>{{ item.index + 1 }}</span>
+            <span
+              v-if="isQuestionMarked(item.question.paperId)"
+              class="absolute top-1 right-1 w-2 h-2 rounded-full bg-google-yellow dark:bg-google-yellow-dark"
+            />
+          </VBtn>
+        </div>
+      </div>
     </div>
 
     <div class="pt-3 border-t border-google-border-light/70 dark:border-google-border-dark/70 space-y-3">
@@ -68,17 +83,17 @@
         </div>
       </div>
 
-      <button
+      <VBtn
         v-else
-        type="button"
-        class="w-full h-10 px-4 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm text-white bg-google-blue hover:bg-google-blue-hover active:bg-google-blue-hover disabled:opacity-50 disabled:cursor-not-allowed dark:bg-google-blue-dark dark:text-google-surface-dark dark:hover:bg-blue-300"
+        clz="primary"
+        block
         :disabled="submitting"
+        :loading="submitting"
+        :left-icon="CheckmarkCircleOutline"
         @click="emit('submit')"
       >
-        <n-icon v-if="submitting" :size="14" class="animate-spin" :component="SyncOutline" />
-        <n-icon v-else :size="14" :component="CheckmarkCircleOutline" />
-        <span>{{ submitting ? t('common.submitting', '提交中...') : t('competition.theory_submit_paper', '提交答卷') }}</span>
-      </button>
+        {{ submitting ? t('common.submitting', '提交中...') : t('competition.theory_submit_paper', '提交答卷') }}
+      </VBtn>
     </div>
   </div>
 </template>
@@ -87,7 +102,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NIcon } from 'naive-ui'
-import { GridOutline, CheckmarkCircleOutline, SyncOutline } from '@vicons/ionicons5'
+import { GridOutline, CheckmarkCircleOutline } from '@vicons/ionicons5'
+import { VBtn } from '@/components/common'
 import type { TheoryPaperQuestionVO } from '@/types/competition'
 
 defineOptions({
@@ -159,26 +175,119 @@ const progressPercentage = computed<number>(() => {
   return Math.round((answeredCount.value / props.questions.length) * 100)
 })
 
+interface QuestionGroupItem {
+  question: TheoryPaperQuestionVO
+  index: number
+}
+
+interface QuestionGroup {
+  type: string
+  title: string
+  items: QuestionGroupItem[]
+}
+
+const questionGroups = computed<QuestionGroup[]>(() => {
+  const singleList: QuestionGroupItem[] = []
+  const multipleList: QuestionGroupItem[] = []
+  const judgeList: QuestionGroupItem[] = []
+  const essayList: QuestionGroupItem[] = []
+  const otherList: QuestionGroupItem[] = []
+
+  props.questions.forEach((q, idx) => {
+    const item = { question: q, index: idx }
+    if (q.type === 'SINGLE_CHOICE') {
+      singleList.push(item)
+    } else if (q.type === 'MULTIPLE_CHOICE') {
+      multipleList.push(item)
+    } else if (q.type === 'TRUE_FALSE') {
+      judgeList.push(item)
+    } else if (q.type === 'ESSAY') {
+      essayList.push(item)
+    } else {
+      otherList.push(item)
+    }
+  })
+
+  const groups: QuestionGroup[] = []
+
+  if (singleList.length > 0) {
+    groups.push({
+      type: 'SINGLE_CHOICE',
+      title: t('competition.theory_single_choice', '单选题'),
+      items: singleList
+    })
+  }
+
+  if (multipleList.length > 0) {
+    groups.push({
+      type: 'MULTIPLE_CHOICE',
+      title: t('competition.theory_multiple_choice', '多选题'),
+      items: multipleList
+    })
+  }
+
+  if (judgeList.length > 0) {
+    groups.push({
+      type: 'TRUE_FALSE',
+      title: t('competition.theory_true_false', '判断题'),
+      items: judgeList
+    })
+  }
+
+  if (essayList.length > 0) {
+    groups.push({
+      type: 'ESSAY',
+      title: t('competition.theory_essay', '简答题'),
+      items: essayList
+    })
+  }
+
+  if (otherList.length > 0) {
+    groups.push({
+      type: 'OTHER',
+      title: t('competition.theory_other', '其他题型'),
+      items: otherList
+    })
+  }
+
+  return groups
+})
+
 function isQuestionMarked(id: string | number): boolean {
   return markedIdSet.value.has(id)
 }
 
+function isCurrentAndAnswered(id: string | number, idx: number): boolean {
+  if (props.currentIndex !== idx) return false
+  const ans = props.answers?.[id]
+  return Boolean(ans && ans.trim().length > 0)
+}
+
 function getQuestionButtonClass(id: string | number, idx: number): string {
   const isCurrent = props.currentIndex === idx
-  const ans = props.answers[id]
-  const isAnswered = ans && ans.trim().length > 0
+  const ans = props.answers?.[id]
+  const isAnswered = Boolean(ans && ans.trim().length > 0)
 
   if (isCurrent) {
     if (isAnswered) {
-      return 'bg-google-blue text-white border-google-blue ring-2 ring-google-blue/30 dark:bg-google-blue-dark dark:text-google-surface-dark dark:ring-blue-400/40'
+      return 'ring-2 ring-google-blue/30 dark:ring-blue-400/40'
     }
-    return 'bg-blue-50 text-google-blue border-google-blue ring-2 ring-google-blue/30 dark:bg-blue-950/60 dark:text-google-blue-dark dark:ring-blue-400/40'
+    return '!bg-blue-50/80 !text-google-blue !border-google-blue ring-2 ring-google-blue/30 dark:!bg-blue-950/60 dark:!text-google-blue-dark dark:ring-blue-400/40'
   }
 
   if (isAnswered) {
-    return 'bg-blue-50/70 text-google-blue border-blue-200/60 dark:bg-blue-950/40 dark:text-google-blue-dark dark:border-blue-900/50 hover:bg-blue-100/70 dark:hover:bg-blue-950/70'
+    return '!bg-blue-50/70 !text-google-blue !border-blue-200/80 dark:!bg-blue-950/40 dark:!text-google-blue-dark dark:!border-blue-900/50 hover:!bg-blue-100/70 dark:hover:!bg-blue-950/70'
   }
 
-  return 'bg-white dark:bg-google-surface-darkCard text-google-text-desc dark:text-google-text-darkDesc border-google-border-light dark:border-google-border-dark hover:bg-google-surface-light dark:hover:bg-google-surface-darkElevated'
+  return ''
 }
 </script>
+
+<style scoped lang="scss">
+:deep(.theory-sheet-item) {
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 !important;
+  font-family: monospace, monospace;
+}
+</style>

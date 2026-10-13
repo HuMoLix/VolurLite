@@ -495,7 +495,7 @@ async function handleConfirmImport() {
   importing.value = true
   try {
     const items: CtfChallengeMountRequestDTO[] = selectedBankKeys.value.map(id => ({
-      challengeId: Number(id),
+      challengeId: id,
       initialPoints: batchScoring.initialPoints,
       minPoints: batchScoring.minPoints,
       decayCount: batchScoring.decayCount,

@@ -72,7 +72,11 @@ public class AdminUserServiceImpl implements AdminUserService {
 
             if (StringUtils.hasText(request.getRole())) {
                 try {
-                    UserRole userRole = UserRole.valueOf(request.getRole().toUpperCase());
+                    String roleStr = request.getRole().trim().toUpperCase();
+                    if (roleStr.startsWith("ROLE_")) {
+                        roleStr = roleStr.substring(5);
+                    }
+                    UserRole userRole = UserRole.valueOf(roleStr);
                     predicates.add(cb.equal(root.get("role"), userRole));
                 } catch (IllegalArgumentException ignored) {
                 }
@@ -135,9 +139,13 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
 
         UserRole role = UserRole.USER;
-        if (StringUtils.hasText(request.getRoleName())) {
+        if (request.getRoleName() != null && !request.getRoleName().isEmpty()) {
             try {
-                role = UserRole.valueOf(request.getRoleName().trim().toUpperCase());
+                String roleStr = request.getRoleName().toUpperCase();
+                if (roleStr.startsWith("ROLE_")) {
+                    roleStr = roleStr.substring(5);
+                }
+                role = UserRole.valueOf(roleStr);
             } catch (IllegalArgumentException e) {
                 throw new BusinessException(HttpStatus.BAD_REQUEST, "指定的角色不存在: " + request.getRoleName());
             }
@@ -176,7 +184,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         boolean isSuperAdmin = SUPER_ADMIN_USERNAME.equals(user.getUsername());
 
-        if (StringUtils.hasText(request.getUsername()) && !user.getUsername().equals(request.getUsername())) {
+        if (request.getUsername() != null && !request.getUsername().isEmpty() && !request.getUsername().equals(user.getUsername())) {
             if (isSuperAdmin) {
                 throw new BusinessException(HttpStatus.FORBIDDEN, "超级管理员用户名不可变更");
             }
@@ -186,7 +194,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             user.setUsername(request.getUsername());
         }
 
-        if (StringUtils.hasText(request.getEmail()) && !user.getEmail().equals(request.getEmail())) {
+        if (request.getEmail() != null && !request.getEmail().isEmpty() && !request.getEmail().equals(user.getEmail())) {
             if (userRepository.existsByEmail(request.getEmail())) {
                 throw new BusinessException(HttpStatus.CONFLICT, "邮箱已被注册");
             }
@@ -197,14 +205,18 @@ public class AdminUserServiceImpl implements AdminUserService {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
 
-        if (StringUtils.hasText(request.getRoleName())) {
+        if (request.getRoleName() != null && !request.getRoleName().isEmpty()) {
             if (isSuperAdmin) {
                 if (!UserRole.SUPER_ADMIN.name().equalsIgnoreCase(request.getRoleName())) {
                     throw new BusinessException(HttpStatus.FORBIDDEN, "超级管理员角色不可变更");
                 }
             } else {
                 try {
-                    UserRole targetRole = UserRole.valueOf(request.getRoleName().trim().toUpperCase());
+                    String roleStr = request.getRoleName().toUpperCase();
+                    if (roleStr.startsWith("ROLE_")) {
+                        roleStr = roleStr.substring(5);
+                    }
+                    UserRole targetRole = UserRole.valueOf(roleStr);
                     if (targetRole == UserRole.SUPER_ADMIN) {
                         throw new BusinessException(HttpStatus.BAD_REQUEST, "超级管理员在系统中只能存在一个(" + SUPER_ADMIN_USERNAME + ")，禁止分配超级管理员角色");
                     }

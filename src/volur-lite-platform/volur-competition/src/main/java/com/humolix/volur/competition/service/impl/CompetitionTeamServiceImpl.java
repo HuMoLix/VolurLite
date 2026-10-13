@@ -200,7 +200,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
         CompetitionTeam team = CompetitionTeam.builder()
                 .competition(competition)
                 .teamName(request.getTeamName())
-                .avatarUrl(StringUtils.hasText(request.getAvatarUrl()) ? request.getAvatarUrl() : "/api/v1/uploads/avatar/default_team.png")
+                .avatarUrl(StringUtils.hasText(request.getAvatarUrl()) ? request.getAvatarUrl().trim() : null)
                 .description(request.getDescription())
                 .organization(request.getOrganization())
                 .organizationType(orgType)
@@ -272,8 +272,8 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
         CompetitionConfig config = configRepository.findByCompetitionId(competitionId).orElse(null);
 
-        if (StringUtils.hasText(request.getAvatarUrl())) {
-            team.setAvatarUrl(request.getAvatarUrl());
+        if (request.getAvatarUrl() != null) {
+            team.setAvatarUrl(StringUtils.hasText(request.getAvatarUrl()) ? request.getAvatarUrl().trim() : null);
         }
         if (request.getDescription() != null) {
             team.setDescription(request.getDescription());
@@ -822,6 +822,47 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
                 .auditReason(team.getAuditReason())
                 .myRole(member.getRole())
                 .isCaptain(member.getRole() == MemberRole.CAPTAIN)
+                .members(memberVOs)
+                .myRegistrationData(Collections.emptyMap())
+                .createdAt(team.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    public MyTeamInfoVO getTeamById(Long competitionId, Long teamId, Long userId) {
+        CompetitionTeam team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "队伍不存在"));
+        if (!Objects.equals(team.getCompetition().getId(), competitionId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "该队伍不属于当前竞赛");
+        }
+        List<CompetitionMember> members = memberRepository.findByTeamIdWithUserAndProfile(team.getId());
+        members.sort(Comparator.comparingInt((CompetitionMember m) -> {
+            if (m.getRole() == MemberRole.CAPTAIN) return 0;
+            if (m.getRole() == MemberRole.MEMBER) return 1;
+            return 2;
+        }).thenComparing(CompetitionMember::getId));
+
+        List<CompetitionMemberVO> memberVOs = competitionMapper.toMemberVOList(members);
+        populateMemberAvatars(memberVOs, members);
+
+        CompetitionMember myMembership = null;
+        if (userId != null) {
+            myMembership = memberRepository.findByCompetitionIdAndTeamIdAndUserId(competitionId, teamId, userId).orElse(null);
+        }
+
+        return MyTeamInfoVO.builder()
+                .teamId(team.getId())
+                .competitionId(competitionId)
+                .competitionTitle(team.getCompetition() != null ? team.getCompetition().getTitle() : null)
+                .teamName(team.getTeamName())
+                .avatarUrl(team.getAvatarUrl())
+                .description(team.getDescription())
+                .organization(team.getOrganization())
+                .organizationType(team.getOrganizationType() != null ? team.getOrganizationType() : OrganizationType.SCHOOL)
+                .status(team.getStatus())
+                .auditReason(team.getAuditReason())
+                .myRole(myMembership != null ? myMembership.getRole() : null)
+                .isCaptain(myMembership != null && myMembership.getRole() == MemberRole.CAPTAIN)
                 .members(memberVOs)
                 .myRegistrationData(Collections.emptyMap())
                 .createdAt(team.getCreatedAt())

@@ -21,6 +21,21 @@
         </div>
       </div>
 
+      <div
+        v-if="userStore.isAdmin"
+        class="setting-item"
+        role="button"
+        tabindex="0"
+        @click="handleAdminClick"
+      >
+        <div class="item-left">
+          <n-icon :size="18" class="item-icon">
+            <SpeedometerOutline />
+          </n-icon>
+          <span class="item-label">{{ t('common.platform_admin', '平台管理') }}</span>
+        </div>
+      </div>
+
       <n-popover
         v-model:show="isLanguageMenuShow"
         trigger="hover"
@@ -136,6 +151,7 @@ import { useI18n } from 'vue-i18n'
 import { NIcon, NPopover } from 'naive-ui'
 import {
   SettingsOutline,
+  SpeedometerOutline,
   GlobeOutline,
   FlagOutline,
   DocumentTextOutline,
@@ -144,11 +160,11 @@ import {
 } from '@vicons/ionicons5'
 import { IosArrowForward } from '@vicons/ionicons4'
 import { useAppStore } from '@/store/modules/app'
+import { useUserStore } from '@/store/modules/user'
 import type { SupportedLocale } from '@/i18n'
 import VCard from './VCard.vue'
 import VFeedback from './VFeedback.vue'
 import type { VSettingCardProps } from './types'
-
 
 defineOptions({
   name: 'VSettingCard'
@@ -158,6 +174,7 @@ const props = withDefaults(defineProps<VSettingCardProps>(), {
   theme: undefined,
   width: 240,
   userSettingsRoute: '/settings',
+  adminRoute: '/admin/dashboard',
   feedbackRoute: '',
   termsRoute: '/accounts/terms',
   privacyRoute: '/accounts/privacy',
@@ -168,6 +185,7 @@ const emit = defineEmits<{
   close: []
   'item-click': [key: string]
   'user-settings-click': [ev: MouseEvent]
+  'admin-click': [ev: MouseEvent]
   'language-change': [locale: SupportedLocale]
   'feedback-click': [ev: MouseEvent]
   'feedback-submit': [payload: { content: string }]
@@ -178,6 +196,7 @@ const emit = defineEmits<{
 const router = useRouter()
 const { t } = useI18n()
 const appStore = useAppStore()
+const userStore = useUserStore()
 
 const isLanguageMenuShow = ref<boolean>(false)
 const isFeedbackDrawerShow = ref<boolean>(false)
@@ -201,6 +220,15 @@ function handleUserSettingsClick(ev: MouseEvent) {
   emit('user-settings-click', ev)
   if (props.userSettingsRoute) {
     router.push(props.userSettingsRoute).catch(() => {})
+  }
+  emit('close')
+}
+
+function handleAdminClick(ev: MouseEvent) {
+  emit('item-click', 'admin')
+  emit('admin-click', ev)
+  if (props.adminRoute) {
+    router.push(props.adminRoute).catch(() => {})
   }
   emit('close')
 }

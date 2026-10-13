@@ -20,54 +20,146 @@
     <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 flex-1 flex flex-col">
       <section class="rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-white dark:bg-google-surface-darkCard border border-google-border-light dark:border-google-border-dark shadow-sm transition-colors duration-200">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div class="space-y-2.5">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-google-green dark:text-google-green-dark text-xs font-semibold">
-              <span class="w-2 h-2 rounded-full bg-google-green dark:bg-google-green-dark" />
-              <span>{{ t('competition.type_theory', '理论知识考核') }}</span>
-            </div>
+          <div class="space-y-1">
             <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-google-text-primary dark:text-google-text-darkPrimary">
               {{ competition?.title || t('competition.type_theory', '理论知识赛') }}
             </h1>
-            <p class="text-xs sm:text-sm text-google-text-desc dark:text-google-text-darkDesc max-w-2xl leading-relaxed">
-              {{ isSubmitted ? t('competition.theory_read_only_tip', '试卷已提交，当前处于只读复核状态') : (competition?.description || t('competition.theory_exam_desc', '请在规定时间内完成客观试题并提交答卷')) }}
-            </p>
+            <div class="flex items-center gap-2 pt-1">
+              <span
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border"
+                :class="[
+                  isBanned
+                    ? 'bg-red-50 text-google-red border-red-200 dark:bg-red-950/50 dark:text-google-red-dark dark:border-red-900/60'
+                    : isExamStarted
+                      ? 'bg-green-50 text-google-green border-green-200 dark:bg-green-950/50 dark:text-google-green-dark dark:border-green-900/60'
+                      : 'bg-blue-50 text-google-blue border-blue-200 dark:bg-blue-950/50 dark:text-google-blue-dark dark:border-blue-900/60'
+                ]"
+              >
+                <span
+                  class="w-1.5 h-1.5 rounded-full"
+                  :class="[
+                    isBanned
+                      ? 'bg-google-red dark:bg-google-red-dark'
+                      : isExamStarted
+                        ? 'bg-google-green dark:bg-google-green-dark animate-pulse'
+                        : 'bg-google-blue dark:bg-google-blue-dark'
+                  ]"
+                />
+                {{ isBanned ? t('competition.cheat_banned_badge', '考场已封禁') : isExamStarted ? t('competition.cheat_monitoring_active', '严格监考中') : t('competition.cheat_proctor_ready', '监考就绪') }}
+              </span>
+
+              <span
+                v-if="violationCount > 0"
+                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-amber-50 text-google-yellow border border-amber-200 dark:bg-amber-950/50 dark:text-google-yellow-dark dark:border-amber-900/60"
+              >
+                {{ t('competition.cheat_violation_count_badge', '违规记录') }}: {{ violationCount }} / {{ maxAllowedViolations }}
+              </span>
+            </div>
           </div>
 
           <div class="flex items-center flex-wrap gap-3 self-start md:self-auto">
-            <div class="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light/60 dark:border-google-border-dark/60 text-center min-w-[90px]">
-              <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted font-medium">
-                {{ t('competition.theory_total_questions', '总题数') }}
+            <VTooltip :content="t('competition.theory_total_questions_tip', '试卷考核题目总量')">
+              <div class="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light/60 dark:border-google-border-dark/60 text-center min-w-[90px] cursor-default">
+                <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted font-medium">
+                  {{ t('competition.theory_total_questions', '总题数') }}
+                </div>
+                <div class="text-lg font-bold font-mono text-google-text-primary dark:text-google-text-darkPrimary mt-0.5">
+                  {{ questions.length }}
+                </div>
               </div>
-              <div class="text-lg font-bold font-mono text-google-text-primary dark:text-google-text-darkPrimary mt-0.5">
-                {{ questions.length }}
-              </div>
-            </div>
+            </VTooltip>
 
-            <div class="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light/60 dark:border-google-border-dark/60 text-center min-w-[90px]">
-              <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted font-medium">
-                {{ t('competition.theory_total_score', '试卷总分') }}
+            <VTooltip :content="t('competition.theory_total_score_tip', '理论知识考核试卷满分分值')">
+              <div class="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light/60 dark:border-google-border-dark/60 text-center min-w-[90px] cursor-default">
+                <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted font-medium">
+                  {{ t('competition.theory_total_score', '试卷总分') }}
+                </div>
+                <div class="text-lg font-bold font-mono text-google-text-primary dark:text-google-text-darkPrimary mt-0.5">
+                  {{ paper?.totalScore ?? 0 }}
+                </div>
               </div>
-              <div class="text-lg font-bold font-mono text-google-text-primary dark:text-google-text-darkPrimary mt-0.5">
-                {{ paper?.totalScore || 100 }}
-              </div>
-            </div>
+            </VTooltip>
 
-            <div
+            <VTooltip
               v-if="isSubmitted"
-              class="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-green-50 dark:bg-green-950/50 border border-green-200/60 dark:border-green-900/60 text-center min-w-[90px]"
+              :content="t('competition.theory_my_score_tip', '提交后自动评卷计算的实际最终得分')"
             >
-              <div class="text-[11px] text-google-green dark:text-google-green-dark font-medium">
-                {{ t('competition.theory_my_score', '最终得分') }}
+              <div class="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-green-50 dark:bg-green-950/50 border border-green-200/60 dark:border-green-900/60 text-center min-w-[90px] cursor-default">
+                <div class="text-[11px] text-google-green dark:text-google-green-dark font-medium">
+                  {{ t('competition.theory_my_score', '最终得分') }}
+                </div>
+                <div class="text-lg font-bold font-mono text-google-green dark:text-google-green-dark mt-0.5">
+                  {{ paper?.myTotalScore ?? 0 }}
+                </div>
               </div>
-              <div class="text-lg font-bold font-mono text-google-green dark:text-google-green-dark mt-0.5">
-                {{ paper?.myTotalScore ?? 0 }}
-              </div>
-            </div>
+            </VTooltip>
           </div>
         </div>
       </section>
 
-      <div v-if="!loading && questions.length === 0" class="flex-1 flex items-center justify-center py-20">
+      <div
+        v-if="isBanned"
+        class="flex-1 rounded-2xl sm:rounded-3xl p-8 sm:p-12 bg-red-50/70 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 flex flex-col items-center justify-center text-center space-y-4 shadow-sm"
+      >
+        <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/60 text-google-red dark:text-google-red-dark flex items-center justify-center">
+          <n-icon :size="36" :component="AlertCircleOutline" />
+        </div>
+        <div class="space-y-1.5 max-w-lg">
+          <h2 class="text-xl font-bold text-google-red dark:text-google-red-dark">
+            {{ t('competition.cheat_locked_title', '考核已终止：账号安全封禁') }}
+          </h2>
+          <p class="text-sm text-google-text-desc dark:text-google-text-darkDesc">
+            {{ banMessage || t('competition.cheat_locked_desc', '检测到违规危险操作次数已达到系统限制阈值，本次考核已被强制终止，当前用户账号已被系统安全封禁。') }}
+          </p>
+        </div>
+        <div class="p-3.5 rounded-xl bg-white dark:bg-google-surface-darkCard border border-red-200 dark:border-red-900/60 text-xs font-mono text-google-text-muted dark:text-google-text-darkMuted">
+          {{ t('competition.cheat_violation_count_badge', '违规记录') }}: {{ violationCount }} / {{ maxAllowedViolations }}
+        </div>
+      </div>
+
+      <div
+        v-else-if="!loading && !isExamStarted && !isSubmitted && questions.length > 0"
+        class="flex-1 rounded-2xl sm:rounded-3xl p-8 sm:p-12 bg-white dark:bg-google-surface-darkCard border border-google-border-light dark:border-google-border-dark shadow-sm flex flex-col items-center justify-center text-center space-y-6"
+      >
+        <div class="w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950/60 text-google-blue dark:text-google-blue-dark flex items-center justify-center">
+          <n-icon :size="36" :component="ShieldCheckmarkOutline" />
+        </div>
+
+        <div class="space-y-2 max-w-xl">
+          <h2 class="text-xl font-bold text-google-text-primary dark:text-google-text-darkPrimary">
+            {{ t('competition.cheat_gate_title', '理论考试严格反作弊准入') }}
+          </h2>
+          <p class="text-sm text-google-text-desc dark:text-google-text-darkDesc leading-relaxed">
+            {{ t('competition.cheat_gate_desc', '本场考试实施高强度反作弊策略。作答期间将锁定全屏状态并启用屏幕操作监控。切屏、离开全屏、复制粘贴、开发者工具或终止录屏均会被记录为违规行为，累计达阈值将自动强制交卷并封禁账号。') }}
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg text-left text-xs">
+          <div class="p-3 rounded-xl bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light/60 dark:border-google-border-dark/60 space-y-1">
+            <div class="font-semibold text-google-text-primary dark:text-google-text-darkPrimary">1. 全屏锁定</div>
+            <div class="text-google-text-muted dark:text-google-text-darkMuted">考试期间全程保持全屏，按 ESC 或退出全屏将计入违规。</div>
+          </div>
+          <div class="p-3 rounded-xl bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light/60 dark:border-google-border-dark/60 space-y-1">
+            <div class="font-semibold text-google-text-primary dark:text-google-text-darkPrimary">2. 切屏侦测</div>
+            <div class="text-google-text-muted dark:text-google-text-darkMuted">禁止使用 Alt+Tab、切换标签页或点击外部应用窗口。</div>
+          </div>
+          <div class="p-3 rounded-xl bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light/60 dark:border-google-border-dark/60 space-y-1">
+            <div class="font-semibold text-google-text-primary dark:text-google-text-darkPrimary">3. 阈值封禁</div>
+            <div class="text-google-text-muted dark:text-google-text-darkMuted">累计违规达到 {{ maxAllowedViolations }} 次将立即作废答卷并封禁账号。</div>
+          </div>
+        </div>
+
+        <VBtn
+          clz="primary"
+          :radius="12"
+          class="px-8 py-3 text-sm font-semibold"
+          @click="goToRequireCheck"
+        >
+          {{ t('competition.cheat_start_exam_btn', '前往考场安全检查并开启作答') }}
+        </VBtn>
+      </div>
+
+      <div v-else-if="!loading && questions.length === 0" class="flex-1 flex items-center justify-center py-20">
         <div class="text-center space-y-3">
           <n-icon :size="48" :component="DocumentTextOutline" class="text-google-text-muted dark:text-google-text-darkMuted mx-auto" />
           <div class="text-sm text-google-text-desc dark:text-google-text-darkDesc">
@@ -91,29 +183,27 @@
           />
 
           <div class="flex items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-google-surface-darkCard border border-google-border-light dark:border-google-border-dark shadow-sm">
-            <button
-              type="button"
-              class="h-9 px-4 rounded-xl border text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer border-google-border-light dark:border-google-border-dark bg-white dark:bg-google-surface-darkCard text-google-text-primary dark:text-google-text-darkPrimary hover:bg-google-surface-light dark:hover:bg-google-surface-darkElevated disabled:opacity-40 disabled:cursor-not-allowed"
+            <VBtn
+              clz="normal"
+              :left-icon="ArrowBackOutline"
               :disabled="currentIndex === 0"
               @click="handlePrevQuestion"
             >
-              <n-icon :size="14" :component="ArrowBackOutline" />
-              <span>{{ t('competition.theory_prev_question', '上一题') }}</span>
-            </button>
+              {{ t('competition.theory_prev_question', '上一题') }}
+            </VBtn>
 
             <div class="text-xs font-mono font-medium text-google-text-muted dark:text-google-text-darkMuted">
               {{ currentIndex + 1 }} / {{ questions.length }}
             </div>
 
-            <button
-              type="button"
-              class="h-9 px-4 rounded-xl border text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer border-google-border-light dark:border-google-border-dark bg-white dark:bg-google-surface-darkCard text-google-text-primary dark:text-google-text-darkPrimary hover:bg-google-surface-light dark:hover:bg-google-surface-darkElevated disabled:opacity-40 disabled:cursor-not-allowed"
+            <VBtn
+              clz="normal"
+              :right-icon="ArrowForwardOutline"
               :disabled="currentIndex === questions.length - 1"
               @click="handleNextQuestion"
             >
-              <span>{{ t('competition.theory_next_question', '下一题') }}</span>
-              <n-icon :size="14" :component="ArrowForwardOutline" />
-            </button>
+              {{ t('competition.theory_next_question', '下一题') }}
+            </VBtn>
           </div>
         </div>
 
@@ -124,7 +214,7 @@
             :marked-ids="markedIds"
             :current-index="currentIndex"
             :is-submitted="isSubmitted"
-            :total-score="paper?.totalScore || 100"
+            :total-score="paper?.totalScore ?? 0"
             :my-total-score="paper?.myTotalScore"
             :submitting="submitting"
             @select-question="handleSelectQuestion"
@@ -135,14 +225,42 @@
     </div>
 
     <n-modal
+      :show="warningModalVisible"
+      preset="dialog"
+      :mask-closable="false"
+      :closable="false"
+      type="warning"
+      :title="t('competition.cheat_warning_title', '安全反作弊警告')"
+    >
+      <div class="space-y-3 py-2">
+        <div class="flex items-center gap-2 text-google-yellow dark:text-google-yellow-dark">
+          <n-icon :size="20" :component="WarningOutline" />
+          <span class="font-semibold text-sm">{{ currentViolationReason }}</span>
+        </div>
+        <p class="text-xs text-google-text-desc dark:text-google-text-darkDesc leading-relaxed">
+          {{ t('competition.cheat_warning_msg', '系统已记录本次异常行为并同步至后端安全审计中心。当前违规次数已达') }}
+          <span class="font-mono font-bold text-google-red dark:text-google-red-dark"> {{ violationCount }} / {{ maxAllowedViolations }} </span>。
+          {{ t('competition.cheat_warning_tail', '若违规次数达到阈值，考卷将强制以 0 分交卷，且该账号将被永久封禁！') }}
+        </p>
+      </div>
+
+      <template #action>
+        <div class="flex items-center justify-end">
+          <VBtn
+            clz="primary"
+            @click="handleAcknowledgeWarning"
+          >
+            {{ t('competition.cheat_warning_confirm', '我已知晓并返回全屏答题') }}
+          </VBtn>
+        </div>
+      </template>
+    </n-modal>
+
+    <n-modal
       :show="submitConfirmVisible"
       preset="dialog"
       :title="t('competition.theory_submit_confirm', '确定提交答卷吗？')"
-      :positive-text="t('common.confirm', '确认提交')"
-      :negative-text="t('common.cancel', '继续作答')"
       :loading="submitting"
-      @positive-click="handleConfirmSubmit"
-      @negative-click="submitConfirmVisible = false"
       @close="submitConfirmVisible = false"
     >
       <div class="space-y-3 py-2">
@@ -155,6 +273,24 @@
           <span>{{ t('competition.theory_total_questions', '总计') }}: {{ questions.length }}</span>
         </div>
       </div>
+
+      <template #action>
+        <div class="flex items-center justify-end gap-2.5">
+          <VBtn
+            clz="normal"
+            @click="submitConfirmVisible = false"
+          >
+            {{ t('common.cancel', '继续作答') }}
+          </VBtn>
+          <VBtn
+            clz="primary"
+            :loading="submitting"
+            @click="handleConfirmSubmit"
+          >
+            {{ t('common.confirm', '确认提交') }}
+          </VBtn>
+        </div>
+      </template>
     </n-modal>
 
     <TheoryResultModal
@@ -168,15 +304,21 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, reactive, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { NIcon, NModal, useMessage } from 'naive-ui'
 import {
   DocumentTextOutline,
   ArrowBackOutline,
-  ArrowForwardOutline
+  ArrowForwardOutline,
+  WarningOutline,
+  ShieldCheckmarkOutline,
+  AlertCircleOutline
 } from '@vicons/ionicons5'
+import { useUserStore } from '@/store/modules/user'
+import { useProctorStore } from '@/store/modules/proctor'
 import CompetitionLayout from '@/components/layouts/CompetitionLayout.vue'
+import { VTooltip, VBtn } from '@/components/common'
 import {
   TheoryQuestionCard,
   TheoryPaperSheet,
@@ -186,14 +328,18 @@ import {
   getCompetitionByIdApi,
   getCompetitionBySlugApi,
   getTheoryPaperApi,
-  submitTheoryPaperApi
+  submitTheoryPaperApi,
+  reportTheoryCheatEventApi,
+  sendProctorHeartbeatApi,
+  getMyTeamApi
 } from '@/api/competition'
 import type {
   CompetitionDetailVO,
   TheoryPaperExamVO,
   TheoryPaperQuestionVO,
   TheoryPaperResultVO,
-  TheoryPaperSubmitRequestDTO
+  TheoryPaperSubmitRequestDTO,
+  TheoryCheatEventType
 } from '@/types/competition'
 
 defineOptions({
@@ -201,11 +347,15 @@ defineOptions({
 })
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const message = useMessage()
 
 const loading = ref<boolean>(false)
 const submitting = ref<boolean>(false)
+
+const userStore = useUserStore()
+let autoSaveTimer: ReturnType<typeof setInterval> | null = null
 
 const competition = ref<CompetitionDetailVO | null>(null)
 const paper = ref<TheoryPaperExamVO | null>(null)
@@ -217,6 +367,19 @@ const currentIndex = ref<number>(0)
 const submitConfirmVisible = ref<boolean>(false)
 const resultModalVisible = ref<boolean>(false)
 const examResult = ref<TheoryPaperResultVO | null>(null)
+
+const isExamStarted = ref<boolean>(false)
+const isBanned = ref<boolean>(false)
+const banMessage = ref<string>('')
+const violationCount = ref<number>(0)
+const maxAllowedViolations = ref<number>(3)
+const warningModalVisible = ref<boolean>(false)
+const currentViolationReason = ref<string>('')
+const proctorStore = useProctorStore()
+let proctorWorker: Worker | null = null
+let offscreenVideo: HTMLVideoElement | null = null
+let offscreenCanvas: HTMLCanvasElement | null = null
+let lastViolationReportTime = 0
 
 const competitionIdentifier = computed<string>(() => {
   return String(route.params.slug || route.params.id || route.query.competitionId || '')
@@ -254,7 +417,7 @@ function isQuestionMarked(paperId: string | number): boolean {
 }
 
 function handleAnswerUpdate(val: string) {
-  if (!currentQuestion.value || isSubmitted.value) return
+  if (!currentQuestion.value || isSubmitted.value || isBanned.value) return
   answers[currentQuestion.value.paperId] = val
 }
 
@@ -285,58 +448,292 @@ function handleNextQuestion() {
 }
 
 function handleOpenSubmitConfirm() {
-  if (isSubmitted.value) return
+  if (isSubmitted.value || isBanned.value) return
   submitConfirmVisible.value = true
 }
 
-async function handleConfirmSubmit() {
-  if (submitting.value || isSubmitted.value || !competition.value?.id) return
+function getDraftStorageKey(): string {
+  const compId = competition.value?.id || competitionIdentifier.value
+  if (!compId) return ''
+  const uid = userStore.user?.id || 'guest'
+  return `volur_theory_draft_${compId}_${uid}`
+}
 
-  submitting.value = true
+function saveDraftAnswers() {
+  if (isSubmitted.value || isBanned.value) return
+  const key = getDraftStorageKey()
+  if (!key || typeof window === 'undefined' || !window.localStorage) return
+
   try {
-    const payload: TheoryPaperSubmitRequestDTO = {
-      answers: questions.value.map((q) => ({
-        paperId: q.paperId,
-        answer: answers[q.paperId] ? answers[q.paperId].trim() : ''
-      }))
+    const draft = {
+      answers: { ...answers },
+      markedIds: Array.from(markedIds.value),
+      currentIndex: currentIndex.value,
+      savedAt: Date.now()
     }
+    window.localStorage.setItem(key, JSON.stringify(draft))
+  } catch {}
+}
 
-    const res = await submitTheoryPaperApi(competition.value.id, payload)
+function restoreDraftAnswers() {
+  if (isSubmitted.value || isBanned.value) return
+  const key = getDraftStorageKey()
+  if (!key || typeof window === 'undefined' || !window.localStorage) return
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return
+    const draft = JSON.parse(raw)
+    if (draft?.answers && typeof draft.answers === 'object') {
+      for (const [k, v] of Object.entries(draft.answers)) {
+        if (typeof v === 'string') {
+          if (answers[k] === undefined || answers[k] === null || answers[k] === '') {
+            answers[k] = v
+          }
+        }
+      }
+    }
+    if (Array.isArray(draft?.markedIds)) {
+      markedIds.value = new Set(draft.markedIds)
+    }
+    if (
+      typeof draft?.currentIndex === 'number' &&
+      draft.currentIndex >= 0 &&
+      draft.currentIndex < questions.value.length
+    ) {
+      currentIndex.value = draft.currentIndex
+    }
+  } catch {}
+}
+
+function clearDraftAnswers() {
+  const key = getDraftStorageKey()
+  if (!key || typeof window === 'undefined' || !window.localStorage) return
+  try {
+    window.localStorage.removeItem(key)
+  } catch {}
+}
+
+async function reportViolation(eventType: TheoryCheatEventType, detail: string) {
+  if (!competition.value?.id || isSubmitted.value || isBanned.value) return
+
+  const now = Date.now()
+  if (now - lastViolationReportTime < 2000) {
+    return
+  }
+  lastViolationReportTime = now
+
+  currentViolationReason.value = detail
+
+  try {
+    const res = await reportTheoryCheatEventApi(competition.value.id, {
+      eventType,
+      detail,
+      timestamp: now
+    })
+
     if (res?.data) {
-      examResult.value = res.data
-      if (paper.value) {
-        paper.value.isSubmitted = true
-        paper.value.myTotalScore = res.data.scoreObtained
-      }
-      submitConfirmVisible.value = false
-      resultModalVisible.value = true
-      if (message) {
-        message.success(t('competition.theory_submit_success', '试卷提交成功！'))
+      violationCount.value = res.data.violationCount
+      maxAllowedViolations.value = res.data.maxAllowedViolations
+
+      if (res.data.isBanned) {
+        isBanned.value = true
+        banMessage.value = res.data.message
+        clearDraftAnswers()
+        warningModalVisible.value = false
+        stopProctoring()
+      } else {
+        warningModalVisible.value = true
       }
     }
-  } catch (err: any) {
-    if (message) {
-      message.error(err?.message || '提交试卷失败')
-    }
-  } finally {
-    submitting.value = false
+  } catch {}
+}
+
+function setupOffscreenVideo(stream: MediaStream) {
+  if (typeof document === 'undefined') return
+  if (!offscreenVideo) {
+    offscreenVideo = document.createElement('video')
+    offscreenVideo.autoplay = true
+    offscreenVideo.playsInline = true
+    offscreenVideo.muted = true
+  }
+  offscreenVideo.srcObject = stream
+  offscreenVideo.play().catch(() => {})
+
+  if (!offscreenCanvas) {
+    offscreenCanvas = document.createElement('canvas')
+    offscreenCanvas.width = 320
+    offscreenCanvas.height = 180
   }
 }
 
-function handleResultConfirmed() {
-  resultModalVisible.value = false
+function captureScreenFrame(): string {
+  if (!offscreenVideo || !offscreenCanvas || offscreenVideo.videoWidth === 0) {
+    return ''
+  }
+  try {
+    const ctx = offscreenCanvas.getContext('2d')
+    if (!ctx) return ''
+    ctx.drawImage(offscreenVideo, 0, 0, 320, 180)
+    return offscreenCanvas.toDataURL('image/jpeg', 0.5)
+  } catch {
+    return ''
+  }
 }
 
-function handleTimeUp() {
-  if (!isSubmitted.value && questions.value.length > 0) {
-    if (message) {
-      message.warning(t('competition.countdown_ended', '考核时间已截止，正在自动交卷...'))
-    }
-    handleConfirmSubmit()
+function startProctorHeartbeatWorker() {
+  if (proctorWorker) {
+    proctorWorker.postMessage({ action: 'STOP' })
+    proctorWorker.terminate()
+    proctorWorker = null
   }
+  if (typeof Worker === 'undefined') return
+  proctorWorker = new Worker(
+    new URL('@/workers/theoryHeartbeat.worker.ts', import.meta.url),
+    { type: 'module' }
+  )
+  proctorWorker.onmessage = async (e) => {
+    if (e.data?.type === 'HEARTBEAT_TICK') {
+      await handleHeartbeatTick()
+    }
+  }
+  proctorWorker.postMessage({ action: 'START', interval: 5000 })
+}
+
+async function handleHeartbeatTick() {
+  if (!competition.value?.id || isSubmitted.value || isBanned.value) return
+
+  const isFs = Boolean(document.fullscreenElement)
+  const isScActive = Boolean(
+    proctorStore.screenStream &&
+    proctorStore.screenStream.getVideoTracks().some((t) => t.readyState === 'live')
+  )
+  const frameBase64 = captureScreenFrame()
+
+  try {
+    const res = await sendProctorHeartbeatApi(competition.value.id, {
+      fullscreen: isFs,
+      screenActive: isScActive,
+      screenFrame: frameBase64,
+      timestamp: Date.now(),
+      answeredCount: answeredCount.value,
+      totalCount: questions.value.length
+    })
+
+    if (res?.data) {
+      violationCount.value = res.data.violationCount
+      maxAllowedViolations.value = res.data.maxAllowedViolations
+
+      if (res.data.isBanned) {
+        isBanned.value = true
+        banMessage.value = '您已被系统判定严重违规或防作弊异常，考场已被永久封禁。'
+        stopProctoring()
+        clearDraftAnswers()
+      }
+    }
+  } catch {}
+}
+
+function stopProctoring() {
+  if (proctorWorker) {
+    proctorWorker.postMessage({ action: 'STOP' })
+    proctorWorker.terminate()
+    proctorWorker = null
+  }
+  if (offscreenVideo) {
+    offscreenVideo.srcObject = null
+  }
+  proctorStore.clearProctorState()
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {})
+  }
+}
+
+function initProctorSession() {
+  if (isSubmitted.value || isBanned.value) return
+  if (!proctorStore.screenStream) return
+
+  setupOffscreenVideo(proctorStore.screenStream)
+  const track = proctorStore.screenStream.getVideoTracks()[0]
+  if (track) {
+    track.onended = () => {
+      if (isExamStarted.value && !isSubmitted.value && !isBanned.value) {
+        reportViolation('STOP_SCREEN_SHARE', '考生主动终止屏幕共享监控流')
+      }
+    }
+  }
+
+  if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {})
+  }
+
+  isExamStarted.value = true
+  startProctorHeartbeatWorker()
+}
+
+function goToRequireCheck() {
+  const isShortLink = route.path.startsWith('/c/')
+  const slug = competition.value?.slug || competition.value?.id || competitionIdentifier.value
+  router.replace(isShortLink ? `/c/${slug}/theory/require` : `/competitions/${slug}/theory/require`)
+}
+
+function handleAcknowledgeWarning() {
+  warningModalVisible.value = false
+  if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {})
+  }
+}
+
+function handleVisibilityChange() {
+  if (!isExamStarted.value || isSubmitted.value || isBanned.value) return
+  if (document.hidden) {
+    reportViolation('VISIBILITY_HIDDEN', '切换至其他标签页或最小化浏览器窗口')
+  }
+}
+
+function handleWindowBlur() {
+  if (!isExamStarted.value || isSubmitted.value || isBanned.value) return
+  if (warningModalVisible.value || submitConfirmVisible.value) return
+  reportViolation('WINDOW_BLUR', '窗口失去焦点，疑似使用 Alt+Tab 或点击外部第三方窗口')
+}
+
+function handleFullscreenChange() {
+  if (!isExamStarted.value || isSubmitted.value || isBanned.value) return
+  if (!document.fullscreenElement && !warningModalVisible.value && !submitConfirmVisible.value) {
+    reportViolation('EXIT_FULLSCREEN', '退出全屏考试状态')
+  }
+}
+
+function handleClipboard(ev: ClipboardEvent) {
+  if (!isExamStarted.value || isSubmitted.value || isBanned.value) return
+  ev.preventDefault()
+  reportViolation('COPY_PASTE_ATTEMPT', '尝试复制、剪切或粘贴试题内容')
+}
+
+function handleContextMenu(ev: MouseEvent) {
+  if (!isExamStarted.value || isSubmitted.value || isBanned.value) return
+  ev.preventDefault()
+  reportViolation('CONTEXTMENU_ATTEMPT', '尝试打开右键菜单')
 }
 
 function handleKeydown(ev: KeyboardEvent) {
+  if (isBanned.value) {
+    ev.preventDefault()
+    return
+  }
+
+  if (
+    ev.key === 'F12' ||
+    (ev.ctrlKey && ev.shiftKey && (ev.key === 'I' || ev.key === 'i' || ev.key === 'C' || ev.key === 'c' || ev.key === 'J' || ev.key === 'j')) ||
+    (ev.ctrlKey && (ev.key === 'U' || ev.key === 'u' || ev.key === 'S' || ev.key === 's' || ev.key === 'P' || ev.key === 'p'))
+  ) {
+    ev.preventDefault()
+    if (isExamStarted.value && !isSubmitted.value) {
+      reportViolation('RESTRICTED_KEY', `尝试使用受限控制台快捷键: ${ev.key}`)
+    }
+    return
+  }
+
   const target = ev.target as HTMLElement
   if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
     return
@@ -349,8 +746,83 @@ function handleKeydown(ev: KeyboardEvent) {
   }
 }
 
+async function handleConfirmSubmit() {
+  if (submitting.value || isSubmitted.value || !competition.value?.id || isBanned.value) return
+
+  submitting.value = true
+  try {
+    const payload: TheoryPaperSubmitRequestDTO = {
+      answers: questions.value.map((q) => ({
+        paperId: q.paperId,
+        answer: answers[q.paperId] ? answers[q.paperId].trim() : ''
+      }))
+    }
+
+    const res = await submitTheoryPaperApi(competition.value.id, payload)
+    if (!res?.data) {
+      throw new Error(t('competition.theory_submit_failed', '提交试卷失败'))
+    }
+
+    examResult.value = res.data
+    if (paper.value) {
+      paper.value.isSubmitted = true
+      paper.value.myTotalScore = res.data.scoreObtained
+    }
+
+    submitConfirmVisible.value = false
+    resultModalVisible.value = true
+    clearDraftAnswers()
+    stopProctoring()
+
+    if (message) {
+      message.success(t('competition.theory_submit_success', '试卷提交成功！'))
+    }
+  } catch (err: any) {
+    if (message) {
+      message.error(err?.message || t('competition.theory_submit_failed', '提交试卷失败'))
+    }
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handleResultConfirmed() {
+  resultModalVisible.value = false
+  if (competition.value?.id) {
+    try {
+      const res = await getTheoryPaperApi(competition.value.id)
+      if (res?.data) {
+        paper.value = res.data
+        for (const q of res.data.questions || []) {
+          if (q.myAnswer !== undefined && q.myAnswer !== null) {
+            answers[q.paperId] = q.myAnswer
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+function handleTimeUp() {
+  if (!isSubmitted.value && !isBanned.value && questions.value.length > 0) {
+    if (message) {
+      message.warning(t('competition.countdown_ended', '考核时间已截止，正在自动交卷...'))
+    }
+    handleConfirmSubmit()
+  }
+}
+
 async function fetchCompetitionAndPaper() {
-  if (!competitionIdentifier.value) return
+  if (!competitionIdentifier.value) {
+    competition.value = null
+    paper.value = null
+    return
+  }
+
+  if (!userStore.isLoggedIn) {
+    router.replace(`/v1/signin/identifier?redirect=${encodeURIComponent(route.fullPath)}`)
+    return
+  }
 
   loading.value = true
   try {
@@ -358,14 +830,21 @@ async function fetchCompetitionAndPaper() {
     let compData: CompetitionDetailVO | null = null
 
     if (isNumeric) {
-      const compRes = await getCompetitionByIdApi(competitionIdentifier.value)
-      compData = compRes?.data || null
+      try {
+        const compRes = await getCompetitionByIdApi(competitionIdentifier.value)
+        compData = compRes?.data || null
+      } catch {
+        const slugRes = await getCompetitionBySlugApi(competitionIdentifier.value)
+        compData = slugRes?.data || null
+      }
     } else {
-      const compRes = await getCompetitionBySlugApi(competitionIdentifier.value)
-      compData = compRes?.data || null
+      const slugRes = await getCompetitionBySlugApi(competitionIdentifier.value)
+      compData = slugRes?.data || null
     }
 
     if (!compData) {
+      competition.value = null
+      paper.value = null
       if (message) {
         message.error(t('competition.empty_desc', '未找到对应竞赛信息'))
       }
@@ -374,18 +853,79 @@ async function fetchCompetitionAndPaper() {
 
     competition.value = compData
 
-    const paperRes = await getTheoryPaperApi(compData.id)
-    if (paperRes?.data) {
-      paper.value = paperRes.data
-      for (const q of paperRes.data.questions || []) {
-        if (q.myAnswer !== undefined && q.myAnswer !== null) {
-          answers[q.paperId] = q.myAnswer
-        }
+    let currentTeam: any = null
+    try {
+      const teamRes = await getMyTeamApi(compData.id)
+      currentTeam = teamRes?.data || null
+    } catch {
+      currentTeam = null
+    }
+
+    const isAuthorized = Boolean(userStore.isAdmin) || (currentTeam !== null && currentTeam.status === 'AUDIT_PASSED')
+    if (!isAuthorized) {
+      if (message) {
+        message.error(t('competition.not_participating', '您尚未加入已审核通过的参赛队伍，无法进入竞赛工作台'))
       }
+      const isShortLink = route.path.startsWith('/c/')
+      const slug = compData.slug || compData.id
+      router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
+      return
+    }
+
+    try {
+      const paperRes = await getTheoryPaperApi(compData.id)
+      for (const key of Object.keys(answers)) {
+        delete answers[key]
+      }
+      markedIds.value.clear()
+      currentIndex.value = 0
+
+      if (paperRes?.data) {
+        paper.value = paperRes.data
+        for (const q of paperRes.data.questions || []) {
+          if (q.myAnswer !== undefined && q.myAnswer !== null) {
+            answers[q.paperId] = q.myAnswer
+          }
+        }
+        if (!paperRes.data.isSubmitted) {
+          const hasValidStream = Boolean(
+            proctorStore.isPrecheckPassed &&
+            proctorStore.screenStream &&
+            proctorStore.screenStream.getVideoTracks().some((t) => t.readyState === 'live')
+          )
+          if (!hasValidStream) {
+            const isShortLink = route.path.startsWith('/c/')
+            const slug = compData.slug || compData.id
+            router.replace(isShortLink ? `/c/${slug}/theory/require` : `/competitions/${slug}/theory/require`)
+            return
+          }
+          restoreDraftAnswers()
+          initProctorSession()
+        } else {
+          clearDraftAnswers()
+          stopProctoring()
+        }
+      } else {
+        paper.value = null
+      }
+    } catch (err: any) {
+      const isShortLink = route.path.startsWith('/c/')
+      const slug = compData.slug || compData.id
+      if (err?.response?.status === 403) {
+        router.replace(isShortLink ? `/c/${slug}/theory/require` : `/competitions/${slug}/theory/require`)
+        return
+      }
+      if (message) {
+        message.error(err?.response?.data?.message || err?.message || t('competition.fetch_failed', '获取试卷数据失败'))
+      }
+      router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
+      return
     }
   } catch (err: any) {
+    competition.value = null
+    paper.value = null
     if (message) {
-      message.error(err?.message || '获取理论试卷失败')
+      message.error(err?.message || t('competition.fetch_failed', '获取试卷数据失败'))
     }
   } finally {
     loading.value = false
@@ -401,10 +941,33 @@ watch(competitionIdentifier, (newVal) => {
 onMounted(() => {
   fetchCompetitionAndPaper()
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('beforeunload', saveDraftAnswers)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('blur', handleWindowBlur)
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+  document.addEventListener('copy', handleClipboard)
+  document.addEventListener('cut', handleClipboard)
+  document.addEventListener('paste', handleClipboard)
+  document.addEventListener('contextmenu', handleContextMenu)
+  autoSaveTimer = setInterval(saveDraftAnswers, 3000)
 })
 
 onUnmounted(() => {
+  saveDraftAnswers()
+  if (autoSaveTimer) {
+    clearInterval(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  stopProctoring()
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('beforeunload', saveDraftAnswers)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('blur', handleWindowBlur)
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  document.removeEventListener('copy', handleClipboard)
+  document.removeEventListener('cut', handleClipboard)
+  document.removeEventListener('paste', handleClipboard)
+  document.removeEventListener('contextmenu', handleContextMenu)
 })
 </script>
 

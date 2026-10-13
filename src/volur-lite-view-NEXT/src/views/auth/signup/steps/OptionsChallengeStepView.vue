@@ -104,7 +104,7 @@ async function handleSkip() {
       username: signupFlowStore.username,
       email: signupFlowStore.email
     })
-    userStore.fetchCurrentUser(true).catch(() => {})
+    await userStore.fetchCurrentUser(true).catch(() => {})
   }
   signupFlowStore.resetFlow()
   await router.push(redirect)
@@ -121,7 +121,7 @@ async function handleContinue() {
       username: signupFlowStore.username,
       email: signupFlowStore.email
     })
-    userStore.fetchCurrentUser(true).catch(() => {})
+    await userStore.fetchCurrentUser(true).catch(() => {})
   }
   signupFlowStore.resetFlow()
   await router.push(redirect)

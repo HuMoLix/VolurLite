@@ -66,6 +66,15 @@ export interface CompetitionAboutVO {
   regRequirements?: string | null
 }
 
+export interface CompetitionAnnouncementDTO {
+  title: string
+  content: string
+  level?: string
+  isPinned?: boolean
+  challengeId?: number | string
+  challengeName?: string
+}
+
 export interface CompetitionAnnouncementVO {
   id: number | string
   competitionId: number | string
@@ -104,6 +113,7 @@ export interface TheoryPaperQuestionVO {
 }
 
 export interface TheoryPaperExamVO {
+  paperId?: number | string
   competitionId: number | string
   totalQuestions: number
   totalScore: number
@@ -127,6 +137,126 @@ export interface TheoryPaperResultVO {
   totalScore: number
   scoreObtained: number
   accuracyRate: number
+}
+
+export type TheoryCheatEventType =
+  | 'WINDOW_BLUR'
+  | 'VISIBILITY_HIDDEN'
+  | 'EXIT_FULLSCREEN'
+  | 'DEVTOOLS_OPEN'
+  | 'STOP_SCREEN_SHARE'
+  | 'RESTRICTED_KEY'
+  | 'COPY_PASTE_ATTEMPT'
+  | 'CONTEXTMENU_ATTEMPT'
+
+export interface TheoryCheatReportDTO {
+  eventType: TheoryCheatEventType | string
+  detail?: string
+  timestamp?: number
+}
+
+export interface TheoryCheatReportVO {
+  violationCount: number
+  maxAllowedViolations: number
+  isBanned: boolean
+  message: string
+}
+
+export interface TheoryProctorHeartbeatDTO {
+  fullscreen?: boolean
+  screenActive?: boolean
+  screenFrame?: string
+  timestamp?: number
+  answeredCount?: number
+  totalCount?: number
+}
+
+export interface TheoryProctorHeartbeatVO {
+  acknowledged: boolean
+  isBanned: boolean
+  violationCount: number
+  maxAllowedViolations: number
+  serverTime: number
+}
+
+export interface AdminTheoryCandidateMonitorVO {
+  userId: number | string
+  username: string
+  realName?: string | null
+  teamName?: string | null
+  isOnline: boolean
+  fullscreen: boolean
+  screenActive: boolean
+  screenFrame?: string | null
+  violationCount: number
+  isBanned: boolean
+  answeredCount: number
+  totalCount: number
+  lastHeartbeatTime: number
+}
+
+
+export interface TheoryBankSummaryVO {
+  id: number | string
+  name: string
+  questionCount?: number
+}
+
+export interface TheoryCompetitionConfigVO {
+  competitionId: number | string
+  bankIds: (number | string)[]
+  banks: TheoryBankSummaryVO[]
+  singleChoiceCount: number
+  singleChoiceScore: number
+  multipleChoiceCount: number
+  multipleChoiceScore: number
+  trueFalseCount: number
+  trueFalseScore: number
+  essayCount: number
+  essayScore: number
+  isRandom: boolean
+  shuffleOptions?: boolean
+  totalQuestions: number
+  totalScore: number
+}
+
+export interface TheoryCompetitionConfigDTO {
+  bankIds: (number | string)[]
+  singleChoiceCount?: number
+  singleChoiceScore?: number
+  multipleChoiceCount?: number
+  multipleChoiceScore?: number
+  trueFalseCount?: number
+  trueFalseScore?: number
+  essayCount?: number
+  essayScore?: number
+  isRandom?: boolean
+  shuffleOptions?: boolean
+}
+
+export interface TheoryCompetitionPaperGenerateRequestDTO {
+  bankIds: (number | string)[]
+  singleChoiceCount?: number
+  singleChoiceScore?: number
+  multipleChoiceCount?: number
+  multipleChoiceScore?: number
+  trueFalseCount?: number
+  trueFalseScore?: number
+  essayCount?: number
+  essayScore?: number
+  isRandom?: boolean
+  selectedQuestionIds?: (number | string)[]
+}
+
+export interface TheoryPaperQuestionAdminVO {
+  paperId: number | string
+  challengeId: number | string
+  name: string
+  bankName?: string
+  category?: string
+  type: TheoryType
+  score: number
+  sortOrder: number
 }
 
 export type TeamStatus =
@@ -247,4 +377,385 @@ export interface TeamUpdateRequestDTO {
 export interface TeamInviteAcceptDTO {
   customFields?: Record<string, string>
 }
+
+export interface CtfCompetitionChallengeVO {
+  id: number | string
+  challengeId: number | string
+  title?: string
+  name?: string
+  category?: string
+  categoryName?: string
+  difficulty?: string | number | null
+  initialPoints?: number
+  currentPoints: number
+  solvesCount: number
+  sortOrder?: number
+  isSolvedByMyTeam?: boolean
+  isContainer?: boolean
+  topTeams?: string[]
+}
+
+export interface CtfCompetitionChallengeDetailVO {
+  id: number | string
+  challengeId: number | string
+  title?: string
+  name?: string
+  category?: string
+  categoryName?: string
+  difficulty?: string | number | null
+  description?: string | null
+  attachmentUrl?: string | null
+  attachmentName?: string | null
+  currentPoints: number
+  initialPoints?: number
+  minPoints?: number
+  decayCount?: number
+  solvesCount: number
+  isContainer?: boolean
+  isSolvedByMyTeam?: boolean
+  containerPort?: number | null
+  containerHost?: string | null
+  topTeams?: string[]
+  solves?: CtfChallengeSolveVO[]
+}
+
+export interface CtfChallengeSolveVO {
+  teamId?: number | string
+  teamName: string
+  avatarUrl?: string | null
+  solvedAt?: string | null
+  points?: number
+}
+
+export interface CtfFlagSubmitRequestDTO {
+  flag: string
+}
+
+export interface CtfChallengeInstanceVO {
+  challengeId?: number | string
+  instanceId?: number | string
+  accessUrl?: string | null
+  host?: string | null
+  port?: number | null
+  status?: string | null
+  createdAt?: string | null
+  expiresAt?: string | null
+  remainingTimeSeconds?: number | null
+  remainingSeconds?: number | null
+}
+
+export interface CtfScoreboardItemVO {
+  rank: number
+  teamId: number | string
+  teamName: string
+  avatarUrl?: string | null
+  score: number
+  solvesCount: number
+  lastSolveTime?: string | null
+}
+
+export interface CtfScoreboardVO {
+  competitionId: number | string
+  isFrozen?: boolean | null
+  rankings: CtfScoreboardItemVO[]
+}
+
+export interface CompetitionSolveNotificationItem {
+  id?: string | number
+  competitionId?: string | number
+  challengeId?: string | number
+  challengeTitle?: string
+  challengeCategory?: string
+  teamId?: string | number
+  teamName: string
+  teamAvatar?: string | null
+  userId?: string | number
+  username?: string | null
+  userNickname?: string | null
+  solveRank?: number
+  bloodType?: 'FIRST_BLOOD' | 'SECOND_BLOOD' | 'THIRD_BLOOD' | 'NORMAL' | string
+  pointsAwarded?: number
+  solvedAt?: string | null
+}
+
+export interface CtfTeamSolveRecordVO {
+  id: number | string
+  challengeId?: number | string | null
+  challengeName?: string | null
+  category?: string | null
+  submissionMode?: string | null
+  userId?: number | string | null
+  username?: string | null
+  points: number
+  isFirstBlood: boolean
+  solvedAt: string
+}
+
+export interface CompetitionWriteupVO {
+  id: number | string
+  competitionId: number | string
+  teamId: number | string
+  teamName: string
+  userId: number | string
+  username: string
+  fileName: string
+  fileUrl: string
+  fileSize?: number | null
+  fileType?: string | null
+  status?: string | null
+  score?: number | null
+  comment?: string | null
+  createdAt: string
+  updatedAt?: string | null
+}
+
+export interface CompetitionWriteupSubmitDTO {
+  fileName: string
+  fileUrl: string
+  fileSize?: number
+  captchaId: string
+  captchaCode: string
+}
+
+export interface CompetitionWriteupTemplateVO {
+  templateUrl?: string | null
+  templateName?: string | null
+}
+
+export interface AdminCompetitionListVO {
+  id: number | string
+  title: string
+  slug: string
+  type: CompetitionType
+  status: CompetitionStatus
+  startTime: string
+  endTime: string
+  teamCount: number
+  participantCount: number
+  createdAt: string
+}
+
+export interface AdminCompetitionDetailVO {
+  id: number | string
+  title: string
+  slug: string
+  type: CompetitionType
+  description?: string
+  bannerUrl?: string
+  status: CompetitionStatus
+  regStartTime?: string
+  regEndTime?: string
+  startTime: string
+  endTime: string
+  maxLeaders?: number
+  maxTeamMembers?: number
+  minTeamMembers?: number
+  maxTeams?: number
+  requireTeamAudit?: boolean
+  freezeScoreboardMinutes?: number
+  isScoreboardFrozen?: boolean
+  allowWriteupSubmission?: boolean
+  maxContainersPerTeam?: number
+  writeupTemplateUrl?: string
+  writeupTemplateName?: string
+  writeupStartTime?: string
+  writeupEndTime?: string
+  regRequirements?: string
+  config?: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CompetitionCreateRequestDTO {
+  title: string
+  slug: string
+  type: CompetitionType
+  description?: string
+  bannerUrl?: string
+  status?: CompetitionStatus
+  regStartTime?: string
+  regEndTime?: string
+  startTime: string
+  endTime: string
+  config?: Record<string, any>
+}
+
+export interface CompetitionUpdateRequestDTO {
+  title?: string
+  slug?: string
+  type?: CompetitionType
+  description?: string
+  bannerUrl?: string
+  status?: CompetitionStatus
+  regStartTime?: string
+  regEndTime?: string
+  startTime?: string
+  endTime?: string
+  config?: Record<string, any>
+}
+
+export interface AdminTeamListVO {
+  id: number | string
+  competitionId: number | string
+  teamName: string
+  avatarUrl?: string
+  organization?: string
+  organizationType?: OrganizationType
+  captainId: number | string
+  captainUsername: string
+  memberCount: number
+  status: TeamStatus
+  auditReason?: string
+  createdAt: string
+}
+
+export interface AdminTeamStatsVO {
+  total: number
+  pending: number
+  approved: number
+  rejected: number
+}
+
+export interface AdminTeamDetailVO {
+  id: number | string
+  competitionId: number | string
+  competitionTitle?: string
+  teamName: string
+  avatarUrl?: string
+  description?: string
+  organization?: string
+  organizationType?: OrganizationType
+  captainId: number | string
+  captainUsername: string
+  status: TeamStatus
+  auditReason?: string
+  members: CompetitionMemberVO[]
+  createdAt: string
+}
+
+export interface TeamAuditRequestDTO {
+  status: TeamStatus
+  auditReason?: string
+}
+
+export interface AdminTeamMemberDTO {
+  id?: number | string
+  realName?: string
+  gender?: 'MALE' | 'FEMALE'
+  role?: MemberRole
+  phone?: string
+  email?: string
+  idCard?: string
+  employeeNumber?: string
+  department?: string
+  position?: string
+}
+
+export interface AdminTeamUpdateDTO {
+  teamName: string
+  description?: string
+  organization?: string
+  organizationType?: OrganizationType
+  members?: AdminTeamMemberDTO[]
+  leaders?: AdminTeamMemberDTO[]
+}
+
+export interface BatchTeamAuditDTO {
+  teamIds: (number | string)[]
+  status: TeamStatus
+  auditReason?: string
+}
+
+export interface BatchTeamDeleteDTO {
+  teamIds: (number | string)[]
+}
+
+export interface CtfChallengeMountRequestDTO {
+  challengeId: number | string
+  initialPoints?: number
+  minPoints?: number
+  decayCount?: number
+  sortOrder?: number
+  isVisible?: boolean
+}
+
+export interface CtfChallengeBatchMountRequestDTO {
+  items: CtfChallengeMountRequestDTO[]
+}
+
+export interface CompetitionWriteupAuditDTO {
+  status?: string
+  score?: number
+  comment?: string
+}
+
+export interface AdminCompetitionLogVO {
+  id: string | number
+  competitionId: string | number
+  userId?: string | number
+  username?: string
+  teamId?: string | number
+  teamName?: string
+  challengeId?: string | number
+  challengeTitle?: string
+  action: string
+  logType: string
+  status: boolean
+  operatorIp?: string
+  requestMethod?: string
+  requestUri?: string
+  durationMs?: number
+  params?: string
+  result?: string
+  errorMessage?: string
+  userAgent?: string
+  createdAt: string
+}
+
+export interface AdminCompetitionLogStatisticsVO {
+  totalLogs: number
+  containerLogs: number
+  flagLogs: number
+  errorLogs: number
+}
+
+export interface AdminCompetitionLogQueryDTO {
+  page?: number
+  size?: number
+  username?: string
+  teamName?: string
+  challengeTitle?: string
+  logType?: string
+  status?: boolean
+  startTime?: string
+  endTime?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface StageScoreDetailVO {
+  stage: CompetitionType
+  stageName: string
+  rawScore: number
+  weightPercent: number
+  weightedScore: number
+}
+
+export interface CompositeTeamScoreVO {
+  rank: number
+  teamId: number | string
+  teamName: string
+  avatarUrl?: string
+  totalFinalScore: number
+  stageScores: StageScoreDetailVO[]
+}
+
+export interface CompositeScoreboardVO {
+  competitionId: number | string
+  competitionTitle: string
+  isFrozen: boolean
+  rankings: CompositeTeamScoreVO[]
+}
+
+
 

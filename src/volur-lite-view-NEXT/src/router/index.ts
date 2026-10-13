@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { routes } from './router'
 import { isDshExpired, buildSessionExpireLocation } from '@/utils/flow'
 import { useAppStore } from '@/store/modules/app'
+import { useUserStore } from '@/store/modules/user'
 import { normalizeLocale, loadLocaleForRouteAsync, i18n } from '@/i18n'
 
 const router = createRouter({
@@ -44,15 +45,28 @@ router.beforeEach(async (to) => {
   const isAuthRequired = to.matched.some(
     (record) => record.meta.requiredAuth === true
   )
+  const isAdminRequired =
+    to.matched.some((record) => record.meta.requiredAdmin === true) ||
+    to.path.startsWith('/admin')
 
   const isLoggedIn =
     typeof document !== 'undefined' &&
     /(?:^|;\s*)logged_in=true/.test(document.cookie)
 
-  if (isAuthRequired && !isLoggedIn) {
+  if ((isAuthRequired || isAdminRequired) && !isLoggedIn) {
     return {
       path: '/v1/signin/identifier',
       query: { redirect: to.fullPath }
+    }
+  }
+
+  if (isAdminRequired) {
+    const userStore = useUserStore()
+    if (!userStore.user && isLoggedIn) {
+      await userStore.fetchCurrentUser()
+    }
+    if (!userStore.isAdmin) {
+      return { path: '/competitions' }
     }
   }
 

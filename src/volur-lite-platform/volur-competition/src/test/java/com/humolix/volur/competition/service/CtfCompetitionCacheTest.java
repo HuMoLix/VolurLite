@@ -22,10 +22,13 @@ import com.humolix.volur.competition.service.ctf.impl.CtfCompetitionServiceImpl;
 import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.container.service.CtfInstanceService;
 import com.humolix.volur.framework.cache.CacheNames;
+import com.humolix.volur.framework.cache.CachedValue;
 import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.cache.redis.RedisOps;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.notification.service.RealtimePushService;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -68,6 +71,8 @@ class CtfCompetitionCacheTest {
     private VolurCacheTemplate cacheTemplate;
     @Mock
     private RedisOps redisOps;
+    @Mock
+    private RealtimePushService realtimePushService;
 
     @InjectMocks
     private CtfCompetitionServiceImpl ctfCompetitionService;
@@ -155,6 +160,37 @@ class CtfCompetitionCacheTest {
     }
 
     @Test
+    @DisplayName("验证 CachedValue 经序列化与反序列化后 listChallenges 能正常迭代强转而不发生 ClassCastException")
+    @SuppressWarnings("unchecked")
+    void testListChallengesWithCachedValueRoundTrip() {
+        CtfCompetitionChallengeVO cachedVo = CtfCompetitionChallengeVO.builder()
+                .id(10L)
+                .name("签到题")
+                .currentPoints(1000)
+                .isSolvedByMyTeam(false)
+                .build();
+
+        List<CtfCompetitionChallengeVO> baseList = List.of(cachedVo);
+        CachedValue cv = CachedValue.of(baseList);
+        CachedValue decoded = CachedValue.decode(cv.encode());
+        assertNotNull(decoded);
+        List<CtfCompetitionChallengeVO> deserializedList = (List<CtfCompetitionChallengeVO>) decoded.unwrap(null);
+
+        when(cacheTemplate.getOrLoad(eq(CacheNames.COMPETITION_STATUS), eq("ctf:challenges:100"), any()))
+                .thenReturn(deserializedList);
+
+        when(memberRepository.findMemberWithTeam(100L, 1L)).thenReturn(Optional.of(member));
+        when(solvedRepository.findByCompetitionIdAndTeamId(100L, 200L)).thenReturn(Collections.emptyList());
+
+        List<CtfCompetitionChallengeVO> result = ctfCompetitionService.listChallenges(100L, 1L);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("签到题", result.get(0).getName());
+        assertFalse(result.get(0).getIsSolvedByMyTeam());
+    }
+
+    @Test
     @DisplayName("验证 getChallengeDetail 走三级缓存并支持不可变派生")
     void testGetChallengeDetailCache() {
         CtfCompetitionChallengeDetailVO cachedDetail = CtfCompetitionChallengeDetailVO.builder()
@@ -234,10 +270,43 @@ class CtfCompetitionCacheTest {
         boolean isCorrect = ctfCompetitionService.submitFlag(100L, 10L, 1L, req, "127.0.0.1");
 
         assertTrue(isCorrect);
-        // 验证主动缓存淘汰
         verify(cacheTemplate).evict(CacheNames.COMPETITION_STATUS, "ctf:challenges:100");
         verify(cacheTemplate).evict(CacheNames.CTF_CHALLENGE_DETAIL, "comp:100:chal:10");
         verify(cacheTemplate).evict(CacheNames.COMPETITION_STATUS, "scoreboard:ctf:100");
         verify(cacheTemplate).evict(CacheNames.COMPETITION_STATUS, "scoreboard:composite:100");
+        verify(realtimePushService).broadcastAll(eq("competition_event"), any());
+    }
+
+    @Test
+    @DisplayName("验证非参赛人员且非管理员访问赛题列表抛出 403 异常")
+    void testListChallengesForbiddenWhenNotParticipating() {
+        when(memberRepository.findMemberWithTeam(100L, 999L)).thenReturn(Optional.empty());
+        User nonAdmin = User.builder().id(999L).role(UserRole.USER).build();
+        when(userRepository.findById(999L)).thenReturn(Optional.of(nonAdmin));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                ctfCompetitionService.listChallenges(100L, 999L)
+        );
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+    }
+
+    @Test
+    @DisplayName("验证管理员即便未加入战队也可访问赛题列表")
+    void testListChallengesAllowedForAdminWithoutTeam() {
+        when(memberRepository.findMemberWithTeam(100L, 888L)).thenReturn(Optional.empty());
+        User admin = User.builder().id(888L).role(UserRole.ADMIN).build();
+        when(userRepository.findById(888L)).thenReturn(Optional.of(admin));
+
+        CtfCompetitionChallengeVO cachedVo = CtfCompetitionChallengeVO.builder()
+                .id(10L)
+                .name("签到题")
+                .currentPoints(1000)
+                .build();
+        when(cacheTemplate.getOrLoad(eq(CacheNames.COMPETITION_STATUS), eq("ctf:challenges:100"), any()))
+                .thenReturn(List.of(cachedVo));
+
+        List<CtfCompetitionChallengeVO> result = ctfCompetitionService.listChallenges(100L, 888L);
+        assertNotNull(result);
+        assertEquals(1, result.size());
     }
 }

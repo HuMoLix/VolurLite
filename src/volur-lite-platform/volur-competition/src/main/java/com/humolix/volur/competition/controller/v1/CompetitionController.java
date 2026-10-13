@@ -37,7 +37,7 @@ public class CompetitionController {
             @RequestParam(defaultValue = "5") int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) CompetitionType type) {
-        return ApiResponseEntity.ok("获取竞赛切片列表成功", competitionService.listCompetitionSlice(page, size, keyword, type));
+        return ApiResponseEntity.ok("获取竞赛列表成功", competitionService.listCompetitionSlice(page, size, keyword, type));
     }
 
     @GetMapping("/by-slug/{slug}")

@@ -25,6 +25,8 @@ public class TheoryChallengeDetailVO implements Serializable {
     private String explanation;
     private Integer score;
     private Integer difficulty;
+    private Long bankId;
+    private String bankName;
     private Long authorId;
     private String authorName;
     private Instant createdAt;

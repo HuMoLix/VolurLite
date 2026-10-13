@@ -14,6 +14,9 @@ import com.humolix.volur.competition.repository.CompetitionMemberRepository;
 import com.humolix.volur.competition.repository.isw.IswCompetitionChallengeRepository;
 import com.humolix.volur.competition.service.isw.IswCompetitionService;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.UserRole;
+import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,9 +32,11 @@ public class IswCompetitionServiceImpl implements IswCompetitionService {
 
     private final CompetitionMemberRepository memberRepository;
     private final IswCompetitionChallengeRepository challengeRepository;
+    private final UserRepository userRepository;
 
     @Override
     public List<IswCompetitionTopologyVO> listScenarios(Long competitionId, Long userId) {
+        validateUserParticipationOrAdmin(competitionId, userId);
         List<IswCompetitionChallenge> challenges = challengeRepository.findByCompetitionIdWithChallenge(competitionId);
         List<IswCompetitionTopologyVO> list = new ArrayList<>();
         for (IswCompetitionChallenge c : challenges) {
@@ -73,6 +78,22 @@ public class IswCompetitionServiceImpl implements IswCompetitionService {
             }
         }
         return null;
+    }
+
+    private void validateUserParticipationOrAdmin(Long competitionId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
+        }
+        CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
+        if (team != null) {
+            return;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        boolean isAdmin = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
+        if (!isAdmin) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "您尚未加入已审核通过的参赛队伍");
+        }
     }
 
 }

@@ -9,6 +9,7 @@ declare module 'vue-router' {
     cardSubtitle?: string
     cardSubtitleKey?: string
     requiredAuth?: boolean
+    requiredAdmin?: boolean
     roles?: string[]
     keepAlive?: boolean
     icon?: string

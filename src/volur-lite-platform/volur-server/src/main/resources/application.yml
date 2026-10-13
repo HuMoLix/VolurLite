@@ -113,4 +113,8 @@ volur:
       topic: "${VOLUR_CACHE_TOPIC:vredis:topic:cache:evict}"
     l2:
       key-prefix: "${VOLUR_CACHE_KEY_PREFIX:vcache:}"
+    caches:
+      competition_status:
+        l1-enabled: false
+        l2-ttl: 5s
 

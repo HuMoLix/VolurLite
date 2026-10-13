@@ -14,8 +14,11 @@ import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.enums.CompetitionType;
 import com.humolix.volur.competition.domain.enums.SubmissionStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
+import com.humolix.volur.competition.domain.vo.ctf.CtfChallengeSolveVO;
 import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeDetailVO;
 import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeVO;
+import com.humolix.volur.competition.domain.vo.ctf.CtfSolveNotificationVO;
+import com.humolix.volur.competition.domain.vo.ctf.CtfTeamSolveRecordVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.CompetitionMemberRepository;
 import com.humolix.volur.competition.repository.ctf.CtfCompetitionChallengeRepository;
@@ -28,7 +31,10 @@ import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.cache.redis.RedisOps;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.notification.domain.enums.RealtimeEventType;
+import com.humolix.volur.notification.service.RealtimePushService;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -54,19 +61,38 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
     private final CompetitionMapper competitionMapper;
     private final VolurCacheTemplate cacheTemplate;
     private final RedisOps redisOps;
+    private final RealtimePushService realtimePushService;
 
     
 
     @Override
     public List<CtfCompetitionChallengeVO> listChallenges(Long competitionId, Long userId) {
-        // 1. 静态赛题列表底座：走三级缓存 L1 (Caffeine ~50ns) + L2 (Redis ~1ms) + L3 回源单飞折叠
+        validateUserParticipationOrAdmin(competitionId, userId);
         List<CtfCompetitionChallengeVO> cachedBaseList = cacheTemplate.getOrLoad(
                 CacheNames.COMPETITION_STATUS,
                 "ctf:challenges:" + competitionId,
                 () -> {
                     List<CtfCompetitionChallenge> challenges = challengeRepository
                             .findByCompetitionIdAndIsVisibleTrueOrderBySortOrderAsc(competitionId);
-                    return competitionMapper.toCtfChallengeVOList(challenges);
+                    List<CtfCompetitionSolved> allSolves = solvedRepository.findAllSolvesWithDetails(competitionId);
+                    Map<Long, List<String>> challengeTopTeamsMap = new HashMap<>();
+                    for (CtfCompetitionSolved s : allSolves) {
+                        if (s.getCompetitionChallenge() != null && s.getTeam() != null) {
+                            Long chalId = s.getCompetitionChallenge().getId();
+                            List<String> teams = challengeTopTeamsMap.computeIfAbsent(chalId, k -> new ArrayList<>());
+                            if (teams.size() < 3 && StringUtils.hasText(s.getTeam().getTeamName())) {
+                                teams.add(s.getTeam().getTeamName());
+                            }
+                        }
+                    }
+
+                    List<CtfCompetitionChallengeVO> voList = new ArrayList<>(challenges.size());
+                    for (CtfCompetitionChallenge c : challenges) {
+                        CtfCompetitionChallengeVO vo = competitionMapper.toCtfChallengeVO(c);
+                        vo.setTopTeams(challengeTopTeamsMap.getOrDefault(c.getId(), Collections.emptyList()));
+                        voList.add(vo);
+                    }
+                    return voList;
                 }
         );
 
@@ -74,7 +100,6 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
             return Collections.emptyList();
         }
 
-        // 2. 动态解题标记：查询当前队伍已解出的赛题 ID
         CompetitionTeam myTeam = getMyApprovedTeam(competitionId, userId);
         Set<Long> solvedChallengeIds = Collections.emptySet();
         if (myTeam != null) {
@@ -84,7 +109,6 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
                     .collect(Collectors.toSet());
         }
 
-        // 3. 利用 toBuilder 产生副本返回，防止修改污染 L1 本地缓存中的共享对象
         List<CtfCompetitionChallengeVO> result = new ArrayList<>(cachedBaseList.size());
         for (CtfCompetitionChallengeVO vo : cachedBaseList) {
             result.add(vo.toBuilder()
@@ -97,7 +121,7 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
 
     @Override
     public CtfCompetitionChallengeDetailVO getChallengeDetail(Long competitionId, Long competitionChallengeId, Long userId) {
-        // 1. 静态赛题详情底座：三级缓存与单飞折叠，避免千人并发重复多表联查
+        validateUserParticipationOrAdmin(competitionId, userId);
         CtfCompetitionChallengeDetailVO cachedDetail = cacheTemplate.getOrLoad(
                 CacheNames.CTF_CHALLENGE_DETAIL,
                 "comp:" + competitionId + ":chal:" + competitionChallengeId,
@@ -112,6 +136,29 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
                     CtfCompetitionChallengeDetailVO vo = competitionMapper.toCtfChallengeDetailVO(compChallenge);
                     CtfChallenge rawChallenge = compChallenge.getChallenge();
                     vo.setIsContainer(rawChallenge != null && rawChallenge.isDynamicContainer());
+
+                    List<CtfCompetitionSolved> solves = solvedRepository.findByCompetitionChallengeIdWithDetails(competitionChallengeId);
+                    List<CtfChallengeSolveVO> solveVOList = new ArrayList<>(solves.size());
+                    List<String> topTeams = new ArrayList<>();
+                    for (int i = 0; i < solves.size(); i++) {
+                        CtfCompetitionSolved s = solves.get(i);
+                        String tName = s.getTeam() != null ? s.getTeam().getTeamName() : "";
+                        String aUrl = s.getTeam() != null ? s.getTeam().getAvatarUrl() : "";
+                        solveVOList.add(CtfChallengeSolveVO.builder()
+                                .teamId(s.getTeam() != null ? s.getTeam().getId() : null)
+                                .teamName(tName)
+                                .avatarUrl(aUrl)
+                                .solvedAt(s.getSolvedAt())
+                                .points(s.getPointsAwarded())
+                                .isFirstBlood(Boolean.TRUE.equals(s.getIsFirstBlood()) || i == 0)
+                                .build());
+                        if (topTeams.size() < 3 && StringUtils.hasText(tName)) {
+                            topTeams.add(tName);
+                        }
+                    }
+                    vo.setSolves(solveVOList);
+                    vo.setTopTeams(topTeams);
+
                     return vo;
                 }
         );
@@ -120,13 +167,11 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
             throw new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在");
         }
 
-        // 2. 动态判断当前战队解题状态
         CompetitionTeam myTeam = getMyApprovedTeam(competitionId, userId);
         boolean isSolved = myTeam != null && solvedRepository.existsByCompetitionIdAndCompetitionChallengeIdAndTeamId(
                 competitionId, competitionChallengeId, myTeam.getId()
         );
 
-        // 3. 不可变副本返回
         return cachedDetail.toBuilder()
                 .isSolvedByMyTeam(isSolved)
                 .build();
@@ -200,7 +245,6 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
 
         solvedRepository.save(solved);
 
-        // Update points of previous solves for other teams to match new dynamic points
         List<CtfCompetitionSolved> allSolves = solvedRepository.findByCompetitionChallengeIdOrderBySolvedAtAsc(compChallenge.getId());
         for (CtfCompetitionSolved s : allSolves) {
             if (!s.getId().equals(solved.getId())) {
@@ -209,11 +253,41 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
             }
         }
 
-        // 解题成功后主动失效题目列表、题目详情与天梯榜物化缓存
         cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "ctf:challenges:" + competitionId);
         cacheTemplate.evict(CacheNames.CTF_CHALLENGE_DETAIL, "comp:" + competitionId + ":chal:" + competitionChallengeId);
         cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "scoreboard:ctf:" + competitionId);
         cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "scoreboard:composite:" + competitionId);
+
+        String bloodType = switch (newSolvesCount) {
+            case 1 -> "FIRST_BLOOD";
+            case 2 -> "SECOND_BLOOD";
+            case 3 -> "THIRD_BLOOD";
+            default -> "NORMAL";
+        };
+
+        String challengeTitle = compChallenge.getChallenge() != null ? compChallenge.getChallenge().getName() : "";
+        String category = compChallenge.getChallenge() != null && compChallenge.getChallenge().getCategory() != null
+                ? compChallenge.getChallenge().getCategory().getName()
+                : "";
+
+        CtfSolveNotificationVO notificationVO = CtfSolveNotificationVO.builder()
+                .competitionId(competitionId)
+                .challengeId(compChallenge.getId())
+                .challengeTitle(challengeTitle)
+                .challengeCategory(category)
+                .teamId(team.getId())
+                .teamName(team.getTeamName())
+                .teamAvatar(team.getAvatarUrl())
+                .userId(userId)
+                .username(user != null ? user.getUsername() : null)
+                .userNickname(user != null ? user.getRealName() : null)
+                .solveRank(newSolvesCount)
+                .bloodType(bloodType)
+                .pointsAwarded(pointsAwarded)
+                .solvedAt(Instant.now())
+                .build();
+
+        realtimePushService.broadcastAll(RealtimeEventType.COMPETITION_EVENT.getValue(), notificationVO);
 
         return true;
     }
@@ -306,6 +380,55 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
             }
         }
         return null;
+    }
+
+    private void validateUserParticipationOrAdmin(Long competitionId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
+        }
+        CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
+        if (team != null) {
+            return;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        boolean isAdmin = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
+        if (!isAdmin) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "您尚未加入已审核通过的参赛队伍");
+        }
+    }
+
+    @Override
+    public List<CtfTeamSolveRecordVO> getTeamSolves(Long competitionId, Long teamId) {
+        List<CtfCompetitionSolved> solves = solvedRepository.findByCompetitionIdAndTeamIdWithDetails(competitionId, teamId);
+        List<CtfTeamSolveRecordVO> result = new ArrayList<>(solves.size());
+        for (CtfCompetitionSolved s : solves) {
+            boolean isContainer = s.getCompetitionChallenge() != null
+                    && s.getCompetitionChallenge().getChallenge() != null
+                    && org.springframework.util.StringUtils.hasText(s.getCompetitionChallenge().getChallenge().getImageName());
+            String cat = s.getCompetitionChallenge() != null
+                    && s.getCompetitionChallenge().getChallenge() != null
+                    && s.getCompetitionChallenge().getChallenge().getCategory() != null
+                    ? s.getCompetitionChallenge().getChallenge().getCategory().getName()
+                    : "Misc";
+            String cName = s.getCompetitionChallenge() != null
+                    && s.getCompetitionChallenge().getChallenge() != null
+                    ? s.getCompetitionChallenge().getChallenge().getName()
+                    : "";
+            result.add(CtfTeamSolveRecordVO.builder()
+                    .id(s.getId())
+                    .challengeId(s.getCompetitionChallenge() != null ? s.getCompetitionChallenge().getId() : null)
+                    .challengeName(cName)
+                    .category(cat)
+                    .submissionMode(isContainer ? "动态容器 Flag" : "静态 Flag")
+                    .userId(s.getUser() != null ? s.getUser().getId() : null)
+                    .username(s.getUser() != null ? s.getUser().getUsername() : null)
+                    .points(s.getPointsAwarded())
+                    .isFirstBlood(Boolean.TRUE.equals(s.getIsFirstBlood()))
+                    .solvedAt(s.getSolvedAt())
+                    .build());
+        }
+        return result;
     }
 
 }

@@ -39,6 +39,14 @@ public class CompetitionTeamController {
         return ApiResponseEntity.ok("获取我的队伍信息成功", teamService.getMyTeam(competitionId, userId));
     }
 
+    @GetMapping("/{teamId}")
+    public ApiResponseEntity<MyTeamInfoVO> getTeamById(
+            @PathVariable Long competitionId,
+            @PathVariable Long teamId,
+            @CurrentUserId(required = false) Long userId) {
+        return ApiResponseEntity.ok("获取队伍信息成功", teamService.getTeamById(competitionId, teamId, userId));
+    }
+
     @CompetitionLog(logType = "TEAM", action = "更新参赛队伍信息", recordParams = true)
     @PutMapping("/me")
     public ApiResponseEntity<Void> updateTeam(

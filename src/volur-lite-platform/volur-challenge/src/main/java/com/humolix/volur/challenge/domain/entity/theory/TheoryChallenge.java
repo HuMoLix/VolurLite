@@ -62,6 +62,10 @@ public class TheoryChallenge implements Challenge, Serializable {
     @JoinColumn(name = "author_id", columnDefinition = "BIGINT")
     private User author;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_id", columnDefinition = "BIGINT")
+    private TheoryBank bank;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Instant createdAt;

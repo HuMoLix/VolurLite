@@ -150,6 +150,13 @@ BEGIN
     -- 3.2 competition_team 表结构扩充
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_team' AND COLUMN_NAME = 'avatar_url'
+    ) THEN
+        ALTER TABLE `competition_team` ADD COLUMN `avatar_url` varchar(255) COLLATE utf8mb4_unicode_ci;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS 
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_team' AND COLUMN_NAME = 'description'
     ) THEN
         ALTER TABLE `competition_team` ADD COLUMN `description` varchar(512) COLLATE utf8mb4_unicode_ci;
@@ -390,6 +397,167 @@ BEGIN
             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'is_totp_enabled'
         ) THEN
             ALTER TABLE `user` ADD COLUMN `is_totp_enabled` TINYINT(1) NOT NULL DEFAULT 0 AFTER `totp_secret`;
+        END IF;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_writeup'
+    ) THEN
+        CREATE TABLE `competition_writeup` (
+            `id` BIGINT NOT NULL,
+            `competition_id` BIGINT NOT NULL,
+            `team_id` BIGINT NOT NULL,
+            `team_name` VARCHAR(64) NOT NULL,
+            `user_id` BIGINT NOT NULL,
+            `username` VARCHAR(64) NOT NULL,
+            `file_name` VARCHAR(255) NOT NULL,
+            `file_url` VARCHAR(512) NOT NULL,
+            `file_size` BIGINT DEFAULT 0,
+            `file_type` VARCHAR(32) DEFAULT NULL,
+            `status` VARCHAR(32) NOT NULL DEFAULT 'SUBMITTED',
+            `score` INT DEFAULT NULL,
+            `comment` TEXT DEFAULT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_comp_wp_comp_team` (`competition_id`, `team_id`),
+            KEY `idx_comp_wp_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_bank'
+    ) THEN
+        CREATE TABLE `theory_bank` (
+            `id` BIGINT NOT NULL,
+            `name` VARCHAR(128) NOT NULL,
+            `description` TEXT DEFAULT NULL,
+            `category` VARCHAR(64) DEFAULT NULL,
+            `author_id` BIGINT DEFAULT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uk_theory_bank_name` (`name`),
+            KEY `idx_theory_bank_author` (`author_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_challenge'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_challenge' AND COLUMN_NAME = 'bank_id'
+        ) THEN
+            ALTER TABLE `theory_challenge` ADD COLUMN `bank_id` BIGINT DEFAULT NULL AFTER `author_id`;
+            ALTER TABLE `theory_challenge` ADD KEY `idx_theory_challenge_bank` (`bank_id`);
+        END IF;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_competition_bank'
+    ) THEN
+        CREATE TABLE `theory_competition_bank` (
+            `id` BIGINT NOT NULL,
+            `competition_id` BIGINT NOT NULL,
+            `bank_id` BIGINT NOT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_comp_bank` (`competition_id`, `bank_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_competition_config'
+    ) THEN
+        CREATE TABLE `theory_competition_config` (
+            `id` BIGINT NOT NULL,
+            `competition_id` BIGINT NOT NULL,
+            `bank_ids` VARCHAR(1024) DEFAULT NULL,
+            `single_choice_count` INT NOT NULL DEFAULT 0,
+            `single_choice_score` INT NOT NULL DEFAULT 2,
+            `multiple_choice_count` INT NOT NULL DEFAULT 0,
+            `multiple_choice_score` INT NOT NULL DEFAULT 4,
+            `true_false_count` INT NOT NULL DEFAULT 0,
+            `true_false_score` INT NOT NULL DEFAULT 2,
+            `essay_count` INT NOT NULL DEFAULT 0,
+            `essay_score` INT NOT NULL DEFAULT 10,
+            `is_random` TINYINT(1) NOT NULL DEFAULT 1,
+            `shuffle_options` TINYINT(1) NOT NULL DEFAULT 1,
+            `total_questions` INT NOT NULL DEFAULT 0,
+            `total_score` INT NOT NULL DEFAULT 100,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uk_theory_comp_config_comp` (`competition_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ELSE
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_competition_config' AND COLUMN_NAME = 'shuffle_options'
+        ) THEN
+            ALTER TABLE `theory_competition_config` ADD COLUMN `shuffle_options` TINYINT(1) NOT NULL DEFAULT 1 AFTER `is_random`;
+        END IF;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_user_paper'
+    ) THEN
+        CREATE TABLE `theory_user_paper` (
+            `id` BIGINT NOT NULL,
+            `competition_id` BIGINT NOT NULL,
+            `user_id` BIGINT NOT NULL,
+            `team_id` BIGINT DEFAULT NULL,
+            `total_questions` INT NOT NULL DEFAULT 0,
+            `total_score` INT NOT NULL DEFAULT 0,
+            `is_submitted` TINYINT(1) NOT NULL DEFAULT 0,
+            `my_total_score` INT NOT NULL DEFAULT 0,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uk_theory_user_paper_comp_user` (`competition_id`, `user_id`),
+            KEY `idx_theory_user_paper_user` (`user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_competition_paper'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_competition_paper' AND COLUMN_NAME = 'user_paper_id'
+        ) THEN
+            ALTER TABLE `theory_competition_paper` ADD COLUMN `user_paper_id` BIGINT DEFAULT NULL AFTER `competition_id`;
+            ALTER TABLE `theory_competition_paper` ADD KEY `idx_paper_user_paper` (`user_paper_id`);
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_competition_paper' AND COLUMN_NAME = 'user_id'
+        ) THEN
+            ALTER TABLE `theory_competition_paper` ADD COLUMN `user_id` BIGINT DEFAULT NULL AFTER `user_paper_id`;
+            ALTER TABLE `theory_competition_paper` ADD KEY `idx_paper_user_comp` (`competition_id`, `user_id`);
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_competition_paper' AND COLUMN_NAME = 'shuffled_options'
+        ) THEN
+            ALTER TABLE `theory_competition_paper` ADD COLUMN `shuffled_options` TEXT DEFAULT NULL AFTER `sort_order`;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'theory_competition_paper' AND COLUMN_NAME = 'shuffled_standard_answer'
+        ) THEN
+            ALTER TABLE `theory_competition_paper` ADD COLUMN `shuffled_standard_answer` TEXT DEFAULT NULL AFTER `shuffled_options`;
         END IF;
     END IF;
 

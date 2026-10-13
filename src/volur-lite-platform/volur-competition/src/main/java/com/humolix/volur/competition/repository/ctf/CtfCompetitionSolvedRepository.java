@@ -32,4 +32,22 @@ public interface CtfCompetitionSolvedRepository extends JpaRepository<CtfCompeti
             "ORDER BY s.solvedAt ASC")
     List<CtfCompetitionSolved> findAllSolvesWithDetails(@Param("competitionId") Long competitionId);
 
+    @Query("SELECT s FROM CtfCompetitionSolved s " +
+            "JOIN FETCH s.team t " +
+            "JOIN FETCH s.user u " +
+            "JOIN FETCH s.competitionChallenge cc " +
+            "JOIN FETCH cc.challenge c " +
+            "LEFT JOIN FETCH c.category " +
+            "WHERE s.competition.id = :competitionId AND s.team.id = :teamId " +
+            "ORDER BY s.solvedAt DESC")
+    List<CtfCompetitionSolved> findByCompetitionIdAndTeamIdWithDetails(
+            @Param("competitionId") Long competitionId,
+            @Param("teamId") Long teamId);
+
+    @Query("SELECT s FROM CtfCompetitionSolved s " +
+            "JOIN FETCH s.team t " +
+            "WHERE s.competitionChallenge.id = :challengeId " +
+            "ORDER BY s.solvedAt ASC")
+    List<CtfCompetitionSolved> findByCompetitionChallengeIdWithDetails(@Param("challengeId") Long challengeId);
+
 }

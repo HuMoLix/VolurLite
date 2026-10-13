@@ -23,7 +23,7 @@ public class AwdPlusCompetitionController {
     @GetMapping("/targets")
     public ApiResponseEntity<List<AwdPlusTargetStatusVO>> listTargets(
             @PathVariable Long competitionId,
-            @CurrentUserId(required = false) Long userId) {
+            @CurrentUserId Long userId) {
         return ApiResponseEntity.ok("获取进阶攻防靶机列表成功", awdPlusCompetitionService.listTargets(competitionId, userId));
     }
 

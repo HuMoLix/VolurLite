@@ -27,4 +27,6 @@ public interface CompetitionTeamService {
 
     MyTeamInfoVO getMyTeam(Long competitionId, Long userId);
 
+    MyTeamInfoVO getTeamById(Long competitionId, Long teamId, Long userId);
+
 }

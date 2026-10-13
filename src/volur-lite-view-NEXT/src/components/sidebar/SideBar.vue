@@ -39,6 +39,7 @@
         :avatar-ring="avatarRing"
         :notification-route="notificationRoute"
         :settingsRoute="settingsRoute"
+        :admin-route="adminRoute"
         :feedback-route="feedbackRoute"
         :search-route="searchRoute"
         :search-placeholder="searchPlaceholder"
@@ -79,6 +80,7 @@
         @setting-card-open="emit('setting-card-open')"
         @setting-card-close="emit('setting-card-close')"
         @setting-item-click="emit('setting-item-click', $event)"
+        @admin-click="emit('admin-click', $event)"
         @bottom-action-click="emit('bottom-action-click', $event)"
       >
         <template v-if="$slots.logo" #logo="slotProps">
@@ -192,6 +194,7 @@ const props = withDefaults(defineProps<SideBarProps>(), {
   avatarRing: true,
   notificationRoute: '/notifications',
   settingsRoute: '/settings',
+  adminRoute: '/admin/dashboard',
   feedbackRoute: '',
   searchRoute: '',
   searchPlaceholder: '',
@@ -236,6 +239,7 @@ const emit = defineEmits<{
   'setting-card-open': []
   'setting-card-close': []
   'setting-item-click': [key: string]
+  'admin-click': [ev: MouseEvent]
   'bottom-action-click': [ev: MouseEvent]
 }>()
 

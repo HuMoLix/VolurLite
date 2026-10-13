@@ -27,18 +27,6 @@
           </h2>
 
           <span
-            v-if="competition.status"
-            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
-            :class="getStatusBadgeClass(competition.status)"
-          >
-            <span
-              v-if="competition.status === 'RUNNING'"
-              class="w-1.5 h-1.5 rounded-full bg-google-green animate-ping"
-            />
-            <span>{{ getStatusText(competition.status) }}</span>
-          </span>
-
-          <span
             v-if="competition.type"
             class="px-2.5 py-0.5 rounded-full text-xs font-semibold border border-google-border-light dark:border-google-border-dark text-google-text-desc dark:text-google-text-darkDesc bg-google-surface-light dark:bg-google-surface-dark"
           >
@@ -93,7 +81,7 @@
                 <template v-if="competition.maxLeaders !== undefined && competition.maxLeaders !== null">
                   ，领队最多 {{ competition.maxLeaders }} 人
                 </template>
-                。队长填报后全队即可生效。
+                。填报后全队即可生效。
               </p>
             </div>
 
@@ -131,15 +119,17 @@
         <div v-else class="space-y-6">
           <div class="p-5 rounded-2xl bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light/80 dark:border-google-border-dark/80 flex flex-col md:flex-row md:items-center justify-between gap-5">
             <div class="flex items-center gap-4 min-w-0">
-              <div class="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-white dark:bg-google-surface-darkCard border border-google-border-light dark:border-google-border-dark flex items-center justify-center">
-                <img
-                  v-if="myTeam.avatarUrl"
-                  :src="myTeam.avatarUrl"
-                  :alt="myTeam.teamName"
-                  class="w-full h-full object-cover"
-                />
-                <n-icon v-else :size="30" :component="PeopleOutline" class="text-google-blue dark:text-google-blue-dark" />
-              </div>
+              <VAvatar
+                :src="myTeam.avatarUrl || ''"
+                :alt="myTeam.teamName"
+                :size="56"
+                :radius="16"
+                class="border border-google-border-light dark:border-google-border-dark shrink-0"
+              >
+                <template #guest>
+                  <n-icon :size="28" :component="PeopleOutline" class="text-google-blue dark:text-google-blue-dark" />
+                </template>
+              </VAvatar>
 
               <div class="space-y-1 min-w-0">
                 <div class="flex items-center gap-2.5 flex-wrap">
@@ -153,10 +143,10 @@
                     {{ getTeamStatusLabel(myTeam.status) }}
                   </span>
                   <span
-                    v-if="myTeam.myRole"
+                    v-if="myTeam.myRole && myTeam.myRole !== 'CAPTAIN'"
                     class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-google-blue dark:bg-blue-950/60 dark:text-google-blue-dark"
                   >
-                    {{ myTeam.myRole === 'CAPTAIN' ? '队长' : myTeam.myRole === 'LEADER' ? '领队' : '队员' }}
+                    {{ myTeam.myRole === 'LEADER' ? '领队' : '队员' }}
                   </span>
                 </div>
 
@@ -174,21 +164,20 @@
               <button
                 v-if="invitations.length > 0"
                 type="button"
-                class="h-9 px-4 rounded-full border border-google-blue/30 text-google-blue dark:text-google-blue-dark bg-blue-50/50 dark:bg-blue-950/30 hover:bg-blue-100/50 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                class="competition-btn competition-btn-info"
                 @click="teamInvitationsModalVisible = true"
               >
-                <n-icon :size="15" :component="MailOutline" />
+                <n-icon :size="16" :component="MailOutline" />
                 <span>收到的邀请 ({{ invitations.length }})</span>
               </button>
 
-              <button
-                type="button"
-                class="h-9 px-4 rounded-full border border-google-border-light dark:border-google-border-dark text-google-text-desc dark:text-google-text-darkDesc bg-white dark:bg-google-surface-darkCard hover:bg-google-surface-light dark:hover:bg-google-surface-dark text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
-                @click="teamDetailModalVisible = true"
+              <VBtn
+                clz="normal"
+                :left-icon="EyeOutline"
+                @click="openTeamDetailModal"
               >
-                <n-icon :size="15" :component="EyeOutline" />
-                <span>{{ t('competition.view_team_btn', '查看战队信息') }}</span>
-              </button>
+                {{ t('competition.view_team_btn', '查看队伍信息') }}
+              </VBtn>
             </div>
           </div>
 
@@ -255,14 +244,14 @@
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  class="h-12 px-8 rounded-full bg-google-blue hover:bg-google-blue-hover text-white dark:bg-google-blue-dark dark:text-google-surface-dark text-base font-bold shadow-md hover:shadow-lg transition-colors cursor-pointer flex items-center justify-center gap-2.5 border-none"
+                <VBtn
+                  clz="primary"
+                  :left-icon="RocketOutline"
+                  size="large"
                   @click="enterArena"
                 >
-                  <n-icon :size="20" :component="RocketOutline" />
-                  <span>{{ t('competition.enter_arena', '进入竞赛工作台') }}</span>
-                </button>
+                  {{ t('competition.enter_arena', '进入竞赛') }}
+                </VBtn>
               </div>
 
               <div
@@ -278,14 +267,13 @@
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  class="h-10 px-6 rounded-full bg-google-surface-light dark:bg-google-surface-dark border border-google-border-light dark:border-google-border-dark text-google-text-primary dark:text-[#FCFCFC] hover:bg-gray-200/60 dark:hover:bg-gray-800 text-sm font-semibold transition-colors cursor-pointer flex items-center justify-center gap-2"
+                <VBtn
+                  clz="primary"
+                  :left-icon="RocketOutline"
                   @click="enterArena"
                 >
-                  <n-icon :size="16" :component="RocketOutline" />
-                  <span>回顾复盘</span>
-                </button>
+                  回顾复盘
+                </VBtn>
               </div>
             </div>
           </div>
@@ -330,7 +318,7 @@
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="text-google-text-muted dark:text-google-text-darkMuted">当前状态</span>
-                  <span class="font-semibold text-google-text-primary dark:text-[#FCFCFC]">{{ getStatusText(competition.status) }}</span>
+                  <span class="font-semibold text-google-text-primary dark:text-[#FCFCFC]">{{ getStatusText(effectiveStatus) }}</span>
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="text-google-text-muted dark:text-google-text-darkMuted">已报名战队</span>
@@ -372,7 +360,7 @@
                 <li v-if="competition.maxLeaders !== undefined && competition.maxLeaders !== null">
                   指导老师/领队限制: 最多 {{ competition.maxLeaders }} 人
                 </li>
-                <li>队长创建战队后可在线发送队员邀请并管理成员</li>
+                <li>创建战队后可在线发送队员邀请并管理成员</li>
               </ul>
             </div>
 
@@ -382,7 +370,7 @@
                 <span>防作弊与提交流程</span>
               </h4>
               <ul class="m-0 pl-5 space-y-1.5 text-xs text-google-text-desc dark:text-google-text-darkDesc">
-                <li>队伍报名审核: {{ competition.requireTeamAudit ? '需平台管理员人工审核通过' : '队长创建战队即审核通过' }}</li>
+                <li>队伍报名审核: {{ competition.requireTeamAudit ? '需平台管理员人工审核通过' : '创建战队即审核通过' }}</li>
                 <li>Writeup 题解提交: {{ competition.allowWriteupSubmission ? '赛后支持在线提交 Writeup 题解报告' : '本赛制不开放题解提交' }}</li>
                 <li>严禁多账号违规共享 Flag 或跨战队违规协同</li>
               </ul>
@@ -450,18 +438,14 @@
       </footer>
     </div>
 
-    <TeamSignupModal
-      v-model:show="teamSignupModalVisible"
+    <TeamFormModal
+      v-model:show="teamFormModalVisible"
       :competition="competition"
-      @success="handleSignupSuccess"
-    />
-
-    <TeamDetailModal
-      v-model:show="teamDetailModalVisible"
-      :competition-id="competition?.id || ''"
-      :team="myTeam"
-      @disbanded="handleTeamDisbanded"
+      :mode="teamFormModalMode"
+      :initial-team="myTeam"
+      @success="handleTeamFormSuccess"
       @updated="refreshMyTeam"
+      @disbanded="handleTeamDisbanded"
     />
 
     <TeamInvitationsModal
@@ -513,8 +497,9 @@ import { useUserStore } from '@/store/modules/user'
 import { formatBannerUrl } from '@/utils/imageUrl'
 import { renderMarkdown } from '@/utils/markdown'
 import AppFooter from '@/components/common/Footer.vue'
-import TeamSignupModal from './components/TeamSignupModal.vue'
-import TeamDetailModal from './components/TeamDetailModal.vue'
+import VAvatar from '@/components/sidebar/VAvatar.vue'
+import { VBtn } from '@/components/common'
+import TeamFormModal from './components/TeamFormModal.vue'
 import TeamInvitationsModal from './components/TeamInvitationsModal.vue'
 
 defineOptions({
@@ -533,8 +518,8 @@ const myTeam = ref<MyTeamInfoVO | null>(null)
 const invitations = ref<TeamInvitationVO[]>([])
 const announcements = ref<CompetitionAnnouncementVO[]>([])
 
-const teamSignupModalVisible = ref(false)
-const teamDetailModalVisible = ref(false)
+const teamFormModalVisible = ref(false)
+const teamFormModalMode = ref<'create' | 'view' | 'edit'>('view')
 const teamInvitationsModalVisible = ref(false)
 
 const nowTimestamp = ref(Date.now())
@@ -546,49 +531,50 @@ const competitionIdentifier = computed(() => {
   return String(route.params.id || route.params.slug || '')
 })
 
+const effectiveStatus = computed<CompetitionStatus | null>(() => {
+  if (!competition.value) return null
+  if (competition.value.status === 'DRAFT' || competition.value.status === 'ARCHIVED') {
+    return competition.value.status
+  }
+  const now = nowTimestamp.value
+  if (competition.value.endTime && now > new Date(competition.value.endTime).getTime()) {
+    return 'ENDED'
+  }
+  if (competition.value.startTime && now >= new Date(competition.value.startTime).getTime()) {
+    return competition.value.status === 'FROZEN' ? 'FROZEN' : 'RUNNING'
+  }
+  const regStart = competition.value.regStartTime ? new Date(competition.value.regStartTime).getTime() : null
+  const regEnd = competition.value.regEndTime ? new Date(competition.value.regEndTime).getTime() : null
+  const afterRegStart = regStart === null || now >= regStart
+  const beforeRegEnd = regEnd === null || now <= regEnd
+  if (afterRegStart && beforeRegEnd) {
+    return 'REGISTRATION'
+  }
+  return 'PUBLISHED'
+})
+
 const hasStarted = computed(() => {
-  if (!competition.value) return false
-  if (competition.value.status === 'DRAFT') return false
-  if (
-    competition.value.status === 'RUNNING' ||
-    competition.value.status === 'FROZEN' ||
-    competition.value.status === 'ENDED' ||
-    competition.value.status === 'ARCHIVED'
-  ) {
-    return true
-  }
-  if (competition.value.startTime) {
-    return nowTimestamp.value >= new Date(competition.value.startTime).getTime()
-  }
-  return false
+  if (!effectiveStatus.value) return false
+  return (
+    effectiveStatus.value === 'RUNNING' ||
+    effectiveStatus.value === 'FROZEN' ||
+    effectiveStatus.value === 'ENDED' ||
+    effectiveStatus.value === 'ARCHIVED'
+  )
 })
 
 const isUpcoming = computed(() => {
-  if (!competition.value) return false
-  if (hasStarted.value) return false
+  if (!effectiveStatus.value) return false
   return (
-    competition.value.status === 'PUBLISHED' ||
-    competition.value.status === 'REGISTRATION' ||
-    competition.value.status === 'DRAFT'
+    effectiveStatus.value === 'PUBLISHED' ||
+    effectiveStatus.value === 'REGISTRATION' ||
+    effectiveStatus.value === 'DRAFT'
   )
 })
 
 const isRunning = computed(() => {
-  if (!competition.value) return false
-  if (competition.value.status === 'RUNNING' || competition.value.status === 'FROZEN') return true
-  if (
-    competition.value.status === 'ENDED' ||
-    competition.value.status === 'ARCHIVED' ||
-    competition.value.status === 'DRAFT'
-  ) {
-    return false
-  }
-  if (competition.value.startTime && competition.value.endTime) {
-    const start = new Date(competition.value.startTime).getTime()
-    const end = new Date(competition.value.endTime).getTime()
-    return nowTimestamp.value >= start && nowTimestamp.value <= end
-  }
-  return false
+  if (!effectiveStatus.value) return false
+  return effectiveStatus.value === 'RUNNING' || effectiveStatus.value === 'FROZEN'
 })
 
 const isUserRegistered = computed(() => {
@@ -603,38 +589,16 @@ const shouldShowActionCard = computed(() => {
 })
 
 const isRegistrationOpen = computed(() => {
-  if (!competition.value) return false
-  if (
-    competition.value.status === 'DRAFT' ||
-    competition.value.status === 'ARCHIVED' ||
-    competition.value.status === 'ENDED'
-  ) {
-    return false
-  }
-  if (hasStarted.value) {
-    return false
-  }
-  if (
-    competition.value.regStartTime &&
-    nowTimestamp.value < new Date(competition.value.regStartTime).getTime()
-  ) {
-    return false
-  }
-  if (
-    competition.value.regEndTime &&
-    nowTimestamp.value > new Date(competition.value.regEndTime).getTime()
-  ) {
-    return false
-  }
-  return true
+  if (!effectiveStatus.value) return false
+  return effectiveStatus.value === 'REGISTRATION'
 })
 
 function getRegistrationStatusTip(): string {
   if (!competition.value) return '报名未开放'
-  if (competition.value.status === 'DRAFT') {
+  if (effectiveStatus.value === 'DRAFT') {
     return '竞赛未发布，暂不开放报名'
   }
-  if (competition.value.status === 'ARCHIVED' || competition.value.status === 'ENDED') {
+  if (effectiveStatus.value === 'ARCHIVED' || effectiveStatus.value === 'ENDED') {
     return '竞赛已结束或已归档，报名通道已关闭'
   }
   if (hasStarted.value) {
@@ -673,24 +637,6 @@ function getStatusText(status?: CompetitionStatus | null): string {
       return t('competition.status_archived', '已归档')
     default:
       return '-'
-  }
-}
-
-function getStatusBadgeClass(status?: CompetitionStatus | null): string {
-  switch (status) {
-    case 'RUNNING':
-      return 'bg-emerald-100 text-google-green dark:bg-emerald-950/60 dark:text-google-green-dark'
-    case 'REGISTRATION':
-      return 'bg-blue-100 text-google-blue dark:bg-blue-950/60 dark:text-google-blue-dark'
-    case 'PUBLISHED':
-      return 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
-    case 'FROZEN':
-      return 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-    case 'ENDED':
-    case 'ARCHIVED':
-      return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-    default:
-      return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
   }
 }
 
@@ -790,14 +736,23 @@ function goToLogin() {
 }
 
 function openSignupModal() {
-  teamSignupModalVisible.value = true
+  teamFormModalMode.value = 'create'
+  teamFormModalVisible.value = true
+}
+
+function openTeamDetailModal() {
+  teamFormModalMode.value = 'view'
+  teamFormModalVisible.value = true
 }
 
 function enterArena() {
   if (!competition.value) return
   const identifier = competition.value.slug || competition.value.id
   if (competition.value.type === 'THEORY') {
-    router.push(`/competitions/${identifier}/theory`)
+    const isShortLink = route.path.startsWith('/c/')
+    router.push(isShortLink ? `/c/${identifier}/theory/require` : `/competitions/${identifier}/theory/require`)
+  } else if (competition.value.type === 'CTF') {
+    router.push(`/competitions/${identifier}/ctf`)
   } else {
     if (message) {
       message.info(`${getTypeLabel(competition.value.type)} 专属竞技场工作台正在联调中`)
@@ -891,7 +846,7 @@ async function refreshMyTeam() {
   }
 }
 
-async function handleSignupSuccess() {
+async function handleTeamFormSuccess() {
   await refreshMyTeam()
 }
 
@@ -940,7 +895,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .volur-markdown-body :deep(h1),
 .volur-markdown-body :deep(h2),
 .volur-markdown-body :deep(h3),
@@ -1088,5 +1043,140 @@ html.dark .back-btn:hover {
 
 html.dark .comp-time-val {
   color: #FCFCFC;
+}
+
+.competition-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  gap: 6px !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  border-radius: 12px !important;
+  border: 1px solid #d7d8da !important;
+  color: #2b2d31 !important;
+  font-family: Inter, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  letter-spacing: normal !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  white-space: nowrap !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out, box-shadow 0.1s ease-in-out !important;
+
+  &:focus,
+  &:active,
+  &:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  :deep(.n-button__content) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-family: Inter, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    letter-spacing: normal;
+    color: inherit;
+  }
+
+  :deep(.n-button__border) {
+    border-color: #d7d8da !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+  }
+
+  :deep(.n-button__state-border) {
+    display: none !important;
+  }
+
+  :deep(.n-base-wave) {
+    display: none !important;
+    animation: none !important;
+  }
+
+  &:hover {
+    background-color: rgba(60, 64, 67, 0.04) !important;
+  }
+
+  &:focus,
+  &:active {
+    border-color: #d7d8da !important;
+    :deep(.n-button__border) {
+      border-color: #d7d8da !important;
+      box-shadow: none !important;
+    }
+  }
+
+  &.n-button {
+    border: none !important;
+  }
+
+  html.dark & {
+    border-color: #333 !important;
+    color: #fcfcfc !important;
+
+    &.n-button {
+      border: none !important;
+    }
+
+    :deep(.n-button__border) {
+      border-color: #333 !important;
+    }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.04) !important;
+    }
+
+    &:focus,
+    &:active {
+      border-color: #333 !important;
+      :deep(.n-button__border) {
+        border-color: #333 !important;
+        box-shadow: none !important;
+      }
+    }
+  }
+}
+
+.competition-btn-info {
+  border-color: rgba(26, 115, 232, 0.3) !important;
+  color: #1a73e8 !important;
+  background-color: rgba(26, 115, 232, 0.05) !important;
+
+  &:hover {
+    background-color: rgba(26, 115, 232, 0.1) !important;
+    border-color: rgba(26, 115, 232, 0.45) !important;
+  }
+
+  &:focus,
+  &:active {
+    border-color: rgba(26, 115, 232, 0.45) !important;
+  }
+
+  html.dark & {
+    border-color: rgba(138, 180, 248, 0.3) !important;
+    color: #8ab4f8 !important;
+    background-color: rgba(138, 180, 248, 0.08) !important;
+
+    &:hover {
+      background-color: rgba(138, 180, 248, 0.16) !important;
+      border-color: rgba(138, 180, 248, 0.45) !important;
+    }
+
+    &:focus,
+    &:active {
+      border-color: rgba(138, 180, 248, 0.45) !important;
+    }
+  }
 }
 </style>

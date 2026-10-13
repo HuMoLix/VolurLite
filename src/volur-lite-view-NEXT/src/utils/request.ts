@@ -39,14 +39,40 @@ service.interceptors.request.use(
   }
 )
 
+let lastToastMessage = ''
+let lastToastTimestamp = 0
+const TOAST_THROTTLE_MS = 800
+
+function showGlobalErrorToast(msg: string) {
+  const now = Date.now()
+  if (msg === lastToastMessage && now - lastToastTimestamp < TOAST_THROTTLE_MS) {
+    return
+  }
+  lastToastMessage = msg
+  lastToastTimestamp = now
+  if (typeof window !== 'undefined' && window.$message) {
+    window.$message.error(msg)
+  }
+}
+
 service.interceptors.response.use(
-  (response) => {
-    const res = response.data as ApiResponse<any>
+  async (response) => {
+    let res = response.data
+    if (res instanceof Blob && res.type?.includes('application/json')) {
+      try {
+        const text = await res.text()
+        const parsed = JSON.parse(text)
+        if (parsed && typeof parsed.success === 'boolean') {
+          res = parsed
+        }
+      } catch {
+      }
+    }
     if (res && typeof res.success === 'boolean' && !res.success) {
       const msg = res.message || '请求处理失败'
       const skipToast = Boolean(response.config?.skipToast)
-      if (!skipToast && typeof window !== 'undefined' && window.$message) {
-        window.$message.error(msg)
+      if (!skipToast) {
+        showGlobalErrorToast(msg)
       }
       const err = new Error(msg)
       ;(err as any).response = response
@@ -63,14 +89,26 @@ service.interceptors.response.use(
     }
     return response.data
   },
-  (error) => {
-    const errorMsg =
+  async (error) => {
+    let errorMsg =
       error.response?.data?.message ||
       error.message ||
       '网络请求异常，请检查网络连接'
+
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text()
+        const parsed = JSON.parse(text)
+        if (parsed && typeof parsed.message === 'string' && parsed.message.trim().length > 0) {
+          errorMsg = parsed.message
+        }
+      } catch {
+      }
+    }
+
     const skipToast = Boolean(error.config?.skipToast)
-    if (!skipToast && typeof window !== 'undefined' && window.$message) {
-      window.$message.error(errorMsg)
+    if (!skipToast) {
+      showGlobalErrorToast(errorMsg)
     }
     const status = error.response?.status
     const lower = String(errorMsg).toLowerCase()
@@ -89,24 +127,51 @@ service.interceptors.response.use(
   }
 )
 
-export default service
+export const request = {
+  get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    return service.get(url, config) as any
+  },
+  post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    return service.post(url, data, config) as any
+  },
+  put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    return service.put(url, data, config) as any
+  },
+  delete<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    return service.delete(url, config) as any
+  },
+  patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+    return service.patch(url, data, config) as any
+  },
+  async download(url: string, config?: AxiosRequestConfig): Promise<Blob> {
+    const res = await service.get(url, {
+      responseType: 'blob',
+      timeout: 0,
+      ...config
+    })
+    return res as any
+  }
+}
 
 export function get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.get(url, config)
+  return request.get<T>(url, config)
 }
 
 export function post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.post(url, data, config)
+  return request.post<T>(url, data, config)
 }
 
 export function put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.put(url, data, config)
+  return request.put<T>(url, data, config)
 }
 
 export function del<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.delete(url, config)
+  return request.delete<T>(url, config)
 }
 
 export function patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-  return service.patch(url, data, config)
+  return request.patch<T>(url, data, config)
 }
+
+export default request
+

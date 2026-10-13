@@ -30,13 +30,13 @@
 
         <span
           class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0"
-          :class="getStatusBadgeClass(competition.status)"
+          :class="getStatusBadgeClass(effectiveStatus)"
         >
           <span
-            v-if="competition.status === 'RUNNING'"
+            v-if="effectiveStatus === 'RUNNING'"
             class="w-1.5 h-1.5 rounded-full bg-google-green animate-ping"
           ></span>
-          <span>{{ getStatusText(competition.status) }}</span>
+          <span>{{ getStatusText(effectiveStatus) }}</span>
         </span>
 
         <span
@@ -79,14 +79,13 @@
     </div>
 
     <div class="shrink-0 flex items-center justify-end md:self-center pt-2 md:pt-0">
-      <button
-        type="button"
-        class="h-10 px-5 rounded-full bg-google-blue hover:bg-google-blue-hover text-white dark:bg-google-blue-dark dark:text-google-surface-dark dark:hover:bg-google-blue-dark-hover font-medium text-sm shadow-sm transition-colors flex items-center gap-2 cursor-pointer border-none outline-none"
+      <VBtn
+        clz="primary"
+        :right-icon="ArrowForwardOutline"
         @click.stop="handleClick"
       >
-        <span>{{ actionButtonText }}</span>
-        <n-icon :size="16" :component="ArrowForwardOutline" />
-      </button>
+        {{ actionButtonText }}
+      </VBtn>
     </div>
   </article>
 </template>
@@ -95,6 +94,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NIcon } from 'naive-ui'
+import { VBtn } from '@/components/common'
 import {
   ArrowForwardOutline,
   CalendarOutline,
@@ -121,11 +121,32 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+const effectiveStatus = computed<CompetitionStatus>(() => {
+  if (!props.competition.status || props.competition.status === 'DRAFT' || props.competition.status === 'ARCHIVED') {
+    return props.competition.status || 'DRAFT'
+  }
+  const now = Date.now()
+  if (props.competition.endTime && now > new Date(props.competition.endTime).getTime()) {
+    return 'ENDED'
+  }
+  if (props.competition.startTime && now >= new Date(props.competition.startTime).getTime()) {
+    return props.competition.status === 'FROZEN' ? 'FROZEN' : 'RUNNING'
+  }
+  const regStart = props.competition.regStartTime ? new Date(props.competition.regStartTime).getTime() : null
+  const regEnd = props.competition.regEndTime ? new Date(props.competition.regEndTime).getTime() : null
+  const afterRegStart = regStart === null || now >= regStart
+  const beforeRegEnd = regEnd === null || now <= regEnd
+  if (afterRegStart && beforeRegEnd) {
+    return 'REGISTRATION'
+  }
+  return 'PUBLISHED'
+})
+
 const actionButtonText = computed(() => {
-  if (props.competition.status === 'RUNNING') {
+  if (effectiveStatus.value === 'RUNNING') {
     return t('competition.enter_competition')
   }
-  if (props.competition.status === 'REGISTRATION') {
+  if (effectiveStatus.value === 'REGISTRATION') {
     return t('competition.status_registration')
   }
   return t('competition.view_details')

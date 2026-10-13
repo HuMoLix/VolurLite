@@ -93,11 +93,11 @@ public class AdminAwdChallengeServiceImpl implements AdminAwdChallengeService {
         AwdChallenge challenge = awdRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AWD 题目不存在"));
 
-        if (StringUtils.hasText(request.getName()) && !challenge.getName().equals(request.getName().trim())) {
-            if (awdRepository.existsByName(request.getName().trim())) {
+        if (request.getName() != null && !request.getName().isEmpty() && !challenge.getName().equals(request.getName())) {
+            if (awdRepository.existsByNameAndIdNot(request.getName(), id)) {
                 throw new BusinessException(HttpStatus.CONFLICT, "题目名称已存在");
             }
-            challenge.setName(request.getName().trim());
+            challenge.setName(request.getName());
         }
 
         if (request.getDescription() != null) challenge.setDescription(request.getDescription());

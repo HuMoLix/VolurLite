@@ -402,7 +402,7 @@ async function fetchInstances(isSilent = false) {
     const res = await getAdminContainerListApi({
       page: pagination.page,
       size: pagination.pageSize,
-      stageId: Number(props.compId),
+      stageId: props.compId,
       keyword: searchKeyword.value.trim() ? searchKeyword.value.trim() : undefined,
       status: selectedStatus.value ? (selectedStatus.value as any) : undefined
     })

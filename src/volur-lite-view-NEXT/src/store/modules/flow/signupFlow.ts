@@ -321,7 +321,7 @@ export const useSignupFlowStore = defineStore('signupFlow', () => {
           username: username.value,
           email: email.value
         })
-        userStore.fetchCurrentUser(true).catch(() => {})
+        await userStore.fetchCurrentUser(true).catch(() => {})
       }
       return {
         nextStep: data.nextStep,

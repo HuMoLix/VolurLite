@@ -14,7 +14,10 @@
     @expand="handleExpand"
     @scroll="handleSidebarScroll"
   >
-    <div class="sidebar-content-wrapper">
+    <div
+      class="sidebar-content-wrapper"
+      @wheel="handleSidebarWheel"
+    >
       <div
         class="sidebar-header"
         :class="{ 'is-sticky': isSticky, 'is-collapsed': isCollapsed }"
@@ -36,27 +39,23 @@
           </div>
           <div v-else class="brand-placeholder"></div>
 
-          <n-tooltip
+          <VTooltip
             v-if="showToggleTrigger"
             :placement="isCollapsed ? 'right' : 'bottom'"
-            trigger="hover"
-            :show-arrow="false"
+            :content="isCollapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar')"
           >
-            <template #trigger>
-              <button
-                type="button"
-                class="sidebar-toggle-btn"
-                :aria-label="isCollapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar')"
-                @click.stop="toggleCollapse"
-              >
-                <n-icon :size="20">
-                  <MenuOutline v-if="isCollapsed" />
-                  <MenuOpenOutlined v-else />
-                </n-icon>
-              </button>
-            </template>
-            <span>{{ isCollapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar') }}</span>
-          </n-tooltip>
+            <button
+              type="button"
+              class="sidebar-toggle-btn"
+              :aria-label="isCollapsed ? t('common.expand_sidebar') : t('common.collapse_sidebar')"
+              @click.stop="toggleCollapse"
+            >
+              <n-icon :size="20">
+                <MenuOutline v-if="isCollapsed" />
+                <MenuOpenOutlined v-else />
+              </n-icon>
+            </button>
+          </VTooltip>
         </div>
       </div>
 
@@ -65,33 +64,33 @@
         class="sidebar-primary-action-wrap"
       >
         <slot name="primary-action" :collapsed="isCollapsed">
-          <n-tooltip
+          <VTooltip
             :disabled="!isCollapsed"
             placement="right"
-            trigger="hover"
-            :show-arrow="false"
+            :content="primaryActionCollapsedText || primaryActionText || t('common.create_new')"
           >
-            <template #trigger>
-              <button
-                type="button"
-                class="primary-action-btn"
-                :class="{ 'is-collapsed': isCollapsed }"
-                @click="handlePrimaryActionClick"
-              >
-                <n-icon :size="isCollapsed ? 22 : 18" class="primary-action-icon">
-                  <component :is="primaryActionIconComponent" />
-                </n-icon>
-                <span class="action-btn-label">
-                  {{ primaryActionText || t('common.create_new') }}
-                </span>
-              </button>
-            </template>
-            <span>{{ primaryActionCollapsedText || primaryActionText || t('common.create_new') }}</span>
-          </n-tooltip>
+            <button
+              type="button"
+              class="primary-action-btn"
+              :class="{ 'is-collapsed': isCollapsed }"
+              @click="handlePrimaryActionClick"
+            >
+              <n-icon :size="isCollapsed ? 22 : 18" class="primary-action-icon">
+                <component :is="primaryActionIconComponent" />
+              </n-icon>
+              <span class="action-btn-label">
+                {{ primaryActionText || t('common.create_new') }}
+              </span>
+            </button>
+          </VTooltip>
         </slot>
       </div>
 
-      <div class="sidebar-nav-container">
+      <div
+        ref="navContainerRef"
+        class="sidebar-nav-container"
+        @scroll="handleSidebarScroll"
+      >
         <slot name="menu-top" />
 
         <slot
@@ -127,21 +126,35 @@
           <slot name="action-box" :collapsed="isCollapsed">
             <transition name="dock-fade" mode="out-in">
               <div v-if="!isCollapsed" key="action-expanded" class="action-box-expanded">
-                <n-tooltip v-if="showSearch" placement="top" trigger="hover" :show-arrow="false">
-                  <template #trigger>
-                    <button
-                      type="button"
-                      class="action-icon-btn"
-                      :aria-label="t('common.search')"
-                      @click="handleSearchClick"
-                    >
-                      <n-icon :size="18">
-                        <SearchOutline />
-                      </n-icon>
-                    </button>
-                  </template>
-                  <span>{{ t('common.search') }}</span>
-                </n-tooltip>
+                <VTooltip v-if="showSearch" placement="top" :content="t('common.search')">
+                  <button
+                    type="button"
+                    class="action-icon-btn"
+                    :aria-label="t('common.search')"
+                    @click="handleSearchClick"
+                  >
+                    <n-icon :size="18">
+                      <SearchOutline />
+                    </n-icon>
+                  </button>
+                </VTooltip>
+
+                <VTooltip
+                  v-if="showBottomAction"
+                  placement="top"
+                  :content="bottomActionText || t('common.back', '返回')"
+                >
+                  <button
+                    type="button"
+                    class="action-icon-btn"
+                    :aria-label="bottomActionText || t('common.back', '返回')"
+                    @click="handleBottomActionClick"
+                  >
+                    <n-icon :size="18">
+                      <component :is="bottomActionIcon || ArrowBackOutline" />
+                    </n-icon>
+                  </button>
+                </VTooltip>
 
                 <n-popover
                   v-if="showNotifications"
@@ -153,29 +166,25 @@
                   style="box-shadow: none;"
                 >
                   <template #trigger>
-                    <n-tooltip
+                    <VTooltip
                       placement="top"
-                      trigger="hover"
-                      :show-arrow="false"
                       :disabled="isNoticePopoverShow"
+                      :content="t('common.notifications')"
                     >
-                      <template #trigger>
-                        <button
-                          type="button"
-                          class="action-icon-btn"
-                          :class="{ 'is-active': isNoticePopoverShow }"
-                          :aria-label="t('common.notifications')"
-                          @click="handleNotificationClick"
-                        >
-                          <n-badge :value="unreadCount" :max="99" :show="unreadCount > 0" :offset="[-2, 2]">
-                            <n-icon :size="18">
-                              <NotificationsOutline />
-                            </n-icon>
-                          </n-badge>
-                        </button>
-                      </template>
-                      <span>{{ t('common.notifications') }}</span>
-                    </n-tooltip>
+                      <button
+                        type="button"
+                        class="action-icon-btn"
+                        :class="{ 'is-active': isNoticePopoverShow }"
+                        :aria-label="t('common.notifications')"
+                        @click="handleNotificationClick"
+                      >
+                        <n-badge :value="unreadCount" :max="99" :show="unreadCount > 0" :offset="[-2, 2]">
+                          <n-icon :size="18">
+                            <NotificationsOutline />
+                          </n-icon>
+                        </n-badge>
+                      </button>
+                    </VTooltip>
                   </template>
 
                   <slot
@@ -202,27 +211,23 @@
                   display-directive="show"
                 >
                   <template #trigger>
-                    <n-tooltip
+                    <VTooltip
                       placement="top"
-                      trigger="hover"
-                      :show-arrow="false"
                       :disabled="isSettingPopoverShow"
+                      :content="t('common.settings')"
                     >
-                      <template #trigger>
-                        <button
-                          type="button"
-                          class="action-icon-btn"
-                          :class="{ 'is-active': isSettingPopoverShow }"
-                          :aria-label="t('common.settings')"
-                          @click="handleSettingsClick"
-                        >
-                          <n-icon :size="18">
-                            <SettingsOutline />
-                          </n-icon>
-                        </button>
-                      </template>
-                      <span>{{ t('common.settings') }}</span>
-                    </n-tooltip>
+                      <button
+                        type="button"
+                        class="action-icon-btn"
+                        :class="{ 'is-active': isSettingPopoverShow }"
+                        :aria-label="t('common.settings')"
+                        @click="handleSettingsClick"
+                      >
+                        <n-icon :size="18">
+                          <SettingsOutline />
+                        </n-icon>
+                      </button>
+                    </VTooltip>
                   </template>
 
                   <slot
@@ -232,31 +237,34 @@
                     <VSettingCard
                       :theme="currentTheme"
                       :user-settings-route="settingsRoute"
+                      :admin-route="adminRoute"
                       :feedback-route="feedbackRoute"
                       :terms-route="termsRoute"
                       :privacy-route="privacyRoute"
                       @close="closeSettingPopover"
                       @item-click="(key) => emit('setting-item-click', key)"
+                      @admin-click="(ev) => emit('admin-click', ev)"
                     />
                   </slot>
                 </n-popover>
 
-                <n-tooltip v-if="showThemeToggle" placement="top" trigger="hover" :show-arrow="false">
-                  <template #trigger>
-                    <button
-                      type="button"
-                      class="action-icon-btn"
-                      :aria-label="currentTheme === 'dark' ? t('common.theme_light') : t('common.theme_dark')"
-                      @click="handleThemeToggle"
-                    >
-                      <n-icon :size="18">
-                        <SunnyOutline v-if="currentTheme === 'dark'" />
-                        <MoonOutline v-else />
-                      </n-icon>
-                    </button>
-                  </template>
-                  <span>{{ currentTheme === 'dark' ? t('common.theme_light') : t('common.theme_dark') }}</span>
-                </n-tooltip>
+                <VTooltip
+                  v-if="showThemeToggle"
+                  placement="top"
+                  :content="currentTheme === 'dark' ? t('common.theme_light') : t('common.theme_dark')"
+                >
+                  <button
+                    type="button"
+                    class="action-icon-btn"
+                    :aria-label="currentTheme === 'dark' ? t('common.theme_light') : t('common.theme_dark')"
+                    @click="handleThemeToggle"
+                  >
+                    <n-icon :size="18">
+                      <SunnyOutline v-if="currentTheme === 'dark'" />
+                      <MoonOutline v-else />
+                    </n-icon>
+                  </button>
+                </VTooltip>
               </div>
 
               <div v-else key="action-collapsed" class="action-box-collapsed">
@@ -283,21 +291,35 @@
                     </button>
                   </template>
                   <div class="dock-apps-popover" :class="currentTheme">
-                    <n-tooltip v-if="showSearch" placement="right" trigger="hover" :show-arrow="false">
-                      <template #trigger>
-                        <button
-                          type="button"
-                          class="dock-tool-btn"
-                          :aria-label="t('common.search')"
-                          @click="handleCollapsedSearchClick"
-                        >
-                          <n-icon :size="18">
-                            <SearchOutline />
-                          </n-icon>
-                        </button>
-                      </template>
-                      <span>{{ t('common.search') }}</span>
-                    </n-tooltip>
+                    <VTooltip v-if="showSearch" placement="right" :content="t('common.search')">
+                      <button
+                        type="button"
+                        class="dock-tool-btn"
+                        :aria-label="t('common.search')"
+                        @click="handleCollapsedSearchClick"
+                      >
+                        <n-icon :size="18">
+                          <SearchOutline />
+                        </n-icon>
+                      </button>
+                    </VTooltip>
+
+                    <VTooltip
+                      v-if="showBottomAction"
+                      placement="right"
+                      :content="bottomActionCollapsedText || bottomActionText || t('common.back', '返回')"
+                    >
+                      <button
+                        type="button"
+                        class="dock-tool-btn"
+                        :aria-label="bottomActionCollapsedText || bottomActionText || t('common.back', '返回')"
+                        @click="handleBottomActionClick"
+                      >
+                        <n-icon :size="18">
+                          <component :is="bottomActionIcon || ArrowBackOutline" />
+                        </n-icon>
+                      </button>
+                    </VTooltip>
 
                     <n-popover
                       v-if="showNotifications"
@@ -309,24 +331,25 @@
                       style="box-shadow: none;"
                     >
                       <template #trigger>
-                        <n-tooltip placement="right" trigger="hover" :show-arrow="false" :disabled="isCollapsedNoticePopoverShow">
-                          <template #trigger>
-                            <button
-                              type="button"
-                              class="dock-tool-btn"
-                              :class="{ 'is-active': isCollapsedNoticePopoverShow }"
-                              :aria-label="t('common.notifications')"
-                              @click="handleCollapsedNotificationClick"
-                            >
-                              <n-badge :value="unreadCount" :max="99" :show="unreadCount > 0" :offset="[-2, 2]">
-                                <n-icon :size="18">
-                                  <NotificationsOutline />
-                                </n-icon>
-                              </n-badge>
-                            </button>
-                          </template>
-                          <span>{{ t('common.notifications') }}</span>
-                        </n-tooltip>
+                        <VTooltip
+                          placement="right"
+                          :disabled="isCollapsedNoticePopoverShow"
+                          :content="t('common.notifications')"
+                        >
+                          <button
+                            type="button"
+                            class="dock-tool-btn"
+                            :class="{ 'is-active': isCollapsedNoticePopoverShow }"
+                            :aria-label="t('common.notifications')"
+                            @click="handleCollapsedNotificationClick"
+                          >
+                            <n-badge :value="unreadCount" :max="99" :show="unreadCount > 0" :offset="[-2, 2]">
+                              <n-icon :size="18">
+                                <NotificationsOutline />
+                              </n-icon>
+                            </n-badge>
+                          </button>
+                        </VTooltip>
                       </template>
 
                       <slot
@@ -353,22 +376,23 @@
                       display-directive="show"
                     >
                       <template #trigger>
-                        <n-tooltip placement="right" trigger="hover" :show-arrow="false" :disabled="isCollapsedSettingPopoverShow">
-                          <template #trigger>
-                            <button
-                              type="button"
-                              class="dock-tool-btn"
-                              :class="{ 'is-active': isCollapsedSettingPopoverShow }"
-                              :aria-label="t('common.settings')"
-                              @click="handleCollapsedSettingsClick"
-                            >
-                              <n-icon :size="18">
-                                <SettingsOutline />
-                              </n-icon>
-                            </button>
-                          </template>
-                          <span>{{ t('common.settings') }}</span>
-                        </n-tooltip>
+                        <VTooltip
+                          placement="right"
+                          :disabled="isCollapsedSettingPopoverShow"
+                          :content="t('common.settings')"
+                        >
+                          <button
+                            type="button"
+                            class="dock-tool-btn"
+                            :class="{ 'is-active': isCollapsedSettingPopoverShow }"
+                            :aria-label="t('common.settings')"
+                            @click="handleCollapsedSettingsClick"
+                          >
+                            <n-icon :size="18">
+                              <SettingsOutline />
+                            </n-icon>
+                          </button>
+                        </VTooltip>
                       </template>
 
                       <slot
@@ -378,31 +402,34 @@
                         <VSettingCard
                           :theme="currentTheme"
                           :user-settings-route="settingsRoute"
+                          :admin-route="adminRoute"
                           :feedback-route="feedbackRoute"
                           :terms-route="termsRoute"
                           :privacy-route="privacyRoute"
                           @close="closeSettingPopover"
                           @item-click="(key) => emit('setting-item-click', key)"
+                          @admin-click="(ev) => emit('admin-click', ev)"
                         />
                       </slot>
                     </n-popover>
 
-                    <n-tooltip v-if="showThemeToggle" placement="right" trigger="hover" :show-arrow="false">
-                      <template #trigger>
-                        <button
-                          type="button"
-                          class="dock-tool-btn"
-                          :aria-label="currentTheme === 'dark' ? t('common.theme_light') : t('common.theme_dark')"
-                          @click="handleThemeToggle"
-                        >
-                          <n-icon :size="18">
-                            <SunnyOutline v-if="currentTheme === 'dark'" />
-                            <MoonOutline v-else />
-                          </n-icon>
-                        </button>
-                      </template>
-                      <span>{{ currentTheme === 'dark' ? t('common.theme_light') : t('common.theme_dark') }}</span>
-                    </n-tooltip>
+                    <VTooltip
+                      v-if="showThemeToggle"
+                      placement="right"
+                      :content="currentTheme === 'dark' ? t('common.theme_light') : t('common.theme_dark')"
+                    >
+                      <button
+                        type="button"
+                        class="dock-tool-btn"
+                        :aria-label="currentTheme === 'dark' ? t('common.theme_light') : t('common.theme_dark')"
+                        @click="handleThemeToggle"
+                      >
+                        <n-icon :size="18">
+                          <SunnyOutline v-if="currentTheme === 'dark'" />
+                          <MoonOutline v-else />
+                        </n-icon>
+                      </button>
+                    </VTooltip>
                   </div>
                 </n-popover>
               </div>
@@ -423,6 +450,7 @@
           >
             <n-popover
               v-model:show="isUserCardPopoverShow"
+              :disabled="!isLoggedIn"
               trigger="click"
               :placement="isCollapsed ? 'top-start' : 'top'"
               :show-arrow="false"
@@ -430,15 +458,14 @@
               style="box-shadow: none;"
             >
               <template #trigger>
-                <n-tooltip
+                <VTooltip
                   v-model:show="isUserTooltipShow"
-                  :class="['user-card-tooltip', { 'is-collapsed': isCollapsed }]"
+                  :tooltip-class="['user-card-tooltip', { 'is-collapsed': isCollapsed }]"
                   :disabled="isUserCardPopoverShow"
                   :placement="isCollapsed ? 'right' : 'top'"
-                  trigger="hover"
-                  :show-arrow="false"
                   :width="isCollapsed ? undefined : userCardWidth"
-                  :style="userTooltipStyle"
+                  :tooltip-style="userTooltipStyle"
+                  :nowrap="isCollapsed"
                 >
                   <template #trigger>
                     <div
@@ -450,7 +477,7 @@
                     >
                       <div class="user-avatar-wrap">
                         <VAvatar
-                          :src="avatarUrl"
+                          :src="isLoggedIn ? avatarUrl : ''"
                           :text="isLoggedIn ? userInitial : ''"
                           :size="isCollapsed ? 26 : 32"
                           :shape="avatarShape"
@@ -490,7 +517,7 @@
                       </div>
                     </template>
                   </div>
-                </n-tooltip>
+                </VTooltip>
               </template>
 
               <slot
@@ -527,32 +554,8 @@
           </slot>
         </div>
 
-        <div v-if="($slots.bottom || showBottomAction) && !isCollapsed" class="sidebar-bottom-action">
-          <slot name="bottom" :collapsed="isCollapsed">
-            <n-tooltip
-              :disabled="!isCollapsed"
-              placement="right"
-              trigger="hover"
-              :show-arrow="false"
-            >
-              <template #trigger>
-                <button
-                  type="button"
-                  class="bottom-action-btn"
-                  :class="{ 'is-collapsed': isCollapsed }"
-                  @click="handleBottomActionClick"
-                >
-                  <n-icon :size="isCollapsed ? 20 : 18" v-if="bottomActionIcon">
-                    <component :is="bottomActionIcon" />
-                  </n-icon>
-                  <span class="bottom-action-label">
-                    {{ bottomActionText }}
-                  </span>
-                </button>
-              </template>
-              <span>{{ bottomActionCollapsedText || bottomActionText }}</span>
-            </n-tooltip>
-          </slot>
+        <div v-if="$slots.bottom && !isCollapsed" class="sidebar-bottom-action">
+          <slot name="bottom" :collapsed="isCollapsed" />
         </div>
       </div>
     </div>
@@ -562,7 +565,7 @@
       :show="isSearchVisible"
       :close="closeSearch"
     >
-      <VSearch
+      <VSearchTool
         v-if="showSearch"
         v-model:show="isSearchVisible"
         :theme="currentTheme"
@@ -582,7 +585,6 @@ import { useI18n } from 'vue-i18n'
 import {
   NLayoutSider,
   NMenu,
-  NTooltip,
   NPopover,
   NBadge,
   NIcon,
@@ -598,18 +600,20 @@ import {
   SettingsOutline,
   SunnyOutline,
   MoonOutline,
-  AppsSharp
+  AppsSharp,
+  ArrowBackOutline
 } from '@vicons/ionicons5'
 import { MenuOpenOutlined } from '@vicons/material'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { useNotificationStore } from '@/store/modules/notification'
 import type { CompetitionSummaryVO } from '@/types/competition'
-import VSearch from './VSearch.vue'
+import VSearchTool from './VSearchTool.vue'
 import VAvatar from './VAvatar.vue'
 import VNotice from './VNotice.vue'
 import VUserCard from './VUserCard.vue'
 import VSettingCard from './VSettingCard.vue'
+import VTooltip from '@/components/common/VTooltip.vue'
 import type { VSideBarProps } from './types'
 
 defineOptions({
@@ -651,6 +655,7 @@ const props = withDefaults(defineProps<VSideBarProps>(), {
   avatarRing: true,
   notificationRoute: '/notifications',
   settingsRoute: '/settings',
+  adminRoute: '/admin/dashboard',
   feedbackRoute: '',
   searchRoute: '',
   searchPlaceholder: '',
@@ -694,6 +699,7 @@ const emit = defineEmits<{
   'setting-card-open': []
   'setting-card-close': []
   'setting-item-click': [key: string]
+  'admin-click': [ev: MouseEvent]
   'bottom-action-click': [ev: MouseEvent]
 }>()
 
@@ -807,7 +813,7 @@ const userEmail = computed<string>(() => {
 })
 
 const avatarUrl = computed<string | undefined>(() => {
-  return userStore.avatarUrl
+  return isLoggedIn.value ? userStore.avatarUrl : undefined
 })
 
 const userInitial = computed<string>(() => {
@@ -883,6 +889,8 @@ watch(
       userStore.fetchCurrentUser().catch(() => {})
       notificationStore.fetchUnreadCount().catch(() => {})
     } else {
+      isUserCardPopoverShow.value = false
+      isUserTooltipShow.value = false
       userStore.clearUser()
       notificationStore.reset()
     }
@@ -1095,6 +1103,11 @@ function closeSettingPopover() {
 function handleUserClick(ev: MouseEvent) {
   isUserTooltipShow.value = false
   emit('user-click', ev)
+  if (!isLoggedIn.value) {
+    if (props.signinRoute) {
+      router.push(props.signinRoute).catch(() => {})
+    }
+  }
 }
 
 function closeUserCardPopover() {
@@ -1109,6 +1122,7 @@ function handleMenuSelect(key: string, item: MenuOption) {
 }
 
 function handleBottomActionClick(ev: MouseEvent) {
+  isAppsPopoverShow.value = false
   emit('bottom-action-click', ev)
   if (props.bottomActionRoute) {
     router.push(props.bottomActionRoute).catch(() => {})
@@ -1116,10 +1130,11 @@ function handleBottomActionClick(ev: MouseEvent) {
 }
 
 const siderRef = ref<InstanceType<typeof NLayoutSider> | null>(null)
+const navContainerRef = ref<HTMLElement | null>(null)
 const isSticky = ref<boolean>(false)
 
 const scrollContainerRef = computed<HTMLElement | null>(() => {
-  return siderRef.value?.$el?.querySelector('.n-layout-sider-scroll-container') || null
+  return navContainerRef.value || siderRef.value?.$el?.querySelector('.n-layout-sider-scroll-container') || null
 })
 
 function handleSidebarScroll(ev: Event) {
@@ -1129,12 +1144,28 @@ function handleSidebarScroll(ev: Event) {
   }
 }
 
+function handleSidebarWheel(e: WheelEvent) {
+  if (navContainerRef.value && e.deltaY !== 0) {
+    const el = navContainerRef.value
+    if (el.scrollHeight > el.clientHeight) {
+      if (e.target && el.contains(e.target as Node)) {
+        return
+      }
+      e.preventDefault()
+      el.scrollTop += e.deltaY
+    }
+  }
+}
+
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
   if (userStore.isLoggedIn) {
     userStore.fetchCurrentUser().catch(() => {})
     notificationStore.fetchUnreadCount().catch(() => {})
+  }
+  if (navContainerRef.value) {
+    navContainerRef.value.addEventListener('scroll', handleSidebarScroll, { passive: true })
   }
   const el = siderRef.value?.$el?.querySelector('.n-layout-sider-scroll-container') as HTMLElement | null
   if (el) {
@@ -1166,6 +1197,9 @@ onBeforeUnmount(() => {
     resizeObserver.disconnect()
     resizeObserver = null
   }
+  if (navContainerRef.value) {
+    navContainerRef.value.removeEventListener('scroll', handleSidebarScroll)
+  }
   const el = siderRef.value?.$el?.querySelector('.n-layout-sider-scroll-container') as HTMLElement | null
   if (el) {
     el.removeEventListener('scroll', handleSidebarScroll)
@@ -1174,6 +1208,9 @@ onBeforeUnmount(() => {
 })
 
 function scrollToTop(options?: ScrollToOptions) {
+  if (navContainerRef.value) {
+    navContainerRef.value.scrollTo({ top: 0, behavior: 'smooth', ...options })
+  }
   if (siderRef.value) {
     siderRef.value.scrollTo({ top: 0, behavior: 'smooth', ...options })
   }
@@ -1248,6 +1285,7 @@ defineExpose({
   userTooltipText,
   userCardWidth,
   siderRef,
+  navContainerRef,
   scrollContainerRef,
   scrollToTop,
   toggleCollapse,
@@ -1298,6 +1336,9 @@ defineExpose({
       padding: 0 8px;
       align-items: center;
       width: 100%;
+      height: 100%;
+      max-height: 100%;
+      overflow: hidden;
     }
 
     .sidebar-header {
@@ -1314,14 +1355,28 @@ defineExpose({
 
     .sidebar-nav-container {
       align-items: center;
+      scrollbar-gutter: auto;
 
       .v-menu {
         width: 38px !important;
         margin: 0 auto;
+        overflow: visible !important;
+        flex-shrink: 0 !important;
+        height: auto !important;
+        min-height: min-content !important;
+
+        &.n-menu,
+        :deep(.n-menu) {
+          overflow: visible !important;
+          flex-shrink: 0 !important;
+          height: auto !important;
+          min-height: min-content !important;
+        }
 
         :deep(.n-menu-item) {
           width: 38px !important;
           margin: 6px auto;
+          flex-shrink: 0 !important;
 
           .n-menu-item-content {
             width: 38px !important;
@@ -1366,13 +1421,12 @@ defineExpose({
 
   :deep(.n-layout-sider-scroll-container) {
     height: 100%;
+    max-height: 100%;
     width: 100%;
     background-color: transparent !important;
     display: flex;
     flex-direction: column;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    overflow-anchor: none;
+    overflow: hidden !important;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
 
@@ -1384,13 +1438,14 @@ defineExpose({
   }
 
   .sidebar-content-wrapper {
-    flex: 1;
-    min-height: 100%;
+    height: 100%;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
     padding: 0 8px;
     width: 100%;
+    overflow: hidden;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
 
@@ -1575,44 +1630,72 @@ defineExpose({
     flex: 1;
     min-height: 0;
     width: 100%;
+    margin-right: 0;
+    padding-right: 0;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scrollbar-gutter: stable;
+
+    scrollbar-width: thin;
+    scrollbar-color: rgba(60, 64, 67, 0.2) transparent;
 
     &::-webkit-scrollbar {
-      display: none !important;
-      width: 0 !important;
-      height: 0 !important;
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(60, 64, 67, 0.2);
+      border-radius: 4px;
+
+      &:hover {
+        background: rgba(60, 64, 67, 0.35);
+      }
     }
 
     .v-menu {
       user-select: none;
-      padding: 4px 0;
-      width: 220px;
+      padding: 4px 0 16px;
+      width: 100%;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
       gap: 4px;
+      overflow: visible !important;
+      flex-shrink: 0 !important;
+      height: auto !important;
+      min-height: min-content !important;
 
+      &.n-menu,
       :deep(.n-menu) {
         display: flex;
         flex-direction: column;
         gap: 4px;
         width: 100%;
+        overflow: visible !important;
+        flex-shrink: 0 !important;
+        height: auto !important;
+        min-height: min-content !important;
       }
 
       :deep(.n-menu-item) {
         margin: 2px 0;
         height: 40px;
-        width: 220px;
+        width: 100%;
         border-radius: 16px;
         display: flex;
         align-items: center;
         background-color: transparent;
         cursor: pointer;
+        flex-shrink: 0 !important;
         transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.2, 0, 0, 1);
 
         &:hover {
@@ -1624,9 +1707,13 @@ defineExpose({
           .n-menu-item-content__icon {
             color: #1b1b1e !important;
           }
+          .n-menu-item-content__arrow {
+            color: #1b1b1e !important;
+          }
         }
 
-        &:has(.n-menu-item-content--selected) {
+        &:has(.n-menu-item-content--selected),
+        &:has(.n-menu-item-content--child-active) {
           background-color: #ececef;
 
           .n-menu-item-content__icon {
@@ -1634,6 +1721,10 @@ defineExpose({
           }
 
           .n-menu-item-content-header {
+            color: #1b1b1e !important;
+          }
+
+          .n-menu-item-content__arrow {
             color: #1b1b1e !important;
           }
 
@@ -1681,43 +1772,77 @@ defineExpose({
               text-decoration: none;
             }
           }
+
+          .n-menu-item-content__arrow {
+            margin-left: auto;
+            color: #565b61;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          }
         }
       }
 
-      :deep(.n-menu-item-content.n-menu-item-content--collapsed) {
-        width: 38px !important;
-        height: 38px !important;
-        line-height: 38px !important;
-        padding: 0 !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
+      :deep(.n-submenu) {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: visible !important;
+        flex-shrink: 0 !important;
+        height: auto !important;
 
-        .n-menu-item-content-header {
-          max-width: 0 !important;
-          width: 0 !important;
-          height: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: hidden !important;
-          opacity: 0 !important;
-          visibility: hidden !important;
-          pointer-events: none !important;
+        > .n-menu-item {
+          width: 100%;
+          margin: 2px 0;
+          flex-shrink: 0 !important;
         }
 
-        .n-menu-item-content__arrow {
-          display: none !important;
-        }
+        .n-submenu-children {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 2px 0;
+          overflow: visible !important;
+          flex-shrink: 0 !important;
+          height: auto !important;
 
-        .n-menu-item-content__icon {
-          margin: 0 !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
+          .n-menu-item {
+            width: 100%;
+            margin: 1px 0;
+            flex-shrink: 0 !important;
+
+            .n-menu-item-content {
+              padding-left: 32px !important;
+            }
+          }
         }
       }
 
       &.n-menu--collapsed {
+        :deep(.n-submenu) {
+          margin: 6px auto !important;
+          width: 38px !important;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-shrink: 0 !important;
+
+          > .n-menu-item {
+            margin: 0 auto !important;
+            width: 38px !important;
+            height: 38px !important;
+            flex-shrink: 0 !important;
+          }
+
+          .n-submenu-children {
+            display: none !important;
+          }
+        }
+
         :deep(.n-menu-item) {
           margin: 6px auto;
           width: 38px;
@@ -1729,6 +1854,7 @@ defineExpose({
           background-color: transparent;
           cursor: pointer;
           overflow: hidden;
+          flex-shrink: 0 !important;
           transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1);
 
           &:hover {
@@ -1739,7 +1865,8 @@ defineExpose({
             }
           }
 
-          &:has(.n-menu-item-content--selected) {
+          &:has(.n-menu-item-content--selected),
+          &:has(.n-menu-item-content--child-active) {
             background-color: #ececef;
 
             .n-menu-item-content__icon {
@@ -2116,6 +2243,16 @@ html.dark {
     }
 
     .sidebar-nav-container {
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+
+      &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.35);
+        }
+      }
+
       .v-menu {
         :deep(.n-menu-item) {
           background-color: transparent;
@@ -2129,9 +2266,13 @@ html.dark {
             .n-menu-item-content__icon {
               color: #d4d4d4 !important;
             }
+            .n-menu-item-content__arrow {
+              color: #d4d4d4 !important;
+            }
           }
 
-          &:has(.n-menu-item-content--selected) {
+          &:has(.n-menu-item-content--selected),
+          &:has(.n-menu-item-content--child-active) {
             background-color: #2a2a2a;
 
             .n-menu-item-content__icon {
@@ -2139,6 +2280,10 @@ html.dark {
             }
 
             .n-menu-item-content-header {
+              color: #d4d4d4 !important;
+            }
+
+            .n-menu-item-content__arrow {
               color: #d4d4d4 !important;
             }
 
@@ -2166,10 +2311,20 @@ html.dark {
                 color: inherit;
               }
             }
+
+            .n-menu-item-content__arrow {
+              color: #8c8c8c;
+            }
           }
         }
 
         &.n-menu--collapsed {
+          :deep(.n-submenu) {
+            > .n-menu-item {
+              margin: 0 auto !important;
+            }
+          }
+
           :deep(.n-menu-item) {
             background-color: transparent;
 
@@ -2181,7 +2336,8 @@ html.dark {
               }
             }
 
-            &:has(.n-menu-item-content--selected) {
+            &:has(.n-menu-item-content--selected),
+            &:has(.n-menu-item-content--child-active) {
               background-color: #2a2a2a;
 
               .n-menu-item-content__icon {
@@ -2321,25 +2477,6 @@ html.dark {
 <style lang="scss">
 .n-popover:has(.dock-apps-popover) {
   box-shadow: none !important;
-}
-
-.n-popover.n-tooltip:not(.user-card-tooltip) {
-  white-space: nowrap !important;
-  writing-mode: horizontal-tb !important;
-  width: max-content !important;
-  min-width: max-content !important;
-  max-width: none !important;
-  word-break: keep-all !important;
-
-  .n-popover__content {
-    white-space: nowrap !important;
-    writing-mode: horizontal-tb !important;
-    width: max-content !important;
-    min-width: max-content !important;
-    max-width: none !important;
-    word-break: keep-all !important;
-    display: inline-block !important;
-  }
 }
 
 .n-popover.n-tooltip.user-card-tooltip {

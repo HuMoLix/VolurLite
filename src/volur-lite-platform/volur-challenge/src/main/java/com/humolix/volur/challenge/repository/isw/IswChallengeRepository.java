@@ -14,4 +14,6 @@ public interface IswChallengeRepository extends JpaRepository<IswChallenge, Long
 
     boolean existsByName(String name);
 
+    boolean existsByNameAndIdNot(String name, Long id);
+
 }

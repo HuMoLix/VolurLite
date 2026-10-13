@@ -113,7 +113,7 @@ public interface CompetitionMapper {
     @Mapping(source = "p.challenge.category", target = "category")
     @Mapping(source = "p.challenge.type", target = "type")
     @Mapping(source = "p.challenge.content", target = "content")
-    @Mapping(source = "p.challenge.options", target = "options")
+    @Mapping(target = "options", expression = "java(p.getShuffledOptions() != null ? p.getShuffledOptions() : (p.getChallenge() != null ? p.getChallenge().getOptions() : null))")
     TheoryPaperQuestionVO toTheoryPaperQuestionVO(TheoryCompetitionPaper p);
 
     List<TheoryPaperQuestionVO> toTheoryPaperQuestionVOList(List<TheoryCompetitionPaper> papers);

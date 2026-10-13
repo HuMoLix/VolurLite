@@ -14,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class TheoryPaperExamVO implements Serializable {
 
+    private Long paperId;
     private Long competitionId;
     private Integer totalQuestions;
     private Integer totalScore;

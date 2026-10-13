@@ -11,10 +11,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public record CachedValue(boolean nullValue, String type, String json) {
+public record CachedValue(boolean nullValue, String type, String elementType, String json) {
 
     private static final Logger log = LoggerFactory.getLogger(CachedValue.class);
-    private static final CachedValue NULL_PLACEHOLDER = new CachedValue(true, null, null);
+    private static final CachedValue NULL_PLACEHOLDER = new CachedValue(true, null, null, null);
 
     private static final String[] ALLOWED_PACKAGE_PREFIXES = {
             "com.humolix.volur.",
@@ -24,11 +24,26 @@ public record CachedValue(boolean nullValue, String type, String json) {
             "java.math."
     };
 
+    public CachedValue(boolean nullValue, String type, String json) {
+        this(nullValue, type, null, json);
+    }
+
     public static CachedValue of(Object value) {
         if (value == null) {
             return NULL_PLACEHOLDER;
         }
-        return new CachedValue(false, normalizeType(value), JsonUtils.toJsonString(value));
+        return new CachedValue(false, normalizeType(value), resolveElementType(value), JsonUtils.toJsonString(value));
+    }
+
+    private static String resolveElementType(Object value) {
+        if (value instanceof Collection<?> coll) {
+            for (Object item : coll) {
+                if (item != null) {
+                    return item.getClass().getName();
+                }
+            }
+        }
+        return null;
     }
 
     private static String normalizeType(Object value) {
@@ -64,8 +79,9 @@ public record CachedValue(boolean nullValue, String type, String json) {
                 return NULL_PLACEHOLDER;
             }
             String t = node.hasNonNull("t") ? node.get("t").asText() : null;
+            String e = node.hasNonNull("e") ? node.get("e").asText() : null;
             String v = node.hasNonNull("v") ? node.get("v").asText() : null;
-            return new CachedValue(false, t, v);
+            return new CachedValue(false, t, e, v);
         } catch (Exception ex) {
             log.warn("[volur-cache] L2 decode failed, treated as cache miss. raw={}", abbreviate(text), ex);
             return null;
@@ -79,6 +95,9 @@ public record CachedValue(boolean nullValue, String type, String json) {
         ObjectNode obj = JsonUtils.createObjectNode();
         obj.put("n", false);
         obj.put("t", type);
+        if (elementType != null) {
+            obj.put("e", elementType);
+        }
         obj.put("v", json);
         return JsonUtils.toJsonString(obj);
     }
@@ -88,6 +107,13 @@ public record CachedValue(boolean nullValue, String type, String json) {
             return null;
         }
         Class<?> target = preferredType != null ? preferredType : resolveType(type);
+        if (elementType != null && Collection.class.isAssignableFrom(target)) {
+            Class<?> elementTarget = resolveType(elementType);
+            if (Set.class.isAssignableFrom(target)) {
+                return JsonUtils.parseSet(json, elementTarget);
+            }
+            return JsonUtils.parseList(json, elementTarget);
+        }
         return JsonUtils.parseObject(json, target);
     }
 

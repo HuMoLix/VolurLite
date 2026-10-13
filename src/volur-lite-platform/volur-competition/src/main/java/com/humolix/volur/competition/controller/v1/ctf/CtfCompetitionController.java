@@ -4,6 +4,7 @@ import com.humolix.volur.competition.annotation.CompetitionLog;
 import com.humolix.volur.competition.domain.dto.ctf.CtfFlagSubmitRequestDTO;
 import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeDetailVO;
 import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeVO;
+import com.humolix.volur.competition.domain.vo.ctf.CtfTeamSolveRecordVO;
 import com.humolix.volur.competition.service.ctf.CtfCompetitionService;
 import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.framework.common.api.ApiResponse;
@@ -26,7 +27,7 @@ public class CtfCompetitionController {
     @GetMapping("/challenges")
     public ApiResponseEntity<List<CtfCompetitionChallengeVO>> listChallenges(
             @PathVariable Long competitionId,
-            @CurrentUserId(required = false) Long userId) {
+            @CurrentUserId Long userId) {
         return ApiResponseEntity.ok("获取 CTF 赛题列表成功", ctfCompetitionService.listChallenges(competitionId, userId));
     }
 
@@ -34,7 +35,7 @@ public class CtfCompetitionController {
     public ApiResponseEntity<CtfCompetitionChallengeDetailVO> getChallengeDetail(
             @PathVariable Long competitionId,
             @PathVariable Long challengeId,
-            @CurrentUserId(required = false) Long userId) {
+            @CurrentUserId Long userId) {
         return ApiResponseEntity.ok("获取赛题详情成功", ctfCompetitionService.getChallengeDetail(competitionId, challengeId, userId));
     }
 
@@ -79,6 +80,13 @@ public class CtfCompetitionController {
             @PathVariable Long challengeId,
             @CurrentUserId Long userId) {
         return ApiResponseEntity.ok("容器延期成功", ctfCompetitionService.extendInstance(competitionId, challengeId, userId));
+    }
+
+    @GetMapping("/teams/{teamId}/solves")
+    public ApiResponseEntity<List<CtfTeamSolveRecordVO>> getTeamSolves(
+            @PathVariable Long competitionId,
+            @PathVariable Long teamId) {
+        return ApiResponseEntity.ok("获取队伍解题记录成功", ctfCompetitionService.getTeamSolves(competitionId, teamId));
     }
 
 }

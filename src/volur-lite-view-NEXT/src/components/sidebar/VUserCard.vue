@@ -15,21 +15,18 @@
           class="card-brand-logo"
         />
       </div>
-      <n-tooltip placement="bottom" trigger="hover" :show-arrow="false">
-        <template #trigger>
-          <button
-            type="button"
-            class="card-close-btn"
-            :aria-label="t('common.close', '关闭')"
-            @click="handleClose"
-          >
-            <n-icon :size="16">
-              <CloseOutline />
-            </n-icon>
-          </button>
-        </template>
-        <span>{{ t('common.close', '关闭') }}</span>
-      </n-tooltip>
+      <VTooltip placement="bottom" :content="t('common.close', '关闭')">
+        <button
+          type="button"
+          class="card-close-btn"
+          :aria-label="t('common.close', '关闭')"
+          @click="handleClose"
+        >
+          <n-icon :size="16">
+            <CloseOutline />
+          </n-icon>
+        </button>
+      </VTooltip>
     </div>
 
     <div class="card-middle-layer">
@@ -110,12 +107,13 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NIcon, NTooltip, NEllipsis } from 'naive-ui'
+import { NIcon, NEllipsis } from 'naive-ui'
 import { CloseOutline } from '@vicons/ionicons5'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { logoutApi } from '@/api/auth'
 import { removeCookie } from '@/utils/cookie'
+import VTooltip from '@/components/common/VTooltip.vue'
 import VCard from './VCard.vue'
 import VAvatar from './VAvatar.vue'
 import type { VUserCardProps } from './types'
@@ -172,34 +170,36 @@ const currentUser = computed(() => {
 })
 
 const effectiveDisplayName = computed<string>(() => {
+  if (!effectiveIsLoggedIn.value) return ''
   if (props.displayName) {
     return props.displayName
   }
-  if (!effectiveIsLoggedIn.value) return ''
   return currentUser.value?.nickname || currentUser.value?.username || ''
 })
 
 const effectiveUserEmail = computed<string>(() => {
+  if (!effectiveIsLoggedIn.value) return ''
   if (props.userEmail) {
     return props.userEmail
   }
-  if (!effectiveIsLoggedIn.value) return ''
   return currentUser.value?.email || ''
 })
 
 const effectiveUserInitial = computed<string>(() => {
+  if (!effectiveIsLoggedIn.value) return ''
   if (props.userInitial) {
     return props.userInitial
   }
   const name = effectiveDisplayName.value || currentUser.value?.username || ''
-  return name ? name.charAt(0).toUpperCase() : 'U'
+  return name ? name.charAt(0).toUpperCase() : ''
 })
 
 const effectiveAvatarUrl = computed<string>(() => {
+  if (!effectiveIsLoggedIn.value) return ''
   if (props.avatarUrl) {
     return props.avatarUrl
   }
-  return currentUser.value?.avatar || ''
+  return currentUser.value?.avatar || currentUser.value?.avatarUrl || ''
 })
 
 const effectiveLogoSrc = computed<string>(() => {

@@ -49,6 +49,10 @@
             <groupId>com.humolix.volur</groupId>
             <artifactId>volur-auth</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-verification</artifactId>
+        </dependency>
 
         <!-- Spring Boot Starters -->
         <dependency>

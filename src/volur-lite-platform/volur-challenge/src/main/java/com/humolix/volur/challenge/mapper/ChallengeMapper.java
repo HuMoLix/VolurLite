@@ -6,6 +6,7 @@ import com.humolix.volur.challenge.domain.entity.awdp.AwdPlusChallenge;
 import com.humolix.volur.challenge.domain.entity.ctf.CtfChallenge;
 import com.humolix.volur.challenge.domain.entity.ctf.CtfChallengeCategory;
 import com.humolix.volur.challenge.domain.entity.isw.IswChallenge;
+import com.humolix.volur.challenge.domain.entity.theory.TheoryBank;
 import com.humolix.volur.challenge.domain.entity.theory.TheoryChallenge;
 import com.humolix.volur.challenge.domain.vo.awd.AwdChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.awd.AwdChallengeListVO;
@@ -17,6 +18,8 @@ import com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfChallengeListVO;
 import com.humolix.volur.challenge.domain.vo.isw.IswChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.isw.IswChallengeListVO;
+import com.humolix.volur.challenge.domain.vo.theory.TheoryBankDetailVO;
+import com.humolix.volur.challenge.domain.vo.theory.TheoryBankListVO;
 import com.humolix.volur.challenge.domain.vo.theory.TheoryChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.theory.TheoryChallengeListVO;
 import org.mapstruct.*;
@@ -70,12 +73,25 @@ public interface ChallengeMapper {
     // --- THEORY ---
     @Mapping(source = "author.id", target = "authorId")
     @Mapping(source = "author.username", target = "authorName")
+    @Mapping(source = "bank.id", target = "bankId")
+    @Mapping(source = "bank.name", target = "bankName")
     TheoryChallengeDetailVO toTheoryDetailVO(TheoryChallenge challenge);
 
     @Mapping(source = "author.username", target = "authorName")
+    @Mapping(source = "bank.id", target = "bankId")
+    @Mapping(source = "bank.name", target = "bankName")
     TheoryChallengeListVO toTheoryListVO(TheoryChallenge challenge);
 
     List<TheoryChallengeListVO> toTheoryListVOList(List<TheoryChallenge> challenges);
+
+    @Mapping(source = "author.username", target = "authorName")
+    @Mapping(target = "questionCount", ignore = true)
+    TheoryBankListVO toTheoryBankListVO(TheoryBank bank);
+
+    @Mapping(source = "author.id", target = "authorId")
+    @Mapping(source = "author.username", target = "authorName")
+    @Mapping(target = "questionCount", ignore = true)
+    TheoryBankDetailVO toTheoryBankDetailVO(TheoryBank bank);
 
     // --- AWD ---
     @Mapping(source = "author.id", target = "authorId")

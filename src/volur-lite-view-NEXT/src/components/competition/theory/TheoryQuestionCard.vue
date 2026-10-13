@@ -27,11 +27,11 @@
 
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border"
+        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border border-transparent outline-none focus:outline-none"
         :class="[
           isMarked
-            ? 'bg-amber-50 text-google-yellow border-amber-300 dark:bg-amber-950/50 dark:text-google-yellow-dark dark:border-amber-800'
-            : 'bg-transparent text-google-text-muted dark:text-google-text-darkMuted border-transparent hover:bg-google-surface-light dark:hover:bg-google-surface-dark'
+            ? 'bg-amber-50 text-google-yellow dark:bg-amber-950/50 dark:text-google-yellow-dark'
+            : 'bg-transparent text-google-text-muted dark:text-google-text-darkMuted hover:bg-google-surface-light dark:hover:bg-google-surface-dark'
         ]"
         :disabled="readonly"
         @click="emit('toggle-mark')"
@@ -53,17 +53,14 @@
 
     <div class="pt-2">
       <div v-if="question.type === 'SINGLE_CHOICE'" class="space-y-2.5">
-        <button
+        <VBtn
           v-for="opt in formattedOptions"
           :key="opt.key"
-          type="button"
-          class="w-full text-left p-3.5 sm:p-4 rounded-xl border flex items-center gap-3.5 transition-all text-sm group"
-          :class="[
-            currentAnswer === opt.key
-              ? 'border-google-blue bg-blue-50/60 text-google-blue dark:border-google-blue-dark dark:bg-blue-950/40 dark:text-google-blue-dark shadow-sm'
-              : 'border-google-border-light dark:border-google-border-dark bg-white dark:bg-google-surface-darkCard text-google-text-primary dark:text-google-text-darkPrimary hover:bg-google-surface-light dark:hover:bg-google-surface-darkElevated',
-            readonly ? 'cursor-default' : 'cursor-pointer'
-          ]"
+          clz="normal"
+          block
+          :radius="12"
+          class="theory-option-btn"
+          :class="{ 'is-selected': currentAnswer === opt.key }"
           :disabled="readonly"
           @click="selectSingle(opt.key)"
         >
@@ -72,30 +69,27 @@
             :class="[
               currentAnswer === opt.key
                 ? 'bg-google-blue text-white dark:bg-google-blue-dark dark:text-google-surface-dark'
-                : 'bg-google-surface-light dark:bg-google-surface-dark text-google-text-desc dark:text-google-text-darkDesc group-hover:bg-google-border-light/60 dark:group-hover:bg-neutral-700'
+                : 'bg-google-surface-light dark:bg-google-surface-dark text-google-text-desc dark:text-google-text-darkDesc'
             ]"
           >
             {{ opt.key }}
           </div>
-          <span class="flex-1 leading-normal select-text">{{ opt.label }}</span>
-        </button>
+          <span class="flex-1 leading-normal select-text text-left font-normal text-sm whitespace-normal">{{ opt.label }}</span>
+        </VBtn>
       </div>
 
       <div v-else-if="question.type === 'MULTIPLE_CHOICE'" class="space-y-2.5">
         <div class="text-xs text-google-text-muted dark:text-google-text-darkMuted mb-2">
           {{ t('competition.theory_multiple_choice_hint', '（多选题：可选择一个或多个正确答案）') }}
         </div>
-        <button
+        <VBtn
           v-for="opt in formattedOptions"
           :key="opt.key"
-          type="button"
-          class="w-full text-left p-3.5 sm:p-4 rounded-xl border flex items-center gap-3.5 transition-all text-sm group"
-          :class="[
-            isMultipleOptionSelected(opt.key)
-              ? 'border-google-blue bg-blue-50/60 text-google-blue dark:border-google-blue-dark dark:bg-blue-950/40 dark:text-google-blue-dark shadow-sm'
-              : 'border-google-border-light dark:border-google-border-dark bg-white dark:bg-google-surface-darkCard text-google-text-primary dark:text-google-text-darkPrimary hover:bg-google-surface-light dark:hover:bg-google-surface-darkElevated',
-            readonly ? 'cursor-default' : 'cursor-pointer'
-          ]"
+          clz="normal"
+          block
+          :radius="12"
+          class="theory-option-btn"
+          :class="{ 'is-selected': isMultipleOptionSelected(opt.key) }"
           :disabled="readonly"
           @click="toggleMultiple(opt.key)"
         >
@@ -104,47 +98,43 @@
             :class="[
               isMultipleOptionSelected(opt.key)
                 ? 'bg-google-blue text-white dark:bg-google-blue-dark dark:text-google-surface-dark'
-                : 'bg-google-surface-light dark:bg-google-surface-dark text-google-text-desc dark:text-google-text-darkDesc group-hover:bg-google-border-light/60 dark:group-hover:bg-neutral-700'
+                : 'bg-google-surface-light dark:bg-google-surface-dark text-google-text-desc dark:text-google-text-darkDesc'
             ]"
           >
             {{ opt.key }}
           </div>
-          <span class="flex-1 leading-normal select-text">{{ opt.label }}</span>
-        </button>
+          <span class="flex-1 leading-normal select-text text-left font-normal text-sm whitespace-normal">{{ opt.label }}</span>
+        </VBtn>
       </div>
 
       <div v-else-if="question.type === 'TRUE_FALSE'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          type="button"
-          class="p-4 rounded-xl border flex items-center justify-center gap-3 transition-all text-sm font-medium"
-          :class="[
-            currentAnswer === 'TRUE'
-              ? 'border-google-green bg-green-50/60 text-google-green dark:border-google-green-dark dark:bg-green-950/40 dark:text-google-green-dark shadow-sm'
-              : 'border-google-border-light dark:border-google-border-dark bg-white dark:bg-google-surface-darkCard text-google-text-primary dark:text-google-text-darkPrimary hover:bg-google-surface-light dark:hover:bg-google-surface-darkElevated',
-            readonly ? 'cursor-default' : 'cursor-pointer'
-          ]"
+        <VBtn
+          clz="normal"
+          block
+          :radius="12"
+          class="theory-tf-btn"
+          :class="{ 'is-true-selected': currentAnswer === 'TRUE' }"
+          :left-icon="CheckmarkOutline"
+          :icon-size="18"
           :disabled="readonly"
           @click="selectSingle('TRUE')"
         >
-          <n-icon :size="18" :component="CheckmarkOutline" />
-          <span>{{ t('competition.theory_true', '正确 (True)') }}</span>
-        </button>
+          {{ t('competition.theory_true', '正确 (True)') }}
+        </VBtn>
 
-        <button
-          type="button"
-          class="p-4 rounded-xl border flex items-center justify-center gap-3 transition-all text-sm font-medium"
-          :class="[
-            currentAnswer === 'FALSE'
-              ? 'border-google-red bg-red-50/60 text-google-red dark:border-google-red-dark dark:bg-red-950/40 dark:text-google-red-dark shadow-sm'
-              : 'border-google-border-light dark:border-google-border-dark bg-white dark:bg-google-surface-darkCard text-google-text-primary dark:text-google-text-darkPrimary hover:bg-google-surface-light dark:hover:bg-google-surface-darkElevated',
-            readonly ? 'cursor-default' : 'cursor-pointer'
-          ]"
+        <VBtn
+          clz="normal"
+          block
+          :radius="12"
+          class="theory-tf-btn"
+          :class="{ 'is-false-selected': currentAnswer === 'FALSE' }"
+          :left-icon="CloseOutline"
+          :icon-size="18"
           :disabled="readonly"
           @click="selectSingle('FALSE')"
         >
-          <n-icon :size="18" :component="CloseOutline" />
-          <span>{{ t('competition.theory_false', '错误 (False)') }}</span>
-        </button>
+          {{ t('competition.theory_false', '错误 (False)') }}
+        </VBtn>
       </div>
 
       <div v-else-if="question.type === 'ESSAY'" class="space-y-3">
@@ -172,6 +162,7 @@ import {
   CheckmarkOutline,
   CloseOutline
 } from '@vicons/ionicons5'
+import { VBtn } from '@/components/common'
 import type { TheoryPaperQuestionVO } from '@/types/competition'
 
 defineOptions({
@@ -312,3 +303,79 @@ function handleEssayInput(val: string) {
   emit('update:modelValue', val)
 }
 </script>
+
+<style scoped lang="scss">
+:deep(.theory-option-btn) {
+  height: auto !important;
+  min-height: 52px;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  white-space: normal !important;
+  padding: 14px 16px !important;
+  width: 100% !important;
+  border-radius: 12px;
+  transition: all 0.2s ease-in-out;
+
+  > span.inline-flex {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    white-space: normal;
+    text-align: left;
+  }
+
+  &.is-selected {
+    border-color: #1a73e8 !important;
+    background-color: rgba(26, 115, 232, 0.08) !important;
+    color: #1a73e8 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+}
+
+:deep(.theory-tf-btn) {
+  height: 48px !important;
+  min-height: 48px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  border-radius: 12px;
+  justify-content: center !important;
+
+  > span.inline-flex {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  &.is-true-selected {
+    border-color: #34a853 !important;
+    background-color: rgba(52, 168, 83, 0.08) !important;
+    color: #34a853 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  &.is-false-selected {
+    border-color: #ea4335 !important;
+    background-color: rgba(234, 67, 53, 0.08) !important;
+    color: #ea4335 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+}
+
+:global(html.dark .theory-question-card .theory-option-btn.is-selected) {
+  border-color: #8ab4f8 !important;
+  background-color: rgba(138, 180, 248, 0.12) !important;
+  color: #8ab4f8 !important;
+}
+
+:global(html.dark .theory-question-card .theory-tf-btn.is-true-selected) {
+  border-color: #81c995 !important;
+  background-color: rgba(129, 201, 149, 0.12) !important;
+  color: #81c995 !important;
+}
+
+:global(html.dark .theory-question-card .theory-tf-btn.is-false-selected) {
+  border-color: #f28b82 !important;
+  background-color: rgba(242, 139, 130, 0.12) !important;
+  color: #f28b82 !important;
+}
+</style>

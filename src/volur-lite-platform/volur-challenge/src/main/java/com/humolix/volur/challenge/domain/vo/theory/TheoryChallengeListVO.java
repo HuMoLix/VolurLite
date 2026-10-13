@@ -21,6 +21,8 @@ public class TheoryChallengeListVO implements Serializable {
     private TheoryType type;
     private Integer score;
     private Integer difficulty;
+    private Long bankId;
+    private String bankName;
     private String authorName;
     private Instant createdAt;
 

@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 @Builder(toBuilder = true)
@@ -29,5 +30,7 @@ public class CtfCompetitionChallengeDetailVO implements Serializable {
     private String attachmentName;
     private Boolean isContainer;
     private Boolean isSolvedByMyTeam;
+    private List<String> topTeams;
+    private List<CtfChallengeSolveVO> solves;
 
 }

@@ -6,6 +6,7 @@ import zhCnAuthSignup from '../locales/zh-CN/auth/signup.json'
 import zhCnAuthRecovery from '../locales/zh-CN/auth/recovery.json'
 import zhCnCaptchaRecaptcha from '../locales/zh-CN/captcha/recaptcha.json'
 import zhCnCompetition from '../locales/zh-CN/competition.json'
+import zhCnAdmin from '../locales/zh-CN/admin.json'
 
 const zhCnAuth = {
   ...zhCnAuthCommon,
@@ -32,7 +33,8 @@ const loadedPaths = new Set<string>([
   '../locales/zh-CN/auth/signup.json',
   '../locales/zh-CN/auth/recovery.json',
   '../locales/zh-CN/captcha/recaptcha.json',
-  '../locales/zh-CN/competition.json'
+  '../locales/zh-CN/competition.json',
+  '../locales/zh-CN/admin.json'
 ])
 
 export function normalizeLocale(val: unknown): SupportedLocale | null {
@@ -198,13 +200,15 @@ export const i18n = createI18n({
       common: zhCnCommon,
       auth: zhCnAuth,
       captcha: zhCnCaptcha,
-      competition: zhCnCompetition
+      competition: zhCnCompetition,
+      admin: zhCnAdmin
     },
     'zh': {
       common: zhCnCommon,
       auth: zhCnAuth,
       captcha: zhCnCaptcha,
-      competition: zhCnCompetition
+      competition: zhCnCompetition,
+      admin: zhCnAdmin
     }
   }
 })

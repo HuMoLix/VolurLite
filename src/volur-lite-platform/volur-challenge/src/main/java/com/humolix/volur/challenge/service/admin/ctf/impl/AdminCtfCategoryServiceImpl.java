@@ -17,7 +17,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -47,13 +46,13 @@ public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
     @Override
     @Transactional
     public Long createCategory(CtfCategoryCreateRequestDTO request) {
-        if (categoryRepository.existsByName(request.getName().trim())) {
+        if (categoryRepository.existsByName(request.getName())) {
             throw new BusinessException(HttpStatus.CONFLICT, "分类名称已存在");
         }
 
         CtfChallengeCategory category = CtfChallengeCategory.builder()
-                .name(request.getName().trim())
-                .icon(StringUtils.hasText(request.getIcon()) ? request.getIcon().trim() : null)
+                .name(request.getName())
+                .icon(request.getIcon() != null && request.getIcon().isEmpty() ? null : request.getIcon())
                 .description(request.getDescription())
                 .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
                 .build();
@@ -68,15 +67,15 @@ public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
         CtfChallengeCategory category = categoryRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "分类不存在"));
 
-        if (StringUtils.hasText(request.getName()) && !category.getName().equals(request.getName().trim())) {
-            if (categoryRepository.existsByName(request.getName().trim())) {
+        if (request.getName() != null && !request.getName().isEmpty() && !category.getName().equals(request.getName())) {
+            if (categoryRepository.existsByNameAndIdNot(request.getName(), id)) {
                 throw new BusinessException(HttpStatus.CONFLICT, "分类名称已存在");
             }
-            category.setName(request.getName().trim());
+            category.setName(request.getName());
         }
 
         if (request.getIcon() != null) {
-            category.setIcon(StringUtils.hasText(request.getIcon()) ? request.getIcon().trim() : null);
+            category.setIcon(request.getIcon().isEmpty() ? null : request.getIcon());
         }
 
         if (request.getDescription() != null) {

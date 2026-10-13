@@ -11,94 +11,27 @@
     <div class="flex-1 flex flex-col w-full max-w-7xl mx-auto">
       <header class="competition-header">
         <h2 class="competition-title">
-          竞赛列表
+          {{ t('competition.competition_list') }}
         </h2>
       </header>
 
       <main class="flex-1 flex flex-col gap-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div class="flex items-center gap-2 flex-wrap">
-            <button
-              v-for="tab in visibleTabs"
-              :key="tab.value"
-              type="button"
-              class="competition-filter-btn"
-              :class="{
-                'is-selected': selectedType === tab.value
-              }"
-              @click="handleTypeChange(tab.value)"
-            >
-              <span>{{ tab.label }}</span>
-            </button>
-
-            <n-popover
-              v-if="showMoreMenu"
-              v-model:show="isMoreMenuShow"
-              trigger="click"
-              placement="bottom-start"
-              :show-arrow="false"
-              raw
-            >
-              <template #trigger>
-                <button
-                  type="button"
-                  class="competition-filter-btn menu-trigger-btn"
-                  :class="{
-                    'is-selected': isDropdownTabSelected
-                  }"
-                  :title="isDropdownTabSelected ? selectedDropdownTab?.label : t('common.more', '更多')"
-                >
-                  <n-icon :size="16" class="flex-shrink-0">
-                    <MenuOutline />
-                  </n-icon>
-                  <span v-if="isDropdownTabSelected" class="ml-1.5">{{ selectedDropdownTab?.label }}</span>
-                </button>
-              </template>
-
-              <VCard
-                :theme="currentTheme"
-                :width="190"
-                padding="6px"
-                :gap="2"
-              >
-                <div class="competition-menu-list">
-                  <button
-                    v-for="tab in dropdownTabs"
-                    :key="tab.value"
-                    type="button"
-                    class="competition-menu-item"
-                    :class="{
-                      'is-selected': selectedType === tab.value
-                    }"
-                    @click="handleDropdownSelect(tab.value)"
-                  >
-                    <span class="competition-menu-label">{{ tab.label }}</span>
-                    <n-icon
-                      v-if="selectedType === tab.value"
-                      :size="16"
-                      class="competition-menu-check"
-                    >
-                      <CheckmarkOutline />
-                    </n-icon>
-                  </button>
-                </div>
-              </VCard>
-            </n-popover>
-          </div>
+          <VFilterBtnGroup
+            v-model="selectedType"
+            :options="availableTypeTabs"
+            @change="handleTypeChange"
+          />
 
           <div class="flex items-center gap-3 w-full md:w-auto">
-            <n-input
+            <VSearch
               v-model:value="searchKeyword"
-              placeholder="搜索竞赛名称或标识..."
+              placeholder="搜索竞赛名称"
               clearable
               class="competition-search-input w-full md:w-64"
-              @keyup.enter="handleSearch"
+              @search="handleSearch"
               @clear="handleSearch"
-            >
-              <template #prefix>
-                <n-icon :component="SearchOutline" />
-              </template>
-            </n-input>
+            />
           </div>
         </div>
 
@@ -115,21 +48,25 @@
           <div v-if="loadingMore" class="flex items-center justify-center py-4">
             <div class="flex items-center gap-2 text-sm text-google-text-muted dark:text-google-text-darkMuted">
               <n-spin size="small" />
-              <span>正在加载更多竞赛...</span>
+              <span>{{ t('competition.loading_more') }}</span>
             </div>
           </div>
         </div>
 
         <div class="competition-prompt">
           <div class="competition-prompt-headline">
-            这里找不到您的竞赛？
+            {{ t('competition.prompt_headline') }}
           </div>
           <p class="competition-prompt-desc">
-            此列表仅显示公开到 Volur Studio 的竞赛。如果没有找到您所参与的，您可以导入竞赛的邀请码来将您参与的私人竞赛添加列表中。
+            {{ t('competition.prompt_desc') }}
           </p>
-          <n-button class="competition-btn competition-import-btn" @click="handleImportClick">
-            导入竞赛
-          </n-button>
+          <VBtn
+            clz="normal"
+            class="competition-import-btn"
+            @click="handleImportClick"
+          >
+            {{ t('competition.import_competition') }}
+          </VBtn>
         </div>
       </main>
 
@@ -144,13 +81,11 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NIcon, NInput, NButton, NSpin, NPopover } from 'naive-ui'
-import { SearchOutline, MenuOutline, CheckmarkOutline } from '@vicons/ionicons5'
+import { NSpin } from 'naive-ui'
 import { getCompetitionSliceApi } from '@/api/competition'
 import type { CompetitionSummaryVO, CompetitionType } from '@/types/competition'
 import { VCompetitionCard } from '@/components/competition'
-import { VCard } from '@/components/sidebar'
-import { useAppStore } from '@/store/modules/app'
+import { VFilterBtnGroup, VSearch, VBtn } from '@/components/common'
 import AppFooter from '@/components/common/Footer.vue'
 
 defineOptions({
@@ -159,7 +94,6 @@ defineOptions({
 
 const { t } = useI18n()
 const router = useRouter()
-const appStore = useAppStore()
 
 const PAGE_SIZE = 5
 
@@ -173,13 +107,6 @@ const hasNext = ref(true)
 const sentinelRef = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
 
-const isMoreMenuShow = ref(false)
-const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200)
-
-const currentTheme = computed<'light' | 'dark'>(() => {
-  return appStore.theme === 'dark' ? 'dark' : 'light'
-})
-
 const availableTypeTabs = computed(() => [
   { value: 'ALL', label: t('competition.type_all') },
   { value: 'CTF', label: t('competition.type_ctf') },
@@ -189,53 +116,17 @@ const availableTypeTabs = computed(() => [
   { value: 'ISW', label: t('competition.type_isw') }
 ])
 
-const visibleTabs = computed(() => {
-  if (windowWidth.value < 460) {
-    return availableTypeTabs.value.slice(0, 2)
-  }
-  if (windowWidth.value < 860) {
-    return availableTypeTabs.value.slice(0, 3)
-  }
-  return availableTypeTabs.value
-})
-
-const dropdownTabs = computed(() => {
-  if (windowWidth.value < 460) {
-    return availableTypeTabs.value.slice(2)
-  }
-  if (windowWidth.value < 860) {
-    return availableTypeTabs.value.slice(3)
-  }
-  return []
-})
-
-const showMoreMenu = computed(() => dropdownTabs.value.length > 0)
-
-const selectedDropdownTab = computed(() => {
-  return dropdownTabs.value.find((tab) => tab.value === selectedType.value)
-})
-
-const isDropdownTabSelected = computed(() => {
-  return Boolean(selectedDropdownTab.value)
-})
-
-function handleDropdownSelect(val: string) {
-  isMoreMenuShow.value = false
-  handleTypeChange(val)
-}
-
-function handleResize() {
-  windowWidth.value = window.innerWidth
-}
-
-function handleTypeChange(val: string) {
-  selectedType.value = val
+function handleTypeChange(val: string | number) {
+  selectedType.value = String(val)
   currentPage.value = 1
   hasNext.value = true
   fetchSlice(1, true)
 }
 
-function handleSearch() {
+function handleSearch(val?: string) {
+  if (typeof val === 'string') {
+    searchKeyword.value = val
+  }
   currentPage.value = 1
   hasNext.value = true
   fetchSlice(1, true)
@@ -251,7 +142,7 @@ function goToDetail(comp: CompetitionSummaryVO) {
 
 function handleImportClick() {
   if (window.$message) {
-    window.$message.info('私人竞赛导入功能正在联调中')
+    window.$message.info(t('competition.import_wip_tip'))
   }
 }
 
@@ -337,7 +228,6 @@ watch(sentinelRef, (el) => {
 })
 
 onMounted(() => {
-  window.addEventListener('resize', handleResize)
   fetchSlice(1, true).then(() => {
     nextTick(() => {
       setupObserver()
@@ -346,7 +236,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
   if (observer) {
     observer.disconnect()
     observer = null
@@ -371,7 +260,7 @@ onUnmounted(() => {
   margin-bottom: 32px;
   color: #1b1b1e;
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
 
   html.dark & {
@@ -411,112 +300,8 @@ onUnmounted(() => {
   }
 }
 
-.competition-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
-  gap: 6px !important;
-  height: 36px !important;
-  padding: 0 12px !important;
-  border-radius: 12px !important;
-  border: 1px solid #d7d8da !important;
-  color: #2b2d31 !important;
-  font-family: Inter, sans-serif !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  line-height: 20px !important;
-  letter-spacing: normal !important;
-  cursor: pointer !important;
-  user-select: none !important;
-  white-space: nowrap !important;
-  background-color: transparent !important;
-  outline: none !important;
-  box-shadow: none !important;
-  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out, box-shadow 0.1s ease-in-out !important;
-
-  &:focus,
-  &:active,
-  &:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  :deep(.n-button__content) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    font-family: Inter, sans-serif;
-    font-size: 14px;
-    font-weight: 500;
-    line-height: 20px;
-    letter-spacing: normal;
-    color: inherit;
-  }
-
-  :deep(.n-button__border) {
-    border-color: #d7d8da !important;
-    border-radius: 12px !important;
-    box-shadow: none !important;
-  }
-
-  :deep(.n-button__state-border) {
-    display: none !important;
-  }
-
-  :deep(.n-base-wave) {
-    display: none !important;
-    animation: none !important;
-  }
-
-  &:hover {
-    background-color: rgba(60, 64, 67, 0.04) !important;
-  }
-
-  &:focus,
-  &:active {
-    border-color: #d7d8da !important;
-    :deep(.n-button__border) {
-      border-color: #d7d8da !important;
-      box-shadow: none !important;
-    }
-  }
-
-  &.n-button {
-    border: none !important;
-  }
-
-  html.dark & {
-    border-color: #333 !important;
-    color: #fcfcfc !important;
-
-    &.n-button {
-      border: none !important;
-    }
-
-    :deep(.n-button__border) {
-      border-color: #333 !important;
-    }
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.04) !important;
-    }
-
-    &:focus,
-    &:active {
-      border-color: #333 !important;
-      :deep(.n-button__border) {
-        border-color: #333 !important;
-        box-shadow: none !important;
-      }
-    }
-  }
-}
-
 .competition-import-btn {
-  margin: 0 auto !important;
-  border: none !important;
+  margin: 0 auto;
 }
 
 .competition-search-input {
@@ -525,179 +310,6 @@ onUnmounted(() => {
 
   :deep(.n-input-wrapper) {
     height: 36px !important;
-    border-radius: 12px !important;
-  }
-
-  :deep(.n-input__border) {
-    border-radius: 12px !important;
-  }
-
-  :deep(.n-input__state-border) {
-    border-radius: 12px !important;
-  }
-}
-
-.competition-filter-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
-  padding: 6px 12px !important;
-  border-radius: 12px !important;
-  border: 1px solid #d7d8da80 !important;
-  box-shadow: 0 1px 2px 0 #0000000d !important;
-  color: #2b2d31 !important;
-  font-family: Inter, sans-serif !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  line-height: 20px !important;
-  letter-spacing: normal !important;
-  cursor: pointer !important;
-  user-select: none !important;
-  white-space: nowrap !important;
-  background-color: transparent !important;
-  outline: none !important;
-  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out, box-shadow 0.1s ease-in-out, padding-left 0.15s ease-in-out !important;
-
-  &:focus,
-  &:active,
-  &:focus-visible {
-    outline: none !important;
-  }
-
-  &:hover {
-    background-color: #eaeaeb !important;
-  }
-
-  &.is-selected,
-  &.selected {
-    padding-left: 26px !important;
-    background-color: #f4f4f5 !important;
-    border-color: #d7d8da !important;
-    background-size: 100% !important;
-    background-image: radial-gradient(circle at 16px center, var(--color-v3-text, currentColor) 3px, transparent 3.4px) !important;
-    background-repeat: no-repeat !important;
-  }
-
-  html.dark & {
-    border-color: #262626 !important;
-    color: #fcfcfc !important;
-
-    &:hover {
-      background-color: #2a2b2d !important;
-    }
-
-    &.is-selected,
-    &.selected {
-      background-color: #262626 !important;
-      border-color: #333 !important;
-    }
-  }
-
-  &.menu-trigger-btn {
-    &.is-selected,
-    &.selected {
-      padding-left: 12px !important;
-      background-image: none !important;
-      background-color: #f4f4f5 !important;
-      border-color: #d7d8da !important;
-    }
-
-    html.dark & {
-      &.is-selected,
-      &.selected {
-        background-color: #262626 !important;
-        border-color: #333 !important;
-      }
-    }
-  }
-}
-
-.competition-menu-list {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  gap: 2px;
-}
-
-.competition-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: none;
-  background-color: transparent;
-  cursor: pointer;
-  color: #3c4043;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-  outline: none;
-  box-sizing: border-box;
-  transition: background-color 0.15s cubic-bezier(0.2, 0, 0, 1),
-              color 0.15s cubic-bezier(0.2, 0, 0, 1);
-
-  &:hover {
-    background-color: rgba(60, 64, 67, 0.08);
-    color: #202124;
-  }
-
-  &:active {
-    background-color: rgba(60, 64, 67, 0.12);
-  }
-
-  &.is-selected {
-    color: #1a73e8;
-    font-weight: 600;
-
-    &:hover {
-      background-color: rgba(26, 115, 232, 0.08);
-    }
-  }
-
-  .competition-menu-label {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .competition-menu-check {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    color: #1a73e8;
-    flex-shrink: 0;
-  }
-
-  html.dark & {
-    color: #bdc1c6;
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.08);
-      color: #e8eaed;
-    }
-
-    &:active {
-      background-color: rgba(255, 255, 255, 0.12);
-    }
-
-    &.is-selected {
-      color: #a8c7fa;
-
-      &:hover {
-        background-color: rgba(168, 199, 250, 0.12);
-      }
-
-      .competition-menu-check {
-        color: #a8c7fa;
-      }
-    }
   }
 }
 

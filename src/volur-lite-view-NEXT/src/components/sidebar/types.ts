@@ -10,7 +10,7 @@ export interface SidebarNavItem {
   children?: SidebarNavItem[]
 }
 
-export interface VSearchProps {
+export interface VSearchToolProps {
   show?: boolean
   placeholder?: string
   debounceDelay?: number
@@ -29,6 +29,10 @@ export interface VAvatarProps {
   ring?: boolean
   ringColor?: string
   theme?: 'light' | 'dark'
+  editable?: boolean
+  uploadFolder?: string
+  accept?: string
+  uploadApi?: (file: File) => Promise<any>
 }
 
 export interface VSideBarProps {
@@ -66,6 +70,7 @@ export interface VSideBarProps {
   avatarRing?: boolean
   notificationRoute?: string
   settingsRoute?: string
+  adminRoute?: string
   feedbackRoute?: string
   searchRoute?: string
   searchPlaceholder?: string
@@ -142,6 +147,7 @@ export interface VSettingCardProps {
   theme?: 'light' | 'dark'
   width?: number | string
   userSettingsRoute?: string
+  adminRoute?: string
   feedbackRoute?: string
   termsRoute?: string
   privacyRoute?: string
@@ -171,4 +177,6 @@ export interface VFeedbackProps {
 export interface SideBarProps extends VSideBarProps {
   breakpoint?: number
 }
+
+export type { VTooltipProps, VTooltipSize } from '@/components/common/types'
 

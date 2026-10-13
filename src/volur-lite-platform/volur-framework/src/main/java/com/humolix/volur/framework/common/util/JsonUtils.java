@@ -12,6 +12,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 public final class JsonUtils {
 
@@ -79,6 +80,18 @@ public final class JsonUtils {
         try {
             ObjectMapper mapper = getObjectMapper();
             return mapper.readValue(json, mapper.getTypeFactory().constructCollectionType(List.class, elementClass));
+        } catch (JacksonException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    public static <T> Set<T> parseSet(String json, Class<T> elementClass) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptySet();
+        }
+        try {
+            ObjectMapper mapper = getObjectMapper();
+            return mapper.readValue(json, mapper.getTypeFactory().constructCollectionType(Set.class, elementClass));
         } catch (JacksonException e) {
             throw new IllegalArgumentException(e);
         }

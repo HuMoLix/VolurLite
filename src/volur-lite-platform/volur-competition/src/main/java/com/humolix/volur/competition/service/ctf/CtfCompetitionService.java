@@ -5,6 +5,8 @@ import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeDetail
 import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeVO;
 import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 
+import com.humolix.volur.competition.domain.vo.ctf.CtfTeamSolveRecordVO;
+
 import java.util.List;
 
 public interface CtfCompetitionService {
@@ -20,5 +22,7 @@ public interface CtfCompetitionService {
     void stopInstance(Long competitionId, Long competitionChallengeId, Long userId);
 
     ChallengeInstanceResponseVO extendInstance(Long competitionId, Long competitionChallengeId, Long userId);
+
+    List<CtfTeamSolveRecordVO> getTeamSolves(Long competitionId, Long teamId);
 
 }

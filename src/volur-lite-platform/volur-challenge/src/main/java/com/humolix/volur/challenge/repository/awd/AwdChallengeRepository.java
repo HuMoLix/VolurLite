@@ -15,4 +15,6 @@ public interface AwdChallengeRepository extends JpaRepository<AwdChallenge, Long
 
     boolean existsByName(String name);
 
+    boolean existsByNameAndIdNot(String name, Long id);
+
 }

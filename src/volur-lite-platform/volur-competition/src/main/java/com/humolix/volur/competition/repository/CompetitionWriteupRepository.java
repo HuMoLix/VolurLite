@@ -17,6 +17,10 @@ public interface CompetitionWriteupRepository extends JpaRepository<CompetitionW
 
     Optional<CompetitionWriteup> findByCompetitionIdAndTeamId(Long competitionId, Long teamId);
 
+    List<CompetitionWriteup> findByCompetitionIdAndTeamIdOrderByCreatedAtDesc(Long competitionId, Long teamId);
+
+    long countByCompetitionIdAndTeamId(Long competitionId, Long teamId);
+
     void deleteByCompetitionId(Long competitionId);
 
     @Query("SELECT w FROM CompetitionWriteup w " +

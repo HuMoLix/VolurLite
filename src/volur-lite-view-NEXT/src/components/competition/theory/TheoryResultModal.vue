@@ -57,13 +57,13 @@
       </div>
 
       <div class="pt-2">
-        <button
-          type="button"
-          class="w-full h-10 px-5 rounded-full text-xs font-semibold text-white bg-google-blue hover:bg-google-blue-hover active:bg-google-blue-hover shadow-sm transition-colors cursor-pointer dark:bg-google-blue-dark dark:text-google-surface-dark dark:hover:bg-blue-300"
+        <VBtn
+          clz="primary"
+          block
           @click="handleConfirm"
         >
           {{ t('competition.theory_review_paper', '查看并复核答卷') }}
-        </button>
+        </VBtn>
       </div>
     </div>
   </n-modal>
@@ -74,6 +74,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NModal, NIcon } from 'naive-ui'
 import { TrophyOutline } from '@vicons/ionicons5'
+import { VBtn } from '@/components/common'
 import type { TheoryPaperResultVO } from '@/types/competition'
 
 defineOptions({

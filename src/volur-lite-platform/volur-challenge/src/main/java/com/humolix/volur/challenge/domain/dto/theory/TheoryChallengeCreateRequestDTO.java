@@ -38,4 +38,6 @@ public class TheoryChallengeCreateRequestDTO {
 
     private Integer difficulty;
 
+    private Long bankId;
+
 }

@@ -21,7 +21,7 @@ public class AwdCompetitionController {
     @GetMapping("/rounds/current")
     public ApiResponseEntity<AwdCurrentRoundVO> getCurrentRound(
             @PathVariable Long competitionId,
-            @CurrentUserId(required = false) Long userId) {
+            @CurrentUserId Long userId) {
         return ApiResponseEntity.ok("获取当前攻防轮次信息成功", awdCompetitionService.getCurrentRound(competitionId, userId));
     }
 
