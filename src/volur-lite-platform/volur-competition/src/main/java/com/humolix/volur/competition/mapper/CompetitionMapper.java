@@ -42,6 +42,10 @@ public interface CompetitionMapper {
     @Mapping(source = "competition.config.writeupStartTime", target = "writeupStartTime")
     @Mapping(source = "competition.config.writeupEndTime", target = "writeupEndTime")
     @Mapping(source = "competition.config.regRequirements", target = "regRequirements")
+    @Mapping(source = "competition.config.enableBloodBonus", target = "enableBloodBonus")
+    @Mapping(source = "competition.config.firstBloodBonusPercentage", target = "firstBloodBonusPercentage")
+    @Mapping(source = "competition.config.secondBloodBonusPercentage", target = "secondBloodBonusPercentage")
+    @Mapping(source = "competition.config.thirdBloodBonusPercentage", target = "thirdBloodBonusPercentage")
     @Mapping(source = "competition.createdBy.id", target = "createdById")
     @Mapping(source = "competition.createdBy.username", target = "createdByName")
     AdminCompetitionDetailVO toAdminDetailVO(Competition competition);

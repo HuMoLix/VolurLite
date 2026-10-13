@@ -18,5 +18,7 @@ public class AdminTeamStatsVO {
     private Long approved;
 
     private Long rejected;
+ 
+    private Long banned;
 
 }

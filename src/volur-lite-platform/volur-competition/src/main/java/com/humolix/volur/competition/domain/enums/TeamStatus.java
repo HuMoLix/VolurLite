@@ -7,7 +7,8 @@ public enum TeamStatus implements EnumEntity {
 
     AUDIT_DRAFT(0, "AUDIT_DRAFT"),
     AUDIT_PASSED(1, "AUDIT_PASSED"),
-    AUDIT_REJECTED(2, "AUDIT_REJECTED");
+    AUDIT_REJECTED(2, "AUDIT_REJECTED"),
+    BANNED(3, "BANNED");
 
     private final int code;
     @JsonValue

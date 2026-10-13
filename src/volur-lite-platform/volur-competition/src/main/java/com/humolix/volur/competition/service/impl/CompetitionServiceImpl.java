@@ -59,6 +59,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         Specification<Competition> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.DRAFT));
+            predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.HIDDEN));
 
             if (StringUtils.hasText(keyword)) {
                 String kw = "%" + keyword.trim() + "%";
@@ -91,6 +92,7 @@ public class CompetitionServiceImpl implements CompetitionService {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.DRAFT));
             predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.ARCHIVED));
+            predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.HIDDEN));
 
             if (type != null) {
                 predicates.add(cb.equal(root.get("type"), type));
@@ -222,6 +224,9 @@ public class CompetitionServiceImpl implements CompetitionService {
             CompetitionMember member = memberOpt.get();
             if (member.getStatus() == MemberStatus.INVITED_ACCEPTED) {
                 CompetitionTeam team = member.getTeam();
+                if (team != null && team.getStatus() == TeamStatus.BANNED) {
+                    throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队已被封禁，无法参加此场比赛");
+                }
                 if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
                     return team;
                 }
@@ -234,9 +239,18 @@ public class CompetitionServiceImpl implements CompetitionService {
         if (userId == null) {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
         }
-        CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
-        if (team != null) {
-            return;
+        Optional<CompetitionMember> memberOpt = memberRepository.findMemberWithTeam(competitionId, userId);
+        if (memberOpt.isPresent()) {
+            CompetitionMember member = memberOpt.get();
+            if (member.getStatus() == MemberStatus.INVITED_ACCEPTED) {
+                CompetitionTeam team = member.getTeam();
+                if (team != null && team.getStatus() == TeamStatus.BANNED) {
+                    throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队已被封禁，无法参加此场比赛");
+                }
+                if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
+                    return;
+                }
+            }
         }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));

@@ -1,21 +1,20 @@
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-end">
-      <VBtn
-        clz="primary"
-        size="medium"
-        :left-icon="SaveOutline"
-        :loading="saving"
-        @click="handleSave"
-      >
-        {{ isEdit ? t('common.save', '保存基本信息') : t('admin.competitions.create_btn', '确认创建竞赛') }}
-      </VBtn>
-    </div>
-
     <div class="p-6 rounded-2xl bg-white dark:bg-[#292a2d] border border-google-border-light dark:border-google-border-dark space-y-4">
-      <h3 class="text-sm font-semibold text-google-text-primary dark:text-google-text-darkPrimary border-b border-google-border-light dark:border-google-border-dark pb-3">
-        {{ t('admin.competitions.tab_basic', '基本信息与排程') }}
-      </h3>
+      <div class="flex items-center justify-between border-b border-google-border-light dark:border-google-border-dark pb-3">
+        <h3 class="text-sm font-semibold text-google-text-primary dark:text-google-text-darkPrimary">
+          {{ t('admin.competitions.tab_basic', '基础信息') }}
+        </h3>
+        <VBtn
+          clz="primary"
+          size="medium"
+          :left-icon="SaveOutline"
+          :loading="saving"
+          @click="handleSave"
+        >
+          {{ isEdit ? t('common.save', '保存') : t('admin.competitions.create_btn', '确认创建竞赛') }}
+        </VBtn>
+      </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -83,6 +82,17 @@
             :rows="8"
           />
         </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
+            自定义报名要求与须知
+          </label>
+          <VMarkdownEditor
+            v-model:value="formData.regRequirements"
+            placeholder="填写自定义报名要求与须知，支持 Markdown 语法..."
+            :rows="6"
+          />
+        </div>
       </div>
     </div>
 
@@ -115,6 +125,58 @@
             type="datetimerange"
             start-placeholder="报名开始时间"
             end-placeholder="报名截止时间"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="p-6 rounded-2xl bg-white dark:bg-[#292a2d] border border-google-border-light dark:border-google-border-dark space-y-4">
+      <h3 class="text-sm font-semibold text-google-text-primary dark:text-google-text-darkPrimary border-b border-google-border-light dark:border-google-border-dark pb-3">
+        {{ t('admin.competitions.team_limit_settings', '队伍人数限制') }}
+      </h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
+            单队人数下限
+          </label>
+          <VInput
+            v-model:value="formData.minTeamMembers"
+            placeholder="默认 1"
+            clearable
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
+            单队人数上限
+          </label>
+          <VInput
+            v-model:value="formData.maxTeamMembers"
+            placeholder="默认 4"
+            clearable
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
+            最大领队人数
+          </label>
+          <VInput
+            v-model:value="formData.maxLeaders"
+            placeholder="默认 1"
+            clearable
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
+            参赛队伍上限
+          </label>
+          <VInput
+            v-model:value="formData.maxTeams"
+            placeholder="默认 500"
+            clearable
           />
         </div>
       </div>
@@ -172,7 +234,12 @@ const formData = ref({
   endTime: '',
   regStartTime: '',
   regEndTime: '',
-  requireTeamAudit: false
+  requireTeamAudit: false,
+  minTeamMembers: '1',
+  maxTeamMembers: '4',
+  maxLeaders: '1',
+  maxTeams: '500',
+  regRequirements: ''
 })
 
 const typeOptions = [
@@ -189,7 +256,8 @@ const statusOptions = computed(() => {
   }
   return [
     { label: t('competition.status_draft', '草稿'), value: 'DRAFT' },
-    { label: t('competition.status_published', '已发布 (按时间自动运行)'), value: 'PUBLISHED' }
+    { label: t('competition.status_published', '已发布 (按时间自动运行)'), value: 'PUBLISHED' },
+    { label: t('competition.status_hidden', '隐藏'), value: 'HIDDEN' }
   ]
 })
 
@@ -214,18 +282,26 @@ async function fetchDetail() {
     if (res.data) {
       runtimeStatus.value = (res.data.status || 'DRAFT') as CompetitionStatus
       const isPublished = ['PUBLISHED', 'REGISTRATION', 'RUNNING', 'ENDED'].includes(runtimeStatus.value)
+      const currentStatus = runtimeStatus.value === 'ARCHIVED'
+        ? 'ARCHIVED'
+        : (runtimeStatus.value === 'HIDDEN' ? 'HIDDEN' : (isPublished ? 'PUBLISHED' : 'DRAFT'))
       formData.value = {
         title: res.data.title || '',
         slug: res.data.slug || '',
         type: 'THEORY',
-        status: runtimeStatus.value === 'ARCHIVED' ? 'ARCHIVED' : (isPublished ? 'PUBLISHED' : 'DRAFT'),
+        status: currentStatus,
         bannerUrl: res.data.bannerUrl || '',
         description: res.data.description || '',
         startTime: res.data.startTime || '',
         endTime: res.data.endTime || '',
         regStartTime: res.data.regStartTime || '',
         regEndTime: res.data.regEndTime || '',
-        requireTeamAudit: Boolean(res.data.requireTeamAudit)
+        requireTeamAudit: Boolean(res.data.requireTeamAudit),
+        minTeamMembers: res.data.minTeamMembers !== undefined && res.data.minTeamMembers !== null ? String(res.data.minTeamMembers) : '1',
+        maxTeamMembers: res.data.maxTeamMembers !== undefined && res.data.maxTeamMembers !== null ? String(res.data.maxTeamMembers) : '4',
+        maxLeaders: res.data.maxLeaders !== undefined && res.data.maxLeaders !== null ? String(res.data.maxLeaders) : '1',
+        maxTeams: res.data.maxTeams !== undefined && res.data.maxTeams !== null ? String(res.data.maxTeams) : '500',
+        regRequirements: res.data.regRequirements || ''
       }
       emit('updateTitle', res.data.title || '')
     }
@@ -243,10 +319,18 @@ async function handleSave() {
     message.warning(t('admin.competitions.time_required', '请填写竞赛起止时间'))
     return
   }
+  const minM = formData.value.minTeamMembers ? Number(formData.value.minTeamMembers) : undefined
+  const maxM = formData.value.maxTeamMembers ? Number(formData.value.maxTeamMembers) : undefined
+  if (minM !== undefined && maxM !== undefined && minM > maxM) {
+    message.warning('单队人数下限不能大于单队人数上限')
+    return
+  }
 
   saving.value = true
   try {
-    const targetStatus = formData.value.status === 'DRAFT' ? ('DRAFT' as CompetitionStatus) : ('PUBLISHED' as CompetitionStatus)
+    const targetStatus = formData.value.status === 'DRAFT'
+      ? ('DRAFT' as CompetitionStatus)
+      : (formData.value.status === 'HIDDEN' ? ('HIDDEN' as CompetitionStatus) : ('PUBLISHED' as CompetitionStatus))
     const payload = {
       title: formData.value.title.trim(),
       slug: formData.value.slug.trim(),
@@ -259,7 +343,12 @@ async function handleSave() {
       regStartTime: formatToInstant(formData.value.regStartTime),
       regEndTime: formatToInstant(formData.value.regEndTime),
       config: {
-        requireTeamAudit: formData.value.requireTeamAudit
+        requireTeamAudit: formData.value.requireTeamAudit,
+        minTeamMembers: minM,
+        maxTeamMembers: maxM,
+        maxLeaders: formData.value.maxLeaders ? Number(formData.value.maxLeaders) : undefined,
+        maxTeams: formData.value.maxTeams ? Number(formData.value.maxTeams) : undefined,
+        regRequirements: formData.value.regRequirements.trim() || undefined
       }
     }
 

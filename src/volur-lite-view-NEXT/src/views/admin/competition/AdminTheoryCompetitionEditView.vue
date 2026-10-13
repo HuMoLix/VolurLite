@@ -91,7 +91,7 @@ const activeTab = ref('basic')
 const competitionTitle = ref('')
 
 const tabs = computed<FilterOption<string>[]>(() => [
-  { value: 'basic', label: t('admin.competitions.tab_basic', '基本信息与排程'), icon: InformationCircleOutline },
+  { value: 'basic', label: t('admin.competitions.tab_basic', '基础信息'), icon: InformationCircleOutline },
   { value: 'challenges', label: t('admin.competitions.tab_challenges', '理论试卷考题'), icon: DocumentTextOutline },
   { value: 'announcements', label: t('admin.competitions.tab_announcements', '比赛公告'), icon: MegaphoneOutline },
   { value: 'teams', label: t('admin.competitions.tab_teams', '战队审核'), icon: PeopleOutline },

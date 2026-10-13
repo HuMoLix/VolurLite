@@ -42,6 +42,11 @@
           :comp-id="compId"
         />
 
+        <AdminCtfCompetitionSubmissionView
+          v-else-if="activeTab === 'submissions' && compId"
+          :comp-id="compId"
+        />
+
         <AdminCtfCompetitionWriteupView
           v-else-if="activeTab === 'writeups' && compId"
           :comp-id="compId"
@@ -65,6 +70,7 @@ import {
   FlagOutline,
   MegaphoneOutline,
   PeopleOutline,
+  CheckmarkDoneOutline,
   DocumentAttachOutline,
   ListOutline
 } from '@vicons/ionicons5'
@@ -74,6 +80,7 @@ import AdminCtfCompetitionDetailView from './AdminCtfCompetitionDetailView.vue'
 import AdminCtfCompetitionChallengeDetailView from './AdminCtfCompetitionChallengeDetailView.vue'
 import AdminCtfCompetitionAnnounceView from './AdminCtfCompetitionAnnounceView.vue'
 import AdminCtfCompetitionTeamView from './AdminCtfCompetitionTeamView.vue'
+import AdminCtfCompetitionSubmissionView from './AdminCtfCompetitionSubmissionView.vue'
 import AdminCtfCompetitionWriteupView from './AdminCtfCompetitionWriteupView.vue'
 import AdminCtfCompetitionLogView from './AdminCtfCompetitionLogView.vue'
 
@@ -91,10 +98,11 @@ const activeTab = ref('basic')
 const competitionTitle = ref('')
 
 const tabs = computed<FilterOption<string>[]>(() => [
-  { value: 'basic', label: t('admin.competitions.tab_basic', '基本信息与排程'), icon: InformationCircleOutline },
+  { value: 'basic', label: t('admin.competitions.tab_basic', '基础信息'), icon: InformationCircleOutline },
   { value: 'challenges', label: t('admin.competitions.tab_challenges', '赛题管理'), icon: FlagOutline },
   { value: 'announcements', label: t('admin.competitions.tab_announcements', '比赛公告'), icon: MegaphoneOutline },
   { value: 'teams', label: t('admin.competitions.tab_teams', '战队审核'), icon: PeopleOutline },
+  { value: 'submissions', label: t('admin.competitions.tab_submissions', '提交记录'), icon: CheckmarkDoneOutline },
   { value: 'writeups', label: t('admin.competitions.tab_writeups', '题解 WP'), icon: DocumentAttachOutline },
   { value: 'logs', label: t('admin.competitions.tab_logs', '比赛日志'), icon: ListOutline }
 ])

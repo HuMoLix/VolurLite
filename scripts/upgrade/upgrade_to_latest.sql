@@ -139,12 +139,40 @@ DROP PROCEDURE IF EXISTS `migrate_volur_schema_20260921`;
 DELIMITER //
 CREATE PROCEDURE `migrate_volur_schema_20260921`()
 BEGIN
-    -- 3.1 competition_config 表扩充 reg_requirements
+    -- 3.1 competition_config 表扩充 reg_requirements 及一二三血机制配置
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.COLUMNS 
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_config' AND COLUMN_NAME = 'reg_requirements'
     ) THEN
         ALTER TABLE `competition_config` ADD COLUMN `reg_requirements` text COLLATE utf8mb4_unicode_ci;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_config' AND COLUMN_NAME = 'enable_blood_bonus'
+    ) THEN
+        ALTER TABLE `competition_config` ADD COLUMN `enable_blood_bonus` tinyint(1) NOT NULL DEFAULT 1;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_config' AND COLUMN_NAME = 'first_blood_bonus_percentage'
+    ) THEN
+        ALTER TABLE `competition_config` ADD COLUMN `first_blood_bonus_percentage` int DEFAULT 10;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_config' AND COLUMN_NAME = 'second_blood_bonus_percentage'
+    ) THEN
+        ALTER TABLE `competition_config` ADD COLUMN `second_blood_bonus_percentage` int DEFAULT 5;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_config' AND COLUMN_NAME = 'third_blood_bonus_percentage'
+    ) THEN
+        ALTER TABLE `competition_config` ADD COLUMN `third_blood_bonus_percentage` int DEFAULT 2;
     END IF;
 
     -- 3.2 competition_team 表结构扩充

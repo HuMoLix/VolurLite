@@ -524,6 +524,9 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
         Optional<CompetitionMember> memberOpt = memberRepository.findMemberWithTeam(competitionId, userId);
         if (memberOpt.isPresent()) {
             CompetitionTeam team = memberOpt.get().getTeam();
+            if (team != null && team.getStatus() == TeamStatus.BANNED) {
+                throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队已被封禁，无法参加此场比赛");
+            }
             if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
                 return team;
             }
@@ -535,9 +538,15 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
         if (userId == null) {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
         }
-        CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
-        if (team != null) {
-            return;
+        Optional<CompetitionMember> memberOpt = memberRepository.findMemberWithTeam(competitionId, userId);
+        if (memberOpt.isPresent()) {
+            CompetitionTeam team = memberOpt.get().getTeam();
+            if (team != null && team.getStatus() == TeamStatus.BANNED) {
+                throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队已被封禁，无法参加此场比赛");
+            }
+            if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
+                return;
+            }
         }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));

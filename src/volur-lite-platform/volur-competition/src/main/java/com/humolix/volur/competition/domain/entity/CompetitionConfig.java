@@ -82,6 +82,22 @@ public class CompetitionConfig implements Serializable {
     @Column(name = "reg_requirements", columnDefinition = "TEXT")
     private String regRequirements;
 
+    @Column(name = "enable_blood_bonus", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    @Builder.Default
+    private Boolean enableBloodBonus = true;
+
+    @Column(name = "first_blood_bonus_percentage", columnDefinition = "INT DEFAULT 10")
+    @Builder.Default
+    private Integer firstBloodBonusPercentage = 10;
+
+    @Column(name = "second_blood_bonus_percentage", columnDefinition = "INT DEFAULT 5")
+    @Builder.Default
+    private Integer secondBloodBonusPercentage = 5;
+
+    @Column(name = "third_blood_bonus_percentage", columnDefinition = "INT DEFAULT 2")
+    @Builder.Default
+    private Integer thirdBloodBonusPercentage = 2;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Instant createdAt;

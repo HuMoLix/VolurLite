@@ -41,6 +41,10 @@ public class AdminCompetitionDetailVO implements Serializable {
     private Instant writeupStartTime;
     private Instant writeupEndTime;
     private String regRequirements;
+    private Boolean enableBloodBonus;
+    private Integer firstBloodBonusPercentage;
+    private Integer secondBloodBonusPercentage;
+    private Integer thirdBloodBonusPercentage;
     private Long createdById;
     private String createdByName;
     private Instant createdAt;

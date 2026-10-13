@@ -118,6 +118,9 @@ export interface VSelectionProps {
   consistentMenuWidth?: boolean
   placement?: PopoverPlacement
   loading?: boolean
+  to?: string | HTMLElement | false
+  zIndex?: number
+  menuProps?: Record<string, any>
 }
 
 export type VBtnClz = 'primary' | 'normal' | 'warning' | 'danger'

@@ -80,7 +80,7 @@ public class Competition implements Serializable {
     private Instant updatedAt;
 
     public CompetitionStatus resolveStatusByTime() {
-        if (this.status == null || this.status == CompetitionStatus.DRAFT || this.status == CompetitionStatus.ARCHIVED) {
+        if (this.status == null || this.status == CompetitionStatus.DRAFT || this.status == CompetitionStatus.ARCHIVED || this.status == CompetitionStatus.HIDDEN) {
             return this.status != null ? this.status : CompetitionStatus.DRAFT;
         }
         Instant now = Instant.now();

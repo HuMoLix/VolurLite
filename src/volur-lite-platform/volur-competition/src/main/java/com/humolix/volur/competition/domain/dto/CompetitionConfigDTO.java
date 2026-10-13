@@ -36,5 +36,12 @@ public class CompetitionConfigDTO {
     private java.time.Instant writeupEndTime;
 
     private String regRequirements;
+ 
+    private Boolean enableBloodBonus;
 
+    private Integer firstBloodBonusPercentage;
+
+    private Integer secondBloodBonusPercentage;
+
+    private Integer thirdBloodBonusPercentage;
 }

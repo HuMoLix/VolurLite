@@ -5,6 +5,7 @@ import com.humolix.volur.challenge.domain.enums.ChallengeType;
 import com.humolix.volur.competition.annotation.RequiredCompetitionStatus;
 import com.humolix.volur.competition.domain.dto.ctf.CtfFlagSubmitRequestDTO;
 import com.humolix.volur.competition.domain.entity.Competition;
+import com.humolix.volur.competition.domain.entity.CompetitionConfig;
 import com.humolix.volur.competition.domain.entity.CompetitionMember;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.entity.ctf.CtfCompetitionChallenge;
@@ -231,9 +232,28 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
         challengeRepository.save(compChallenge);
 
         boolean isFirstBlood = (newSolvesCount == 1);
-        int pointsAwarded = isFirstBlood ? (int) (newPoints * 1.1) : newPoints;
+        boolean isSecondBlood = (newSolvesCount == 2);
+        boolean isThirdBlood = (newSolvesCount == 3);
 
-        User user = userRepository.findById(userId).orElse(null);
+        CompetitionConfig config = competition.getConfig();
+        boolean enableBloodBonus = config != null && Boolean.TRUE.equals(config.getEnableBloodBonus());
+        int bonus = 0;
+        if (enableBloodBonus) {
+            int pct = 0;
+            if (isFirstBlood) {
+                pct = config.getFirstBloodBonusPercentage() != null ? config.getFirstBloodBonusPercentage() : 10;
+            } else if (isSecondBlood) {
+                pct = config.getSecondBloodBonusPercentage() != null ? config.getSecondBloodBonusPercentage() : 5;
+            } else if (isThirdBlood) {
+                pct = config.getThirdBloodBonusPercentage() != null ? config.getThirdBloodBonusPercentage() : 2;
+            }
+            if (pct > 0) {
+                bonus = (int) Math.round(newPoints * (pct / 100.0));
+            }
+        }
+        int pointsAwarded = newPoints + bonus;
+
+        User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
         CtfCompetitionSolved solved = CtfCompetitionSolved.builder()
                 .competition(competition)
                 .competitionChallenge(compChallenge)
@@ -246,11 +266,20 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
         solvedRepository.save(solved);
 
         List<CtfCompetitionSolved> allSolves = solvedRepository.findByCompetitionChallengeIdOrderBySolvedAtAsc(compChallenge.getId());
-        for (CtfCompetitionSolved s : allSolves) {
-            if (!s.getId().equals(solved.getId())) {
-                s.setPointsAwarded(s.getIsFirstBlood() ? (int) (newPoints * 1.1) : newPoints);
-                solvedRepository.save(s);
+        for (int i = 0; i < allSolves.size(); i++) {
+            CtfCompetitionSolved s = allSolves.get(i);
+            int itemBonus = 0;
+            if (enableBloodBonus) {
+                int pct = 0;
+                if (i == 0) pct = config.getFirstBloodBonusPercentage() != null ? config.getFirstBloodBonusPercentage() : 10;
+                else if (i == 1) pct = config.getSecondBloodBonusPercentage() != null ? config.getSecondBloodBonusPercentage() : 5;
+                else if (i == 2) pct = config.getThirdBloodBonusPercentage() != null ? config.getThirdBloodBonusPercentage() : 2;
+                if (pct > 0) {
+                    itemBonus = (int) Math.round(newPoints * (pct / 100.0));
+                }
             }
+            s.setPointsAwarded(newPoints + itemBonus);
+            solvedRepository.save(s);
         }
 
         cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "ctf:challenges:" + competitionId);
@@ -375,6 +404,9 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
         Optional<CompetitionMember> memberOpt = memberRepository.findMemberWithTeam(competitionId, userId);
         if (memberOpt.isPresent()) {
             CompetitionTeam team = memberOpt.get().getTeam();
+            if (team != null && team.getStatus() == TeamStatus.BANNED) {
+                throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队已被封禁，无法参加此场比赛");
+            }
             if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
                 return team;
             }
@@ -386,9 +418,15 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
         if (userId == null) {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
         }
-        CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
-        if (team != null) {
-            return;
+        Optional<CompetitionMember> memberOpt = memberRepository.findMemberWithTeam(competitionId, userId);
+        if (memberOpt.isPresent()) {
+            CompetitionTeam team = memberOpt.get().getTeam();
+            if (team != null && team.getStatus() == TeamStatus.BANNED) {
+                throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队已被封禁，无法参加此场比赛");
+            }
+            if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
+                return;
+            }
         }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));

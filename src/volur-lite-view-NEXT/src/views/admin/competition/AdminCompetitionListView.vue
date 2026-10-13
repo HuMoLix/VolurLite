@@ -176,7 +176,8 @@ const statusSelectOptions = computed(() => [
   { label: t('competition.status_running', '进行中'), value: 'RUNNING' },
   { label: t('competition.status_frozen', '已封榜'), value: 'FROZEN' },
   { label: t('competition.status_ended', '已结束'), value: 'ENDED' },
-  { label: t('competition.status_archived', '已归档'), value: 'ARCHIVED' }
+  { label: t('competition.status_archived', '已归档'), value: 'ARCHIVED' },
+  { label: t('competition.status_hidden', '隐藏'), value: 'HIDDEN' }
 ])
 
 function getStatusText(status: CompetitionStatus): string {
@@ -193,6 +194,8 @@ function getStatusText(status: CompetitionStatus): string {
       return t('competition.status_ended', '已结束')
     case 'ARCHIVED':
       return t('competition.status_archived', '已归档')
+    case 'HIDDEN':
+      return t('competition.status_hidden', '隐藏')
     default:
       return t('competition.status_draft', '草稿')
   }

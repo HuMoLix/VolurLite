@@ -7,8 +7,12 @@ import com.humolix.volur.competition.repository.CompetitionWriteupRepository;
 import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.logging.annotation.Syslog;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -24,14 +28,18 @@ public class AdminCompetitionWriteupController {
     private final CompetitionWriteupRepository writeupRepository;
 
     @GetMapping
-    public ApiResponseEntity<List<CompetitionWriteupVO>> listWriteups(
+    public ApiResponseEntity<PageResponse<CompetitionWriteupVO>> listWriteups(
             @PathVariable Long competitionId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword) {
 
+        int validPage = Math.max(page, 1);
+        int validSize = Math.max(size, 1);
+        Pageable pageable = PageRequest.of(validPage - 1, validSize);
         String kw = StringUtils.hasText(keyword) ? keyword.trim() : null;
-        List<CompetitionWriteup> list = writeupRepository.searchByCompetitionIdAndKeyword(competitionId, kw);
-        List<CompetitionWriteupVO> voList = list.stream().map(this::toVO).toList();
-        return ApiResponseEntity.ok("获取队伍 Writeup 列表成功", voList);
+        Page<CompetitionWriteup> pageResult = writeupRepository.searchByCompetitionIdAndKeyword(competitionId, kw, pageable);
+        return ApiResponseEntity.ok("获取队伍 Writeup 列表成功", PageResponse.of(pageResult.map(this::toVO)));
     }
 
     @GetMapping("/{writeupId}")

@@ -15,6 +15,7 @@ export type CompetitionStatus =
   | 'FROZEN'
   | 'ENDED'
   | 'ARCHIVED'
+  | 'HIDDEN'
 
 /** 队伍审核状态 */
 export type TeamStatus =
@@ -450,6 +451,7 @@ export interface CtfCompetitionChallengeVO {
   type?: string
   difficulty?: number | string
   initialPoints?: number
+  minPoints?: number
   currentPoints: number
   solvesCount: number
   sortOrder: number

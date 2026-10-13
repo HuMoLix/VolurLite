@@ -51,7 +51,8 @@ import type {
   CompetitionWriteupAuditDTO,
   AdminCompetitionLogVO,
   AdminCompetitionLogStatisticsVO,
-  AdminCompetitionLogQueryDTO
+  AdminCompetitionLogQueryDTO,
+  CtfCompetitionSubmissionVO
 } from '@/types/competition'
 
 export function getCompetitionListApi(
@@ -497,10 +498,20 @@ export function deleteAdminCompetitionAnnouncementApi(
 
 export function listAdminCompetitionWriteupsApi(
   competitionId: number | string,
-  params?: { keyword?: string }
-): Promise<ApiResponse<CompetitionWriteupVO[]>> {
-  return get<CompetitionWriteupVO[]>(
+  params?: { page?: number; size?: number; keyword?: string }
+): Promise<ApiResponse<PageResponse<CompetitionWriteupVO>>> {
+  return get<PageResponse<CompetitionWriteupVO>>(
     `/admin/competitions/${competitionId}/writeups`,
+    { params }
+  )
+}
+
+export function listAdminCtfSubmissionsApi(
+  competitionId: number | string,
+  params?: { page?: number; size?: number; challengeId?: number | string; keyword?: string }
+): Promise<ApiResponse<PageResponse<CtfCompetitionSubmissionVO>>> {
+  return get<PageResponse<CtfCompetitionSubmissionVO>>(
+    `/admin/competitions/${competitionId}/ctf/submissions`,
     { params }
   )
 }

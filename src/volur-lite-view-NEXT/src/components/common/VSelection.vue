@@ -13,6 +13,8 @@
     :consistent-menu-width="consistentMenuWidth"
     :placement="placement"
     :loading="loading"
+    :to="resolvedTo"
+    :menu-props="resolvedMenuProps"
     :theme-overrides="selectThemeOverrides"
     :style="{ '--v-selection-radius': resolvedRadius }"
     class="v-selection"
@@ -64,7 +66,10 @@ const props = withDefaults(defineProps<VSelectionProps>(), {
   maxTagCount: undefined,
   consistentMenuWidth: true,
   placement: 'bottom-start',
-  loading: false
+  loading: false,
+  to: undefined,
+  zIndex: undefined,
+  menuProps: undefined
 })
 
 const emit = defineEmits<{
@@ -91,6 +96,29 @@ const resolvedRadius = computed<string>(() => {
     return typeof props.radius === 'number' ? `${props.radius}px` : String(props.radius)
   }
   return '8px'
+})
+
+const resolvedTo = computed(() => {
+  if (props.to !== undefined) {
+    return props.to
+  }
+  if (props.zIndex !== undefined) {
+    return 'body'
+  }
+  return undefined
+})
+
+const resolvedMenuProps = computed(() => {
+  if (props.zIndex !== undefined) {
+    return {
+      ...(props.menuProps || {}),
+      style: {
+        zIndex: props.zIndex,
+        ...((props.menuProps && props.menuProps.style) || {})
+      }
+    }
+  }
+  return props.menuProps
 })
 
 const innerValue = computed<SelectValue>({

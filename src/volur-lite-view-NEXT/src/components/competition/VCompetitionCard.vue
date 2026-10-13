@@ -122,7 +122,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const effectiveStatus = computed<CompetitionStatus>(() => {
-  if (!props.competition.status || props.competition.status === 'DRAFT' || props.competition.status === 'ARCHIVED') {
+  if (!props.competition.status || props.competition.status === 'DRAFT' || props.competition.status === 'ARCHIVED' || props.competition.status === 'HIDDEN') {
     return props.competition.status || 'DRAFT'
   }
   const now = Date.now()
@@ -212,6 +212,8 @@ function getStatusText(status?: CompetitionStatus | null): string {
       return t('competition.status_ended')
     case 'ARCHIVED':
       return t('competition.status_archived')
+    case 'HIDDEN':
+      return t('competition.status_hidden')
     default:
       return status
   }

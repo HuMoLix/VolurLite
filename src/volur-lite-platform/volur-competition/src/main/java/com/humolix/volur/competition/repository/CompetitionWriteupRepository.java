@@ -34,4 +34,22 @@ public interface CompetitionWriteupRepository extends JpaRepository<CompetitionW
             @Param("competitionId") Long competitionId,
             @Param("keyword") String keyword);
 
+    @Query(value = "SELECT w FROM CompetitionWriteup w " +
+           "WHERE w.competitionId = :competitionId " +
+           "  AND (:keyword IS NULL OR :keyword = '' OR " +
+           "       LOWER(w.teamName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "       LOWER(w.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "       LOWER(w.fileName) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "ORDER BY w.createdAt DESC",
+           countQuery = "SELECT COUNT(w) FROM CompetitionWriteup w " +
+           "WHERE w.competitionId = :competitionId " +
+           "  AND (:keyword IS NULL OR :keyword = '' OR " +
+           "       LOWER(w.teamName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "       LOWER(w.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "       LOWER(w.fileName) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    org.springframework.data.domain.Page<CompetitionWriteup> searchByCompetitionIdAndKeyword(
+            @Param("competitionId") Long competitionId,
+            @Param("keyword") String keyword,
+            org.springframework.data.domain.Pageable pageable);
+
 }

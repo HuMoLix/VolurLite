@@ -355,6 +355,8 @@ function getStatusLabel(status?: CompetitionStatus | null): string {
       return t('competition.status_ended', '已结束')
     case 'ARCHIVED':
       return t('competition.status_archived', '已归档')
+    case 'HIDDEN':
+      return t('competition.status_hidden', '隐藏')
     case 'PENDING' as CompetitionStatus:
       return t('competition.status_pending', '未开始')
     default:

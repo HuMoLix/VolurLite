@@ -17,6 +17,7 @@
   "status_frozen": "已封榜",
   "status_ended": "已結束",
   "status_archived": "已歸檔",
+  "status_hidden": "隱藏",
   "start_time": "比賽時間",
   "end_time": "結束時間",
   "reg_time": "報名時間",

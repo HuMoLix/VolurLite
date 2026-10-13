@@ -486,7 +486,7 @@ const competitionIdentifier = computed(() => {
 
 const effectiveStatus = computed<CompetitionStatus | null>(() => {
   if (!competition.value) return null
-  if (competition.value.status === 'DRAFT' || competition.value.status === 'ARCHIVED') {
+  if (competition.value.status === 'DRAFT' || competition.value.status === 'ARCHIVED' || competition.value.status === 'HIDDEN') {
     return competition.value.status
   }
   const now = nowTimestamp.value
@@ -588,6 +588,8 @@ function getStatusText(status?: CompetitionStatus | null): string {
       return t('competition.status_ended', '已结束')
     case 'ARCHIVED':
       return t('competition.status_archived', '已归档')
+    case 'HIDDEN':
+      return t('competition.status_hidden', '隐藏')
     default:
       return '-'
   }

@@ -345,6 +345,16 @@ async function fetchCtfData() {
     }
     myTeam.value = currentTeam
 
+    if (currentTeam && currentTeam.status === 'BANNED') {
+      if (message) {
+        message.error(t('competition.team_banned', '您的战队已被封禁，无法参加此场比赛'))
+      }
+      const isShortLink = route.path.startsWith('/c/')
+      const slug = compData.slug || compData.id
+      router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
+      return
+    }
+
     const isAuthorized = Boolean(userStore.isAdmin) || (currentTeam !== null && currentTeam.status === 'AUDIT_PASSED')
     if (!isAuthorized) {
       if (message) {

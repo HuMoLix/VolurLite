@@ -8,6 +8,7 @@ export type CompetitionStatus =
   | 'ARCHIVED'
   | 'REGISTRATION'
   | 'FROZEN'
+  | 'HIDDEN'
 
 export interface CompetitionSummaryVO {
   id: number | string
@@ -283,6 +284,7 @@ export type TeamStatus =
   | 'AUDIT_PASSED'
   | 'AUDIT_REJECTED'
   | 'DISBANDED'
+  | 'BANNED'
 
 export type MemberRole = 'CAPTAIN' | 'MEMBER' | 'LEADER'
 
@@ -405,6 +407,7 @@ export interface CtfCompetitionChallengeVO {
   categoryName?: string
   difficulty?: string | number | null
   initialPoints?: number
+  minPoints?: number
   currentPoints: number
   solvesCount: number
   sortOrder?: number
@@ -579,6 +582,10 @@ export interface AdminCompetitionDetailVO {
   writeupStartTime?: string
   writeupEndTime?: string
   regRequirements?: string
+  enableBloodBonus?: boolean
+  firstBloodBonusPercentage?: number
+  secondBloodBonusPercentage?: number
+  thirdBloodBonusPercentage?: number
   config?: Record<string, any>
   createdAt: string
   updatedAt: string
@@ -632,6 +639,7 @@ export interface AdminTeamStatsVO {
   pending: number
   approved: number
   rejected: number
+  banned?: number
 }
 
 export interface AdminTeamDetailVO {
@@ -774,6 +782,21 @@ export interface CompositeScoreboardVO {
   isFrozen: boolean
   rankings: CompositeTeamScoreVO[]
 }
+
+export interface CtfCompetitionSubmissionVO {
+  id: number | string
+  userId?: number | string | null
+  username?: string | null
+  teamId?: number | string | null
+  teamName?: string | null
+  challengeId?: number | string | null
+  challengeName?: string | null
+  challengeCategory?: string | null
+  submittedFlag: string
+  status: 'CORRECT' | 'WRONG' | 'DUPLICATE' | 'INVALID' | string
+  createdAt: string
+}
+
 
 
 

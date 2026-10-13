@@ -17,6 +17,7 @@
   "status_frozen": "Frozen",
   "status_ended": "Finished",
   "status_archived": "Archived",
+  "status_hidden": "Hidden",
   "start_time": "Competition Time",
   "end_time": "End Time",
   "reg_time": "Registration Time",

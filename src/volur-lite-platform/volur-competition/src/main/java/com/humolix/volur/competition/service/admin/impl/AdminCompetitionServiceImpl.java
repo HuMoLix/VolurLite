@@ -161,6 +161,10 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
                 .writeupStartTime(cDTO != null ? cDTO.getWriteupStartTime() : null)
                 .writeupEndTime(cDTO != null ? cDTO.getWriteupEndTime() : null)
                 .regRequirements(cDTO != null ? cDTO.getRegRequirements() : null)
+                .enableBloodBonus(cDTO == null || cDTO.getEnableBloodBonus() == null || cDTO.getEnableBloodBonus())
+                .firstBloodBonusPercentage(cDTO != null && cDTO.getFirstBloodBonusPercentage() != null ? cDTO.getFirstBloodBonusPercentage() : 10)
+                .secondBloodBonusPercentage(cDTO != null && cDTO.getSecondBloodBonusPercentage() != null ? cDTO.getSecondBloodBonusPercentage() : 5)
+                .thirdBloodBonusPercentage(cDTO != null && cDTO.getThirdBloodBonusPercentage() != null ? cDTO.getThirdBloodBonusPercentage() : 2)
                 .build();
         configRepository.save(config);
 
@@ -198,7 +202,6 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
         if (request.getStartTime() != null) comp.setStartTime(request.getStartTime());
         if (request.getEndTime() != null) comp.setEndTime(request.getEndTime());
 
-        // 状态更新校验：人工仅允许在 DRAFT 与 PUBLISHED 之间切换；归档通过专用接口控制
         if (request.getStatus() != null) {
             if (comp.getStatus() == CompetitionStatus.ARCHIVED) {
                 if (request.getStatus() != CompetitionStatus.ARCHIVED) {
@@ -209,8 +212,9 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
                     throw new BusinessException(HttpStatus.BAD_REQUEST, "请使用专用归档接口对竞赛进行归档");
                 } else if (request.getStatus() == CompetitionStatus.DRAFT) {
                     comp.setStatus(CompetitionStatus.DRAFT);
+                } else if (request.getStatus() == CompetitionStatus.HIDDEN) {
+                    comp.setStatus(CompetitionStatus.HIDDEN);
                 } else {
-                    // request.getStatus() 为 PUBLISHED、RUNNING 或 ENDED 均视为发布态，重新根据时间计算当前实际运行状态
                     comp.setStatus(CompetitionStatus.PUBLISHED);
                     comp.refreshStatus();
                 }
@@ -240,6 +244,10 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
             if (cDTO.getWriteupStartTime() != null) config.setWriteupStartTime(cDTO.getWriteupStartTime());
             if (cDTO.getWriteupEndTime() != null) config.setWriteupEndTime(cDTO.getWriteupEndTime());
             if (cDTO.getRegRequirements() != null) config.setRegRequirements(cDTO.getRegRequirements());
+            if (cDTO.getEnableBloodBonus() != null) config.setEnableBloodBonus(cDTO.getEnableBloodBonus());
+            if (cDTO.getFirstBloodBonusPercentage() != null) config.setFirstBloodBonusPercentage(cDTO.getFirstBloodBonusPercentage());
+            if (cDTO.getSecondBloodBonusPercentage() != null) config.setSecondBloodBonusPercentage(cDTO.getSecondBloodBonusPercentage());
+            if (cDTO.getThirdBloodBonusPercentage() != null) config.setThirdBloodBonusPercentage(cDTO.getThirdBloodBonusPercentage());
 
             configRepository.save(config);
         }

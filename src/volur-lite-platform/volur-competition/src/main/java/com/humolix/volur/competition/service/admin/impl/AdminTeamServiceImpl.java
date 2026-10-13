@@ -111,12 +111,14 @@ public class AdminTeamServiceImpl implements AdminTeamService {
         long pending = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_DRAFT);
         long approved = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_PASSED);
         long rejected = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_REJECTED);
+        long banned = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.BANNED);
 
         return AdminTeamStatsVO.builder()
                 .total(total)
                 .pending(pending)
                 .approved(approved)
                 .rejected(rejected)
+                .banned(banned)
                 .build();
     }
 
@@ -217,7 +219,6 @@ public class AdminTeamServiceImpl implements AdminTeamService {
             team.setAuditReason(request.getAuditReason());
             teamRepository.save(team);
 
-            // 向全队成员（队长、队员、领队）推送驳回站内信
             Map<String, Object> rejectActionContext = new HashMap<>();
             rejectActionContext.put("competitionId", team.getCompetition().getId());
             if (team.getCompetition().getSlug() != null) {
@@ -246,6 +247,42 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                                     StringUtils.hasText(request.getAuditReason()) ? request.getAuditReason() : "无"))
                             .actionStatus(NotificationActionStatus.NONE)
                             .actionData(rejectActionData)
+                            .build());
+                }
+            }
+        } else if (request.getStatus() == TeamStatus.BANNED) {
+            team.setStatus(TeamStatus.BANNED);
+            team.setAuditReason(request.getAuditReason());
+            teamRepository.save(team);
+
+            Map<String, Object> banActionContext = new HashMap<>();
+            banActionContext.put("competitionId", team.getCompetition().getId());
+            if (team.getCompetition().getSlug() != null) {
+                banActionContext.put("slug", team.getCompetition().getSlug());
+            }
+            banActionContext.put("teamId", team.getId());
+            banActionContext.put("teamName", team.getTeamName());
+            String banActionData;
+            try {
+                banActionData = objectMapper.writeValueAsString(banActionContext);
+            } catch (Exception e) {
+                banActionData = "{}";
+            }
+
+            List<CompetitionMember> allMembers = memberRepository.findByTeamId(teamId);
+            for (CompetitionMember m : allMembers) {
+                if (m.getUser() != null) {
+                    eventPublisher.publishEvent(SendNotificationEvent.builder()
+                            .source(this)
+                            .senderId(null)
+                            .receiverId(m.getUser().getId())
+                            .type(NotificationType.COMPETITION_AUDIT)
+                            .title("【战队被封禁】战队「" + team.getTeamName() + "」已被封禁")
+                            .content(String.format("很遗憾，您所在的战队「%s」已被管理员在竞赛「%s」中封禁，无法继续参加此场比赛。原因: %s",
+                                    team.getTeamName(), team.getCompetition().getTitle(),
+                                    StringUtils.hasText(request.getAuditReason()) ? request.getAuditReason() : "违反竞赛规则"))
+                            .actionStatus(NotificationActionStatus.NONE)
+                            .actionData(banActionData)
                             .build());
                 }
             }

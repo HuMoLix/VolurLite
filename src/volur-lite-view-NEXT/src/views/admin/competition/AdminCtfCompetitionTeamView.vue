@@ -41,7 +41,7 @@
       </div>
     </div>
 
-    <div class="rounded-xl bg-white dark:bg-[#292a2d] border border-google-border-light dark:border-google-border-dark flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
       <div class="flex items-center gap-3 flex-wrap flex-1">
         <div class="w-64">
           <VInput
@@ -303,7 +303,8 @@ import {
   CheckmarkCircleOutline,
   CloseCircleOutline,
   TrashOutline,
-  InformationCircleOutline
+  InformationCircleOutline,
+  BanOutline
 } from '@vicons/ionicons5'
 import VBtn from '@/components/common/VBtn.vue'
 import VInput from '@/components/common/VInput.vue'
@@ -314,6 +315,7 @@ import VModal from '@/components/common/VModal.vue'
 import type {
   AdminTeamListVO,
   AdminTeamDetailVO,
+  AdminTeamStatsVO,
   CompetitionMemberVO
 } from '@/types/competition'
 import {
@@ -352,7 +354,7 @@ const loadingTeams = ref(false)
 const teamPage = ref(1)
 const teamPageSize = ref(10)
 const teamTotal = ref(0)
-const teamStats = ref({ total: 0, pending: 0, approved: 0, rejected: 0 })
+const teamStats = ref<AdminTeamStatsVO>({ total: 0, pending: 0, approved: 0, rejected: 0, banned: 0 })
 
 const searchKeyword = ref('')
 const selectedStatus = ref('')
@@ -375,7 +377,8 @@ const statusFilterOptions = [
   { label: '全部状态', value: '' },
   { label: '待审核', value: 'AUDIT_DRAFT' },
   { label: '已通过', value: 'AUDIT_PASSED' },
-  { label: '已驳回', value: 'AUDIT_REJECTED' }
+  { label: '已驳回', value: 'AUDIT_REJECTED' },
+  { label: '已封禁', value: 'BANNED' }
 ]
 
 const teamColumns = computed<DataTableColumns<AdminTeamListVO>>(() => [
@@ -416,12 +419,15 @@ const teamColumns = computed<DataTableColumns<AdminTeamListVO>>(() => [
     render(row) {
       const isApproved = row.status === 'AUDIT_PASSED'
       const isRejected = row.status === 'AUDIT_REJECTED'
-      const label = isApproved ? '已通过' : isRejected ? '已驳回' : '待审核'
+      const isBanned = row.status === 'BANNED'
+      const label = isApproved ? '已通过' : isRejected ? '已驳回' : isBanned ? '已封禁' : '待审核'
       const clz = isApproved
         ? 'text-green-600 dark:text-green-400 font-medium'
         : isRejected
           ? 'text-red-600 dark:text-red-400 font-medium'
-          : 'text-yellow-600 dark:text-yellow-400 font-medium'
+          : isBanned
+            ? 'text-red-700 dark:text-red-500 font-semibold'
+            : 'text-yellow-600 dark:text-yellow-400 font-medium'
       return h('span', { class: clz }, label)
     }
   },
@@ -436,11 +442,11 @@ const teamColumns = computed<DataTableColumns<AdminTeamListVO>>(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 270,
+    width: 320,
     align: 'center',
     render(row) {
       return h('div', { class: 'flex items-center justify-center gap-1.5' }, [
-        row.status !== 'AUDIT_PASSED'
+        row.status !== 'AUDIT_PASSED' && row.status !== 'BANNED'
           ? h(
               VBtn,
               {
@@ -452,7 +458,7 @@ const teamColumns = computed<DataTableColumns<AdminTeamListVO>>(() => [
               { default: () => '通过' }
             )
           : null,
-        row.status !== 'AUDIT_REJECTED'
+        row.status !== 'AUDIT_REJECTED' && row.status !== 'BANNED'
           ? h(
               VBtn,
               {
@@ -462,6 +468,18 @@ const teamColumns = computed<DataTableColumns<AdminTeamListVO>>(() => [
                 onClick: () => openRejectModal(row)
               },
               { default: () => '驳回' }
+            )
+          : null,
+        row.status !== 'BANNED'
+          ? h(
+              VBtn,
+              {
+                clz: 'danger',
+                size: 'small',
+                leftIcon: BanOutline,
+                onClick: () => handleBanSingle(row)
+              },
+              { default: () => '封禁' }
             )
           : null,
         h(
@@ -540,12 +558,14 @@ const memberColumns = computed<DataTableColumns<CompetitionMemberVO>>(() => [
 function getStatusText(status?: string): string {
   if (status === 'AUDIT_PASSED') return '已通过'
   if (status === 'AUDIT_REJECTED') return '已驳回'
+  if (status === 'BANNED') return '已封禁'
   return '待审核'
 }
 
 function getStatusTextColor(status?: string): string {
   if (status === 'AUDIT_PASSED') return 'text-green-600 dark:text-green-400'
   if (status === 'AUDIT_REJECTED') return 'text-red-600 dark:text-red-400'
+  if (status === 'BANNED') return 'text-red-700 dark:text-red-500'
   return 'text-yellow-600 dark:text-yellow-400'
 }
 
@@ -735,6 +755,28 @@ function handleBatchDelete() {
   })
 }
 
+function handleBanSingle(row: AdminTeamListVO) {
+  if (!props.compId) return
+  dialog.warning({
+    title: '封禁参赛队伍',
+    content: `确定要封禁战队「${row.teamName}」吗？被封禁后，该战队所有成员将无法再进入或参加本场比赛。`,
+    positiveText: '确认封禁',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await auditAdminTeamApi(props.compId, row.id, {
+          status: 'BANNED',
+          auditReason: '管理员执行封禁操作'
+        })
+        message.success('战队已成功封禁')
+        await fetchTeams()
+      } catch (err: any) {
+        message.error(err?.message || '封禁操作失败')
+      }
+    }
+  })
+}
+
 function handleDeleteSingle(row: AdminTeamListVO) {
   if (!props.compId) return
   dialog.warning({
@@ -778,7 +820,6 @@ async function initAuditSetting() {
       requireAudit.value = Boolean(res.data.requireTeamAudit)
     }
   } catch {
-    // Fail-safe init
   }
 }
 

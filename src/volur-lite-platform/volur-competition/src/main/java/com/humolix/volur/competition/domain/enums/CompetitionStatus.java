@@ -11,7 +11,8 @@ public enum CompetitionStatus implements EnumEntity {
     ENDED(3, "ENDED"),
     ARCHIVED(4, "ARCHIVED"),
     REGISTRATION(5, "REGISTRATION"),
-    FROZEN(6, "FROZEN");
+    FROZEN(6, "FROZEN"),
+    HIDDEN(7, "HIDDEN");
 
     private final int code;
     @JsonValue
