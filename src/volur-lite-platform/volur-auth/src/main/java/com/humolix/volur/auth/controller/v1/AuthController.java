@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth")
+@Deprecated(since = "1.0.0", forRemoval = true)
 public class AuthController {
 
     private final AuthService authService;
@@ -92,15 +93,6 @@ public class AuthController {
     @Syslog(module = "AUTH", value = "注销当前用户账号", logType = "AUTH")
     @PostMapping("/account/delete")
     public ApiResponseEntity<Void> deleteAccount(
-            @Valid @RequestBody DeleteAccountRequestDTO request,
-            HttpServletRequest httpRequest) {
-        authService.deleteAccount(request, httpRequest);
-        return ApiResponseEntity.success("账号注销成功");
-    }
-
-    @Syslog(module = "AUTH", value = "注销当前用户账号", logType = "AUTH")
-    @DeleteMapping("/account")
-    public ApiResponseEntity<Void> deleteAccountByDelete(
             @Valid @RequestBody DeleteAccountRequestDTO request,
             HttpServletRequest httpRequest) {
         authService.deleteAccount(request, httpRequest);

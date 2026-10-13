@@ -87,7 +87,7 @@ services:
   volur-nginx:
     image: volur-nginx:latest
     build:
-      context: ./src/volur-lite-view
+      context: ./src/volur-lite-view-NEXT
       dockerfile: Dockerfile
     container_name: volur-nginx
     depends_on:

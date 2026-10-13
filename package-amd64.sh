@@ -134,8 +134,8 @@ if [ "$SKIP_BUILD" = false ]; then
     docker build \
         --platform "$TARGET_PLATFORM" \
         -t volur-nginx:latest \
-        -f "$PROJECT_DIR/src/volur-lite-view/Dockerfile" \
-        "$PROJECT_DIR/src/volur-lite-view"
+        -f "$PROJECT_DIR/src/volur-lite-view-NEXT/Dockerfile" \
+        "$PROJECT_DIR/src/volur-lite-view-NEXT"
 else
     warn "已指定 --skip-build，跳过源码镜像构建阶段"
 fi
