@@ -285,7 +285,9 @@
                   ? 'bg-emerald-100 text-google-green dark:bg-emerald-950 dark:text-google-green-dark'
                   : rtcConnectionState === 'CALLING' || rtcConnectionState === 'CONNECTING'
                     ? 'bg-blue-100 text-google-blue dark:bg-blue-950 dark:text-google-blue-dark animate-pulse'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                    : rtcConnectionState === 'FAILED'
+                      ? 'bg-red-100 text-google-red dark:bg-red-950 dark:text-google-red-dark'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
               ]"
             >
               <span
@@ -344,26 +346,75 @@
         </div>
 
         <div v-else class="aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center border border-google-border-light dark:border-google-border-dark relative">
+          <img
+            v-if="currentDisplayFrame"
+            :src="currentDisplayFrame"
+            alt="Candidate Screen Fallback"
+            class="absolute inset-0 w-full h-full object-contain pointer-events-none select-none transition-opacity duration-300"
+            :class="rtcConnectionState === 'CONNECTED' ? 'opacity-0' : 'opacity-80'"
+          >
+
           <video
             ref="rtcVideoRef"
             autoplay
             playsinline
             muted
-            class="w-full h-full object-contain"
+            class="w-full h-full object-contain relative z-10 transition-opacity duration-300"
+            :class="rtcConnectionState === 'CONNECTED' ? 'opacity-100' : 'opacity-0'"
           />
 
           <div
             v-if="rtcConnectionState !== 'CONNECTED'"
-            class="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-gray-300 text-xs gap-3 p-6"
+            class="absolute inset-0 z-20 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-white text-xs gap-3 p-6 text-center"
           >
             <n-spin v-if="rtcConnectionState === 'CALLING' || rtcConnectionState === 'CONNECTING'" size="medium" />
-            <n-icon v-else :size="32" :component="VideocamOutline" class="text-gray-500" />
-            <span>{{ rtcStatusText }}</span>
+            <n-icon
+              v-else-if="rtcConnectionState === 'FAILED'"
+              :size="36"
+              :component="AlertCircleOutline"
+              class="text-google-red"
+            />
+            <n-icon
+              v-else
+              :size="36"
+              :component="VideocamOutline"
+              class="text-gray-400"
+            />
+
+            <div class="space-y-1 max-w-md">
+              <div class="font-medium text-sm text-white">
+                {{ rtcStatusText }}
+              </div>
+              <div v-if="rtcSubStatusText" class="text-[11px] text-gray-300">
+                {{ rtcSubStatusText }}
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 mt-1">
+              <VBtn
+                v-if="rtcConnectionState === 'FAILED' || rtcConnectionState === 'CLOSED'"
+                clz="primary"
+                size="small"
+                :left-icon="VideocamOutline"
+                :disabled="!selectedCandidate.isOnline || !selectedCandidate.screenActive"
+                @click="startRtcInspection"
+              >
+                重新发起连线
+              </VBtn>
+              <VBtn
+                clz="normal"
+                size="small"
+                :left-icon="EyeOutline"
+                @click="handleInspectModeChange('SNAPSHOT')"
+              >
+                查看静态快照
+              </VBtn>
+            </div>
           </div>
 
           <div
             v-if="rtcConnectionState === 'CONNECTED'"
-            class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/75 text-[10px] text-google-green font-mono flex items-center gap-1"
+            class="absolute bottom-2 right-2 z-20 px-2 py-0.5 rounded bg-black/75 text-[10px] text-google-green font-mono flex items-center gap-1"
           >
             <span>WebRTC P2P (30 FPS)</span>
           </div>
@@ -374,7 +425,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NIcon, NSpin, useMessage } from 'naive-ui'
 import {
@@ -383,7 +434,8 @@ import {
   EyeOutline,
   VideocamOutline,
   SparklesOutline,
-  CloseCircleOutline
+  CloseCircleOutline,
+  AlertCircleOutline
 } from '@vicons/ionicons5'
 import VBtn from '@/components/common/VBtn.vue'
 import VInput from '@/components/common/VInput.vue'
@@ -397,6 +449,7 @@ import {
 } from '@/api/competition'
 import type { AdminTheoryCandidateMonitorVO, TheoryProctorRtcSignalDTO } from '@/types/competition'
 import { getGlobalSseClient } from '@/utils/sse'
+import { getDefaultRtcConfiguration } from '@/utils/webrtc'
 
 defineOptions({
   name: 'AdminTheoryCompetitionTeamMonitor'
@@ -428,17 +481,12 @@ const rtcVideoRef = ref<HTMLVideoElement | null>(null)
 const rtcConnectionState = ref<RtcConnectionState>('IDLE')
 let rtcPeerConnection: RTCPeerConnection | null = null
 let currentSessionId = ''
+let currentRemoteStream: MediaStream | null = null
+let adminPendingIceCandidates: RTCIceCandidateInit[] = []
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let unsubSnapshotUpdated: (() => void) | null = null
 let unsubRtcSignal: (() => void) | null = null
-
-const rtcConfiguration: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ]
-}
 
 const onlineCount = computed(() => {
   return candidates.value.filter((c) => c.isOnline).length
@@ -496,7 +544,7 @@ const rtcStatusText = computed(() => {
     case 'CALLING':
       return '正在呼叫考生端并请求屏幕视频流...'
     case 'CONNECTING':
-      return 'ICE 打洞与 P2P 协商中...'
+      return 'STUN/ICE 打洞与 P2P 协商中...'
     case 'CONNECTED':
       return 'WebRTC P2P 已建立，实时桌面监看中'
     case 'FAILED':
@@ -505,6 +553,39 @@ const rtcStatusText = computed(() => {
       return '巡视已结束'
     default:
       return '未发起实时连线'
+  }
+})
+
+const rtcSubStatusText = computed(() => {
+  switch (rtcConnectionState.value) {
+    case 'CALLING':
+      return '已向考生端发送呼叫指令，正在等待考生端信令接入'
+    case 'CONNECTING':
+      return '正在通过公网 STUN 节点探测 NAT 穿透地址并交换 SDP'
+    case 'FAILED':
+      return '由于网络 NAT 限制、防火墙拦截或考生流异常导致 P2P 无法建立。当前呈现考生最新屏幕快照，可重试或切换至静态快照查验'
+    case 'CLOSED':
+      return '实时巡视已结束，当前呈现考生最新屏幕快照'
+    default:
+      return ''
+  }
+})
+
+function bindRemoteStreamToVideo() {
+  nextTick(() => {
+    if (rtcVideoRef.value && currentRemoteStream) {
+      if (rtcVideoRef.value.srcObject !== currentRemoteStream) {
+        rtcVideoRef.value.srcObject = currentRemoteStream
+      }
+      rtcVideoRef.value.play().catch(() => {})
+    }
+  })
+}
+
+watch(rtcVideoRef, (el) => {
+  if (el && currentRemoteStream) {
+    el.srcObject = currentRemoteStream
+    el.play().catch(() => {})
   }
 })
 
@@ -609,10 +690,12 @@ function stopRtcInspection() {
     }).catch(() => {})
   }
 
+  adminPendingIceCandidates = []
   if (rtcPeerConnection) {
     rtcPeerConnection.close()
     rtcPeerConnection = null
   }
+  currentRemoteStream = null
   if (rtcVideoRef.value) {
     rtcVideoRef.value.srcObject = null
   }
@@ -628,21 +711,27 @@ async function handleIncomingAdminRtcSignal(payload: any) {
 
   if (signal.type === 'OFFER' && signal.sdp) {
     rtcConnectionState.value = 'CONNECTING'
+    adminPendingIceCandidates = []
+    currentRemoteStream = null
+
     if (rtcPeerConnection) {
       rtcPeerConnection.close()
       rtcPeerConnection = null
     }
 
-    const pc = new RTCPeerConnection(rtcConfiguration)
+    const pc = new RTCPeerConnection(getDefaultRtcConfiguration())
     rtcPeerConnection = pc
 
     pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        if (rtcVideoRef.value) {
-          rtcVideoRef.value.srcObject = event.streams[0]
-          rtcVideoRef.value.play().catch(() => {})
+      const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track])
+      currentRemoteStream = stream
+      bindRemoteStreamToVideo()
+      rtcConnectionState.value = 'CONNECTED'
+
+      event.track.onended = () => {
+        if (rtcConnectionState.value === 'CONNECTED') {
+          rtcConnectionState.value = 'FAILED'
         }
-        rtcConnectionState.value = 'CONNECTED'
       }
     }
 
@@ -667,7 +756,21 @@ async function handleIncomingAdminRtcSignal(payload: any) {
       }
     }
 
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'failed') {
+        rtcConnectionState.value = 'FAILED'
+      }
+    }
+
     await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }))
+
+    while (adminPendingIceCandidates.length > 0) {
+      const cand = adminPendingIceCandidates.shift()
+      if (cand) {
+        await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {})
+      }
+    }
+
     const answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
 
@@ -680,13 +783,17 @@ async function handleIncomingAdminRtcSignal(payload: any) {
       })
     }
   } else if (signal.type === 'ICE' && signal.candidate) {
-    if (rtcPeerConnection) {
-      try {
-        const candidateInit = JSON.parse(signal.candidate)
+    try {
+      const candidateInit = JSON.parse(signal.candidate)
+      if (rtcPeerConnection && rtcPeerConnection.remoteDescription && rtcPeerConnection.remoteDescription.type) {
         await rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candidateInit))
-      } catch {}
-    }
+      } else {
+        adminPendingIceCandidates.push(candidateInit)
+      }
+    } catch {}
   } else if (signal.type === 'HANGUP') {
+    adminPendingIceCandidates = []
+    currentRemoteStream = null
     if (rtcPeerConnection) {
       rtcPeerConnection.close()
       rtcPeerConnection = null

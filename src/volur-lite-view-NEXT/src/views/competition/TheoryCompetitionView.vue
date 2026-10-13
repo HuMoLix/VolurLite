@@ -336,6 +336,7 @@ import {
   getMyTeamApi
 } from '@/api/competition'
 import { getGlobalSseClient } from '@/utils/sse'
+import { getDefaultRtcConfiguration } from '@/utils/webrtc'
 import type {
   CompetitionDetailVO,
   TheoryPaperExamVO,
@@ -564,15 +565,11 @@ async function reportViolation(eventType: TheoryCheatEventType, detail: string) 
 
 let highResCanvas: HTMLCanvasElement | null = null
 let candidatePeerConnection: RTCPeerConnection | null = null
+let candidatePendingIceCandidates: RTCIceCandidateInit[] = []
+let activeAdminUserId: number | string | null = null
+let activeAdminSessionId = ''
 let unsubSseSnapshotRequest: (() => void) | null = null
 let unsubSseRtcSignal: (() => void) | null = null
-
-const rtcConfiguration: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ]
-}
 
 function setupOffscreenVideo(stream: MediaStream) {
   if (typeof document === 'undefined') return
@@ -686,13 +683,27 @@ async function handleIncomingRtcSignal(payload: any) {
   const senderUserId = payload.senderUserId
 
   if (signal.type === 'CALL') {
-    if (!proctorStore.screenStream) return
+    if (!proctorStore.screenStream) {
+      if (senderUserId && signal.sessionId) {
+        sendTheoryProctorRtcSignalApi(competition.value.id, {
+          targetUserId: senderUserId,
+          type: 'HANGUP',
+          sessionId: signal.sessionId
+        }).catch(() => {})
+      }
+      return
+    }
+
+    activeAdminUserId = senderUserId
+    activeAdminSessionId = signal.sessionId || ''
+    candidatePendingIceCandidates = []
+
     if (candidatePeerConnection) {
       candidatePeerConnection.close()
       candidatePeerConnection = null
     }
 
-    const pc = new RTCPeerConnection(rtcConfiguration)
+    const pc = new RTCPeerConnection(getDefaultRtcConfiguration())
     candidatePeerConnection = pc
 
     const videoTrack = proctorStore.screenStream.getVideoTracks().find((t) => t.readyState === 'live')
@@ -725,19 +736,32 @@ async function handleIncomingRtcSignal(payload: any) {
       await candidatePeerConnection.setRemoteDescription(
         new RTCSessionDescription({ type: 'answer', sdp: signal.sdp })
       )
+      while (candidatePendingIceCandidates.length > 0) {
+        const cand = candidatePendingIceCandidates.shift()
+        if (cand) {
+          await candidatePeerConnection.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {})
+        }
+      }
     }
   } else if (signal.type === 'ICE') {
-    if (candidatePeerConnection && signal.candidate) {
+    if (signal.candidate) {
       try {
         const candidateInit = JSON.parse(signal.candidate)
-        await candidatePeerConnection.addIceCandidate(new RTCIceCandidate(candidateInit))
+        if (candidatePeerConnection && candidatePeerConnection.remoteDescription && candidatePeerConnection.remoteDescription.type) {
+          await candidatePeerConnection.addIceCandidate(new RTCIceCandidate(candidateInit))
+        } else {
+          candidatePendingIceCandidates.push(candidateInit)
+        }
       } catch {}
     }
   } else if (signal.type === 'HANGUP') {
+    candidatePendingIceCandidates = []
     if (candidatePeerConnection) {
       candidatePeerConnection.close()
       candidatePeerConnection = null
     }
+    activeAdminUserId = null
+    activeAdminSessionId = ''
   }
 }
 
@@ -771,10 +795,13 @@ function cleanupProctorRealtimeListeners() {
     unsubSseRtcSignal()
     unsubSseRtcSignal = null
   }
+  candidatePendingIceCandidates = []
   if (candidatePeerConnection) {
     candidatePeerConnection.close()
     candidatePeerConnection = null
   }
+  activeAdminUserId = null
+  activeAdminSessionId = ''
 }
 
 function stopProctoring() {
@@ -802,6 +829,17 @@ function initProctorSession() {
   const track = proctorStore.screenStream.getVideoTracks()[0]
   if (track) {
     track.onended = () => {
+      if (candidatePeerConnection && activeAdminUserId && activeAdminSessionId && competition.value?.id) {
+        sendTheoryProctorRtcSignalApi(competition.value.id, {
+          targetUserId: activeAdminUserId,
+          type: 'HANGUP',
+          sessionId: activeAdminSessionId
+        }).catch(() => {})
+      }
+      if (candidatePeerConnection) {
+        candidatePeerConnection.close()
+        candidatePeerConnection = null
+      }
       if (isExamStarted.value && !isSubmitted.value && !isBanned.value) {
         reportViolation('STOP_SCREEN_SHARE', '考生主动终止屏幕共享监控流')
       }

@@ -159,7 +159,7 @@
   --v-bg-card: var(--color-v3-surface, light-dark(#ffffff, #0e0e0e));
   --v-bg-surface: var(--color-v3-surface, light-dark(#ffffff, #1e1f20));
   --v-bg-elevated: var(--color-v3-surface-container-high, light-dark(#f1f3f4, #303134));
-  --sys-color-surface-container: var(--color-v3-surface-container, light-dark(#f0f4f9, #1e1f20));
+  --sys-color-surface-container: light-dark(#f0f4f9, #1e1f20);
   --v-text-primary: var(--color-v3-text, light-dark(#202124, #e3e3e3));
   --v-text-desc: var(--color-v3-text-var, light-dark(#3c4043, #bdc1c6));
   --v-text-muted: var(--color-v3-text-disable, light-dark(#5f6368, #9aa0a6));
