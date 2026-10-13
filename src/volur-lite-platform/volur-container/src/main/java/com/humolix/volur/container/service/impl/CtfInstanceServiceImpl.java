@@ -126,13 +126,13 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
         String dynamicFlag = dynamicFlagGenerator.generateFlag(challenge.getFlag(), flagContext);
         String resourceName = "volur-u" + userId + "-c" + challengeId + "-" + System.currentTimeMillis();
 
-        // 调度节点分配策略：普通用户随机分配拥有该镜像的 Worker 节点（若无 Worker 节点则调度到 Master；若节点缺失镜像则自动复制）
         String targetNodeIp = selectWorkerNodeForUser(challenge);
-        if (StringUtils.hasText(targetNodeIp) && StringUtils.hasText(challenge.getImageName())) {
+        String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
+
+        if ("DOCKER_SWARM".equalsIgnoreCase(containerType) && StringUtils.hasText(targetNodeIp) && StringUtils.hasText(challenge.getImageName())) {
             adminImageService.ensureImageOnNode(targetNodeIp, challenge.getImageName());
         }
 
-        String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
         ContainerRunResultDTO runResult = getRuntimeStrategy().startContainer(resourceName, challenge, dynamicFlag, cpu, mem, targetNodeIp);
 
         Instant now = Instant.now();

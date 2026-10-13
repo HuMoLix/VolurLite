@@ -61,6 +61,9 @@ export interface AdminImagePageRequestDTO {
 
 export interface AdminImagePullRequestDTO {
   image: string
+  authServer?: string
+  username?: string
+  password?: string
 }
 
 export interface AdminImageTransferDTO {

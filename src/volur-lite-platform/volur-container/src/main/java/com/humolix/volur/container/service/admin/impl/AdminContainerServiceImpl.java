@@ -283,12 +283,12 @@ public class AdminContainerServiceImpl implements AdminContainerService {
         String targetNodeIp = resolveTargetNodeIpForManualStart(request.getNodeIp(), resolvedImageName);
         request.setNodeIp(targetNodeIp);
 
-        // 如果目标节点未缓存该镜像，则从持有镜像的节点自动复制到目标节点
-        if (StringUtils.hasText(targetNodeIp)) {
+        String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
+
+        if ("DOCKER_SWARM".equalsIgnoreCase(containerType) && StringUtils.hasText(targetNodeIp)) {
             adminImageService.ensureImageOnNode(targetNodeIp, resolvedImageName);
         }
 
-        String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
         ContainerRunResultDTO runResult = "DOCKER_SWARM".equalsIgnoreCase(containerType)
                 ? dockerSwarmRuntimeStrategy.startManualContainer(request, resourceName, challenge, dynamicFlag)
                 : k3sRuntimeStrategy.startManualContainer(request, resourceName, challenge, dynamicFlag);

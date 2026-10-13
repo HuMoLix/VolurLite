@@ -16,6 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -49,16 +50,54 @@ public class DockerRegistryClient {
             int schemaVersion
     ) {}
 
+    private volatile String cachedActiveRegistryUrl = null;
+
+    private boolean checkRegistryUrl(String url) {
+        if (!StringUtils.hasText(url)) return false;
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url.trim() + "/v2/"))
+                    .timeout(DEFAULT_TIMEOUT)
+                    .GET()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 200 || response.statusCode() == 401;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public String resolveInternalRegistryUrl() {
-        String url = StringUtils.hasText(registryInternalUrl) ? registryInternalUrl.trim() : "http://volur-registry:5000";
-        if (url.contains("volur-registry")) {
+        if (StringUtils.hasText(cachedActiveRegistryUrl) && checkRegistryUrl(cachedActiveRegistryUrl)) {
+            return cachedActiveRegistryUrl;
+        }
+
+        List<String> candidates = new ArrayList<>();
+        String configured = StringUtils.hasText(registryInternalUrl) ? registryInternalUrl.trim() : "http://volur-registry:5000";
+        if (configured.contains("volur-registry")) {
             try {
                 InetAddress.getByName("volur-registry");
-            } catch (Exception e) {
-                return "http://127.0.0.1:" + registryPublicPort;
+                candidates.add(configured);
+            } catch (Exception ignored) {}
+        } else {
+            candidates.add(configured);
+        }
+
+        String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        if (StringUtils.hasText(publicHost) && !"127.0.0.1".equalsIgnoreCase(publicHost)) {
+            candidates.add("http://" + publicHost.trim() + ":" + registryPublicPort);
+        }
+
+        candidates.add("http://127.0.0.1:" + registryPublicPort);
+
+        for (String c : candidates) {
+            if (checkRegistryUrl(c)) {
+                cachedActiveRegistryUrl = c;
+                return c;
             }
         }
-        return url;
+
+        return candidates.get(0);
     }
 
     public String getPublicRegistryHost() {
@@ -70,40 +109,12 @@ public class DockerRegistryClient {
         return registryEnabled;
     }
 
-    /**
-     * 检测私有 Registry 服务存活与连通状态
-     */
     public boolean isAvailable() {
         if (!isRegistryEnabled()) {
             return false;
         }
-
-        String baseUrl = resolveInternalRegistryUrl();
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl + "/v2/"))
-                    .timeout(DEFAULT_TIMEOUT)
-                    .GET()
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            return response.statusCode() == 200 || response.statusCode() == 401; // 401 也代表服务存活运行
-        } catch (Exception e) {
-            // 本地开发环境降级尝试 127.0.0.1:5000
-            if (baseUrl.contains("volur-registry")) {
-                try {
-                    HttpRequest fallbackReq = HttpRequest.newBuilder()
-                            .uri(URI.create("http://127.0.0.1:5000/v2/"))
-                            .timeout(Duration.ofSeconds(2))
-                            .GET()
-                            .build();
-                    HttpResponse<String> fbRes = httpClient.send(fallbackReq, HttpResponse.BodyHandlers.ofString());
-                    return fbRes.statusCode() == 200 || fbRes.statusCode() == 401;
-                } catch (Exception ignored) {}
-            }
-            log.debug("[DockerRegistryClient] 探测私有镜像仓库 [{}] 不可用: {}", baseUrl, e.getMessage());
-            return false;
-        }
+        String resolved = resolveInternalRegistryUrl();
+        return checkRegistryUrl(resolved);
     }
 
     /**

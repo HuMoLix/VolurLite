@@ -214,6 +214,35 @@
             :placeholder="t('admin.images.pullModal.imageNamePlaceholder')"
           />
         </n-form-item>
+
+        <n-form-item :show-label="false" style="margin-top: -6px;">
+          <n-checkbox v-model:checked="pullForm.enableAuth">
+            配置私有仓库认证凭据 (拉取私有镜像/GHCR 时勾选)
+          </n-checkbox>
+        </n-form-item>
+
+        <template v-if="pullForm.enableAuth">
+          <n-form-item label="认证服务器 (Registry Host，可选)" path="authServer">
+            <n-input
+              v-model:value="pullForm.authServer"
+              placeholder="留空将自动从镜像前缀识别 (例如 ghcr.io)"
+            />
+          </n-form-item>
+          <n-form-item label="用户名 / GitHub 账号" path="username">
+            <n-input
+              v-model:value="pullForm.username"
+              placeholder="请输入账号用户名"
+            />
+          </n-form-item>
+          <n-form-item label="密码 / Personal Access Token (PAT)" path="password">
+            <n-input
+              v-model:value="pullForm.password"
+              type="password"
+              show-password-on="click"
+              placeholder="请输入密码或 Token (GHCR 需具备 read:packages 权限)"
+            />
+          </n-form-item>
+        </template>
       </n-form>
 
       <template #footer>
@@ -512,7 +541,8 @@ import {
 import type {
   AdminClusterImageVO,
   AdminClusterImageDetailVO,
-  AdminClusterImageStatisticsVO
+  AdminClusterImageStatisticsVO,
+  AdminImagePullRequestDTO
 } from '@/types/image'
 import { formatBytes } from '@/utils/parser'
 
@@ -551,7 +581,11 @@ const showPullModal = ref(false)
 const submittingPull = ref(false)
 const pullFormRef = ref<FormInst | null>(null)
 const pullForm = reactive({
-  image: ''
+  image: '',
+  enableAuth: false,
+  authServer: '',
+  username: '',
+  password: ''
 })
 
 const pullRules: FormRules = {
@@ -829,6 +863,10 @@ async function handleSubmitImport() {
 
 function openPullModal() {
   pullForm.image = ''
+  pullForm.enableAuth = false
+  pullForm.authServer = ''
+  pullForm.username = ''
+  pullForm.password = ''
   showPullModal.value = true
 }
 
@@ -836,17 +874,29 @@ async function handleSubmitPull() {
   if (!pullFormRef.value) return
   await pullFormRef.value.validate()
 
+  if (pullForm.enableAuth && (!pullForm.username.trim() || !pullForm.password.trim())) {
+    message.warning('启用私有认证后，请填写用户名与密码/Token')
+    return
+  }
+
   submittingPull.value = true
   try {
-    await pullAdminImageApi({
-      image: pullForm.image
-    })
+    const payload: AdminImagePullRequestDTO = {
+      image: pullForm.image.trim()
+    }
+    if (pullForm.enableAuth) {
+      if (pullForm.authServer.trim()) {
+        payload.authServer = pullForm.authServer.trim()
+      }
+      payload.username = pullForm.username.trim()
+      payload.password = pullForm.password.trim()
+    }
+    await pullAdminImageApi(payload)
     message.success(t('admin.images.pullModal.taskSubmitted'))
     showPullModal.value = false
     await fetchImages()
     await fetchStatistics()
   } catch {
-    // handled by axios interceptor
   } finally {
     submittingPull.value = false
   }

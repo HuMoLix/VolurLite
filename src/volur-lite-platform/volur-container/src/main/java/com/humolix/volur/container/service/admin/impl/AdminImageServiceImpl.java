@@ -32,6 +32,7 @@ import com.humolix.volur.system.domain.enums.AsyncTaskType;
 import com.humolix.volur.system.domain.vo.AdminAsyncTaskSubmitVO;
 import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.system.service.admin.AdminAsyncTaskService;
+import com.humolix.volur.system.service.admin.AsyncTaskContext;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -273,40 +274,59 @@ public class AdminImageServiceImpl implements AdminImageService {
                 "ADMIN",
                 request,
                 context -> {
+                    boolean needAuth = StringUtils.hasText(request.getUsername()) && StringUtils.hasText(request.getPassword());
+                    String targetAuthServer = needAuth ? resolveAuthServer(rawImage, request.getAuthServer()) : "";
                     try {
                         context.updateProgress(10, "正在连接主控节点并准备拉取源镜像: " + rawImage + "...");
                         if (context.isCancelled()) return;
 
-                        // 1. 本地/主控节点拉取源镜像
+                        if (needAuth) {
+                            context.updateProgress(15, "正在主控节点验证并登录镜像源 (" + targetAuthServer + ")...");
+                            executeDockerLogin(masterIp, targetAuthServer, request.getUsername(), request.getPassword());
+                        }
+
                         context.updateProgress(30, "正在主控节点执行 Docker Pull 拉取源镜像: " + rawImage + "...");
-                        triggerDockerPullOnNode(masterIp, rawImage);
+                        executeDockerPull(masterIp, rawImage, 600, context);
                         if (context.isCancelled()) return;
 
-                        // 2. 将镜像打标并推送至中心私有 Registry
                         long sizeBytes = 0L;
                         String digest = "";
-                        if (dockerRegistryClient.isAvailable()) {
-                            context.updateProgress(60, "源镜像拉取成功，正在打标并推送到中心私有 Registry...");
-                            String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
-                            String registryTag = publicRegistryHost + "/" + repository + ":" + tag;
-                            log.info("[AdminImageService] 正在将镜像打标并推送到中心私有 Registry: {}...", registryTag);
-                            tagDockerImageOnNode(masterIp, rawImage, registryTag);
-                            boolean pushed = triggerDockerPushOnNode(masterIp, registryTag);
-                            if (!pushed) {
-                                log.warn("[AdminImageService] 推送镜像至中心私有 Registry 失败: {}", registryTag);
-                            }
+                        if (!dockerRegistryClient.isAvailable()) {
+                            throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "中心私有镜像仓库未就绪或无法连通，无法执行镜像入库");
+                        }
 
-                            context.updateProgress(80, "正在获取 Registry Manifest 与镜像分层元数据...");
-                            DockerRegistryClient.RegistryManifestInfo manifest = dockerRegistryClient.getManifest(repository, tag);
-                            if (manifest != null) {
-                                sizeBytes = manifest.sizeBytes();
-                                digest = manifest.digest();
+                        context.updateProgress(60, "源镜像拉取成功，正在打标并推送到中心私有 Registry...");
+                        String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+                        String registryTag = publicRegistryHost + "/" + repository + ":" + tag;
+                        log.info("[AdminImageService] 正在将镜像打标并推送到中心私有 Registry: {}...", registryTag);
+                        tagDockerImageOnNode(masterIp, rawImage, registryTag);
+                        String pushErr = executeDockerPushWithOutput(masterIp, registryTag);
+                        if (StringUtils.hasText(pushErr)) {
+                            log.error("[AdminImageService] 推送镜像至中心私有 Registry 失败: {}", pushErr);
+                            String hint = pushErr.toLowerCase().contains("http") ? " (请检查宿主机 Docker 守护进程 /etc/docker/daemon.json 是否已配置 insecure-registries: [\"" + publicRegistryHost + "\"] 并重启 Docker)" : "";
+                            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "推送镜像至中心私有 Registry 失败: " + pushErr + hint);
+                        }
+
+                        context.updateProgress(80, "正在获取 Registry Manifest 与镜像分层元数据...");
+                        DockerRegistryClient.RegistryManifestInfo manifest = dockerRegistryClient.getManifest(repository, tag);
+                        if (manifest != null && manifest.sizeBytes() > 0) {
+                            sizeBytes = manifest.sizeBytes();
+                            digest = manifest.digest();
+                        } else {
+                            JSONObject inspect = queryDockerInspect(masterIp, registryTag);
+                            if (inspect == null) {
+                                inspect = queryDockerInspect(masterIp, rawImage);
+                            }
+                            if (inspect != null) {
+                                sizeBytes = inspect.getLong("Size", 0L);
+                                if (!StringUtils.hasText(digest)) {
+                                    digest = inspect.getStr("Id", "");
+                                }
                             }
                         }
 
                         if (context.isCancelled()) return;
 
-                        // 3. 同步至数据库记录 (标记 inRegistry = true, status = READY)
                         context.updateProgress(90, "正在同步更新数据库镜像元数据与集群拓扑...");
                         ClusterImage latest = clusterImageRepository.findById(imageId).orElse(null);
                         if (latest != null) {
@@ -333,7 +353,14 @@ public class AdminImageServiceImpl implements AdminImageService {
                             latest.setUpdatedAt(Instant.now());
                             clusterImageRepository.save(latest);
                         }
+                        if (ex instanceof BusinessException) {
+                            throw ex;
+                        }
                         throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "镜像拉取入库失败: " + ex.getMessage());
+                    } finally {
+                        if (needAuth) {
+                            executeDockerLogoutQuietly(masterIp, targetAuthServer);
+                        }
                     }
                 }
         );
@@ -459,6 +486,21 @@ public class AdminImageServiceImpl implements AdminImageService {
                     long sizeBytes = manifest != null ? manifest.sizeBytes() : 0L;
                     String digest = manifest != null ? manifest.digest() : "";
 
+                    if (sizeBytes <= 0) {
+                        String masterIp = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+                        String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+                        JSONObject inspect = queryDockerInspect(masterIp, publicRegistryHost + "/" + repo + ":" + tag);
+                        if (inspect == null) {
+                            inspect = queryDockerInspect(masterIp, repo + ":" + tag);
+                        }
+                        if (inspect != null) {
+                            sizeBytes = inspect.getLong("Size", 0L);
+                            if (!StringUtils.hasText(digest)) {
+                                digest = inspect.getStr("Id", "");
+                            }
+                        }
+                    }
+
                     Optional<ClusterImage> existingOpt = clusterImageRepository.findByRepositoryAndTag(repo, tag);
                     if (existingOpt.isPresent()) {
                         ClusterImage img = existingOpt.get();
@@ -492,18 +534,32 @@ public class AdminImageServiceImpl implements AdminImageService {
             log.warn("[AdminImageService] 扫描中心 Registry 出现异常: {}", e.getMessage());
         }
 
-        // 核心校验与清理：核验 MySQL 中的所有镜像记录，彻底清理未在 Registry 中托管或已不存在的孤儿镜像
+        if (registryDiscoveredKeys.isEmpty()) {
+            log.warn("[AdminImageService] 中心 Registry 未索引到任何镜像版本，跳过孤儿镜像清理以保护已有镜像元数据");
+            updateNodeImageCounts();
+            return;
+        }
+
         log.info("[AdminImageService] 正在比对核验 MySQL 镜像记录与中心 Registry 现状...");
         List<ClusterImage> allDbImages = clusterImageRepository.findAll();
         int deletedCount = 0;
+        String masterIp = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+        String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
 
         for (ClusterImage dbImg : allDbImages) {
+            if ("PULLING".equalsIgnoreCase(dbImg.getStatus())) {
+                continue;
+            }
             String key = dbImg.getRepository() + ":" + dbImg.getTag();
             boolean inRegistry = registryDiscoveredKeys.contains(key);
             if (!inRegistry || !Boolean.TRUE.equals(dbImg.getInRegistry())) {
-                clusterImageRepository.delete(dbImg);
-                deletedCount++;
-                log.info("[AdminImageService] 清除历史宿主机/非 Registry 孤儿镜像记录: {}", key);
+                boolean existsLocally = queryDockerInspect(masterIp, key) != null
+                        || queryDockerInspect(masterIp, publicRegistryHost + "/" + key) != null;
+                if (!existsLocally) {
+                    clusterImageRepository.delete(dbImg);
+                    deletedCount++;
+                    log.info("[AdminImageService] 清除历史宿主机/非 Registry 孤儿镜像记录: {}", key);
+                }
             }
         }
 
@@ -967,18 +1023,24 @@ public class AdminImageServiceImpl implements AdminImageService {
 
         Optional<ClusterImage> imageOpt = clusterImageRepository.findByRepositoryAndTag(repo, tag);
 
-        // 2. 在目标节点上通过 Docker Inspect 验证该镜像是否已实际物理就绪
         JSONObject inspectTarget = queryDockerInspect(targetIp, imageName);
         if (inspectTarget != null) {
             log.info("[AdminImageService] 目标节点 [{}] Docker 引擎已实际存在镜像 [{}]，校验通过", targetIp, imageName);
             return;
         }
 
-        // 3. 若镜像已存在于中心 Registry，优先从 Registry 快速拉取并重新打标
+        String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+        String registryImageTag = publicRegistryHost + "/" + imageName;
+
+        JSONObject inspectRegistryTag = queryDockerInspect(targetIp, registryImageTag);
+        if (inspectRegistryTag != null) {
+            tagDockerImageOnNode(targetIp, registryImageTag, imageName);
+            log.info("[AdminImageService] 目标节点 [{}] 已存在仓库打标镜像 [{}]，已补全标签 [{}]，校验通过", targetIp, registryImageTag, imageName);
+            return;
+        }
+
         boolean pulledFromRegistry = false;
         if (dockerRegistryClient.isAvailable() && imageOpt.isPresent() && Boolean.TRUE.equals(imageOpt.get().getInRegistry())) {
-            String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
-            String registryImageTag = publicRegistryHost + "/" + imageName;
             log.info("[AdminImageService] 镜像 [{}] 已索引于中心 Registry，尝试通过 Registry 快速下发至节点 [{}] (源: {})...",
                     imageName, targetIp, registryImageTag);
             try {
@@ -998,20 +1060,19 @@ public class AdminImageServiceImpl implements AdminImageService {
             return;
         }
 
-        // 4. 寻找持有该镜像的可用源节点
         String sourceNodeIp = null;
         List<ClusterNode> readyNodes = clusterNodeRepository.findByStatus("READY");
         String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
 
-        if (!targetIp.equalsIgnoreCase(publicHost) && queryDockerInspect(publicHost, imageName) != null) {
+        if (!targetIp.equalsIgnoreCase(publicHost) && (queryDockerInspect(publicHost, imageName) != null || queryDockerInspect(publicHost, registryImageTag) != null)) {
             sourceNodeIp = publicHost;
-        } else if (!targetIp.equals("127.0.0.1") && queryDockerInspect("127.0.0.1", imageName) != null) {
+        } else if (!targetIp.equals("127.0.0.1") && (queryDockerInspect("127.0.0.1", imageName) != null || queryDockerInspect("127.0.0.1", registryImageTag) != null)) {
             sourceNodeIp = "127.0.0.1";
         } else {
             for (ClusterNode node : readyNodes) {
                 String ip = node.getIpAddress();
                 if (StringUtils.hasText(ip) && !ip.equalsIgnoreCase(targetIp)) {
-                    if (queryDockerInspect(ip.trim(), imageName) != null) {
+                    if (queryDockerInspect(ip.trim(), imageName) != null || queryDockerInspect(ip.trim(), registryImageTag) != null) {
                         sourceNodeIp = ip.trim();
                         break;
                     }
@@ -1020,25 +1081,21 @@ public class AdminImageServiceImpl implements AdminImageService {
         }
 
         if (sourceNodeIp == null) {
-            // 集群其它节点未找到该镜像，尝试在目标节点直接 pull（公网 Hub 镜像容错）
             log.warn("[AdminImageService] 镜像 [{}] 在集群内其它在线节点均不存在，尝试直接在目标节点 [{}] 执行 pull", imageName, targetIp);
             triggerDockerPullOnNode(targetIp, imageName);
             return;
         }
 
-        // 5. 执行跨节点物理镜像复制（docker save 流式管道输送给 docker load）
         log.info("[AdminImageService] 检测到目标节点 [{}] 缺少镜像 [{}]，正在从节点 [{}] 复制镜像副本...",
                 targetIp, imageName, sourceNodeIp);
         replicateImageToNode(sourceNodeIp, targetIp, imageName);
 
-        // 6. 更新数据库镜像分布与节点计数
         if (imageOpt.isPresent()) {
             ClusterImage img = imageOpt.get();
             img.setUpdatedAt(Instant.now());
             clusterImageRepository.save(img);
             updateNodeImageCounts();
         } else {
-            // 若数据库无记录，自动探测并同步
             syncDiscoveredImageToRepository(new DiscoveredDockerImage(repo, tag, "", 0L), targetIp);
             updateNodeImageCounts();
         }
@@ -1051,17 +1108,30 @@ public class AdminImageServiceImpl implements AdminImageService {
         }
 
         String safeImageName = fullImageName.trim();
-        log.info("[AdminImageService] 开始执行跨节点镜像复制: {} ({} -> {})", safeImageName, sourceNodeIp, targetNodeIp);
+        String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+        String registryImageTag = publicRegistryHost + "/" + safeImageName;
+
+        String actualSourceTag = safeImageName;
+        if (queryDockerInspect(sourceNodeIp, safeImageName) == null && queryDockerInspect(sourceNodeIp, registryImageTag) != null) {
+            actualSourceTag = registryImageTag;
+        }
+
+        log.info("[AdminImageService] 开始执行跨节点镜像复制: {} (源实际标签: {}, {} -> {})", safeImageName, actualSourceTag, sourceNodeIp, targetNodeIp);
 
         List<String> saveCmd = buildDockerBaseCommand(sourceNodeIp);
         saveCmd.add("save");
-        saveCmd.add(safeImageName);
+        saveCmd.add(actualSourceTag);
 
         List<String> loadCmd = buildDockerBaseCommand(targetNodeIp);
         loadCmd.add("load");
 
         Process saveProcess = null;
         Process loadProcess = null;
+        StringBuilder saveErr = new StringBuilder();
+        StringBuilder loadErr = new StringBuilder();
+        Thread saveErrThread = null;
+        Thread loadErrThread = null;
+
         try {
             ProcessBuilder savePb = new ProcessBuilder(saveCmd);
             ProcessBuilder loadPb = new ProcessBuilder(loadCmd);
@@ -1072,16 +1142,13 @@ public class AdminImageServiceImpl implements AdminImageService {
             Process finalSave = saveProcess;
             Process finalLoad = loadProcess;
 
-            StringBuilder saveErr = new StringBuilder();
-            StringBuilder loadErr = new StringBuilder();
-
-            Thread saveErrThread = new Thread(() -> {
+            saveErrThread = new Thread(() -> {
                 try (BufferedReader r = new BufferedReader(new InputStreamReader(finalSave.getErrorStream(), StandardCharsets.UTF_8))) {
                     String l;
                     while ((l = r.readLine()) != null) saveErr.append(l).append("\n");
                 } catch (Exception ignored) {}
             });
-            Thread loadErrThread = new Thread(() -> {
+            loadErrThread = new Thread(() -> {
                 try (BufferedReader r = new BufferedReader(new InputStreamReader(finalLoad.getErrorStream(), StandardCharsets.UTF_8))) {
                     String l;
                     while ((l = r.readLine()) != null) loadErr.append(l).append("\n");
@@ -1093,7 +1160,6 @@ public class AdminImageServiceImpl implements AdminImageService {
             saveErrThread.start();
             loadErrThread.start();
 
-            // 流式高效直通管道
             try (InputStream is = saveProcess.getInputStream();
                  OutputStream os = loadProcess.getOutputStream()) {
                 is.transferTo(os);
@@ -1107,19 +1173,35 @@ public class AdminImageServiceImpl implements AdminImageService {
             loadErrThread.join(2000);
 
             if (!saveFinished || saveProcess.exitValue() != 0 || !loadFinished || loadProcess.exitValue() != 0) {
-                String errorDetails = String.format("save(exit=%s, err=%s), load(exit=%s, err=%s)",
+                String errorDetails = String.format("源节点 save(exit=%s, err=%s), 目标节点 load(exit=%s, err=%s)",
                         saveFinished ? saveProcess.exitValue() : "TIMEOUT", saveErr.toString().trim(),
                         loadFinished ? loadProcess.exitValue() : "TIMEOUT", loadErr.toString().trim());
                 log.error("[AdminImageService] 跨节点镜像复制失败: {}", errorDetails);
                 throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "跨节点复制镜像失败: " + errorDetails);
             }
 
+            if (!actualSourceTag.equals(safeImageName)) {
+                tagDockerImageOnNode(targetNodeIp, actualSourceTag, safeImageName);
+            }
+
             log.info("[AdminImageService] 跨节点镜像复制成功: {} 成功加载至目标节点 {}", safeImageName, targetNodeIp);
         } catch (BusinessException be) {
             throw be;
         } catch (Exception e) {
-            log.error("[AdminImageService] 跨节点镜像复制异常: {}", e.getMessage(), e);
-            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "跨节点复制镜像异常: " + e.getMessage());
+            if (saveErrThread != null) {
+                try { saveErrThread.join(1000); } catch (Exception ignored) {}
+            }
+            if (loadErrThread != null) {
+                try { loadErrThread.join(1000); } catch (Exception ignored) {}
+            }
+            String detail = "";
+            String se = saveErr.toString().trim();
+            String le = loadErr.toString().trim();
+            if (StringUtils.hasText(se) || StringUtils.hasText(le)) {
+                detail = String.format(" (源节点输出: [%s], 目标节点输出: [%s])", se, le);
+            }
+            log.error("[AdminImageService] 跨节点镜像复制异常: {}{}", e.getMessage(), detail, e);
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "跨节点复制镜像异常: " + e.getMessage() + detail);
         } finally {
             if (saveProcess != null && saveProcess.isAlive()) saveProcess.destroyForcibly();
             if (loadProcess != null && loadProcess.isAlive()) loadProcess.destroyForcibly();
@@ -1515,6 +1597,183 @@ public class AdminImageServiceImpl implements AdminImageService {
         }
     }
 
+    private String resolveAuthServer(String image, String explicitAuthServer) {
+        if (StringUtils.hasText(explicitAuthServer)) {
+            return explicitAuthServer.trim();
+        }
+        if (!StringUtils.hasText(image)) {
+            return "docker.io";
+        }
+        String cleanImage = image.trim();
+        int slashIdx = cleanImage.indexOf('/');
+        if (slashIdx != -1) {
+            String firstPart = cleanImage.substring(0, slashIdx);
+            if (firstPart.contains(".") || firstPart.contains(":") || "localhost".equalsIgnoreCase(firstPart)) {
+                return firstPart;
+            }
+        }
+        return "docker.io";
+    }
+
+    private void executeDockerLogin(String nodeIp, String authServer, String username, String password) {
+        List<String> command = buildDockerBaseCommand(nodeIp);
+        command.add("login");
+        command.add(authServer);
+        command.add("-u");
+        command.add(username);
+        command.add("--password-stdin");
+
+        Process process = null;
+        try {
+            ProcessBuilder pb = new ProcessBuilder(command);
+            process = pb.start();
+
+            StringBuilder stderr = new StringBuilder();
+            StringBuilder stdout = new StringBuilder();
+            Thread errThread = drainStreamAsync(process.getErrorStream(), stderr);
+            Thread outThread = drainStreamAsync(process.getInputStream(), stdout);
+
+            try (OutputStream os = process.getOutputStream()) {
+                os.write((password + "\n").getBytes(StandardCharsets.UTF_8));
+                os.flush();
+            }
+
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            errThread.join(2000);
+            outThread.join(2000);
+
+            if (!finished || process.exitValue() != 0) {
+                String err = stderr.toString().trim();
+                if (!StringUtils.hasText(err)) {
+                    err = stdout.toString().trim();
+                }
+                log.error("[AdminImageService] Docker login 失败: server={}, exitCode={}, err={}",
+                        authServer, finished ? process.exitValue() : "TIMEOUT", err);
+                throw new BusinessException(HttpStatus.UNAUTHORIZED, "Docker Registry 登录认证失败 (" + authServer + "): " + err);
+            }
+            log.info("[AdminImageService] 节点 [{}] 成功登录私有镜像源: {}", nodeIp, authServer);
+        } catch (BusinessException be) {
+            throw be;
+        } catch (Exception e) {
+            log.error("[AdminImageService] 执行 docker login 异常: server={}, err={}", authServer, e.getMessage(), e);
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "执行镜像源登录异常: " + e.getMessage());
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+    }
+
+    private void executeDockerLogoutQuietly(String nodeIp, String authServer) {
+        Process process = null;
+        try {
+            List<String> command = buildDockerBaseCommand(nodeIp);
+            command.add("logout");
+            command.add(authServer);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            process = pb.start();
+
+            StringBuilder stderr = new StringBuilder();
+            StringBuilder stdout = new StringBuilder();
+            Thread errThread = drainStreamAsync(process.getErrorStream(), stderr);
+            Thread outThread = drainStreamAsync(process.getInputStream(), stdout);
+
+            boolean finished = process.waitFor(15, TimeUnit.SECONDS);
+            errThread.join(1000);
+            outThread.join(1000);
+
+            if (finished && process.exitValue() == 0) {
+                log.info("[AdminImageService] 节点 [{}] 成功登出私有镜像源: {}", nodeIp, authServer);
+            } else {
+                log.warn("[AdminImageService] 节点 [{}] 登出镜像源返回异常: server={}, exitCode={}",
+                        nodeIp, authServer, finished ? process.exitValue() : "TIMEOUT");
+            }
+        } catch (Exception e) {
+            log.warn("[AdminImageService] 登出镜像源 [{}] 发生异常 (已忽略): {}", authServer, e.getMessage());
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+    }
+
+    private void executeDockerPull(String nodeIp, String imageName, int timeoutSeconds, AsyncTaskContext context) {
+        List<String> command = buildDockerBaseCommand(nodeIp);
+        command.add("pull");
+        command.add(imageName);
+
+        Process process = null;
+        try {
+            ProcessBuilder pb = new ProcessBuilder(command);
+            process = pb.start();
+
+            StringBuilder stderr = new StringBuilder();
+            StringBuilder stdout = new StringBuilder();
+            Thread errThread = drainStreamAsync(process.getErrorStream(), stderr);
+            Thread outThread = drainStreamAsync(process.getInputStream(), stdout);
+
+            long startTime = System.currentTimeMillis();
+            long maxDurationMs = timeoutSeconds * 1000L;
+
+            while (process.isAlive()) {
+                if (context != null && context.isCancelled()) {
+                    process.destroyForcibly();
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "镜像拉取任务已被取消");
+                }
+                if (System.currentTimeMillis() - startTime > maxDurationMs) {
+                    process.destroyForcibly();
+                    throw new BusinessException(HttpStatus.GATEWAY_TIMEOUT, "拉取镜像超时 (" + timeoutSeconds + " 秒)");
+                }
+                try {
+                    process.waitFor(1, TimeUnit.SECONDS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    process.destroyForcibly();
+                    throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "镜像拉取线程被中断");
+                }
+            }
+
+            errThread.join(3000);
+            outThread.join(3000);
+
+            if (process.exitValue() != 0) {
+                String err = stderr.toString().trim();
+                if (!StringUtils.hasText(err)) {
+                    err = stdout.toString().trim();
+                }
+                log.error("[AdminImageService] Docker pull 失败: image={}, exitCode={}, err={}",
+                        imageName, process.exitValue(), err);
+                throw new BusinessException(HttpStatus.BAD_GATEWAY, "拉取镜像失败 (" + imageName + "): " + err);
+            }
+            log.info("[AdminImageService] 节点 [{}] 成功拉取源镜像: {}", nodeIp, imageName);
+        } catch (BusinessException be) {
+            throw be;
+        } catch (Exception e) {
+            log.error("[AdminImageService] 执行 docker pull 异常: image={}, err={}", imageName, e.getMessage(), e);
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "执行镜像拉取异常: " + e.getMessage());
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+    }
+
+    private Thread drainStreamAsync(InputStream inputStream, StringBuilder targetBuffer) {
+        Thread thread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    targetBuffer.append(line).append("\n");
+                }
+            } catch (Exception ignored) {
+            }
+        });
+        thread.setDaemon(true);
+        thread.start();
+        return thread;
+    }
+
     private List<String> executeDockerLoadFromFile(String nodeIp, Path filePath) {
         List<String> loadedImages = new ArrayList<>();
         List<String> command = buildDockerBaseCommand(nodeIp);
@@ -1607,26 +1866,39 @@ public class AdminImageServiceImpl implements AdminImageService {
         }
     }
 
-    private boolean triggerDockerPushOnNode(String nodeIp, String registryImageName) {
+    private String executeDockerPushWithOutput(String nodeIp, String registryImageName) {
+        StringBuilder output = new StringBuilder();
         try {
             List<String> command = buildDockerBaseCommand(nodeIp);
             command.add("push");
             command.add(registryImageName);
 
             ProcessBuilder pb = new ProcessBuilder(command);
+            pb.redirectErrorStream(true);
             Process process = pb.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
             boolean finished = process.waitFor(300, TimeUnit.SECONDS);
             if (finished && process.exitValue() == 0) {
                 log.info("[AdminImageService] 节点 [{}] Docker push 成功: {}", nodeIp, registryImageName);
-                return true;
+                return null;
             } else {
-                log.error("[AdminImageService] 节点 [{}] Docker push 失败: exitCode={}", nodeIp, finished ? process.exitValue() : "TIMEOUT");
-                return false;
+                String err = output.toString().trim();
+                log.error("[AdminImageService] 节点 [{}] Docker push 失败: exitCode={}, output={}", nodeIp, finished ? process.exitValue() : "TIMEOUT", err);
+                return StringUtils.hasText(err) ? err : ("exitCode=" + (finished ? process.exitValue() : "TIMEOUT"));
             }
         } catch (Exception e) {
             log.error("[AdminImageService] 节点 [{}] Docker push 发生异常: {}", nodeIp, e.getMessage());
-            return false;
+            return e.getMessage();
         }
+    }
+
+    private boolean triggerDockerPushOnNode(String nodeIp, String registryImageName) {
+        return executeDockerPushWithOutput(nodeIp, registryImageName) == null;
     }
 
     private void triggerDockerRmiOnNode(String nodeIp, String imageName) {

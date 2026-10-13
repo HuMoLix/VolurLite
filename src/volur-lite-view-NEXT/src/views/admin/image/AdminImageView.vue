@@ -135,7 +135,7 @@
             class="w-full sm:w-auto"
             @click="showPullModal = true"
           >
-            {{ t('admin.images.pull_image', '拉取新镜像') }}
+            {{ t('admin.images.pull_image', '拉取镜像') }}
           </VBtn>
         </div>
       </div>
@@ -247,7 +247,7 @@
     <VModal
       v-model:show="showPullModal"
       :title="'拉取远程 Docker 镜像'"
-      :width="480"
+      :width="520"
     >
       <div class="flex flex-col gap-4 py-2">
         <div class="flex flex-col gap-1.5">
@@ -256,9 +256,57 @@
           </label>
           <VInput
             v-model:value="pullImageInput"
-            placeholder="'例如: alpine:latest 或 ctf/web:1.0'"
+            placeholder="'例如: alpine:latest 或 ghcr.io/org/challenge:v1'"
             clearable
           />
+        </div>
+
+        <div class="pt-2 border-t border-google-border-light dark:border-google-border-dark flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <VSelectBox
+              v-model="pullAuthForm.enabled"
+              label="配置私有仓库认证凭据 (拉取私有镜像/GHCR 时勾选)"
+            />
+          </div>
+
+          <div v-if="pullAuthForm.enabled" class="flex flex-col gap-3 p-3.5 rounded-xl bg-gray-50/70 dark:bg-google-surface-dark border border-google-border-light/80 dark:border-google-border-dark/80">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-medium text-google-text-desc dark:text-google-text-darkDesc">
+                认证服务器 (Registry Host，可选)
+              </label>
+              <VInput
+                v-model:value="pullAuthForm.authServer"
+                placeholder="'留空将自动从镜像前缀识别 (例如 ghcr.io)'"
+                clearable
+                size="small"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-medium text-google-text-desc dark:text-google-text-darkDesc">
+                用户名 / GitHub 账号 *
+              </label>
+              <VInput
+                v-model:value="pullAuthForm.username"
+                placeholder="'请输入账号用户名'"
+                clearable
+                size="small"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-medium text-google-text-desc dark:text-google-text-darkDesc">
+                密码 / Personal Access Token (PAT) *
+              </label>
+              <VInput
+                v-model:value="pullAuthForm.password"
+                type="password"
+                placeholder="'请输入密码或 Token (GHCR 需具备 read:packages 权限)'"
+                clearable
+                size="small"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -473,11 +521,13 @@ import VSearch from '@/components/common/VSearch.vue'
 import VPagination from '@/components/common/VPagination.vue'
 import VModal from '@/components/common/VModal.vue'
 import VInput from '@/components/common/VInput.vue'
+import VSelectBox from '@/components/common/VSelectBox.vue'
 import VDrawer from '@/components/sidebar/VDrawer.vue'
 import type {
   AdminClusterImageVO,
   AdminClusterImageDetailVO,
-  AdminClusterImageStatisticsVO
+  AdminClusterImageStatisticsVO,
+  AdminImagePullRequestDTO
 } from '@/types/image'
 import {
   getAdminImageStatisticsApi,
@@ -534,6 +584,12 @@ const importForm = ref({
 
 const showPullModal = ref(false)
 const pullImageInput = ref('')
+const pullAuthForm = ref({
+  enabled: false,
+  authServer: '',
+  username: '',
+  password: ''
+})
 
 const showTransferModal = ref(false)
 const transferImageId = ref<string | number | null>(null)
@@ -800,12 +856,34 @@ async function handleConfirmPull() {
     message.warning('请填写镜像地址')
     return
   }
+  if (pullAuthForm.value.enabled) {
+    if (!pullAuthForm.value.username.trim() || !pullAuthForm.value.password.trim()) {
+      message.warning('启用私有认证后，请填写用户名与密码/Token')
+      return
+    }
+  }
   pulling.value = true
   try {
-    await pullAdminImageApi({ image: pullImageInput.value.trim() })
+    const payload: AdminImagePullRequestDTO = {
+      image: pullImageInput.value.trim()
+    }
+    if (pullAuthForm.value.enabled) {
+      if (pullAuthForm.value.authServer.trim()) {
+        payload.authServer = pullAuthForm.value.authServer.trim()
+      }
+      payload.username = pullAuthForm.value.username.trim()
+      payload.password = pullAuthForm.value.password.trim()
+    }
+    await pullAdminImageApi(payload)
     message.success('拉取任务已提交至异步队列')
     showPullModal.value = false
     pullImageInput.value = ''
+    pullAuthForm.value = {
+      enabled: false,
+      authServer: '',
+      username: '',
+      password: ''
+    }
     await Promise.all([fetchStats(), fetchImages()])
   } catch (err: any) {
     message.error(err.message || '拉取任务提交失败')
