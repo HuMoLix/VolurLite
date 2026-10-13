@@ -39,8 +39,8 @@ Volur Lite Linux amd64 一键交付打包脚本
   ./package-amd64.sh [选项]
 
 选项:
-  --slim            [默认] 仅打包 volur-app 与 volur-nginx 核心业务镜像 (~130MB)，目标机器拉起时自动获取 MySQL/Redis
-  --full            全量离线交付包，包含全套 4 个 amd64 镜像 (volur-app, volur-nginx, mysql, redis)
+  --slim            [默认] 仅打包 volur-app 与 volur-nginx 核心业务镜像 (~130MB)，目标机器拉起时自动获取 MySQL/Redis/Registry
+  --full            全量离线交付包，包含全套 5 个 amd64 镜像 (volur-app, volur-nginx, mysql, redis, registry)
   --skip-build      跳过前后端源码镜像构建，直接导出本地已存在的 amd64 镜像
   -o, --output <名> 指定输出的 tar.gz 文件名 (默认: volur-lite-amd64.tar.gz)
   -h, --help        显示帮助信息
@@ -123,19 +123,24 @@ trap cleanup EXIT
 
 # 2. 编译 / 准备 amd64 镜像
 if [ "$SKIP_BUILD" = false ]; then
-    info "步骤 1/4: 正在交叉编译后端服务镜像 [$TARGET_PLATFORM -> volur-app:latest]..."
+    info "步骤 1/4: 正在并行交叉编译后端与前端镜像 [$TARGET_PLATFORM]..."
     docker build \
         --platform "$TARGET_PLATFORM" \
         -t volur-app:latest \
         -f "$PROJECT_DIR/src/volur-lite-platform/Dockerfile" \
-        "$PROJECT_DIR/src/volur-lite-platform"
+        "$PROJECT_DIR/src/volur-lite-platform" &
+    PID_APP=$!
 
-    info "步骤 1/4: 正在交叉编译前端服务镜像 [$TARGET_PLATFORM -> volur-nginx:latest]..."
     docker build \
         --platform "$TARGET_PLATFORM" \
         -t volur-nginx:latest \
         -f "$PROJECT_DIR/src/volur-lite-view-NEXT/Dockerfile" \
-        "$PROJECT_DIR/src/volur-lite-view-NEXT"
+        "$PROJECT_DIR/src/volur-lite-view-NEXT" &
+    PID_NGINX=$!
+
+    wait "$PID_APP" || { error "后端镜像编译失败"; exit 1; }
+    wait "$PID_NGINX" || { error "前端镜像编译失败"; exit 1; }
+    success "前后端镜像交叉编译完成！"
 else
     warn "已指定 --skip-build，跳过源码镜像构建阶段"
 fi
@@ -149,18 +154,20 @@ if [ "$MODE" == "full" ]; then
     docker pull --platform "$TARGET_PLATFORM" mysql:9.6.0
     info "拉取 redis:8.6.2-alpine ($TARGET_PLATFORM)..."
     docker pull --platform "$TARGET_PLATFORM" redis:8.6.2-alpine
-    IMAGES_TO_SAVE+=("mysql:9.6.0" "redis:8.6.2-alpine")
+    info "拉取 registry:2 ($TARGET_PLATFORM)..."
+    docker pull --platform "$TARGET_PLATFORM" registry:2
+    IMAGES_TO_SAVE+=("mysql:9.6.0" "redis:8.6.2-alpine" "registry:2")
 else
     info "步骤 2/4: Slim 模式下不打包基础组件，目标机拉起时将由 Docker 自动按需获取"
 fi
 
-# 4. 导出 Docker 镜像压缩包
-info "步骤 3/4: 正在导出并压缩 Docker 镜像为 volur-images.tar.gz (预计需要 1~2 分钟)..."
+# 4. 导出 Docker 镜像
+info "步骤 3/4: 正在导出 Docker 镜像为 volur-images.tar..."
 info "打包镜像清单: ${IMAGES_TO_SAVE[*]}"
 
-docker save "${IMAGES_TO_SAVE[@]}" | $COMPRESS_CMD > "$PKG_ROOT/volur-images.tar.gz"
-IMAGE_TAR_SIZE=$(du -h "$PKG_ROOT/volur-images.tar.gz" | cut -f1)
-success "Docker 镜像包导出完成，体积: $IMAGE_TAR_SIZE"
+docker save "${IMAGES_TO_SAVE[@]}" -o "$PKG_ROOT/volur-images.tar"
+IMAGE_TAR_SIZE=$(du -h "$PKG_ROOT/volur-images.tar" | cut -f1)
+success "Docker 镜像包导出完成，未压缩体积: $IMAGE_TAR_SIZE"
 
 # 5. 生成生产纯净版部署套件
 info "步骤 4/4: 正在装配独立部署运行套件..."
@@ -204,6 +211,19 @@ services:
       - volur-network
     restart: always
 
+  volur-registry:
+    image: registry:2
+    container_name: volur-registry
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    ports:
+      - "${REGISTRY_PORT:-5000}:5000"
+    volumes:
+      - ./data/registry:/var/lib/registry
+    networks:
+      - volur-network
+    restart: always
+
   volur-app:
     image: volur-app:latest
     container_name: volur-app
@@ -212,10 +232,12 @@ services:
         condition: service_healthy
       volur-redis:
         condition: service_healthy
+      volur-registry:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - SERVER_PORT=8080
       - VOLUR_MYSQL_HOST=volur-mysql
       - VOLUR_MYSQL_USER=${VOLUR_MYSQL_USER:-root}
@@ -224,6 +246,9 @@ services:
       - VOLUR_REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}
       - VOLUR_JWT_SECRET=${VOLUR_JWT_SECRET:-VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}
       - VOLUR_CONTAINER_DOCKER_HOST=unix:///var/run/docker.sock
+      - VOLUR_CONTAINER_REGISTRY_INTERNAL_URL=http://volur-registry:5000
+      - VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT=${REGISTRY_PORT:-5000}
+      - VOLUR_CONTAINER_REGISTRY_ENABLED=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./uploads:/app/uploads
@@ -260,6 +285,7 @@ elif [ -f "$PROJECT_DIR/.env.example" ]; then
 else
     cat <<'EOF' > "$PKG_ROOT/.env.example"
 NGINX_HTTP_PORT=80
+REGISTRY_PORT=5000
 VOLUR_MYSQL_USER=root
 VOLUR_MYSQL_PASSWORD=volur_mysql_secret_2026
 VOLUR_REDIS_PASSWORD=volur_redis_secret_2026
@@ -274,7 +300,7 @@ if [ -f "$PROJECT_DIR/scripts/upgrade/upgrade_to_latest.sql" ]; then
 fi
 
 # 5.4 数据持久化目录与权限占位
-mkdir -p "$PKG_ROOT/uploads"
+mkdir -p "$PKG_ROOT/uploads" "$PKG_ROOT/data/registry"
 
 # 5.4 一键启动脚本 start.sh
 cat <<'EOF' > "$PKG_ROOT/start.sh"
@@ -304,13 +330,13 @@ if ! docker info &>/dev/null; then
 fi
 
 # 2. 导入镜像离线包 (若存在)
-if [ -f "volur-images.tar.gz" ]; then
-    echo "==> 正在导入离线 Docker 镜像包 (volur-images.tar.gz)..."
-    gzip -dc volur-images.tar.gz | docker load
-    echo "==> 镜像导入完成！"
-elif [ -f "volur-images.tar" ]; then
+if [ -f "volur-images.tar" ]; then
     echo "==> 正在导入离线 Docker 镜像包 (volur-images.tar)..."
     docker load -i volur-images.tar
+    echo "==> 镜像导入完成！"
+elif [ -f "volur-images.tar.gz" ]; then
+    echo "==> 正在导入离线 Docker 镜像包 (volur-images.tar.gz)..."
+    gzip -dc volur-images.tar.gz | docker load
     echo "==> 镜像导入完成！"
 fi
 
@@ -321,7 +347,7 @@ if [ ! -f ".env" ] && [ -f ".env.example" ]; then
 fi
 
 # 4. 创建必要目录
-mkdir -p uploads
+mkdir -p uploads data/registry
 
 # 5. 针对 K3s 挂载文件的友好处理 (若无 K3s 挂载文件，避免 Docker 自动将其创建为目录)
 if [ ! -e "/etc/rancher/k3s/k3s.yaml" ]; then
@@ -385,17 +411,22 @@ chmod +x start.sh stop.sh
 
 ## 三、目录结构
 
-- `volur-images.tar.gz`：已打包的 amd64 Docker 镜像归档
+- `volur-images.tar`：已打包的 amd64 Docker 镜像归档
 - `docker-compose.yml`：轻量级容器编排文件
 - `.env`：系统环境变量配置文件（可修改端口、数据库密码等）
 - `start.sh`：一键导入镜像并拉起系统
 - `stop.sh`：一键关闭系统
 - `uploads/`：用户上传文件、题目附件与静态资源持久化目录
+- `data/registry/`：题目容器私有镜像持久化目录
 EOF
 
 # 6. 生成最终交付压缩包
 info "正在生成最终发布压缩包: $OUTPUT_FILE ..."
-tar -czvf "$OUTPUT_FILE" -C "$STAGING_DIR" volur-lite
+if [ "$COMPRESS_CMD" == "pigz" ]; then
+    tar -cf - -C "$STAGING_DIR" volur-lite | pigz > "$OUTPUT_FILE"
+else
+    tar -czf "$OUTPUT_FILE" -C "$STAGING_DIR" volur-lite
+fi
 
 FINAL_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
 echo "------------------------------------------------------------------"

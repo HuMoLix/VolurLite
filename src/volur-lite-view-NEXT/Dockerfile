@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
 
 WORKDIR /app
@@ -6,8 +5,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 RUN --mount=type=cache,target=/root/.npm \
+    sed -i 's#https://registry.npmjs.org#https://registry.npmmirror.com#g' package-lock.json && \
     npm config set registry https://registry.npmmirror.com && \
-    (npm ci --prefer-offline || npm install --registry=https://registry.npmmirror.com)
+    npm ci --prefer-offline
 
 COPY . .
 
