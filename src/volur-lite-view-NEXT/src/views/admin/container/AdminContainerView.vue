@@ -348,11 +348,28 @@ const tableColumns = computed<DataTableColumns<AdminContainerInstanceVO>>(() => 
   {
     title: '实例ID',
     key: 'containerId',
-    minWidth: 160,
+    minWidth: 180,
     render(row) {
-      return h('div', { class: 'space-y-0.5' }, [
-        h('div', { class: 'font-mono text-xs font-semibold text-google-text-primary dark:text-google-text-darkPrimary' }, row.containerId?.substring(0, 12) || String(row.id)),
-        row.challengeTitle ? h('div', { class: 'text-xs text-google-text-secondary dark:text-google-text-darkSecondary truncate max-w-xs' }, row.challengeTitle) : null
+      const displayId = row.containerId || String(row.id)
+      return h('div', { class: 'space-y-0.5 max-w-[260px]' }, [
+        h(
+          'div',
+          {
+            class: 'font-mono text-xs font-semibold text-google-text-primary dark:text-google-text-darkPrimary truncate',
+            title: displayId
+          },
+          displayId
+        ),
+        row.challengeTitle
+          ? h(
+              'div',
+              {
+                class: 'text-xs text-google-text-secondary dark:text-google-text-darkSecondary truncate',
+                title: row.challengeTitle
+              },
+              row.challengeTitle
+            )
+          : null
       ])
     }
   },
