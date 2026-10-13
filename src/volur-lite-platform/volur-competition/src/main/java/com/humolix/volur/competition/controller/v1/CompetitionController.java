@@ -7,10 +7,10 @@ import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
 import com.humolix.volur.competition.domain.vo.CompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.CompetitionSummaryVO;
 import com.humolix.volur.competition.service.CompetitionService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.api.SliceResponse;
+import com.humolix.volur.framework.security.annotation.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,7 +37,7 @@ public class CompetitionController {
             @RequestParam(defaultValue = "5") int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) CompetitionType type) {
-        return ApiResponseEntity.ok("获取竞赛列表成功", competitionService.listCompetitionSlice(page, size, keyword, type));
+        return ApiResponseEntity.ok("获取竞赛切片列表成功", competitionService.listCompetitionSlice(page, size, keyword, type));
     }
 
     @GetMapping("/by-slug/{slug}")
@@ -68,8 +68,10 @@ public class CompetitionController {
     }
 
     @GetMapping("/{id}/announcements")
-    public ApiResponseEntity<List<CompetitionAnnouncementVO>> listAnnouncements(@PathVariable Long id) {
-        return ApiResponseEntity.ok("获取竞赛公告成功", competitionService.listAnnouncements(id));
+    public ApiResponseEntity<List<CompetitionAnnouncementVO>> listAnnouncements(
+            @PathVariable Long id,
+            @CurrentUserId Long userId) {
+        return ApiResponseEntity.ok("获取竞赛公告成功", competitionService.listAnnouncements(id, userId));
     }
 
 }

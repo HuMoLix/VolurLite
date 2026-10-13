@@ -75,6 +75,16 @@ public class AdminImageController {
         adminImageService.exportImage(id, response);
     }
 
+    @Syslog(module = "IMAGE", value = "导入 Docker 镜像文件")
+    @PostMapping("/import")
+    public ApiResponseEntity<com.humolix.volur.system.domain.vo.AdminAsyncTaskSubmitVO> importImage(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "repository", required = false) String repository,
+            @RequestParam(value = "tag", required = false) String tag) {
+        com.humolix.volur.system.domain.vo.AdminAsyncTaskSubmitVO result = adminImageService.importImage(file, repository, tag);
+        return ApiResponseEntity.ok("镜像导入与中心入库任务已提交后台执行", result);
+    }
+
     @Syslog(module = "IMAGE", value = "推送镜像至中心镜像仓库", recordParams = true)
     @PostMapping("/{id}/push-registry")
     public ApiResponseEntity<Void> pushImageToRegistry(@PathVariable Long id) {

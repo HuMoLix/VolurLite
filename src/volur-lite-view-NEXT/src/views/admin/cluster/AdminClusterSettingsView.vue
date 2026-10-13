@@ -1,34 +1,12 @@
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div>
-        <h2 class="text-xl font-semibold text-google-text-primary dark:text-google-text-darkPrimary">
-          {{ t('admin.clusters.title', '集群设置') }}
-        </h2>
-        <p class="text-xs text-google-text-secondary dark:text-google-text-darkSecondary mt-1">
-          {{ t('admin.clusters.desc', 'Docker Swarm / K3s 靶机容器调度、分布式节点架构与集群拓扑管控') }}
-        </p>
-      </div>
-
-      <div class="flex items-center gap-2.5">
-        <VBtn
-          clz="normal"
-          size="small"
-          :left-icon="PulseOutline"
-          :loading="checkingHealth"
-          @click="handleCheckAllHealth"
-        >
-          {{ t('admin.clusters.check_all_nodes', '全节点存活对账') }}
-        </VBtn>
-        <VBtn
-          clz="primary"
-          size="small"
-          :left-icon="AddOutline"
-          @click="openAddNodeModal"
-        >
-          {{ t('admin.clusters.add_node_btn', '添加节点') }}
-        </VBtn>
-      </div>
+    <div>
+      <h2 class="text-xl font-semibold text-google-text-primary dark:text-google-text-darkPrimary">
+        {{ t('admin.clusters.title', '集群设置') }}
+      </h2>
+      <p class="text-xs text-google-text-secondary dark:text-google-text-darkSecondary mt-1">
+        {{ t('admin.clusters.desc', 'Docker Swarm / K3s 靶机容器调度、分布式节点架构与集群拓扑管控') }}
+      </p>
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -79,11 +57,12 @@
           v-model:value="activeTab"
           :options="tabOptions"
           size="medium"
+          @update:value="handleTabChange"
         />
       </div>
 
       <ParamsTab
-        v-if="activeTab === 'params'"
+        v-if="activeTab === 'settings'"
         :settings="settings"
         @saved="handleSettingsSaved"
       />
@@ -120,7 +99,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage } from 'naive-ui'
 import {
@@ -128,12 +108,9 @@ import {
   ShieldCheckmarkOutline,
   HardwareChipOutline,
   CheckmarkCircleOutline,
-  PulseOutline,
-  AddOutline,
   GitNetworkOutline,
   OptionsOutline
 } from '@vicons/ionicons5'
-import VBtn from '@/components/common/VBtn.vue'
 import VFilterBtnGroup from '@/components/common/VFilterBtnGroup.vue'
 import type { FilterOption } from '@/components/common/types'
 import type {
@@ -142,8 +119,7 @@ import type {
 } from '@/types/cluster'
 import {
   getAdminClusterSettingsApi,
-  getAdminClusterNodesApi,
-  checkAllAdminClusterNodesHealthApi
+  getAdminClusterNodesApi
 } from '@/api/cluster'
 import ParamsTab from './tabs/ParamsTab.vue'
 import NodesTab from './tabs/NodesTab.vue'
@@ -154,10 +130,12 @@ defineOptions({
   name: 'AdminClusterSettingsView'
 })
 
+const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const message = useMessage()
 
-const activeTab = ref<'params' | 'nodes' | 'topology'>('params')
+const activeTab = ref<'settings' | 'nodes' | 'topology'>('settings')
 
 const settings = reactive<AdminClusterSettingsVO>({
   containerType: 'DOCKER_SWARM',
@@ -173,10 +151,6 @@ const settings = reactive<AdminClusterSettingsVO>({
   k3sKubeconfigPath: '',
   k3sToken: '',
   resourceIsolationEnabled: true,
-  registryEnabled: true,
-  registryInternalUrl: 'http://volur-registry:5000',
-  registryPublicPort: 5000,
-  registryOnline: false,
   totalNodes: 0,
   masterNodes: 0,
   workerNodes: 0,
@@ -185,30 +159,55 @@ const settings = reactive<AdminClusterSettingsVO>({
 
 const nodes = ref<AdminClusterNodeVO[]>([])
 const loadingNodes = ref(false)
-const checkingHealth = ref(false)
 
 const nodeModalVisible = ref(false)
 const nodeModalMode = ref<'add' | 'edit'>('add')
 const selectedNode = ref<AdminClusterNodeVO | null>(null)
 
-const tabOptions = computed<FilterOption<'params' | 'nodes' | 'topology'>[]>(() => [
+const tabOptions = computed<FilterOption<'settings' | 'nodes' | 'topology'>[]>(() => [
   {
-    value: 'params',
-    label: t('admin.clusters.tabs.params', '集群调度配置'),
+    value: 'settings',
+    label: t('admin.clusters.tabs.settings', '集群设置'),
     icon: OptionsOutline
   },
   {
     value: 'nodes',
-    label: t('admin.clusters.tabs.nodes', '节点拓扑列表'),
+    label: t('admin.clusters.tabs.nodes', '节点管理'),
     icon: GitNetworkOutline,
     count: nodes.value.length
   },
   {
     value: 'topology',
-    label: t('admin.clusters.tabs.topology', '架构拓扑可视化'),
+    label: t('admin.clusters.tabs.topology', '集群拓扑'),
     icon: HardwareChipOutline
   }
 ])
+
+function syncTabFromRoute() {
+  if (route.path.endsWith('/nodes')) {
+    activeTab.value = 'nodes'
+  } else if (route.path.endsWith('/topology')) {
+    activeTab.value = 'topology'
+  } else {
+    activeTab.value = 'settings'
+  }
+}
+
+watch(
+  () => route.path,
+  () => {
+    syncTabFromRoute()
+  },
+  { immediate: true }
+)
+
+function handleTabChange(tab: 'settings' | 'nodes' | 'topology') {
+  activeTab.value = tab
+  const targetPath = `/admin/clusters/${tab}`
+  if (route.path !== targetPath) {
+    router.push(targetPath)
+  }
+}
 
 async function fetchSettings() {
   try {
@@ -259,19 +258,6 @@ function openEditNodeModal(node: AdminClusterNodeVO) {
 
 async function handleNodeModalSuccess() {
   await Promise.all([fetchNodes(), fetchSettings()])
-}
-
-async function handleCheckAllHealth() {
-  checkingHealth.value = true
-  try {
-    await checkAllAdminClusterNodesHealthApi()
-    message.success('全节点存活与资源健康检测完成')
-    await Promise.all([fetchSettings(), fetchNodes()])
-  } catch (err: any) {
-    message.error(err.message || '检测失败')
-  } finally {
-    checkingHealth.value = false
-  }
 }
 
 onMounted(() => {

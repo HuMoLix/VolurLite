@@ -45,6 +45,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.io.*;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -55,6 +57,8 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -747,6 +751,137 @@ public class AdminImageServiceImpl implements AdminImageService {
     }
 
     @Override
+    public AdminAsyncTaskSubmitVO importImage(MultipartFile file, String customRepository, String customTag) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "请选择需要上传的 Docker 镜像归档文件");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (!StringUtils.hasText(originalFilename)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "上传文件名无效");
+        }
+        String lowerName = originalFilename.trim().toLowerCase();
+        if (!lowerName.endsWith(".tar") && !lowerName.endsWith(".tar.gz") && !lowerName.endsWith(".tgz")) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "仅支持导入 .tar, .tar.gz 或 .tgz 格式的 Docker 镜像归档文件");
+        }
+        if (!dockerRegistryClient.isAvailable()) {
+            throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "中心私有镜像仓库未就绪或未启动，无法执行镜像导入");
+        }
+
+        Path tempFilePath;
+        try {
+            String suffix = lowerName.endsWith(".tar.gz") ? ".tar.gz" : (lowerName.endsWith(".tgz") ? ".tgz" : ".tar");
+            tempFilePath = Files.createTempFile("volur-image-import-", suffix);
+            file.transferTo(tempFilePath);
+        } catch (IOException e) {
+            log.error("[AdminImageService] 镜像上传文件落盘失败: {}", e.getMessage(), e);
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "临时文件写入失败: " + e.getMessage());
+        }
+
+        String taskName = "镜像导入入库: " + originalFilename;
+        String masterIp = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
+
+        Map<String, Object> taskParams = new HashMap<>();
+        taskParams.put("filename", originalFilename);
+        taskParams.put("sizeBytes", file.getSize());
+        if (StringUtils.hasText(customRepository)) {
+            taskParams.put("repository", customRepository.trim());
+        }
+        if (StringUtils.hasText(customTag)) {
+            taskParams.put("tag", customTag.trim());
+        }
+
+        return adminAsyncTaskService.submitTask(
+                AsyncTaskType.IMAGE_IMPORT,
+                taskName,
+                null,
+                "ADMIN",
+                taskParams,
+                context -> {
+                    try {
+                        context.updateProgress(10, "文件已成功上传，正在准备加载 Docker 镜像: " + originalFilename + "...");
+                        if (context.isCancelled()) return;
+
+                        context.updateProgress(30, "正在主控节点 Docker 中执行镜像解压与加载 (docker load)...");
+                        List<String> loadedImages = executeDockerLoadFromFile(masterIp, tempFilePath);
+                        if (context.isCancelled()) return;
+
+                        if (loadedImages.isEmpty() && !StringUtils.hasText(customRepository)) {
+                            throw new BusinessException(HttpStatus.BAD_REQUEST, "未能在镜像文件中检测到有效镜像名称，请手动指定仓库名称与标签后重新导入");
+                        }
+
+                        String sourceImage = !loadedImages.isEmpty() ? loadedImages.getFirst() : "";
+                        String targetRepo;
+                        String targetTag;
+
+                        if (StringUtils.hasText(customRepository)) {
+                            targetRepo = customRepository.trim();
+                            targetTag = StringUtils.hasText(customTag) ? customTag.trim() : "latest";
+                        } else {
+                            int lastColon = sourceImage.lastIndexOf(':');
+                            if (lastColon > 0 && !sourceImage.substring(lastColon + 1).contains("/")) {
+                                targetRepo = sourceImage.substring(0, lastColon);
+                                targetTag = sourceImage.substring(lastColon + 1);
+                            } else {
+                                targetRepo = sourceImage;
+                                targetTag = "latest";
+                            }
+                        }
+
+                        context.updateProgress(65, "镜像加载完成，正在打标并推送至中心私有 Registry...");
+                        String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+                        String registryTag = publicRegistryHost + "/" + targetRepo + ":" + targetTag;
+
+                        tagDockerImageOnNode(masterIp, StringUtils.hasText(sourceImage) ? sourceImage : targetRepo + ":" + targetTag, registryTag);
+                        boolean pushSuccess = triggerDockerPushOnNode(masterIp, registryTag);
+                        if (!pushSuccess) {
+                            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "推送镜像至中心私有 Registry 失败: " + registryTag);
+                        }
+                        if (context.isCancelled()) return;
+
+                        context.updateProgress(85, "正在获取 Registry Manifest 并同步数据库元数据...");
+                        DockerRegistryClient.RegistryManifestInfo manifest = dockerRegistryClient.getManifest(targetRepo, targetTag);
+                        long sizeBytes = manifest != null ? manifest.sizeBytes() : Files.size(tempFilePath);
+                        String digest = manifest != null ? manifest.digest() : "";
+
+                        Optional<ClusterImage> existingOpt = clusterImageRepository.findByRepositoryAndTag(targetRepo, targetTag);
+                        ClusterImage image;
+                        if (existingOpt.isPresent()) {
+                            image = existingOpt.get();
+                            image.setInRegistry(true);
+                            image.setStatus("READY");
+                            if (sizeBytes > 0) image.setSizeBytes(sizeBytes);
+                            if (StringUtils.hasText(digest)) image.setImageId(digest);
+                            image.setUpdatedAt(Instant.now());
+                        } else {
+                            image = ClusterImage.builder()
+                                    .repository(targetRepo)
+                                    .tag(targetTag)
+                                    .imageId(digest)
+                                    .sizeBytes(sizeBytes)
+                                    .inRegistry(true)
+                                    .status("READY")
+                                    .createdAt(Instant.now())
+                                    .updatedAt(Instant.now())
+                                    .build();
+                        }
+                        clusterImageRepository.save(image);
+                        updateNodeImageCounts();
+
+                        context.updateProgress(100, "镜像导入与中心私有 Registry 入库顺利完成: " + targetRepo + ":" + targetTag);
+                        log.info("[AdminImageService] 异步镜像导入任务成功完成: {}:{}", targetRepo, targetTag);
+                    } catch (Exception ex) {
+                        log.error("[AdminImageService] 异步导入镜像任务异常: {}", ex.getMessage(), ex);
+                        throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "镜像导入入库失败: " + ex.getMessage());
+                    } finally {
+                        try {
+                            Files.deleteIfExists(tempFilePath);
+                        } catch (Exception ignored) {}
+                    }
+                }
+        );
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void pushImageToRegistry(Long id) {
         if (id == null) {
@@ -1378,6 +1513,78 @@ public class AdminImageServiceImpl implements AdminImageService {
         } catch (Exception e) {
             log.warn("[AdminImageService] 调度节点 [{}] docker pull 提示: {}，已记录镜像元数据", nodeIp, e.getMessage());
         }
+    }
+
+    private List<String> executeDockerLoadFromFile(String nodeIp, Path filePath) {
+        List<String> loadedImages = new ArrayList<>();
+        List<String> command = buildDockerBaseCommand(nodeIp);
+        command.add("load");
+
+        Process process = null;
+        try {
+            ProcessBuilder pb = new ProcessBuilder(command);
+            process = pb.start();
+
+            Process currentProcess = process;
+            StringBuilder stderr = new StringBuilder();
+            Thread errThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(currentProcess.getErrorStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        stderr.append(line).append("\n");
+                    }
+                } catch (Exception ignored) {}
+            });
+            errThread.setDaemon(true);
+            errThread.start();
+
+            try (InputStream is = Files.newInputStream(filePath);
+                 OutputStream os = process.getOutputStream()) {
+                byte[] buffer = new byte[65536];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+
+            try (BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = stdoutReader.readLine()) != null) {
+                    line = line.trim();
+                    if (line.startsWith("Loaded image:")) {
+                        String imgName = line.substring("Loaded image:".length()).trim();
+                        if (StringUtils.hasText(imgName)) {
+                            loadedImages.add(imgName);
+                        }
+                    } else if (line.startsWith("Loaded image ID:")) {
+                        String imgId = line.substring("Loaded image ID:".length()).trim();
+                        if (StringUtils.hasText(imgId)) {
+                            loadedImages.add(imgId);
+                        }
+                    }
+                }
+            }
+
+            boolean finished = process.waitFor(600, TimeUnit.SECONDS);
+            errThread.join(3000);
+
+            if (!finished || process.exitValue() != 0) {
+                log.error("[AdminImageService] docker load 执行失败: exitCode={}, stderr={}",
+                        finished ? process.exitValue() : "TIMEOUT", stderr);
+                throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "Docker 加载镜像归档失败: " + stderr);
+            }
+        } catch (BusinessException be) {
+            throw be;
+        } catch (Exception e) {
+            log.error("[AdminImageService] 执行 docker load 异常: {}", e.getMessage(), e);
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "读取与加载镜像归档异常: " + e.getMessage());
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
+        return loadedImages;
     }
 
     private void tagDockerImageOnNode(String nodeIp, String sourceImage, String targetImage) {

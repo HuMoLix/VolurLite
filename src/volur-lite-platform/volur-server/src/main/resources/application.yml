@@ -18,8 +18,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 1024MB
-      max-request-size: 1024MB
+      max-file-size: 2048MB
+      max-request-size: 2048MB
     encoding:
       enabled: true
       force: true
@@ -94,6 +94,10 @@ volur:
     default-timeout-minutes: 60
     max-instances-per-user: 1
     network-name: "volur-challenge-net"
+    registry:
+      enabled: ${VOLUR_CONTAINER_REGISTRY_ENABLED:true}
+      internal-url: "${VOLUR_CONTAINER_REGISTRY_INTERNAL_URL:http://volur-registry:5000}"
+      public-port: ${VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT:5000}
   k3s:
     namespace: "${VOLUR_K3S_NAMESPACE:volur-challenges}"
     public-host: "${VOLUR_K3S_PUBLIC_HOST:127.0.0.1}"

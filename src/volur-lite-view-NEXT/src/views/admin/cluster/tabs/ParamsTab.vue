@@ -193,61 +193,6 @@
     </div>
 
     <div class="space-y-4 pt-4 border-t border-google-border-light dark:border-google-border-dark">
-      <div class="text-xs font-bold text-google-text-primary dark:text-google-text-darkPrimary">
-        私有镜像仓库管理 (Docker Registry)
-      </div>
-
-      <div class="flex items-center gap-3">
-        <n-switch v-model:value="form.registryEnabled" />
-        <span class="text-xs text-google-text-secondary dark:text-google-text-darkSecondary">
-          启用 Registry 镜像中心：作为集群镜像分发中心，主从节点及 K3s 均可自动共享与拉取镜像
-        </span>
-      </div>
-
-      <div v-if="form.registryEnabled" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
-            Registry 内部地址
-          </label>
-          <VInput
-            v-model:value="form.registryInternalUrl"
-            placeholder="http://volur-registry:5000"
-            clearable
-          />
-          <div class="text-[11px] text-google-text-secondary dark:text-google-text-darkSecondary mt-1">
-            后端服务在 Docker 网络内直接访问 Registry 的 REST 地址
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
-            Registry 对外端口
-          </label>
-          <VInput
-            v-model:value="registryPublicPortStr"
-            placeholder="5000"
-            clearable
-          />
-          <div class="text-[11px] text-google-text-secondary dark:text-google-text-darkSecondary mt-1">
-            各计算节点访问该镜像仓库的公开端口（默认 5000）
-          </div>
-        </div>
-
-        <div class="md:col-span-2 flex items-center gap-2.5 pt-1">
-          <span
-            class="px-2 py-0.5 text-[11px] font-semibold rounded-full"
-            :class="props.settings?.registryOnline ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'"
-          >
-            {{ props.settings?.registryOnline ? 'Registry 在线 (200 OK)' : 'Registry 离线或未就绪' }}
-          </span>
-          <span class="text-[11px] text-google-text-secondary dark:text-google-text-darkSecondary">
-            系统通过 Docker 内部网络定期探测 Registry /v2/ 接口探针
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <div class="space-y-4 pt-4 border-t border-google-border-light dark:border-google-border-dark">
       <div class="flex items-center gap-3">
         <VBtn
           clz="normal"
@@ -337,10 +282,7 @@ const form = reactive<AdminClusterSettingsDTO>({
   k3sNamespace: 'volur-challenges',
   k3sKubeconfigPath: '',
   k3sToken: '',
-  resourceIsolationEnabled: true,
-  registryEnabled: true,
-  registryInternalUrl: 'http://volur-registry:5000',
-  registryPublicPort: 5000
+  resourceIsolationEnabled: true
 })
 
 const portRangeStartStr = computed<string>({
@@ -354,13 +296,6 @@ const portRangeEndStr = computed<string>({
   get: () => String(form.portRangeEnd || '40000'),
   set: (val: string) => {
     form.portRangeEnd = parseInt(val, 10) || 40000
-  }
-})
-
-const registryPublicPortStr = computed<string>({
-  get: () => String(form.registryPublicPort || '5000'),
-  set: (val: string) => {
-    form.registryPublicPort = parseInt(val, 10) || 5000
   }
 })
 
@@ -386,10 +321,7 @@ watch(
         k3sNamespace: val.k3sNamespace || 'volur-challenges',
         k3sKubeconfigPath: val.k3sKubeconfigPath || '',
         k3sToken: val.k3sToken || '',
-        resourceIsolationEnabled: val.resourceIsolationEnabled ?? true,
-        registryEnabled: val.registryEnabled ?? true,
-        registryInternalUrl: val.registryInternalUrl || 'http://volur-registry:5000',
-        registryPublicPort: val.registryPublicPort || 5000
+        resourceIsolationEnabled: val.resourceIsolationEnabled ?? true
       })
     }
   },

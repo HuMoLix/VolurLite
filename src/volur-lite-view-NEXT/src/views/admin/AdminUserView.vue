@@ -552,8 +552,7 @@ async function fetchUsers() {
       userList.value = res.data.list || []
       pagination.itemCount = res.data.total || 0
     }
-  } catch (err: any) {
-    message.error(err?.message || t('admin.users.messages.toggle_status_failed', '获取用户列表失败'))
+  } catch {
   } finally {
     loading.value = false
   }
@@ -646,8 +645,7 @@ async function handleSaveUser() {
     isUserModalShow.value = false
     await fetchUsers()
     await fetchStats()
-  } catch (err: any) {
-    message.error(err?.message || t('admin.users.messages.toggle_status_failed', '操作失败'))
+  } catch {
   } finally {
     submitting.value = false
   }
@@ -660,8 +658,7 @@ async function handleToggleStatus(row: AdminUserDetailsVO) {
     message.success(t('admin.users.messages.toggle_status_success', '用户状态更新成功'))
     row.status = nextStatus
     await fetchStats()
-  } catch (err: any) {
-    message.error(err?.message || t('admin.users.messages.toggle_status_failed', '切换状态失败'))
+  } catch {
   }
 }
 
@@ -680,8 +677,7 @@ async function confirmDeleteUser() {
     userToDelete.value = null
     await fetchUsers()
     await fetchStats()
-  } catch (err: any) {
-    message.error(err?.message || t('admin.users.messages.delete_failed', '删除用户失败'))
+  } catch {
   } finally {
     deleting.value = false
   }

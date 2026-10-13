@@ -388,49 +388,6 @@
           </div>
         </div>
 
-        <div v-if="announcements.length > 0" class="space-y-6 pt-2 border-t border-google-border-light dark:border-google-border-dark">
-          <div class="flex items-center gap-2.5 pb-3 border-b border-google-border-light dark:border-google-border-dark">
-            <n-icon :size="20" :component="MegaphoneOutline" class="text-google-blue dark:text-google-blue-dark" />
-            <h3 class="m-0 text-base sm:text-lg font-bold text-google-text-primary dark:text-[#FCFCFC]">
-              赛事公告
-            </h3>
-            <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-google-surface-light dark:bg-google-surface-dark text-google-text-muted dark:text-google-text-darkMuted">
-              {{ announcements.length }}
-            </span>
-          </div>
-
-          <div class="space-y-4">
-            <div
-              v-for="item in announcements"
-              :key="item.id"
-              class="p-5 rounded-2xl border border-google-border-light/80 dark:border-google-border-dark/80 bg-google-surface-light/40 dark:bg-google-surface-dark/40 space-y-2.5 transition-colors"
-            >
-              <div class="flex items-center justify-between gap-3 flex-wrap">
-                <div class="flex items-center gap-2.5 flex-wrap">
-                  <span
-                    v-if="item.isPinned"
-                    class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-google-red dark:bg-red-950/60 dark:text-google-red-dark"
-                  >
-                    置顶
-                  </span>
-                  <h4 class="m-0 text-base font-bold text-google-text-primary dark:text-[#FCFCFC]">
-                    {{ item.title }}
-                  </h4>
-                </div>
-
-                <div class="flex items-center gap-3 text-xs text-google-text-muted dark:text-google-text-darkMuted font-mono">
-                  <span v-if="item.createdByName">发布人: {{ item.createdByName }}</span>
-                  <span>{{ formatDateTime(item.createdAt) }}</span>
-                </div>
-              </div>
-
-              <div
-                class="volur-markdown-body text-xs sm:text-sm text-google-text-desc dark:text-[#D4D4D4] leading-relaxed"
-                v-html="renderMarkdown(item.content)"
-              />
-            </div>
-          </div>
-        </div>
       </section>
 
       <footer class="mt-auto pt-8">
@@ -474,19 +431,16 @@ import {
   CloseCircleOutline,
   CheckmarkCircleOutline,
   DocumentTextOutline,
-  ShieldCheckmarkOutline,
-  MegaphoneOutline
+  ShieldCheckmarkOutline
 } from '@vicons/ionicons5'
 import {
   getCompetitionByIdApi,
   getCompetitionBySlugApi,
-  listAnnouncementsApi,
   getMyTeamApi,
   getMyInvitationsApi
 } from '@/api/competition'
 import type {
   CompetitionDetailVO,
-  CompetitionAnnouncementVO,
   MyTeamInfoVO,
   TeamInvitationVO,
   CompetitionType,
@@ -516,7 +470,6 @@ const loading = ref(false)
 const competition = ref<CompetitionDetailVO | null>(null)
 const myTeam = ref<MyTeamInfoVO | null>(null)
 const invitations = ref<TeamInvitationVO[]>([])
-const announcements = ref<CompetitionAnnouncementVO[]>([])
 
 const teamFormModalVisible = ref(false)
 const teamFormModalMode = ref<'create' | 'view' | 'edit'>('view')
@@ -791,7 +744,6 @@ async function fetchCompetitionDetail() {
     startCountdown()
 
     await Promise.all([
-      fetchAnnouncements(compData.id),
       fetchMyTeamStatus(compData.id),
       fetchMyInvitations(compData.id)
     ])
@@ -801,15 +753,6 @@ async function fetchCompetitionDetail() {
     }
   } finally {
     loading.value = false
-  }
-}
-
-async function fetchAnnouncements(compId: number | string) {
-  try {
-    const res = await listAnnouncementsApi(compId)
-    announcements.value = res?.data || []
-  } catch {
-    announcements.value = []
   }
 }
 

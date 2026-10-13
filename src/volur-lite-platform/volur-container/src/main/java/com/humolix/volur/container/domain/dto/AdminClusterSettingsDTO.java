@@ -56,11 +56,4 @@ public class AdminClusterSettingsDTO {
 
     private Boolean resourceIsolationEnabled;
 
-    private Boolean registryEnabled;
-
-    @com.humolix.volur.framework.common.annotation.Trimmed
-    private String registryInternalUrl;
-
-    private Integer registryPublicPort;
-
 }

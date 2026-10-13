@@ -2,8 +2,8 @@ package com.humolix.volur.container.service.admin.impl;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONUtil;
-import com.humolix.volur.container.client.DockerRegistryClient;
 import com.humolix.volur.container.domain.dto.*;
+
 import com.humolix.volur.container.domain.entity.ClusterNode;
 import com.humolix.volur.container.domain.entity.CtfChallengeInstance;
 import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
@@ -66,7 +66,6 @@ public class AdminClusterServiceImpl implements AdminClusterService {
     private final ClusterNodeMapper clusterNodeMapper;
     private final DockerSwarmRuntimeStrategy swarmStrategy;
     private final K3sRuntimeStrategy k3sStrategy;
-    private final DockerRegistryClient dockerRegistryClient;
     @Lazy
     private final AdminImageService adminImageService;
 
@@ -89,15 +88,23 @@ public class AdminClusterServiceImpl implements AdminClusterService {
 
         boolean resourceIsolation = systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_RESOURCE_ISOLATION_ENABLED, true);
 
-        boolean registryEnabled = systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_REGISTRY_ENABLED, true);
-        String registryInternalUrl = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_REGISTRY_INTERNAL_URL, "http://volur-registry:5000");
-        int registryPublicPort = systemSettingService.getInt(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, 5000);
-        boolean registryOnline = dockerRegistryClient.isAvailable();
-
-        long totalNodes = clusterNodeRepository.count();
-        long masterNodes = clusterNodeRepository.countByRole("MASTER");
-        long workerNodes = clusterNodeRepository.countByRole("WORKER");
-        long readyNodes = clusterNodeRepository.countByStatus("READY");
+        List<ClusterNode> allNodes = clusterNodeRepository.findAll();
+        boolean hasRealMaster = allNodes.stream().anyMatch(n -> "MASTER".equalsIgnoreCase(n.getRole())
+                && !"127.0.0.1".equals(n.getIpAddress())
+                && !"volur-master-01".equals(n.getNodeName()));
+        if (hasRealMaster) {
+            allNodes.removeIf(n -> {
+                if ("volur-master-01".equals(n.getNodeName()) && "127.0.0.1".equals(n.getIpAddress())) {
+                    clusterNodeRepository.delete(n);
+                    return true;
+                }
+                return false;
+            });
+        }
+        long totalNodes = allNodes.size();
+        long masterNodes = allNodes.stream().filter(n -> "MASTER".equalsIgnoreCase(n.getRole())).count();
+        long workerNodes = allNodes.stream().filter(n -> "WORKER".equalsIgnoreCase(n.getRole())).count();
+        long readyNodes = allNodes.stream().filter(n -> "READY".equalsIgnoreCase(n.getStatus())).count();
 
         return AdminClusterSettingsVO.builder()
                 .containerType(containerType)
@@ -113,10 +120,6 @@ public class AdminClusterServiceImpl implements AdminClusterService {
                 .k3sKubeconfigPath(k3sKubeconfigPath)
                 .k3sToken(k3sToken)
                 .resourceIsolationEnabled(resourceIsolation)
-                .registryEnabled(registryEnabled)
-                .registryInternalUrl(registryInternalUrl)
-                .registryPublicPort(registryPublicPort)
-                .registryOnline(registryOnline)
                 .totalNodes((int) totalNodes)
                 .masterNodes((int) masterNodes)
                 .workerNodes((int) workerNodes)
@@ -234,15 +237,6 @@ public class AdminClusterServiceImpl implements AdminClusterService {
             applyResourceIsolation(request.getResourceIsolationEnabled());
         }
 
-        if (request.getRegistryEnabled() != null) {
-            setSetting(SystemSettingKeys.CONTAINER_REGISTRY_ENABLED, String.valueOf(request.getRegistryEnabled()));
-        }
-        if (request.getRegistryInternalUrl() != null) {
-            setSetting(SystemSettingKeys.CONTAINER_REGISTRY_INTERNAL_URL, request.getRegistryInternalUrl().trim());
-        }
-        if (request.getRegistryPublicPort() != null) {
-            setSetting(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, String.valueOf(request.getRegistryPublicPort()));
-        }
 
         String effectiveContainerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
         if ("K3S".equalsIgnoreCase(effectiveContainerType) && (containerTypeChanged || request.getK3sKubeconfigPath() != null || request.getK3sMasterUrl() != null)) {
@@ -277,7 +271,19 @@ public class AdminClusterServiceImpl implements AdminClusterService {
             nodes = clusterNodeRepository.findAll();
         }
 
-        // Master 节点排前，其后按加入时间升序
+        boolean hasRealMaster = nodes.stream().anyMatch(n -> "MASTER".equalsIgnoreCase(n.getRole())
+                && !"127.0.0.1".equals(n.getIpAddress())
+                && !"volur-master-01".equals(n.getNodeName()));
+        if (hasRealMaster) {
+            nodes.removeIf(n -> {
+                if ("volur-master-01".equals(n.getNodeName()) && "127.0.0.1".equals(n.getIpAddress())) {
+                    clusterNodeRepository.delete(n);
+                    return true;
+                }
+                return false;
+            });
+        }
+
         nodes.sort(Comparator.comparing((ClusterNode n) -> !"MASTER".equalsIgnoreCase(n.getRole()))
                 .thenComparing(ClusterNode::getJoinTime, Comparator.nullsLast(Comparator.naturalOrder())));
 
@@ -1837,6 +1843,14 @@ public class AdminClusterServiceImpl implements AdminClusterService {
 
         String configuredMasterHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
         boolean hasDiscoveredWorker = discovered.stream().anyMatch(d -> "WORKER".equalsIgnoreCase(d.role()));
+        boolean hasDiscoveredMaster = discovered.stream().anyMatch(d -> "MASTER".equalsIgnoreCase(d.role()));
+        if (hasDiscoveredMaster) {
+            clusterNodeRepository.findByNodeName("volur-master-01").ifPresent(placeholder -> {
+                if ("127.0.0.1".equals(placeholder.getIpAddress())) {
+                    clusterNodeRepository.delete(placeholder);
+                }
+            });
+        }
 
         for (K3sRuntimeStrategy.K3sDiscoveredNode d : discovered) {
             Optional<ClusterNode> existingOpt = clusterNodeRepository.findByNodeName(d.nodeName());

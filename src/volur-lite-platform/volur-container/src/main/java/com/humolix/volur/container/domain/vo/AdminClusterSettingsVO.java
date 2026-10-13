@@ -39,16 +39,6 @@ public class AdminClusterSettingsVO {
     @Builder.Default
     private Boolean resourceIsolationEnabled = true;
 
-    @Builder.Default
-    private Boolean registryEnabled = true;
-
-    private String registryInternalUrl;
-
-    @Builder.Default
-    private Integer registryPublicPort = 5000;
-
-    @Builder.Default
-    private Boolean registryOnline = false;
 
     @Builder.Default
     private Integer totalNodes = 0;

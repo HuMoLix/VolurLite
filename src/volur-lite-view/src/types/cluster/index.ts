@@ -31,10 +31,6 @@ export interface AdminClusterSettingsVO {
   k3sKubeconfigPath: string
   k3sToken?: string
   resourceIsolationEnabled: boolean
-  registryEnabled?: boolean
-  registryInternalUrl?: string
-  registryPublicPort?: number
-  registryOnline?: boolean
   totalNodes: number
   masterNodes: number
   workerNodes: number
@@ -55,9 +51,6 @@ export interface AdminClusterSettingsDTO {
   k3sKubeconfigPath?: string
   k3sToken?: string
   resourceIsolationEnabled?: boolean
-  registryEnabled?: boolean
-  registryInternalUrl?: string
-  registryPublicPort?: number
 }
 
 export interface AdminClusterNodeVO {

@@ -1014,7 +1014,12 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                         cpuCores = parseCpuCores(cap.get("cpu").getAmount());
                     }
                     if (cap.containsKey("memory") && cap.get("memory") != null) {
-                        memoryBytes = parseMemoryBytes(cap.get("memory").getAmount());
+                        Quantity memQuantity = cap.get("memory");
+                        try {
+                            memoryBytes = Quantity.getAmountInBytes(memQuantity).longValue();
+                        } catch (Exception ignored) {
+                            memoryBytes = parseMemoryBytes(memQuantity.getAmount());
+                        }
                     }
                 }
 

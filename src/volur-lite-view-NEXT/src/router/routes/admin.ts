@@ -228,11 +228,39 @@ export const adminRoutes: RouteRecordRaw[] = [
       },
       {
         path: 'clusters',
+        redirect: '/admin/clusters/settings'
+      },
+      {
+        path: 'clusters/settings',
         name: 'AdminClusterSettings',
         component: () => import('@/views/admin/cluster/AdminClusterSettingsView.vue'),
         meta: {
           title: '集群设置',
-          titleKey: 'admin.clusters.title',
+          titleKey: 'admin.clusters.tabs.settings',
+          requiredAuth: true,
+          requiredAdmin: true,
+          roles: ['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']
+        }
+      },
+      {
+        path: 'clusters/nodes',
+        name: 'AdminClusterNodes',
+        component: () => import('@/views/admin/cluster/AdminClusterSettingsView.vue'),
+        meta: {
+          title: '节点管理',
+          titleKey: 'admin.clusters.tabs.nodes',
+          requiredAuth: true,
+          requiredAdmin: true,
+          roles: ['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']
+        }
+      },
+      {
+        path: 'clusters/topology',
+        name: 'AdminClusterTopology',
+        component: () => import('@/views/admin/cluster/AdminClusterSettingsView.vue'),
+        meta: {
+          title: '集群拓扑',
+          titleKey: 'admin.clusters.tabs.topology',
           requiredAuth: true,
           requiredAdmin: true,
           roles: ['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']

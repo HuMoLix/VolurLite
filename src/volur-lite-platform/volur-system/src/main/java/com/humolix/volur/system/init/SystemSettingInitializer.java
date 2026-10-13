@@ -148,9 +148,6 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_KUBECONFIG_PATH, "/etc/rancher/k3s/k3s.yaml", "CONTAINER", "STRING", false, "K3s kubeconfig 配置文件绝对路径");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_K3S_TOKEN, "", "CONTAINER", "STRING", false, "K3s 集群注册令牌 (Node Token)");
         initDefaultIfAbsent(SystemSettingKeys.CONTAINER_RESOURCE_ISOLATION_ENABLED, "true", "CONTAINER", "BOOLEAN", false, "是否开启多节点资源隔离(题目容器仅调度至Worker资源节点)");
-        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_REGISTRY_ENABLED, "true", "CONTAINER", "BOOLEAN", false, "是否启用私有镜像仓库Registry中心");
-        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_REGISTRY_INTERNAL_URL, "http://volur-registry:5000", "CONTAINER", "STRING", false, "私有镜像仓库Registry内部网络连接地址");
-        initDefaultIfAbsent(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, "5000", "CONTAINER", "INTEGER", false, "私有镜像仓库Registry宿主机对外暴露端口");
         initDefaultIfAbsent(SystemSettingKeys.STORAGE_TYPE, "LOCAL", "STORAGE", "STRING", false, "文件存储类型(LOCAL/OSS)");
         initDefaultIfAbsent(SystemSettingKeys.STORAGE_LOCAL_UPLOAD_DIR, "uploads/", "STORAGE", "STRING", false, "本地文件上传保存目录");
         initDefaultIfAbsent(SystemSettingKeys.MAIL_WEBHOOK_ENABLED, "false", "MAIL", "BOOLEAN", false, "邮件投递 Webhook 回调追踪开关");

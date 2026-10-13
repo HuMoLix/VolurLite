@@ -2,8 +2,11 @@ package com.humolix.volur.competition.service.impl;
 
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionAnnouncement;
+import com.humolix.volur.competition.domain.entity.CompetitionMember;
+import com.humolix.volur.competition.domain.entity.CompetitionTeam;
 import com.humolix.volur.competition.domain.enums.CompetitionStatus;
 import com.humolix.volur.competition.domain.enums.CompetitionType;
+import com.humolix.volur.competition.domain.enums.MemberStatus;
 import com.humolix.volur.competition.domain.enums.TeamStatus;
 import com.humolix.volur.competition.domain.vo.CompetitionAboutVO;
 import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
@@ -11,6 +14,7 @@ import com.humolix.volur.competition.domain.vo.CompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.CompetitionSummaryVO;
 import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.CompetitionAnnouncementRepository;
+import com.humolix.volur.competition.repository.CompetitionMemberRepository;
 import com.humolix.volur.competition.repository.CompetitionRepository;
 import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.service.CompetitionService;
@@ -20,6 +24,9 @@ import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.api.SliceResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.SortUtils;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.UserRole;
+import com.humolix.volur.user.repository.UserRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -31,6 +38,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -38,7 +46,9 @@ public class CompetitionServiceImpl implements CompetitionService {
 
     private final CompetitionRepository competitionRepository;
     private final CompetitionTeamRepository teamRepository;
+    private final CompetitionMemberRepository memberRepository;
     private final CompetitionAnnouncementRepository announcementRepository;
+    private final UserRepository userRepository;
     private final CompetitionMapper competitionMapper;
     private final VolurCacheTemplate cacheTemplate;
 
@@ -80,6 +90,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         Specification<Competition> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.DRAFT));
+            predicates.add(cb.notEqual(root.get("status"), CompetitionStatus.ARCHIVED));
 
             if (type != null) {
                 predicates.add(cb.equal(root.get("type"), type));
@@ -187,18 +198,52 @@ public class CompetitionServiceImpl implements CompetitionService {
     }
 
     @Override
-    public List<CompetitionAnnouncementVO> listAnnouncements(Long competitionId) {
+    public List<CompetitionAnnouncementVO> listAnnouncements(Long competitionId, Long userId) {
+        if (!competitionRepository.existsById(competitionId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在");
+        }
+        validateUserParticipationOrAdmin(competitionId, userId);
         return cacheTemplate.getOrLoad(
                 CacheNames.COMPETITION_STATUS,
                 "announcements:" + competitionId,
                 () -> {
-                    if (!competitionRepository.existsById(competitionId)) {
-                        throw new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在");
-                    }
                     List<CompetitionAnnouncement> list = announcementRepository.findByCompetitionIdOrderByIsPinnedDescCreatedAtDesc(competitionId);
                     return competitionMapper.toAnnouncementVOList(list);
                 }
         );
+    }
+
+    private CompetitionTeam getMyApprovedTeam(Long competitionId, Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        Optional<CompetitionMember> memberOpt = memberRepository.findMemberWithTeam(competitionId, userId);
+        if (memberOpt.isPresent()) {
+            CompetitionMember member = memberOpt.get();
+            if (member.getStatus() == MemberStatus.INVITED_ACCEPTED) {
+                CompetitionTeam team = member.getTeam();
+                if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
+                    return team;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void validateUserParticipationOrAdmin(Long competitionId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
+        }
+        CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
+        if (team != null) {
+            return;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        boolean isAdmin = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
+        if (!isAdmin) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "您尚未加入已审核通过的参赛队伍");
+        }
     }
 
     private CompetitionDetailVO buildDetailVO(Competition competition) {

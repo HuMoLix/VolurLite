@@ -36,6 +36,8 @@ public interface AdminImageService {
 
     void exportImage(Long id, HttpServletResponse response);
 
+    AdminAsyncTaskSubmitVO importImage(org.springframework.web.multipart.MultipartFile file, String repository, String tag);
+
     void pushImageToRegistry(Long id);
 
     void ensureImageOnNode(String targetNodeIp, String fullImageName);

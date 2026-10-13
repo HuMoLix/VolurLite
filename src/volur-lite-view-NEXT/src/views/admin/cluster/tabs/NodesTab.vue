@@ -11,7 +11,7 @@
       <div class="flex items-center gap-2 flex-wrap">
         <VBtn
           clz="normal"
-          size="small"
+          size="medium"
           :left-icon="RefreshOutline"
           :loading="props.loading"
           @click="emit('refresh')"
@@ -22,27 +22,27 @@
         <VBtn
           v-if="isK3sCluster"
           clz="normal"
-          size="small"
+          size="medium"
           :left-icon="SyncOutline"
           :loading="syncingK3s"
           @click="handleSyncK3s"
         >
-          {{ t('admin.clusters.nodes.sync_k3s', '同步 K3s 节点') }}
+          {{ t('admin.clusters.nodes.sync_k3s', '节点扫描') }}
         </VBtn>
 
         <VBtn
           clz="normal"
-          size="small"
+          size="medium"
           :left-icon="PulseOutline"
           :loading="checkingAllHealth"
           @click="handleCheckAllHealth"
         >
-          {{ t('admin.clusters.nodes.check_all_health', '全节点存活对账') }}
+          {{ t('admin.clusters.nodes.check_all_health', '节点检测') }}
         </VBtn>
 
         <VBtn
           clz="primary"
-          size="small"
+          size="medium"
           :left-icon="AddOutline"
           @click="emit('add-node')"
         >
@@ -125,10 +125,10 @@ const nodeColumns = computed<DataTableColumns<AdminClusterNodeVO>>(() => [
     key: 'nodeName',
     width: 200,
     render(row) {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h('span', { class: 'font-semibold text-google-text-primary dark:text-google-text-darkPrimary' }, row.nodeName),
+      return h('div', { class: 'flex items-center gap-1.5' }, [
+        h('span', row.nodeName),
         row.hasSshAuth
-          ? h('span', { class: 'px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-500/10 text-green-600 dark:text-green-400' }, 'SSH')
+          ? h('span', { class: 'text-green-600 dark:text-green-400' }, 'SSH')
           : null
       ])
     }
@@ -138,7 +138,7 @@ const nodeColumns = computed<DataTableColumns<AdminClusterNodeVO>>(() => [
     key: 'ipAddress',
     width: 170,
     render(row) {
-      return h('span', { class: 'font-mono text-xs text-google-text-secondary dark:text-google-text-darkSecondary' }, `${row.ipAddress}:${row.sshPort || 22}`)
+      return `${row.ipAddress}:${row.sshPort || 22}`
     }
   },
   {
@@ -150,9 +150,9 @@ const nodeColumns = computed<DataTableColumns<AdminClusterNodeVO>>(() => [
       return h(
         'span',
         {
-          class: `px-2 py-0.5 text-xs rounded-full font-medium ${isMaster ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' : 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'}`
+          class: isMaster ? 'text-purple-600 dark:text-purple-400' : 'text-cyan-600 dark:text-cyan-400'
         },
-        isMaster ? t('admin.clusters.nodes.role_master', '控制面') : t('admin.clusters.nodes.role_worker', '计算节点')
+        isMaster ? t('admin.clusters.nodes.role_master', '主节点') : t('admin.clusters.nodes.role_worker', '子节点')
       )
     }
   },
@@ -164,7 +164,7 @@ const nodeColumns = computed<DataTableColumns<AdminClusterNodeVO>>(() => [
       return h(
         'span',
         {
-          class: `px-2 py-0.5 text-xs rounded-full ${row.isResourceNode ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-google-surface-light dark:bg-google-surface-dark text-google-text-muted dark:text-google-text-darkMuted'}`
+          class: row.isResourceNode ? 'text-green-600 dark:text-green-400' : 'text-google-text-muted dark:text-google-text-darkMuted'
         },
         row.isResourceNode ? '参与赛题调度' : '纯控制面'
       )
@@ -180,24 +180,24 @@ const nodeColumns = computed<DataTableColumns<AdminClusterNodeVO>>(() => [
       const isReady = row.status === 'READY'
       const isJoining = row.status === 'JOINING'
 
-      let colorClass = 'bg-red-500/10 text-red-600 dark:text-red-400'
+      let colorClass = 'text-red-600 dark:text-red-400'
       let label = '异常 / 离线'
 
       if (isJoining) {
-        colorClass = 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+        colorClass = 'text-amber-600 dark:text-amber-400'
         label = '加入中...'
       } else if (isReady && inCluster) {
-        colorClass = 'bg-green-500/10 text-green-600 dark:text-green-400'
+        colorClass = 'text-green-600 dark:text-green-400'
         label = '调度就绪'
       } else if (isReady && !inCluster && !isMaster) {
-        colorClass = 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+        colorClass = 'text-amber-600 dark:text-amber-400'
         label = '未入集群'
       }
 
-      return h('div', { class: 'flex flex-col gap-1' }, [
-        h('span', { class: `px-2 py-0.5 text-xs rounded-full font-medium w-fit ${colorClass}` }, label),
+      return h('div', { class: 'flex flex-col' }, [
+        h('span', { class: colorClass }, label),
         !isMaster && inCluster
-          ? h('span', { class: 'text-[11px] text-google-text-secondary dark:text-google-text-darkSecondary' }, row.clusterType === 'K3S' ? '已入 K3s' : '已入 Swarm')
+          ? h('span', { class: 'text-xs text-google-text-secondary dark:text-google-text-darkSecondary' }, row.clusterType === 'K3S' ? '已入 K3s' : '已入 Swarm')
           : null
       ])
     }
@@ -207,7 +207,7 @@ const nodeColumns = computed<DataTableColumns<AdminClusterNodeVO>>(() => [
     key: 'counts',
     width: 140,
     render(row) {
-      return h('span', { class: 'text-xs text-google-text-secondary dark:text-google-text-darkSecondary' }, `${row.containerCount ?? 0} 容器 / ${row.imageCount ?? 0} 镜像`)
+      return `${row.containerCount ?? 0} 容器 / ${row.imageCount ?? 0} 镜像`
     }
   },
   {
@@ -217,7 +217,7 @@ const nodeColumns = computed<DataTableColumns<AdminClusterNodeVO>>(() => [
     render(row) {
       const cores = row.cpuCores ? `${row.cpuCores} 核` : '-'
       const mem = row.memoryFormatted || '-'
-      return h('span', { class: 'text-xs text-google-text-secondary dark:text-google-text-darkSecondary' }, `${cores} / ${mem}`)
+      return `${cores} / ${mem}`
     }
   },
   {

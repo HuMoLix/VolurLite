@@ -138,45 +138,7 @@
         </div>
       </n-form-item>
 
-      <!-- 私有镜像仓库配置 (Docker Registry) -->
-      <n-divider dashed title-placement="left">私有镜像仓库管理 (Docker Registry)</n-divider>
 
-      <n-form-item label="启用 Registry 中心">
-        <div class="switch-row">
-          <n-switch v-model:value="form.registryEnabled" />
-          <span class="field-hint">开启后作为集群镜像分发中心，主从节点及 K3s 均可自动共享与拉取镜像</span>
-        </div>
-      </n-form-item>
-
-      <template v-if="form.registryEnabled">
-        <n-form-item label="Registry 内部地址" path="registryInternalUrl">
-          <n-input
-            v-model:value="form.registryInternalUrl"
-            placeholder="http://volur-registry:5000"
-            style="max-width: 520px;"
-          />
-          <span class="field-hint">后端服务在 Docker 容器网络内直接访问 Registry 的 REST 地址</span>
-        </n-form-item>
-
-        <n-form-item label="Registry 对外端口" path="registryPublicPort">
-          <n-input-number
-            v-model:value="form.registryPublicPort"
-            :min="1"
-            :max="65535"
-            style="width: 160px;"
-          />
-          <span class="field-hint">各子节点与外部主机访问该镜像仓库的公开端口（默认 5000）</span>
-        </n-form-item>
-
-        <n-form-item label="Registry 运行状态">
-          <n-space align="center">
-            <n-tag :type="props.settings?.registryOnline ? 'success' : 'error'" round size="small">
-              {{ props.settings?.registryOnline ? '在线服务正常 (200 OK)' : '离线或未连通' }}
-            </n-tag>
-            <span class="field-hint">后端通过 Docker 内部网络实时探测 Registry /v2/ 接口探针</span>
-          </n-space>
-        </n-form-item>
-      </template>
 
       <!-- 集群连通性测试 -->
       <n-form-item :label="t('admin.clusters.form.test_connection')">
@@ -292,10 +254,7 @@ const form = reactive({
   k3sNamespace: 'volur-challenges',
   k3sKubeconfigPath: '/etc/rancher/k3s/k3s.yaml',
   k3sToken: '',
-  resourceIsolationEnabled: true,
-  registryEnabled: true,
-  registryInternalUrl: 'http://volur-registry:5000',
-  registryPublicPort: 5000
+  resourceIsolationEnabled: true
 })
 
 watch(
@@ -315,10 +274,7 @@ watch(
         k3sNamespace: val.k3sNamespace || 'volur-challenges',
         k3sKubeconfigPath: val.k3sKubeconfigPath || '/etc/rancher/k3s/k3s.yaml',
         k3sToken: val.k3sToken || '',
-        resourceIsolationEnabled: val.resourceIsolationEnabled ?? true,
-        registryEnabled: val.registryEnabled ?? true,
-        registryInternalUrl: val.registryInternalUrl || 'http://volur-registry:5000',
-        registryPublicPort: val.registryPublicPort || 5000
+        resourceIsolationEnabled: val.resourceIsolationEnabled ?? true
       })
     }
   },

@@ -478,9 +478,9 @@
       "ready": "健康就绪节点"
     },
     "tabs": {
-      "params": "集群参数与调度设置",
-      "nodes": "节点管理与集群扩展",
-      "topology": "集群拓扑架构图"
+      "settings": "集群设置",
+      "nodes": "节点管理",
+      "topology": "集群拓扑"
     },
     "form": {
       "type": "集群编排类型",
@@ -525,16 +525,17 @@
     },
     "nodes": {
       "title": "集群节点拓扑与资源分配",
-      "add_node": "扩展集群 / 添加节点",
-      "sync_k3s": "扫描同步 K3s 节点",
+      "add_node": "添加节点",
+      "sync_k3s": "节点扫描",
       "sync_k3s_hint": "从 K3s 集群自动扫描并同步所有现有节点至平台",
       "sync_k3s_success": "K3s 节点扫描对账已完成",
+      "check_all_health": "节点检测",
       "refresh": "刷新列表",
       "name": "节点名称",
       "ip": "IP 地址",
       "role": "节点角色",
-      "role_master": "主节点 (Master)",
-      "role_worker": "工作节点 (Worker)",
+      "role_master": "主节点",
+      "role_worker": "子节点",
       "is_resource": "调度为资源节点",
       "resource_yes": "资源节点 (运行赛题)",
       "resource_no": "控制节点 (仅管理)",

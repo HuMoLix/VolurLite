@@ -478,9 +478,9 @@
       "ready": "Healthy & Ready Nodes"
     },
     "tabs": {
-      "params": "Parameters & Scheduling",
-      "nodes": "Node Topology & Expansion",
-      "topology": "Cluster Topology Graph"
+      "settings": "Cluster Settings",
+      "nodes": "Node Management",
+      "topology": "Cluster Topology"
     },
     "form": {
       "type": "Orchestration Type",
@@ -525,10 +525,11 @@
     },
     "nodes": {
       "title": "Cluster Nodes Topology & Resource Allocation",
-      "add_node": "Add Node / Expand Cluster",
-      "sync_k3s": "Scan & Sync K3s Nodes",
+      "add_node": "Add Node",
+      "sync_k3s": "Scan Nodes",
       "sync_k3s_hint": "Automatically discover and sync existing nodes from K3s cluster",
       "sync_k3s_success": "K3s cluster nodes scanned and synchronized successfully",
+      "check_all_health": "Check Nodes",
       "refresh": "Refresh",
       "name": "Node Name",
       "ip": "IP Address",

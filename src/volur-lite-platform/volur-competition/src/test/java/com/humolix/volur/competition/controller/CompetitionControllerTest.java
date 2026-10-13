@@ -1,6 +1,7 @@
 package com.humolix.volur.competition.controller;
 
 import com.humolix.volur.competition.controller.v1.CompetitionController;
+import com.humolix.volur.competition.domain.vo.CompetitionAnnouncementVO;
 import com.humolix.volur.competition.domain.vo.CompetitionSummaryVO;
 import com.humolix.volur.competition.service.CompetitionService;
 import com.humolix.volur.framework.common.api.PageResponse;
@@ -20,6 +21,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -85,5 +88,27 @@ class CompetitionControllerTest {
                 .andExpect(jsonPath("$.data.list[0].title").value("Volur 2026 迎新赛"))
                 .andExpect(jsonPath("$.data.hasNext").value(false))
                 .andExpect(jsonPath("$.data.pageSize").value(5));
+    }
+
+    @Test
+    @DisplayName("验证 GET /api/v1/competitions/{id}/announcements 接口路由正常")
+    void testListAnnouncementsRoute() throws Exception {
+        CompetitionAnnouncementVO announcementVO = CompetitionAnnouncementVO.builder()
+                .id(10L)
+                .title("赛事开始通知")
+                .content("比赛将于明日准时开启")
+                .isPinned(true)
+                .build();
+
+        when(competitionService.listAnnouncements(eq(1L), any())).thenReturn(List.of(announcementVO));
+
+        mockMvc.perform(get("/api/v1/competitions/1/announcements")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("获取竞赛公告成功"))
+                .andExpect(jsonPath("$.data[0].id").value(10))
+                .andExpect(jsonPath("$.data[0].title").value("赛事开始通知"))
+                .andExpect(jsonPath("$.data[0].isPinned").value(true));
     }
 }

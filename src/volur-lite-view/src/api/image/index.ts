@@ -83,6 +83,12 @@ export function exportAdminImageApi(id: string | number): Promise<Blob> {
   return request.download(`/admin/images/${id}/export`)
 }
 
+export function importAdminImageApi(formData: FormData): Promise<ApiResponse<AdminAsyncTaskSubmitVO>> {
+  return request.post<AdminAsyncTaskSubmitVO>('/admin/images/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
 /**
  * 从节点删除镜像或全量删除
  * 对应后端: DELETE /api/v1/admin/images/{id}

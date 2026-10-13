@@ -561,6 +561,17 @@ BEGIN
         END IF;
     END IF;
 
+    IF EXISTS (
+        SELECT 1 FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_setting'
+    ) THEN
+        DELETE FROM `sys_setting` WHERE `setting_key` IN (
+            'system.container.registry.enabled',
+            'system.container.registry.internal_url',
+            'system.container.registry.public_port'
+        );
+    END IF;
+
 END //
 DELIMITER ;
 

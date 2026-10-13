@@ -108,6 +108,13 @@
             {{ t('admin.images.search.scanConfirm') }}
           </n-popconfirm>
 
+          <n-button secondary class="action-import-btn" @click="openImportModal">
+            <template #icon>
+              <n-icon :component="CloudUploadOutline" />
+            </template>
+            导入镜像
+          </n-button>
+
           <n-button type="primary" class="theme-primary-btn action-pull-btn" @click="openPullModal">
             <template #icon>
               <n-icon :component="DownloadOutline" />
@@ -117,6 +124,68 @@
         </div>
       </template>
     </VolurTableCard>
+
+    <!-- Import Image Modal -->
+    <n-modal
+      v-model:show="showImportModal"
+      preset="card"
+      title="导入本地 Docker 镜像归档"
+      style="max-width: 580px; border-radius: 12px;"
+      :bordered="false"
+    >
+      <p class="modal-subtext">上传打包好的 .tar / .tar.gz / .tgz 格式的 Docker 镜像归档文件并直接推送至中心私有 Registry</p>
+
+      <div style="margin-top: 16px;">
+        <n-upload
+          :show-file-list="true"
+          :max="1"
+          accept=".tar,.tar.gz,.tgz"
+          :default-upload="false"
+          @change="handleImportFileChange"
+        >
+          <n-upload-dragger>
+            <div style="margin-bottom: 12px">
+              <n-icon size="48" :depth="3" :component="CloudUploadOutline" />
+            </div>
+            <n-text style="font-size: 14px">
+              点击或者拖动镜像归档文件到该区域上传
+            </n-text>
+            <n-p depth="3" style="margin: 8px 0 0 0; font-size: 12px">
+              支持 .tar, .tar.gz 或 .tgz 文件，上传后自动加载并推送至私有 Registry
+            </n-p>
+          </n-upload-dragger>
+        </n-upload>
+
+        <n-form style="margin-top: 16px;" label-placement="top">
+          <n-form-item label="自定义仓库名称 (选填)">
+            <n-input
+              v-model:value="importForm.repository"
+              placeholder="留空自动从镜像归档中解析 (例如: ctf/web)"
+            />
+          </n-form-item>
+          <n-form-item label="自定义标签 (选填)">
+            <n-input
+              v-model:value="importForm.tag"
+              placeholder="留空默认 latest 或保留原标签"
+            />
+          </n-form-item>
+        </n-form>
+      </div>
+
+      <template #footer>
+        <div class="modal-footer">
+          <n-button quaternary @click="showImportModal = false">取消</n-button>
+          <n-button
+            type="primary"
+            class="theme-primary-btn"
+            :loading="submittingImport"
+            @click="handleSubmitImport"
+          >
+            确认导入
+          </n-button>
+        </div>
+      </template>
+    </n-modal>
 
     <!-- Pull Image Modal -->
     <n-modal
@@ -427,7 +496,8 @@ import {
   EyeOutline,
   ArchiveOutline,
   CloudDoneOutline,
-  CloudOfflineOutline
+  CloudOfflineOutline,
+  CloudUploadOutline
 } from '@vicons/ionicons5'
 import {
   getAdminImageStatisticsApi,
@@ -435,6 +505,7 @@ import {
   getAdminImageDetailApi,
   scanAndSyncAdminImagesApi,
   pullAdminImageApi,
+  importAdminImageApi,
   exportAdminImageApi,
   deleteAdminImageApi
 } from '@/api/image'
@@ -704,6 +775,55 @@ async function openDetailDrawer(image: AdminClusterImageVO) {
     message.error('获取镜像深度分层详情失败')
   } finally {
     loadingDetail.value = false
+  }
+}
+
+const showImportModal = ref(false)
+const submittingImport = ref(false)
+const selectedImportFile = ref<File | null>(null)
+const importForm = reactive({
+  repository: '',
+  tag: ''
+})
+
+function openImportModal() {
+  selectedImportFile.value = null
+  importForm.repository = ''
+  importForm.tag = ''
+  showImportModal.value = true
+}
+
+function handleImportFileChange(data: { fileList: any[] }) {
+  if (data.fileList && data.fileList.length > 0) {
+    selectedImportFile.value = data.fileList[0].file
+  } else {
+    selectedImportFile.value = null
+  }
+}
+
+async function handleSubmitImport() {
+  if (!selectedImportFile.value) {
+    message.warning('请选择需要导入的 Docker 镜像归档文件')
+    return
+  }
+  submittingImport.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedImportFile.value)
+    if (importForm.repository.trim()) {
+      formData.append('repository', importForm.repository.trim())
+    }
+    if (importForm.tag.trim()) {
+      formData.append('tag', importForm.tag.trim())
+    }
+    await importAdminImageApi(formData)
+    message.success('镜像导入任务已提交至异步队列')
+    showImportModal.value = false
+    await fetchImages()
+    await fetchStatistics()
+  } catch {
+  } finally {
+    submittingImport.value = false
   }
 }
 

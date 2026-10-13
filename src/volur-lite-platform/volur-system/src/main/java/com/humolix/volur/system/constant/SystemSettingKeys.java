@@ -69,10 +69,6 @@ public final class SystemSettingKeys {
     // 集群资源隔离与镜像调度
     public static final String CONTAINER_RESOURCE_ISOLATION_ENABLED = "system.container.resource_isolation_enabled";
 
-    // 私有镜像仓库 Registry 配置
-    public static final String CONTAINER_REGISTRY_ENABLED = "system.container.registry.enabled";
-    public static final String CONTAINER_REGISTRY_INTERNAL_URL = "system.container.registry.internal_url";
-    public static final String CONTAINER_REGISTRY_PUBLIC_PORT = "system.container.registry.public_port";
 
     // ========== 6. 运维与风控 (Maintenance & Security) ==========
     public static final String MAINTENANCE_ENABLED = "system.maintenance.enabled";

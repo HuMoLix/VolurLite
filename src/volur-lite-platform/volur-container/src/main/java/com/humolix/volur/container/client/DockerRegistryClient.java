@@ -19,16 +19,21 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Docker Registry HTTP API V2 强类型交互客户端
- * 负责通过 Docker 容器内网 (http://volur-registry:5000) 自动对接私有镜像仓库
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DockerRegistryClient {
 
     private final SystemSettingService systemSettingService;
+
+    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.internal-url:${VOLUR_CONTAINER_REGISTRY_INTERNAL_URL:http://volur-registry:5000}}")
+    private String registryInternalUrl;
+
+    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.public-port:${VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT:5000}}")
+    private int registryPublicPort;
+
+    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.enabled:${VOLUR_CONTAINER_REGISTRY_ENABLED:true}}")
+    private boolean registryEnabled;
 
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(6);
 
@@ -44,44 +49,25 @@ public class DockerRegistryClient {
             int schemaVersion
     ) {}
 
-    /**
-     * 解析当前有效的内部 Registry API 端点
-     * 若在容器外本地开发环境运行 (无法解析 volur-registry 容器域名)，自动平滑回退为 127.0.0.1:5000
-     */
     public String resolveInternalRegistryUrl() {
-        String envUrl = System.getenv("VOLUR_CONTAINER_REGISTRY_INTERNAL_URL");
-        if (StringUtils.hasText(envUrl)) {
-            return envUrl.trim();
-        }
-        String configuredUrl = systemSettingService.getSettingValue(
-                SystemSettingKeys.CONTAINER_REGISTRY_INTERNAL_URL,
-                "http://volur-registry:5000"
-        );
-        if (configuredUrl.contains("volur-registry")) {
+        String url = StringUtils.hasText(registryInternalUrl) ? registryInternalUrl.trim() : "http://volur-registry:5000";
+        if (url.contains("volur-registry")) {
             try {
                 InetAddress.getByName("volur-registry");
             } catch (Exception e) {
-                int publicPort = systemSettingService.getInt(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, 5000);
-                return "http://127.0.0.1:" + publicPort;
+                return "http://127.0.0.1:" + registryPublicPort;
             }
         }
-        return configuredUrl;
+        return url;
     }
 
-    /**
-     * 获取外部节点可访问的 Registry 主机与端口 (例如 192.168.1.100:5000)
-     */
     public String getPublicRegistryHost() {
         String publicHost = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, "127.0.0.1");
-        int publicPort = systemSettingService.getInt(SystemSettingKeys.CONTAINER_REGISTRY_PUBLIC_PORT, 5000);
-        return publicHost + ":" + publicPort;
+        return publicHost + ":" + registryPublicPort;
     }
 
-    /**
-     * 检测 Registry 是否开启
-     */
     public boolean isRegistryEnabled() {
-        return systemSettingService.getBoolean(SystemSettingKeys.CONTAINER_REGISTRY_ENABLED, true);
+        return registryEnabled;
     }
 
     /**

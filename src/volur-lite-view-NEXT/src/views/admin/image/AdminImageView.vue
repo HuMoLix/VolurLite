@@ -61,10 +61,13 @@
         </div>
         <div class="min-w-0 flex-1">
           <div class="text-[11px] sm:text-xs font-medium text-google-text-muted dark:text-google-text-darkMuted truncate">
-            自建私有 Registry
+            Registry 仓库状态
           </div>
-          <div class="text-sm sm:text-base font-bold text-google-green dark:text-google-green-dark mt-1 truncate">
-            {{ stats.registryOnline !== false ? '服务在线就绪' : '未连接/离线' }}
+          <div
+            class="text-sm sm:text-base font-bold mt-1 truncate"
+            :class="stats.registryOnline !== false ? 'text-google-green dark:text-google-green-dark' : 'text-google-red dark:text-google-red-dark'"
+          >
+            {{ stats.registryOnline !== false ? '服务在线就绪' : '离线' }}
           </div>
         </div>
       </div>
@@ -116,6 +119,16 @@
           </VBtn>
 
           <VBtn
+            clz="normal"
+            size="medium"
+            :left-icon="CloudUploadOutline"
+            class="flex-1 sm:flex-none"
+            @click="openImportModal"
+          >
+            {{ t('admin.images.import_image', '导入镜像') }}
+          </VBtn>
+
+          <VBtn
             clz="primary"
             size="medium"
             :left-icon="CloudDownloadOutline"
@@ -156,6 +169,80 @@
         </div>
       </div>
     </div>
+
+    <VModal
+      v-model:show="showImportModal"
+      :title="'导入本地 Docker 镜像归档'"
+      :width="520"
+    >
+      <div class="flex flex-col gap-4 py-2">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-google-text-desc dark:text-google-text-darkDesc">
+            选择镜像归档文件 (.tar / .tar.gz / .tgz) *
+          </label>
+          <div
+            class="border-2 border-dashed border-google-border-light dark:border-google-border-dark rounded-xl p-4 text-center cursor-pointer hover:border-google-blue dark:hover:border-google-blue transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50/50 dark:bg-google-surface-dark/50"
+            @click="triggerFileSelect"
+          >
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept=".tar,.tar.gz,.tgz"
+              class="hidden"
+              @change="handleFileChange"
+            />
+            <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 text-google-blue dark:text-google-blue-dark flex items-center justify-center">
+              <n-icon size="20">
+                <CloudUploadOutline />
+              </n-icon>
+            </div>
+            <div v-if="selectedFile" class="text-xs font-semibold text-google-text-primary dark:text-google-text-darkPrimary truncate max-w-full">
+              {{ selectedFile.name }} ({{ formatBytes(selectedFile.size) }})
+            </div>
+            <div v-else class="text-xs text-google-text-secondary dark:text-google-text-darkSecondary">
+              点击选择或拖拽本地镜像归档包 (.tar / .tar.gz / .tgz)
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-google-text-desc dark:text-google-text-darkDesc">
+            自定义仓库名称 (Repository)
+          </label>
+          <VInput
+            v-model:value="importForm.repository"
+            placeholder="'选填，留空将自动从归档中解析 (例如: ctf/web)'"
+            clearable
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-sm font-medium text-google-text-desc dark:text-google-text-darkDesc">
+            自定义标签 (Tag)
+          </label>
+          <VInput
+            v-model:value="importForm.tag"
+            placeholder="'选填，留空默认 latest 或保留原标签'"
+            clearable
+          />
+        </div>
+
+        <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted bg-gray-50 dark:bg-google-surface-dark p-2.5 rounded-lg border border-google-border-light/60 dark:border-google-border-dark/60">
+          上传后系统将在主控节点通过 Docker 解压并加载镜像，自动打标并推送至私有 Registry 资产中心。
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex items-center justify-end gap-3 w-full">
+          <VBtn clz="normal" @click="closeImportModal">
+            {{ t('common.cancel', '取消') }}
+          </VBtn>
+          <VBtn clz="primary" :loading="importing" @click="handleConfirmImport">
+            {{ t('common.confirm', '确认导入') }}
+          </VBtn>
+        </div>
+      </template>
+    </VModal>
 
     <VModal
       v-model:show="showPullModal"
@@ -227,13 +314,148 @@
         </div>
       </template>
     </VModal>
+
+    <VDrawer
+      :show="showDetailDrawer"
+      :title="detailImage ? `${detailImage.repository}:${detailImage.tag || 'latest'}` : '镜像分层详情 (Layers)'"
+      :width="680"
+      @update:show="(val: boolean) => showDetailDrawer = val"
+      @close="showDetailDrawer = false"
+    >
+      <div v-if="loadingDetail" class="flex flex-col items-center justify-center py-24 gap-3">
+        <n-spin size="medium" />
+        <span class="text-xs text-google-text-muted dark:text-google-text-darkMuted">正在解析镜像分层元数据...</span>
+      </div>
+
+      <div v-else-if="!detailImage" class="flex flex-col items-center justify-center py-24 gap-2 text-google-text-muted dark:text-google-text-darkMuted">
+        <n-icon size="36">
+          <LayersOutline />
+        </n-icon>
+        <span class="text-xs">暂无镜像分层数据</span>
+      </div>
+
+      <div v-else class="flex flex-col gap-5">
+        <div class="p-4 rounded-xl bg-gray-50/80 dark:bg-google-surface-dark border border-google-border-light dark:border-google-border-dark flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="text-xs text-google-text-muted dark:text-google-text-darkMuted">镜像全名</div>
+              <div class="text-sm font-semibold text-google-text-primary dark:text-google-text-darkPrimary truncate mt-0.5">
+                {{ detailImage.fullImageName || `${detailImage.repository}:${detailImage.tag || 'latest'}` }}
+              </div>
+            </div>
+            <div class="shrink-0 text-right">
+              <div class="text-xs text-google-text-muted dark:text-google-text-darkMuted">分层总大小</div>
+              <div class="text-sm font-semibold text-google-blue dark:text-google-blue-dark mt-0.5">
+                {{ formatBytes(detailImage.sizeBytes) }}
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-google-border-light/60 dark:border-google-border-dark/60 text-xs">
+            <div>
+              <span class="text-google-text-muted dark:text-google-text-darkMuted block">分层总数</span>
+              <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">
+                {{ detailImage.layers ? detailImage.layers.length : 0 }} 层
+              </span>
+            </div>
+            <div>
+              <span class="text-google-text-muted dark:text-google-text-darkMuted block">系统架构</span>
+              <span class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">
+                {{ detailImage.architecture ? `${detailImage.os || 'linux'}/${detailImage.architecture}` : 'linux/amd64' }}
+              </span>
+            </div>
+            <div class="col-span-2 sm:col-span-2">
+              <span class="text-google-text-muted dark:text-google-text-darkMuted block">镜像 ID</span>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <span class="font-medium text-google-text-secondary dark:text-google-text-darkSecondary truncate">
+                  {{ detailImage.imageId ? (detailImage.imageId.startsWith('sha256:') ? detailImage.imageId.substring(7, 19) : detailImage.imageId) : '-' }}
+                </span>
+                <button
+                  v-if="detailImage.imageId"
+                  type="button"
+                  class="text-google-text-muted hover:text-google-blue dark:hover:text-google-blue-dark p-0.5 transition-colors cursor-pointer"
+                  @click="copyToClipboard(detailImage.imageId)"
+                >
+                  <n-icon size="14">
+                    <CopyOutline />
+                  </n-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-google-text-primary dark:text-google-text-darkPrimary flex items-center gap-1.5">
+              <n-icon size="16" class="text-google-blue dark:text-google-blue-dark">
+                <LayersOutline />
+              </n-icon>
+              镜像构建分层 (Layers)
+            </h3>
+            <span class="text-xs text-google-text-muted dark:text-google-text-darkMuted">
+              共 {{ detailImage.layers ? detailImage.layers.length : 0 }} 个构建步骤
+            </span>
+          </div>
+
+          <div v-if="!detailImage.layers || detailImage.layers.length === 0" class="p-8 text-center text-xs text-google-text-muted dark:text-google-text-darkMuted border border-dashed border-google-border-light dark:border-google-border-dark rounded-xl">
+            该镜像未提供分层元数据记录
+          </div>
+
+          <div v-else class="flex flex-col gap-2.5">
+            <div
+              v-for="(layer, idx) in detailImage.layers"
+              :key="layer.layerId || idx"
+              class="p-3 sm:p-3.5 rounded-xl border border-google-border-light dark:border-google-border-dark bg-white dark:bg-google-surface-darkCard hover:border-google-blue/40 dark:hover:border-google-blue/40 transition-colors flex flex-col gap-2"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="px-1.5 py-0.5 text-[11px] font-semibold rounded bg-gray-100 dark:bg-google-surface-dark text-google-text-secondary dark:text-google-text-darkSecondary shrink-0">
+                    #{{ layer.layerIndex !== undefined ? layer.layerIndex : idx + 1 }}
+                  </span>
+                  <span
+                    class="px-2 py-0.5 text-[11px] font-semibold rounded shrink-0 uppercase"
+                    :class="getInstructionBadgeClass(layer.instruction, layer.createdBy)"
+                  >
+                    {{ getInstructionKeyword(layer.instruction, layer.createdBy) }}
+                  </span>
+                  <span v-if="layer.layerId" class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted truncate max-w-[120px] sm:max-w-[180px]">
+                    {{ layer.layerId.startsWith('sha256:') ? layer.layerId.substring(7, 19) : layer.layerId }}
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="text-xs font-medium" :class="layer.sizeBytes > 0 ? 'text-google-text-primary dark:text-google-text-darkPrimary' : 'text-google-text-muted dark:text-google-text-darkMuted'">
+                    {{ formatBytes(layer.sizeBytes) }}
+                  </span>
+                  <button
+                    type="button"
+                    class="p-1 rounded hover:bg-gray-100 dark:hover:bg-google-surface-dark text-google-text-muted hover:text-google-blue dark:hover:text-google-blue-dark transition-colors cursor-pointer"
+                    title="复制指令"
+                    @click="copyToClipboard(cleanInstructionText(layer.instruction, layer.createdBy))"
+                  >
+                    <n-icon size="14">
+                      <CopyOutline />
+                    </n-icon>
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-2 rounded-lg bg-gray-50 dark:bg-google-surface-dark border border-google-border-light/60 dark:border-google-border-dark/60 text-xs text-google-text-primary dark:text-google-text-darkPrimary break-all select-text">
+                {{ cleanInstructionText(layer.instruction, layer.createdBy) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </VDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NIcon, useMessage, useDialog, type DataTableColumns } from 'naive-ui'
+import { NIcon, NSpin, useMessage, useDialog, type DataTableColumns } from 'naive-ui'
 import {
   LayersOutline,
   HardwareChipOutline,
@@ -241,7 +463,9 @@ import {
   SearchOutline,
   RefreshOutline,
   SyncOutline,
-  CloudDownloadOutline
+  CloudDownloadOutline,
+  CloudUploadOutline,
+  CopyOutline
 } from '@vicons/ionicons5'
 import VBtn from '@/components/common/VBtn.vue'
 import VTable from '@/components/common/VTable.vue'
@@ -249,15 +473,19 @@ import VSearch from '@/components/common/VSearch.vue'
 import VPagination from '@/components/common/VPagination.vue'
 import VModal from '@/components/common/VModal.vue'
 import VInput from '@/components/common/VInput.vue'
+import VDrawer from '@/components/sidebar/VDrawer.vue'
 import type {
   AdminClusterImageVO,
+  AdminClusterImageDetailVO,
   AdminClusterImageStatisticsVO
 } from '@/types/image'
 import {
   getAdminImageStatisticsApi,
   getAdminImageListApi,
+  getAdminImageDetailApi,
   scanAndSyncAdminImagesApi,
   pullAdminImageApi,
+  importAdminImageApi,
   transferAdminImageApi,
   exportAdminImageApi,
   deleteAdminImageApi
@@ -286,6 +514,7 @@ const searchKeyword = ref('')
 
 const scanning = ref(false)
 const pulling = ref(false)
+const importing = ref(false)
 const transferring = ref(false)
 
 const stats = ref<AdminClusterImageStatisticsVO>({
@@ -293,6 +522,14 @@ const stats = ref<AdminClusterImageStatisticsVO>({
   totalSizeBytes: 0,
   registryOnline: true,
   registryImagesCount: 0
+})
+
+const showImportModal = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const selectedFile = ref<File | null>(null)
+const importForm = ref({
+  repository: '',
+  tag: ''
 })
 
 const showPullModal = ref(false)
@@ -305,6 +542,10 @@ const transferForm = ref({
   targetNodeIp: ''
 })
 
+const showDetailDrawer = ref(false)
+const loadingDetail = ref(false)
+const detailImage = ref<AdminClusterImageDetailVO | null>(null)
+
 const formattedTotalSize = computed(() => {
   const bytes = stats.value.totalSizeBytes || 0
   if (bytes > 1024 * 1024 * 1024) {
@@ -314,28 +555,126 @@ const formattedTotalSize = computed(() => {
 })
 
 function formatBytes(bytes?: number) {
+  if (bytes === 0) return '0 B'
   if (!bytes) return '-'
   if (bytes > 1024 * 1024 * 1024) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
   }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes > 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+  if (bytes > 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`
+  }
+  return `${bytes} B`
+}
+
+async function handleOpenImageLayers(row: AdminClusterImageVO) {
+  showDetailDrawer.value = true
+  loadingDetail.value = true
+  detailImage.value = null
+  try {
+    const res = await getAdminImageDetailApi(row.id)
+    if (res.data) {
+      detailImage.value = res.data
+    }
+  } catch (err: any) {
+    message.error(err.message || '获取镜像分层信息失败')
+  } finally {
+    loadingDetail.value = false
+  }
+}
+
+async function copyToClipboard(text: string) {
+  if (!text) return
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    message.success('已复制到剪贴板')
+  } catch {
+    message.error('复制失败')
+  }
+}
+
+function getInstructionKeyword(instruction?: string, createdBy?: string): string {
+  const text = (instruction || createdBy || '').trim()
+  const upper = text.toUpperCase()
+  if (upper.startsWith('RUN ') || upper.includes('/BIN/SH -C')) return 'RUN'
+  if (upper.startsWith('COPY ') || upper.includes('COPY ')) return 'COPY'
+  if (upper.startsWith('ADD ') || upper.includes('ADD ')) return 'ADD'
+  if (upper.startsWith('ENV ') || upper.includes('ENV ')) return 'ENV'
+  if (upper.startsWith('ARG ') || upper.includes('ARG ')) return 'ARG'
+  if (upper.startsWith('CMD ') || upper.includes('CMD ')) return 'CMD'
+  if (upper.startsWith('ENTRYPOINT ') || upper.includes('ENTRYPOINT ')) return 'ENTRYPOINT'
+  if (upper.startsWith('WORKDIR ') || upper.includes('WORKDIR ')) return 'WORKDIR'
+  if (upper.startsWith('EXPOSE ') || upper.includes('EXPOSE ')) return 'EXPOSE'
+  if (upper.startsWith('USER ') || upper.includes('USER ')) return 'USER'
+  if (upper.startsWith('LABEL ') || upper.includes('LABEL ')) return 'LABEL'
+  if (upper.startsWith('VOLUME ') || upper.includes('VOLUME ')) return 'VOLUME'
+  return 'LAYER'
+}
+
+function getInstructionBadgeClass(instruction?: string, createdBy?: string): string {
+  const kw = getInstructionKeyword(instruction, createdBy)
+  switch (kw) {
+    case 'RUN':
+      return 'bg-blue-50 dark:bg-blue-900/30 text-google-blue dark:text-google-blue-dark'
+    case 'COPY':
+    case 'ADD':
+      return 'bg-green-50 dark:bg-green-900/30 text-google-green dark:text-google-green-dark'
+    case 'ENV':
+    case 'ARG':
+      return 'bg-yellow-50 dark:bg-yellow-900/30 text-google-yellow dark:text-google-yellow-dark'
+    case 'CMD':
+    case 'ENTRYPOINT':
+      return 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+    case 'EXPOSE':
+      return 'bg-cyan-50 dark:bg-cyan-900/30 text-google-cyan dark:text-google-cyan-dark'
+    default:
+      return 'bg-gray-100 dark:bg-google-surface-dark text-google-text-secondary dark:text-google-text-darkSecondary'
+  }
+}
+
+function cleanInstructionText(instruction?: string, createdBy?: string): string {
+  let text = instruction || createdBy || ''
+  if (!text) return '-'
+  text = text.replace(/^\/bin\/sh -c #\(nop\)\s+/, '')
+  text = text.replace(/^\/bin\/sh -c\s+/, 'RUN ')
+  return text.trim()
 }
 
 const tableColumns = computed<DataTableColumns<AdminClusterImageVO>>(() => [
   {
-    title: '仓库名称 (Repository)',
+    title: '镜像名称',
     key: 'repository',
     minWidth: 180,
     render(row) {
-      return h('span', { class: 'font-semibold text-google-text-primary dark:text-google-text-darkPrimary' }, row.repository)
+      return h(
+        'span',
+        {
+          class: 'redirectable',
+          onClick: () => handleOpenImageLayers(row)
+        },
+        row.repository
+      )
     }
   },
   {
-    title: '标签 (Tag)',
+    title: '镜像标签',
     key: 'tag',
     width: 120,
     render(row) {
-      return h('span', { class: 'font-mono text-xs' }, row.tag || 'latest')
+      return h('span', { class: 'text-xs' }, row.tag || 'latest')
     }
   },
   {
@@ -343,7 +682,7 @@ const tableColumns = computed<DataTableColumns<AdminClusterImageVO>>(() => [
     key: 'sizeBytes',
     width: 110,
     render(row) {
-      return h('span', { class: 'text-xs font-mono text-google-text-secondary dark:text-google-text-darkSecondary' }, formatBytes(row.sizeBytes))
+      return h('span', { class: 'text-xs text-google-text-secondary dark:text-google-text-darkSecondary' }, formatBytes(row.sizeBytes))
     }
   },
   {
@@ -351,7 +690,7 @@ const tableColumns = computed<DataTableColumns<AdminClusterImageVO>>(() => [
     key: 'createdAt',
     width: 160,
     render(row) {
-      return h('span', { class: 'text-xs text-google-text-secondary dark:text-google-text-darkSecondary font-mono' }, row.createdAt ? new Date(row.createdAt).toLocaleString() : '-')
+      return h('span', { class: 'text-xs text-google-text-secondary dark:text-google-text-darkSecondary' }, row.createdAt ? new Date(row.createdAt).toLocaleString() : '-')
     }
   },
   {
@@ -472,6 +811,55 @@ async function handleConfirmPull() {
     message.error(err.message || '拉取任务提交失败')
   } finally {
     pulling.value = false
+  }
+}
+
+function openImportModal() {
+  selectedFile.value = null
+  importForm.value = { repository: '', tag: '' }
+  showImportModal.value = true
+}
+
+function closeImportModal() {
+  showImportModal.value = false
+  selectedFile.value = null
+  importForm.value = { repository: '', tag: '' }
+}
+
+function triggerFileSelect() {
+  fileInputRef.value?.click()
+}
+
+function handleFileChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    selectedFile.value = target.files[0]
+  }
+}
+
+async function handleConfirmImport() {
+  if (!selectedFile.value) {
+    message.warning('请选择需要导入的 Docker 镜像归档文件')
+    return
+  }
+  importing.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+    if (importForm.value.repository.trim()) {
+      formData.append('repository', importForm.value.repository.trim())
+    }
+    if (importForm.value.tag.trim()) {
+      formData.append('tag', importForm.value.tag.trim())
+    }
+    await importAdminImageApi(formData)
+    message.success('镜像导入与中心入库任务已提交后台处理')
+    closeImportModal()
+    await Promise.all([fetchStats(), fetchImages()])
+  } catch (err: any) {
+    message.error(err.message || '镜像导入失败')
+  } finally {
+    importing.value = false
   }
 }
 

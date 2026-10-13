@@ -152,7 +152,7 @@
             class="flex-1 sm:flex-none"
             @click="showStartModal = true"
           >
-            {{ t('admin.containers.manual_start', '手动启靶') }}
+            {{ t('admin.containers.manual_start', '启动容器') }}
           </VBtn>
         </div>
       </div>
@@ -189,74 +189,10 @@
       </div>
     </div>
 
-    <VModal
+    <AdminContainerLanuchModal
       v-model:show="showStartModal"
-      :title="'手动启动动态靶机容器'"
-      :width="520"
-    >
-      <div class="flex flex-col gap-4 py-2">
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-google-text-desc dark:text-google-text-darkDesc">
-            Docker 镜像名称 *
-          </label>
-          <VInput
-            v-model:value="startForm.imageName"
-            placeholder="'例如: ctf/web_challenge:latest'"
-            clearable
-          />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="text-sm font-medium text-google-text-desc dark:text-google-text-darkDesc">
-            自定义容器别名 (可选)
-          </label>
-          <VInput
-            v-model:value="startForm.containerName"
-            placeholder="'留空则自动生成随机实例名'"
-            clearable
-          />
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-google-text-desc dark:text-google-text-darkDesc">
-              靶机有效时长 (分钟)
-            </label>
-            <VInput
-              v-model:value="startDurationStr"
-              placeholder="'60'"
-              clearable
-            />
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label class="text-sm font-medium text-google-text-desc dark:text-google-text-darkDesc">
-              自定义动态 Flag (可选)
-            </label>
-            <VInput
-              v-model:value="startForm.customFlag"
-              placeholder="'flag{...}'"
-              clearable
-            />
-          </div>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex items-center justify-end gap-3 w-full">
-          <VBtn clz="normal" @click="showStartModal = false">
-            {{ t('common.cancel', '取消') }}
-          </VBtn>
-          <VBtn
-            clz="primary"
-            :loading="startingContainer"
-            @click="handleManualStart"
-          >
-            {{ t('common.confirm', '确认启动') }}
-          </VBtn>
-        </div>
-      </template>
-    </VModal>
+      @success="handleLaunchSuccess"
+    />
 
     <VModal
       v-model:show="showExecModal"
@@ -322,6 +258,7 @@ import VTable from '@/components/common/VTable.vue'
 import VPagination from '@/components/common/VPagination.vue'
 import VModal from '@/components/common/VModal.vue'
 import VSearch from '@/components/common/VSearch.vue'
+import AdminContainerLanuchModal from './AdminContainerLanuchModal.vue'
 import type {
   AdminContainerInstanceVO,
   AdminContainerStatisticsVO,
@@ -331,7 +268,6 @@ import type {
 import {
   getAdminContainerStatisticsApi,
   getAdminContainerListApi,
-  manualStartAdminContainerApi,
   stopAdminContainerApi,
   batchStopAdminContainersApi,
   renewAdminContainerApi,
@@ -371,20 +307,6 @@ const stats = ref<AdminContainerStatisticsVO>({
 })
 
 const showStartModal = ref(false)
-const startingContainer = ref(false)
-const startForm = ref({
-  imageName: '',
-  containerName: '',
-  durationMinutes: 60,
-  customFlag: ''
-})
-
-const startDurationStr = computed<string>({
-  get: () => String(startForm.value.durationMinutes || '60'),
-  set: (val) => {
-    startForm.value.durationMinutes = parseInt(val, 10) || 60
-  }
-})
 
 const showExecModal = ref(false)
 const currentExecId = ref<string | number | null>(null)
@@ -424,7 +346,7 @@ const tableColumns = computed<DataTableColumns<AdminContainerInstanceVO>>(() => 
     width: 48
   },
   {
-    title: '靶机 / 容器 ID',
+    title: '实例ID',
     key: 'containerId',
     minWidth: 160,
     render(row) {
@@ -435,7 +357,7 @@ const tableColumns = computed<DataTableColumns<AdminContainerInstanceVO>>(() => 
     }
   },
   {
-    title: '归属选手',
+    title: '创建用户',
     key: 'username',
     width: 120,
     render(row) {
@@ -443,7 +365,7 @@ const tableColumns = computed<DataTableColumns<AdminContainerInstanceVO>>(() => 
     }
   },
   {
-    title: '状态',
+    title: '容器状态',
     key: 'status',
     width: 100,
     render(row) {
@@ -451,7 +373,16 @@ const tableColumns = computed<DataTableColumns<AdminContainerInstanceVO>>(() => 
     }
   },
   {
-    title: '访问入口 URL',
+    title: t('admin.containers.table.remainingTime', '剩余时长'),
+    key: 'remainingSeconds',
+    width: 120,
+    render(row) {
+      const m = Math.floor((row.remainingSeconds || 0) / 60)
+      return `${m} 分钟`
+    }
+  },
+  {
+    title: '访问入口',
     key: 'accessUrl',
     minWidth: 180,
     render(row) {
@@ -461,16 +392,7 @@ const tableColumns = computed<DataTableColumns<AdminContainerInstanceVO>>(() => 
     }
   },
   {
-    title: '剩余有效租期',
-    key: 'remainingSeconds',
-    width: 120,
-    render(row) {
-      const m = Math.floor((row.remainingSeconds || 0) / 60)
-      return `${m} 分钟`
-    }
-  },
-  {
-    title: t('common.actions', '操作'),
+    title: '操作',
     key: 'actions',
     width: 180,
     align: 'center',
@@ -530,8 +452,7 @@ async function fetchContainers() {
       containerList.value = res.data.list ?? []
       pagination.itemCount = Number(res.data.total) || 0
     }
-  } catch (err: any) {
-    message.error(err.message || '获取容器实例失败')
+  } catch {
   } finally {
     loading.value = false
   }
@@ -564,27 +485,8 @@ function handleCheckedRowKeysChange(keys: (string | number)[]) {
   checkedRowKeys.value = keys
 }
 
-async function handleManualStart() {
-  if (!startForm.value.imageName.trim()) {
-    message.warning('请填写镜像名称')
-    return
-  }
-  startingContainer.value = true
-  try {
-    await manualStartAdminContainerApi({
-      imageName: startForm.value.imageName.trim(),
-      containerName: startForm.value.containerName.trim() || undefined,
-      durationMinutes: startForm.value.durationMinutes,
-      customFlag: startForm.value.customFlag.trim() || undefined
-    })
-    message.success('靶机容器已触发启动')
-    showStartModal.value = false
-    await Promise.all([fetchStats(), fetchContainers()])
-  } catch (err: any) {
-    message.error(err.message || '启动容器失败')
-  } finally {
-    startingContainer.value = false
-  }
+async function handleLaunchSuccess() {
+  await Promise.all([fetchStats(), fetchContainers()])
 }
 
 async function handleRenew(id: string | number) {
@@ -592,8 +494,7 @@ async function handleRenew(id: string | number) {
     await renewAdminContainerApi(id, { durationMinutes: 60 })
     message.success('靶机租期已延长 60 分钟')
     await fetchContainers()
-  } catch (err: any) {
-    message.error(err.message || '续期失败')
+  } catch {
   }
 }
 
@@ -614,8 +515,7 @@ async function handleExecCommand() {
     if (res.data) {
       execResult.value = res.data
     }
-  } catch (err: any) {
-    message.error(err.message || '执行命令异常')
+  } catch {
   } finally {
     executing.value = false
   }
@@ -632,8 +532,7 @@ function handleStop(id: string | number) {
         await stopAdminContainerApi(id)
         message.success('容器已销毁释放')
         await Promise.all([fetchStats(), fetchContainers()])
-      } catch (err: any) {
-        message.error(err.message || '销毁容器失败')
+      } catch {
       }
     }
   })
@@ -652,8 +551,7 @@ function handleBatchStop() {
         message.success('已批量触发停止')
         checkedRowKeys.value = []
         await Promise.all([fetchStats(), fetchContainers()])
-      } catch (err: any) {
-        message.error(err.message || '批量销毁失败')
+      } catch {
       }
     }
   })

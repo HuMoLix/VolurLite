@@ -22,6 +22,6 @@ public interface CompetitionService {
 
     CompetitionAboutVO getCompetitionAbout(Long id);
 
-    List<CompetitionAnnouncementVO> listAnnouncements(Long competitionId);
+    List<CompetitionAnnouncementVO> listAnnouncements(Long competitionId, Long userId);
 
 }
