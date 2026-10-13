@@ -2,7 +2,7 @@
  * 题目模块类型定义 (对应 com.humolix.volur.challenge)
  */
 
-export type ChallengeType = 'STATIC' | 'DYNAMIC' | 'CONTAINER' | 'DYNAMIC_CONTAINER'
+export type ChallengeType = 'STATIC' | 'DYNAMIC' | 'CONTAINER'
 
 /** 赛题难度等级 (对应 com.humolix.volur.challenge.domain.enums.ChallengeDifficulty) */
 export type ChallengeDifficulty = 'easy' | 'normal' | 'mid' | 'hard' | 'difficult'

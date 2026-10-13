@@ -1,4 +1,4 @@
-export type ChallengeType = 'STATIC' | 'DYNAMIC' | 'CONTAINER' | 'DYNAMIC_CONTAINER'
+export type ChallengeType = 'STATIC' | 'DYNAMIC' | 'CONTAINER'
 
 export type ChallengeDifficulty = 'easy' | 'normal' | 'mid' | 'hard' | 'difficult'
 

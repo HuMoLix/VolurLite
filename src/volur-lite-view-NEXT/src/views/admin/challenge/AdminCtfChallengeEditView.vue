@@ -282,7 +282,7 @@ const memoryLimitStr = computed<string>({
 })
 
 const isContainerType = computed(() => {
-  return formData.value.type === 'CONTAINER' || formData.value.type === 'DYNAMIC_CONTAINER' || formData.value.type === 'DYNAMIC'
+  return formData.value.type === 'CONTAINER' || formData.value.type === 'DYNAMIC'
 })
 
 const categoryOptions = computed(() => {
@@ -294,7 +294,7 @@ const categoryOptions = computed(() => {
 
 const typeOptions = [
   { label: '静态赛题', value: 'STATIC', icon: 'DocumentTextOutline' },
-  { label: '动态靶机', value: 'DYNAMIC_CONTAINER', icon: 'CubeOutline' },
+  { label: '动态靶机', value: 'DYNAMIC', icon: 'CubeOutline' },
   { label: '独立容器', value: 'CONTAINER', icon: 'ServerOutline' }
 ]
 

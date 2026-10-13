@@ -267,7 +267,7 @@ function getDifficultyText(diffVal?: ChallengeDifficulty | number | string): str
 
 function getTypeText(type?: ChallengeType | string): string {
   const s = String(type || '').toUpperCase().trim()
-  if (s === 'CONTAINER' || s === 'DYNAMIC_CONTAINER' || s === 'DYNAMIC') {
+  if (s === 'CONTAINER' || s === 'DYNAMIC') {
     return t('admin.challenges.type_dynamic_container', '动态容器')
   }
   return t('admin.challenges.type_static_attachment', '静态附件')
@@ -296,7 +296,7 @@ function matchType(typeVal: any, filterVal: string): boolean {
   if (!filterVal) return true
   const s = String(typeVal || 'STATIC').toUpperCase().trim()
   if (filterVal === 'CONTAINER') {
-    return s === 'CONTAINER' || s === 'DYNAMIC_CONTAINER' || s === 'DYNAMIC'
+    return s === 'CONTAINER' || s === 'DYNAMIC'
   }
   if (filterVal === 'STATIC') {
     return s === 'STATIC' || !s

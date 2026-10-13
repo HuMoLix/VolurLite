@@ -425,7 +425,7 @@ const bankColumns: DataTableColumns<CtfChallengeListVO> = [
     key: 'type',
     width: 120,
     render(row) {
-      return row.type === 'DYNAMIC_CONTAINER' ? '动态独立容器' : '静态题目'
+      return (row.type === 'DYNAMIC' || row.type === 'CONTAINER') ? '动态独立容器' : '静态题目'
     }
   },
   {
