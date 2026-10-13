@@ -146,6 +146,17 @@
                 <groupId>io.fabric8</groupId>
                 <artifactId>kubernetes-client</artifactId>
                 <version>${fabric8-kubernetes.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.fabric8</groupId>
+                        <artifactId>kubernetes-httpclient-vertx-5</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>io.fabric8</groupId>
+                <artifactId>kubernetes-httpclient-jdk</artifactId>
+                <version>${fabric8-kubernetes.version}</version>
             </dependency>
 
             <!-- Hutool Utilities -->
