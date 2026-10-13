@@ -50,6 +50,7 @@ services:
 
   volur-app:
     image: volur-app:latest
+    pull_policy: build
     build:
       context: ./src/volur-lite-platform
       dockerfile: Dockerfile
@@ -86,6 +87,7 @@ services:
 
   volur-nginx:
     image: volur-nginx:latest
+    pull_policy: build
     build:
       context: ./src/volur-lite-view-NEXT
       dockerfile: Dockerfile
