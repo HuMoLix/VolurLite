@@ -5,6 +5,8 @@ import com.humolix.volur.challenge.domain.entity.Containerizable;
 import com.humolix.volur.container.domain.dto.*;
 import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
 import com.humolix.volur.container.domain.vo.AdminContainerTerminalInfoVO;
+import com.humolix.volur.container.client.DockerRegistryClient;
+import com.humolix.volur.container.repository.ClusterImageRepository;
 import com.humolix.volur.container.repository.ClusterNodeRepository;
 import com.humolix.volur.container.util.ContainerPortAllocator;
 import com.humolix.volur.framework.common.exception.BusinessException;
@@ -43,6 +45,8 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
     private final SystemSettingService systemSettingService;
     private final ClusterNodeRepository clusterNodeRepository;
     private final ContainerPortAllocator containerPortAllocator;
+    private final DockerRegistryClient dockerRegistryClient;
+    private final ClusterImageRepository clusterImageRepository;
 
     @Value("${volur.k3s.namespace:volur-challenges}")
     private String defaultNamespace;
@@ -65,6 +69,45 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
 
     private String resolvePublicHost() {
         return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, defaultPublicHost);
+    }
+
+    private String resolveEffectiveImageName(String rawImageName) {
+        if (!StringUtils.hasText(rawImageName)) {
+            return rawImageName;
+        }
+        String clean = rawImageName.trim();
+        String publicRegistryHost = dockerRegistryClient.getPublicRegistryHost();
+
+        if (clean.startsWith(publicRegistryHost + "/")) {
+            return clean;
+        }
+
+        int firstSlash = clean.indexOf('/');
+        if (firstSlash > 0) {
+            String domainPart = clean.substring(0, firstSlash);
+            if (domainPart.contains(".") || domainPart.contains(":")) {
+                return clean;
+            }
+        }
+
+        String repo = clean;
+        String tag = "latest";
+        int colonIdx = clean.lastIndexOf(':');
+        if (colonIdx > 0 && !clean.substring(colonIdx + 1).contains("/")) {
+            repo = clean.substring(0, colonIdx);
+            tag = clean.substring(colonIdx + 1);
+        }
+
+        if (dockerRegistryClient.isAvailable()) {
+            boolean inRegistry = clusterImageRepository.findByRepositoryAndTag(repo, tag)
+                    .map(img -> Boolean.TRUE.equals(img.getInRegistry()))
+                    .orElse(false);
+            if (inRegistry) {
+                return publicRegistryHost + "/" + clean;
+            }
+        }
+
+        return clean;
     }
 
     public synchronized void resetClient() {
@@ -286,7 +329,7 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                         .withAutomountServiceAccountToken(false)
                         .addNewContainer()
                         .withName("challenge-container")
-                        .withImage(imageName)
+                        .withImage(resolveEffectiveImageName(imageName))
                         .withImagePullPolicy("IfNotPresent")
                         .withEnv(envVars)
                         .withResources(resources)
@@ -499,7 +542,7 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                         .withAutomountServiceAccountToken(false)
                         .addNewContainer()
                         .withName("manual-container")
-                        .withImage(imageName)
+                        .withImage(resolveEffectiveImageName(imageName))
                         .withImagePullPolicy("IfNotPresent")
                         .withEnv(envVars)
                         .withResources(resources)

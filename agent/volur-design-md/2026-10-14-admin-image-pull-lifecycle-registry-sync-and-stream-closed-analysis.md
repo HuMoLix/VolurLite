@@ -143,3 +143,5 @@
    - 跨节点流式直通若发生 I/O 管道破裂，异步等待并汇聚子进程标准错误流，精准暴露底层 Docker 错误详情。
 6. **K3S 运行模式与 Docker 跨节点复制彻底解耦**：
    - 在 `AdminContainerServiceImpl` 与 `CtfInstanceServiceImpl` 中，将 `ensureImageOnNode` 限制在 `DOCKER_SWARM` 模式下触发；在 `K3S` 模式下直接交由 Kubernetes Pod 调度机制拉取镜像，彻底杜绝 K3S 节点因缺少 Docker 2375 端口而触发 `Stream closed` 异常。
+7. **K3S 镜像私有仓库前缀智能解析 (`resolveEffectiveImageName`)**：
+   - 在 `K3sRuntimeStrategy` 中自动识别平台托管的私有 Registry 镜像，调度 Pod 时若未携带私有仓库主机名前缀（如输入 `nginx:latest`），自动装配为中心仓库绝对路径（如 `10.145.251.25:5000/nginx:latest`），阻止 containerd 错误地向外网 Docker Hub 发起拉取导致 `ImagePullBackOff`。
