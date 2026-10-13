@@ -1,10 +1,13 @@
+# syntax=docker/dockerfile:1
 FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 
-RUN npm ci --prefer-offline || npm install
+RUN --mount=type=cache,target=/root/.npm \
+    npm config set registry https://registry.npmmirror.com && \
+    (npm ci --prefer-offline || npm install --registry=https://registry.npmmirror.com)
 
 COPY . .
 
@@ -15,7 +18,8 @@ RUN npm run build
 FROM nginx:alpine
 
 ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 

@@ -135,7 +135,10 @@ public class PasswordServiceImpl implements PasswordService {
         boolean isTrusted = StringUtils.hasText(deviceHash)
                 && userTrustedDeviceService.isTrustedDevice(user.getId(), deviceHash);
 
-        if (!isTrusted && StringUtils.hasText(user.getEmail())) {
+        boolean requireEmailVerification = systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true);
+        boolean mailEnabled = systemSettingService.getBoolean(SystemSettingKeys.MAIL_ENABLED, false);
+
+        if (requireEmailVerification && mailEnabled && !isTrusted && StringUtils.hasText(user.getEmail())) {
             if (session.getFlow() != null) {
                 session.getFlow().addWaitingStepFirst(SigninFlow.STEP_ETOTP);
                 sessionManager.saveSession(session);

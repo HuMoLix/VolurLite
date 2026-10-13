@@ -156,6 +156,8 @@ class PasswordServiceImplTest {
         given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
         given(passwordEncoder.matches("correct_password", "encodedPassword")).willReturn(true);
         given(userTrustedDeviceService.isTrustedDevice(eq(1001L), anyString())).willReturn(false);
+        given(systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true)).willReturn(true);
+        given(systemSettingService.getBoolean(SystemSettingKeys.MAIL_ENABLED, false)).willReturn(true);
         given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(2), eq("etotp"), eq("validuser")))
                 .willReturn("ADG-ETOTP_TICKET");
 
@@ -166,6 +168,82 @@ class PasswordServiceImplTest {
         Assertions.assertEquals(2, response.getCid());
         Assertions.assertEquals("ADG-ETOTP_TICKET", response.getTl());
         verify(emailService).sendVerificationEmail(eq("valid@example.com"), eq("validuser"), eq(true));
+    }
+
+    @Test
+    void verifyPassword_untrustedDevice_mailDisabled_shouldAdvanceToAuthenticate() {
+        PasswordChallengeRequestDTO request = new PasswordChallengeRequestDTO();
+        request.setDsh("S-100200300:1790000000");
+        request.setTl("ADG-PWD_TICKET");
+        request.setCid(1);
+        request.setPassword("correct_password");
+
+        Session session = Session.builder()
+                .dsh(request.getDsh())
+                .flow(Flow.builder().identifier("validuser").currentStep("pwd").cid(1).build())
+                .requestDeviceParams(RequestDeviceParams.of("127.0.0.1", "fp_sample_123"))
+                .build();
+
+        User mockUser = new User();
+        mockUser.setId(1001L);
+        mockUser.setUsername("validuser");
+        mockUser.setPassword("encodedPassword");
+        mockUser.setStatus(true);
+        mockUser.setRole(UserRole.USER);
+        mockUser.setEmail("valid@example.com");
+
+        given(sessionManager.getSession(request.getDsh())).willReturn(session);
+        given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
+        given(passwordEncoder.matches("correct_password", "encodedPassword")).willReturn(true);
+        given(userTrustedDeviceService.isTrustedDevice(eq(1001L), anyString())).willReturn(false);
+        given(systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true)).willReturn(true);
+        given(systemSettingService.getBoolean(SystemSettingKeys.MAIL_ENABLED, false)).willReturn(false);
+        given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(2), eq("authenticate"), eq("validuser")))
+                .willReturn("ADG-AUTH_TICKET");
+
+        FlowResponseVO response = passwordService.verifyPassword(request);
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals("authenticate", response.getNextStep());
+        Assertions.assertEquals(2, response.getCid());
+    }
+
+    @Test
+    void verifyPassword_untrustedDevice_requireEmailDisabled_shouldAdvanceToAuthenticate() {
+        PasswordChallengeRequestDTO request = new PasswordChallengeRequestDTO();
+        request.setDsh("S-100200300:1790000000");
+        request.setTl("ADG-PWD_TICKET");
+        request.setCid(1);
+        request.setPassword("correct_password");
+
+        Session session = Session.builder()
+                .dsh(request.getDsh())
+                .flow(Flow.builder().identifier("validuser").currentStep("pwd").cid(1).build())
+                .requestDeviceParams(RequestDeviceParams.of("127.0.0.1", "fp_sample_123"))
+                .build();
+
+        User mockUser = new User();
+        mockUser.setId(1001L);
+        mockUser.setUsername("validuser");
+        mockUser.setPassword("encodedPassword");
+        mockUser.setStatus(true);
+        mockUser.setRole(UserRole.USER);
+        mockUser.setEmail("valid@example.com");
+
+        given(sessionManager.getSession(request.getDsh())).willReturn(session);
+        given(userRepository.findByUsername("validuser")).willReturn(Optional.of(mockUser));
+        given(passwordEncoder.matches("correct_password", "encodedPassword")).willReturn(true);
+        given(userTrustedDeviceService.isTrustedDevice(eq(1001L), anyString())).willReturn(false);
+        given(systemSettingService.getBoolean(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, true)).willReturn(false);
+        given(systemSettingService.getBoolean(SystemSettingKeys.MAIL_ENABLED, false)).willReturn(true);
+        given(transitionLockManager.nextTransLock(eq(request.getDsh()), eq(request.getTl()), eq(1), eq("pwd"), eq(2), eq("authenticate"), eq("validuser")))
+                .willReturn("ADG-AUTH_TICKET");
+
+        FlowResponseVO response = passwordService.verifyPassword(request);
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals("authenticate", response.getNextStep());
+        Assertions.assertEquals(2, response.getCid());
     }
 
     @Test
