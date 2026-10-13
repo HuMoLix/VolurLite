@@ -42,7 +42,7 @@
   "email_verification": "Email verification",
   "enter_email_code_label": "Enter email verification code",
   "selection_rejected_msg": "Volur doesn't have enough info to be sure this account is really yours. Volur asks for this info to keep your account safe.",
-  "meta_title_accountchooser": "Choose an account - Volur Account",
-  "meta_title_signin": "Sign in - Volur Account",
-  "meta_title_challenge": "Sign in - Security verification and challenge"
+  "meta_title_accountchooser": "Choose an account - Volur",
+  "meta_title_signin": "Sign in - Volur",
+  "meta_title_challenge": "Security verification and challenge - Volur"
 }

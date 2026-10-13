@@ -145,7 +145,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: 'competitions/create',
         name: 'AdminCompetitionCreate',
-        component: () => import('@/views/admin/competition/AdminCompetitionEditView.vue'),
+        component: () => import('@/views/admin/competition/AdminCompetitionCreateView.vue'),
         meta: {
           title: '创建竞赛',
           titleKey: 'admin.competitions.modal_create_title',
@@ -157,7 +157,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: 'competitions/ctf/create',
         name: 'AdminCtfCompetitionCreate',
-        component: () => import('@/views/admin/competition/AdminCtfCompetitionEditView.vue'),
+        component: () => import('@/views/admin/competition/AdminCompetitionCreateView.vue'),
         meta: {
           title: '创建 CTF 竞赛',
           titleKey: 'admin.competitions.modal_create_title',
@@ -181,7 +181,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: 'competitions/theory/create',
         name: 'AdminTheoryCompetitionCreate',
-        component: () => import('@/views/admin/competition/AdminTheoryCompetitionEditView.vue'),
+        component: () => import('@/views/admin/competition/AdminCompetitionCreateView.vue'),
         meta: {
           title: '创建理论竞赛',
           titleKey: 'admin.competitions.modal_create_title',

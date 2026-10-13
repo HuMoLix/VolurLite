@@ -31,10 +31,10 @@ WORKDIR /app
 
 ENV TZ=Asia/Shanghai
 
-RUN apk add --no-cache docker-cli
+RUN apk add --no-cache docker-cli fontconfig ttf-dejavu
 
 COPY --from=builder /build/volur-server/target/volur-server.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-XX:+UseZGC", "-Duser.timezone=Asia/Shanghai", "-Dfile.encoding=UTF-8", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseZGC", "-Djava.awt.headless=true", "-Dsun.java2d.xrender=false", "-Dsun.java2d.pmoffscreen=false", "-Duser.timezone=Asia/Shanghai", "-Dfile.encoding=UTF-8", "-jar", "app.jar"]

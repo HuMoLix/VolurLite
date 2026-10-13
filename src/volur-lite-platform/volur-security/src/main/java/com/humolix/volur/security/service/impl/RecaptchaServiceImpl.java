@@ -17,6 +17,7 @@ import com.humolix.volur.verification.domain.dto.CaptchaVerifyDTO;
 import com.humolix.volur.verification.domain.vo.CaptchaResponseVO;
 import com.humolix.volur.verification.risk.engine.RiskEvaluationEngine;
 import com.humolix.volur.verification.risk.enums.CaptchaScene;
+import com.humolix.volur.verification.risk.enums.CaptchaType;
 import com.humolix.volur.verification.risk.enums.RiskLevel;
 import com.humolix.volur.verification.service.CaptchaService;
 import lombok.AllArgsConstructor;
@@ -98,14 +99,14 @@ public class RecaptchaServiceImpl implements RecaptchaService {
         String innerCaptchaId = null;
 
         if ("PUZZLE".equalsIgnoreCase(challengeType)) {
-            CaptchaResponseVO captchaVO = captchaService.generateChallenge("LOGIN", "SLIDER", null);
+            CaptchaResponseVO captchaVO = captchaService.generateChallenge("LOGIN", CaptchaType.SLIDE_PUZZLE.name(), null);
             innerCaptchaId = captchaVO.getCaptchaId();
             voBuilder.backgroundImage(captchaVO.getImageBase64())
                     .puzzleImage(captchaVO.getSliderBase64())
                     .puzzleY(captchaVO.getYPosition())
                     .promptText("请拖动滑块完成拼图");
         } else if ("IMAGE".equalsIgnoreCase(challengeType)) {
-            CaptchaResponseVO captchaVO = captchaService.generateChallenge("LOGIN", "IMAGE", null);
+            CaptchaResponseVO captchaVO = captchaService.generateChallenge("LOGIN", CaptchaType.LINE.name(), null);
             innerCaptchaId = captchaVO.getCaptchaId();
             voBuilder.captchaImage(captchaVO.getImageBase64())
                     .promptText("请输入图片中的字符");

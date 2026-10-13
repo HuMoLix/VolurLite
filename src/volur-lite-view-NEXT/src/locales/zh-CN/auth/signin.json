@@ -42,7 +42,7 @@
   "email_verification": "邮箱验证",
   "enter_email_code_label": "输入邮箱验证码",
   "selection_rejected_msg": "您提供的信息不足以让 Volur 认定您确实是这个账号的所有者。Volur 需要使用这类信息来保证您账号的安全。",
-  "meta_title_accountchooser": "选择账号 - Volur 账号",
-  "meta_title_signin": "登录 - Volur 账号",
-  "meta_title_challenge": "登录 - 安全核验与挑战"
+  "meta_title_accountchooser": "选择账号 - Volur",
+  "meta_title_signin": "登录 - Volur",
+  "meta_title_challenge": "安全核验与挑战 - Volur"
 }

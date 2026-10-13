@@ -25,4 +25,10 @@ public interface TheoryCompetitionService {
 
     List<AdminTheoryCandidateMonitorVO> listCandidateMonitors(Long competitionId);
 
+    void uploadHighResSnapshot(Long competitionId, Long userId, com.humolix.volur.competition.domain.dto.theory.TheoryProctorSnapshotDTO request);
+
+    void requestCandidateHighResSnapshot(Long competitionId, Long adminUserId, Long candidateUserId);
+
+    void forwardRtcSignal(Long competitionId, Long senderUserId, com.humolix.volur.competition.domain.dto.theory.TheoryProctorRtcSignalDTO signal);
+
 }

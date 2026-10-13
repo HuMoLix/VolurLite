@@ -122,6 +122,23 @@ public class RealtimePushServiceImpl implements RealtimePushService {
         publishToRedisChannel(messageBO);
     }
 
+    @Override
+    public void sendToUser(Long userId, String eventName, Object payload) {
+        if (userId == null || eventName == null) {
+            return;
+        }
+
+        RealtimeMessageBO messageBO = RealtimeMessageBO.builder()
+                .eventId(UUID.randomUUID().toString())
+                .eventType(eventName)
+                .targetUserId(userId)
+                .payload(payload)
+                .timestamp(Instant.now())
+                .build();
+
+        publishToRedisChannel(messageBO);
+    }
+
     private void publishToRedisChannel(RealtimeMessageBO messageBO) {
         try {
             String json = objectMapper.writeValueAsString(messageBO);

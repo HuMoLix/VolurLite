@@ -26,10 +26,10 @@
   "confirm_password_label": "Confirm new password",
   "password_length_error": "Password must be 6-32 characters long and contain letters, numbers, and at least one special character",
   "reset_success": "Password reset successfully. Please sign in with your new password.",
-  "meta_title_username": "Find your username - Volur Account",
-  "meta_title_email": "Find your username - Email",
-  "meta_title_password": "Reset your password - Volur Account",
-  "meta_title_emailotp": "Reset your password - Email verification code",
-  "meta_title_reset": "Set new password - Volur Account",
-  "meta_title_challenge": "Security verification - Volur Account"
+  "meta_title_username": "Find your username - Volur",
+  "meta_title_email": "Find your username - Email - Volur",
+  "meta_title_password": "Reset your password - Volur",
+  "meta_title_emailotp": "Reset your password - Email verification code - Volur",
+  "meta_title_reset": "Set new password - Volur",
+  "meta_title_challenge": "Security verification - Volur"
 }

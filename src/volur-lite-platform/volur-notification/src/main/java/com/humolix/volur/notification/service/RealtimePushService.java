@@ -15,4 +15,6 @@ public interface RealtimePushService {
 
     void broadcastAll(String eventName, Object payload);
 
+    void sendToUser(Long userId, String eventName, Object payload);
+
 }

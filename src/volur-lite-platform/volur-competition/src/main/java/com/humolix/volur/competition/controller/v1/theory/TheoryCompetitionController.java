@@ -60,4 +60,22 @@ public class TheoryCompetitionController {
         return ApiResponseEntity.ok("心跳上报成功", theoryCompetitionService.recordProctorHeartbeat(competitionId, userId, request));
     }
 
+    @PostMapping("/proctor/snapshot")
+    public ApiResponseEntity<Void> uploadSnapshot(
+            @PathVariable Long competitionId,
+            @CurrentUserId Long userId,
+            @RequestBody com.humolix.volur.competition.domain.dto.theory.TheoryProctorSnapshotDTO request) {
+        theoryCompetitionService.uploadHighResSnapshot(competitionId, userId, request);
+        return ApiResponseEntity.success("高清快照上传成功");
+    }
+
+    @PostMapping("/proctor/rtc/signal")
+    public ApiResponseEntity<Void> forwardRtcSignal(
+            @PathVariable Long competitionId,
+            @CurrentUserId Long userId,
+            @RequestBody com.humolix.volur.competition.domain.dto.theory.TheoryProctorRtcSignalDTO request) {
+        theoryCompetitionService.forwardRtcSignal(competitionId, userId, request);
+        return ApiResponseEntity.success("WebRTC 信令转发成功");
+    }
+
 }

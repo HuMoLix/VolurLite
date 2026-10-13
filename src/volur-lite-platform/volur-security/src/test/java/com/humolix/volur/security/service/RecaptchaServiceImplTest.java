@@ -16,6 +16,7 @@ import com.humolix.volur.verification.crypto.CaptchaCryptoService;
 import com.humolix.volur.verification.domain.vo.CaptchaResponseVO;
 import com.humolix.volur.verification.domain.vo.CaptchaTicketVO;
 import com.humolix.volur.verification.risk.engine.RiskEvaluationEngine;
+import com.humolix.volur.verification.risk.enums.CaptchaType;
 import com.humolix.volur.verification.risk.enums.RiskLevel;
 import com.humolix.volur.verification.service.CaptchaService;
 import org.junit.jupiter.api.Assertions;
@@ -124,12 +125,12 @@ class RecaptchaServiceImplTest {
 
         CaptchaResponseVO puzzleVO = CaptchaResponseVO.builder()
                 .captchaId("inner_cap_123")
-                .captchaType("SLIDER")
+                .captchaType(CaptchaType.SLIDE_PUZZLE.name())
                 .imageBase64("bg_base64")
                 .sliderBase64("slider_base64")
                 .yPosition(55)
                 .build();
-        given(captchaService.generateChallenge(eq("LOGIN"), eq("SLIDER"), isNull())).willReturn(puzzleVO);
+        given(captchaService.generateChallenge(eq("LOGIN"), eq(CaptchaType.SLIDE_PUZZLE.name()), isNull())).willReturn(puzzleVO);
 
         RecaptchaChallengeVO result = recaptchaService.getRecaptchaChallenge(dsh, tl);
 

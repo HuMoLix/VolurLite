@@ -32,6 +32,8 @@ import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.CompetitionMemberRepository;
 import com.humolix.volur.competition.repository.CompetitionOperationLogRepository;
 import com.humolix.volur.competition.repository.CompetitionRepository;
+import com.humolix.volur.competition.domain.dto.theory.TheoryProctorSnapshotDTO;
+import com.humolix.volur.competition.domain.dto.theory.TheoryProctorRtcSignalDTO;
 import com.humolix.volur.competition.repository.theory.TheoryCompetitionAnswerRepository;
 import com.humolix.volur.competition.repository.theory.TheoryCompetitionBankRepository;
 import com.humolix.volur.competition.repository.theory.TheoryCompetitionConfigRepository;
@@ -39,6 +41,7 @@ import com.humolix.volur.competition.repository.theory.TheoryCompetitionPaperRep
 import com.humolix.volur.competition.repository.theory.TheoryUserPaperRepository;
 import com.humolix.volur.competition.service.theory.TheoryCompetitionService;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.notification.service.RealtimePushService;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.user.repository.UserRepository;
@@ -82,6 +85,7 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
     private final CompetitionMapper competitionMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
+    private final RealtimePushService realtimePushService;
 
     private record PaperQuestionSlot(TheoryChallenge question, int score) {}
     private record OptionEntry(String key, String text) {}
@@ -790,6 +794,82 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
             } catch (Exception ignored) {}
         }
         return 0;
+    }
+
+    @Override
+    public void uploadHighResSnapshot(Long competitionId, Long userId, TheoryProctorSnapshotDTO request) {
+        if (userId == null) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
+        }
+        if (request == null || !StringUtils.hasText(request.getScreenFrame())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "快照画面帧不能为空");
+        }
+
+        String userKey = VREDIS_COMPETITION_THEORY_MONITOR_USER_KEY_PREFIX + competitionId + ":" + userId;
+        String raw = stringRedisTemplate.opsForValue().get(userKey);
+        AdminTheoryCandidateMonitorVO monitor = null;
+        if (StringUtils.hasText(raw)) {
+            try {
+                monitor = objectMapper.readValue(raw, AdminTheoryCandidateMonitorVO.class);
+            } catch (Exception ignored) {}
+        }
+
+        long now = request.getTimestamp() != null && request.getTimestamp() > 0 ? request.getTimestamp() : System.currentTimeMillis();
+        if (monitor == null) {
+            User user = userRepository.findById(userId).orElse(null);
+            CompetitionTeam team = getMyApprovedTeam(competitionId, userId);
+            monitor = AdminTheoryCandidateMonitorVO.builder()
+                    .userId(userId)
+                    .username(user != null ? user.getUsername() : String.valueOf(userId))
+                    .teamId(team != null ? team.getId() : null)
+                    .teamName(team != null ? team.getTeamName() : null)
+                    .connectedSince(now)
+                    .build();
+        }
+
+        monitor.setHighResFrame(request.getScreenFrame());
+        monitor.setHighResTimestamp(now);
+        monitor.setIsOnline(true);
+        monitor.setLastHeartbeatTime(now);
+
+        try {
+            stringRedisTemplate.opsForValue().set(userKey, objectMapper.writeValueAsString(monitor), VREDIS_COMPETITION_THEORY_MONITOR_TTL);
+        } catch (Exception ignored) {}
+
+        String usersKey = VREDIS_COMPETITION_THEORY_MONITOR_USERS_KEY_PREFIX + competitionId;
+        stringRedisTemplate.opsForSet().add(usersKey, userId.toString());
+
+        realtimePushService.broadcastAll("THEORY_PROCTOR_SNAPSHOT_UPDATED", Map.of(
+                "competitionId", competitionId,
+                "userId", userId,
+                "reason", request.getReason() != null ? request.getReason() : "INSPECT",
+                "timestamp", now
+        ));
+    }
+
+    @Override
+    public void requestCandidateHighResSnapshot(Long competitionId, Long adminUserId, Long candidateUserId) {
+        if (candidateUserId == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "目标考生ID不能为空");
+        }
+        realtimePushService.sendToUser(candidateUserId, "THEORY_PROCTOR_SNAPSHOT_REQUEST", Map.of(
+                "competitionId", competitionId,
+                "adminId", adminUserId != null ? adminUserId : 0L,
+                "requestId", UUID.randomUUID().toString(),
+                "timestamp", System.currentTimeMillis()
+        ));
+    }
+
+    @Override
+    public void forwardRtcSignal(Long competitionId, Long senderUserId, TheoryProctorRtcSignalDTO signal) {
+        if (signal == null || signal.getTargetUserId() == null || !StringUtils.hasText(signal.getType())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "信令参数不完整");
+        }
+        realtimePushService.sendToUser(signal.getTargetUserId(), "THEORY_PROCTOR_RTC_SIGNAL", Map.of(
+                "competitionId", competitionId,
+                "senderUserId", senderUserId,
+                "signal", signal
+        ));
     }
 
 }

@@ -10,7 +10,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getAdminCompetitionByIdApi } from '@/api/competition'
 import AdminCtfCompetitionEditView from './AdminCtfCompetitionEditView.vue'
@@ -21,6 +21,7 @@ defineOptions({
 })
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -46,12 +47,7 @@ onMounted(async () => {
       loading.value = false
     }
   } else {
-    const qType = String(route.query.type || '').toUpperCase()
-    if (qType === 'THEORY') {
-      competitionType.value = 'THEORY'
-    } else {
-      competitionType.value = 'CTF'
-    }
+    router.replace('/admin/competitions/create')
   }
 })
 </script>

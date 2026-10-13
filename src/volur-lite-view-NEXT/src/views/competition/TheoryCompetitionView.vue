@@ -331,15 +331,19 @@ import {
   submitTheoryPaperApi,
   reportTheoryCheatEventApi,
   sendProctorHeartbeatApi,
+  uploadTheoryProctorSnapshotApi,
+  sendTheoryProctorRtcSignalApi,
   getMyTeamApi
 } from '@/api/competition'
+import { getGlobalSseClient } from '@/utils/sse'
 import type {
   CompetitionDetailVO,
   TheoryPaperExamVO,
   TheoryPaperQuestionVO,
   TheoryPaperResultVO,
   TheoryPaperSubmitRequestDTO,
-  TheoryCheatEventType
+  TheoryCheatEventType,
+  TheoryProctorRtcSignalDTO
 } from '@/types/competition'
 
 defineOptions({
@@ -525,6 +529,15 @@ async function reportViolation(eventType: TheoryCheatEventType, detail: string) 
 
   currentViolationReason.value = detail
 
+  const highResFrame = captureHighResSnapshot()
+  if (highResFrame && competition.value?.id) {
+    uploadTheoryProctorSnapshotApi(competition.value.id, {
+      screenFrame: highResFrame,
+      reason: eventType,
+      timestamp: now
+    }).catch(() => {})
+  }
+
   try {
     const res = await reportTheoryCheatEventApi(competition.value.id, {
       eventType,
@@ -547,6 +560,18 @@ async function reportViolation(eventType: TheoryCheatEventType, detail: string) 
       }
     }
   } catch {}
+}
+
+let highResCanvas: HTMLCanvasElement | null = null
+let candidatePeerConnection: RTCPeerConnection | null = null
+let unsubSseSnapshotRequest: (() => void) | null = null
+let unsubSseRtcSignal: (() => void) | null = null
+
+const rtcConfiguration: RTCConfiguration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
 }
 
 function setupOffscreenVideo(stream: MediaStream) {
@@ -576,6 +601,27 @@ function captureScreenFrame(): string {
     if (!ctx) return ''
     ctx.drawImage(offscreenVideo, 0, 0, 320, 180)
     return offscreenCanvas.toDataURL('image/jpeg', 0.5)
+  } catch {
+    return ''
+  }
+}
+
+function captureHighResSnapshot(): string {
+  if (!offscreenVideo || offscreenVideo.videoWidth === 0) {
+    return ''
+  }
+  try {
+    const w = offscreenVideo.videoWidth || 1920
+    const h = offscreenVideo.videoHeight || 1080
+    if (!highResCanvas) {
+      highResCanvas = document.createElement('canvas')
+    }
+    highResCanvas.width = w
+    highResCanvas.height = h
+    const ctx = highResCanvas.getContext('2d')
+    if (!ctx) return ''
+    ctx.drawImage(offscreenVideo, 0, 0, w, h)
+    return highResCanvas.toDataURL('image/jpeg', 0.85)
   } catch {
     return ''
   }
@@ -634,7 +680,105 @@ async function handleHeartbeatTick() {
   } catch {}
 }
 
+async function handleIncomingRtcSignal(payload: any) {
+  if (!competition.value?.id || !payload?.signal) return
+  const signal: TheoryProctorRtcSignalDTO = payload.signal
+  const senderUserId = payload.senderUserId
+
+  if (signal.type === 'CALL') {
+    if (!proctorStore.screenStream) return
+    if (candidatePeerConnection) {
+      candidatePeerConnection.close()
+      candidatePeerConnection = null
+    }
+
+    const pc = new RTCPeerConnection(rtcConfiguration)
+    candidatePeerConnection = pc
+
+    const videoTrack = proctorStore.screenStream.getVideoTracks().find((t) => t.readyState === 'live')
+    if (videoTrack) {
+      pc.addTrack(videoTrack, proctorStore.screenStream)
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && competition.value?.id) {
+        sendTheoryProctorRtcSignalApi(competition.value.id, {
+          targetUserId: senderUserId,
+          type: 'ICE',
+          candidate: JSON.stringify(event.candidate.toJSON()),
+          sessionId: signal.sessionId
+        }).catch(() => {})
+      }
+    }
+
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+
+    await sendTheoryProctorRtcSignalApi(competition.value.id, {
+      targetUserId: senderUserId,
+      type: 'OFFER',
+      sdp: offer.sdp,
+      sessionId: signal.sessionId
+    })
+  } else if (signal.type === 'ANSWER') {
+    if (candidatePeerConnection && signal.sdp) {
+      await candidatePeerConnection.setRemoteDescription(
+        new RTCSessionDescription({ type: 'answer', sdp: signal.sdp })
+      )
+    }
+  } else if (signal.type === 'ICE') {
+    if (candidatePeerConnection && signal.candidate) {
+      try {
+        const candidateInit = JSON.parse(signal.candidate)
+        await candidatePeerConnection.addIceCandidate(new RTCIceCandidate(candidateInit))
+      } catch {}
+    }
+  } else if (signal.type === 'HANGUP') {
+    if (candidatePeerConnection) {
+      candidatePeerConnection.close()
+      candidatePeerConnection = null
+    }
+  }
+}
+
+function setupProctorRealtimeListeners() {
+  const sse = getGlobalSseClient()
+  sse.connect()
+
+  unsubSseSnapshotRequest = sse.on('THEORY_PROCTOR_SNAPSHOT_REQUEST', async () => {
+    if (!competition.value?.id || isSubmitted.value || isBanned.value) return
+    const highResFrame = captureHighResSnapshot()
+    if (highResFrame) {
+      await uploadTheoryProctorSnapshotApi(competition.value.id, {
+        screenFrame: highResFrame,
+        reason: 'INSPECT',
+        timestamp: Date.now()
+      })
+    }
+  })
+
+  unsubSseRtcSignal = sse.on('THEORY_PROCTOR_RTC_SIGNAL', async (payload: any) => {
+    await handleIncomingRtcSignal(payload)
+  })
+}
+
+function cleanupProctorRealtimeListeners() {
+  if (unsubSseSnapshotRequest) {
+    unsubSseSnapshotRequest()
+    unsubSseSnapshotRequest = null
+  }
+  if (unsubSseRtcSignal) {
+    unsubSseRtcSignal()
+    unsubSseRtcSignal = null
+  }
+  if (candidatePeerConnection) {
+    candidatePeerConnection.close()
+    candidatePeerConnection = null
+  }
+}
+
 function stopProctoring() {
+  cleanupProctorRealtimeListeners()
   if (proctorWorker) {
     proctorWorker.postMessage({ action: 'STOP' })
     proctorWorker.terminate()
@@ -654,6 +798,7 @@ function initProctorSession() {
   if (!proctorStore.screenStream) return
 
   setupOffscreenVideo(proctorStore.screenStream)
+  setupProctorRealtimeListeners()
   const track = proctorStore.screenStream.getVideoTracks()[0]
   if (track) {
     track.onended = () => {

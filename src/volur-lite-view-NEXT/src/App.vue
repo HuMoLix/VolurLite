@@ -46,6 +46,7 @@ import LanguageSwitcher from '@/components/common/LanguageSwitcher.vue'
 import { useAppStore } from '@/store/modules/app'
 import { initDeviceFingerprint } from '@/utils/fingerprint'
 import { refreshTokenApi } from '@/api/auth'
+import { formatPageTitle } from '@/utils/title'
 
 const appStore = useAppStore()
 const router = useRouter()
@@ -55,11 +56,8 @@ const { t } = useI18n()
 watchEffect(() => {
   if (typeof document === 'undefined') return
   const titleKey = route.meta?.titleKey as string | undefined
-  if (titleKey) {
-    document.title = `${t(titleKey)}`
-  } else if (route.meta?.title) {
-    document.title = `${route.meta.title}`
-  }
+  const rawTitle = titleKey ? t(titleKey) : (route.meta?.title as string | undefined)
+  document.title = formatPageTitle(rawTitle)
 })
 
 let tokenRefreshTimer: ReturnType<typeof setInterval> | null = null

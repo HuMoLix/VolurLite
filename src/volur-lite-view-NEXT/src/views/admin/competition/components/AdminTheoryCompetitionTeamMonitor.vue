@@ -80,52 +80,10 @@
           />
         </div>
 
-        <div class="flex items-center gap-2">
-          <button
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            :class="[
-              filterMode === 'ALL'
-                ? 'bg-google-blue text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-google-text-secondary dark:text-google-text-darkSecondary'
-            ]"
-            @click="filterMode = 'ALL'"
-          >
-            全部 ({{ candidates.length }})
-          </button>
-          <button
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            :class="[
-              filterMode === 'ONLINE'
-                ? 'bg-google-blue text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-google-text-secondary dark:text-google-text-darkSecondary'
-            ]"
-            @click="filterMode = 'ONLINE'"
-          >
-            仅在线 ({{ onlineCount }})
-          </button>
-          <button
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            :class="[
-              filterMode === 'VIOLATION'
-                ? 'bg-google-blue text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-google-text-secondary dark:text-google-text-darkSecondary'
-            ]"
-            @click="filterMode = 'VIOLATION'"
-          >
-            有违规 ({{ warningCount }})
-          </button>
-          <button
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            :class="[
-              filterMode === 'BANNED'
-                ? 'bg-google-blue text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-google-text-secondary dark:text-google-text-darkSecondary'
-            ]"
-            @click="filterMode = 'BANNED'"
-          >
-            已封禁 ({{ bannedCount }})
-          </button>
-        </div>
+        <VFilterBtnGroup
+          v-model="filterMode"
+          :options="filterOptions"
+        />
       </div>
     </div>
 
@@ -244,14 +202,37 @@
               />
             </div>
           </div>
+
+          <div class="pt-2 flex items-center gap-2 border-t border-google-border-light dark:border-google-border-dark">
+            <VBtn
+              clz="normal"
+              size="small"
+              block
+              :left-icon="EyeOutline"
+              @click.stop="openPreview(candidate, 'SNAPSHOT')"
+            >
+              快照查验
+            </VBtn>
+            <VBtn
+              clz="primary"
+              size="small"
+              block
+              :left-icon="VideocamOutline"
+              :disabled="!candidate.isOnline || !candidate.screenActive"
+              @click.stop="openPreview(candidate, 'LIVE_RTC')"
+            >
+              实时巡视
+            </VBtn>
+          </div>
         </div>
       </div>
     </div>
 
     <VModal
       v-model:show="previewModalVisible"
-      :title="`考生实时屏幕查验 - ${selectedCandidate?.realName || selectedCandidate?.username || ''}`"
-      :width="900"
+      :title="`考生考场实时查验 - ${selectedCandidate?.realName || selectedCandidate?.username || ''}`"
+      :width="920"
+      @update:show="handleModalVisibilityChange"
     >
       <div v-if="selectedCandidate" class="space-y-4">
         <div class="flex items-center justify-between flex-wrap gap-2 text-xs text-google-text-secondary dark:text-google-text-darkSecondary pb-2 border-b border-google-border-light dark:border-google-border-dark">
@@ -259,29 +240,132 @@
             考生姓名: <strong class="text-google-text-primary dark:text-google-text-darkPrimary">{{ selectedCandidate.realName || selectedCandidate.username }}</strong>
             <span class="ml-3">战队: <strong>{{ selectedCandidate.teamName || '个人参赛' }}</strong></span>
           </div>
-          <div>
-            状态:
-            <span :class="selectedCandidate.isOnline ? 'text-google-green font-bold' : 'text-gray-400'">
-              {{ selectedCandidate.isOnline ? '在线答题中' : '离线' }}
+          <div class="flex items-center gap-3">
+            <span>
+              状态:
+              <strong :class="selectedCandidate.isOnline ? 'text-google-green' : 'text-gray-400'">
+                {{ selectedCandidate.isOnline ? '在线答题中' : '离线' }}
+              </strong>
             </span>
-            <span class="ml-3">
-              违规累计: <strong :class="selectedCandidate.violationCount > 0 ? 'text-google-red font-bold' : ''">{{ selectedCandidate.violationCount }} 次</strong>
-            </span>
-            <span class="ml-3 font-mono">
-              最后上报: {{ formatLastSeen(selectedCandidate.lastHeartbeatTime) }}
+            <span>
+              违规累计: <strong :class="selectedCandidate.violationCount > 0 ? 'text-google-red' : ''">{{ selectedCandidate.violationCount }} 次</strong>
             </span>
           </div>
         </div>
 
-        <div class="aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center border border-google-border-light dark:border-google-border-dark">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <VFilterBtnGroup
+            v-model="inspectMode"
+            :options="inspectModeOptions"
+            size="small"
+            @change="handleInspectModeChange"
+          />
+
+          <div v-if="inspectMode === 'SNAPSHOT'" class="flex items-center gap-2">
+            <span v-if="selectedCandidate.highResTimestamp" class="text-xs text-google-text-muted dark:text-google-text-darkMuted font-mono">
+              高清帧更新于: {{ formatLastSeen(selectedCandidate.highResTimestamp) }}
+            </span>
+            <VBtn
+              clz="primary"
+              size="small"
+              :left-icon="SparklesOutline"
+              :loading="requestingSnapshot"
+              :disabled="!selectedCandidate.isOnline"
+              @click="handleRequestHighResSnapshot"
+            >
+              请求最新 1080P 超清快照
+            </VBtn>
+          </div>
+
+          <div v-else-if="inspectMode === 'LIVE_RTC'" class="flex items-center gap-2">
+            <span
+              class="px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1.5"
+              :class="[
+                rtcConnectionState === 'CONNECTED'
+                  ? 'bg-emerald-100 text-google-green dark:bg-emerald-950 dark:text-google-green-dark'
+                  : rtcConnectionState === 'CALLING' || rtcConnectionState === 'CONNECTING'
+                    ? 'bg-blue-100 text-google-blue dark:bg-blue-950 dark:text-google-blue-dark animate-pulse'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+              ]"
+            >
+              <span
+                class="w-1.5 h-1.5 rounded-full"
+                :class="rtcConnectionState === 'CONNECTED' ? 'bg-google-green animate-ping' : 'bg-current'"
+              />
+              {{ rtcStatusText }}
+            </span>
+
+            <VBtn
+              v-if="rtcConnectionState === 'CONNECTED' || rtcConnectionState === 'CALLING' || rtcConnectionState === 'CONNECTING'"
+              clz="danger"
+              size="small"
+              :left-icon="CloseCircleOutline"
+              @click="stopRtcInspection"
+            >
+              断开实时巡视
+            </VBtn>
+            <VBtn
+              v-else
+              clz="primary"
+              size="small"
+              :left-icon="VideocamOutline"
+              :disabled="!selectedCandidate.isOnline || !selectedCandidate.screenActive"
+              @click="startRtcInspection"
+            >
+              重新发起连线
+            </VBtn>
+          </div>
+        </div>
+
+        <div v-if="inspectMode === 'SNAPSHOT'" class="aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center border border-google-border-light dark:border-google-border-dark relative group">
           <img
-            v-if="selectedCandidate.screenFrame"
-            :src="selectedCandidate.screenFrame"
+            v-if="currentDisplayFrame"
+            :src="currentDisplayFrame"
             alt="Candidate Screen Large Preview"
             class="w-full h-full object-contain"
           >
           <div v-else class="text-gray-400 text-xs">
             该考生暂无屏幕帧画面
+          </div>
+
+          <div
+            v-if="selectedCandidate.highResFrame"
+            class="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/75 text-[10px] text-amber-300 font-mono flex items-center gap-1"
+          >
+            <n-icon :size="12" :component="SparklesOutline" />
+            <span>1080P 超清快照</span>
+          </div>
+          <div
+            v-else-if="selectedCandidate.screenFrame"
+            class="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/75 text-[10px] text-gray-300 font-mono"
+          >
+            320P 常规缩略帧
+          </div>
+        </div>
+
+        <div v-else class="aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center border border-google-border-light dark:border-google-border-dark relative">
+          <video
+            ref="rtcVideoRef"
+            autoplay
+            playsinline
+            muted
+            class="w-full h-full object-contain"
+          />
+
+          <div
+            v-if="rtcConnectionState !== 'CONNECTED'"
+            class="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-gray-300 text-xs gap-3 p-6"
+          >
+            <n-spin v-if="rtcConnectionState === 'CALLING' || rtcConnectionState === 'CONNECTING'" size="medium" />
+            <n-icon v-else :size="32" :component="VideocamOutline" class="text-gray-500" />
+            <span>{{ rtcStatusText }}</span>
+          </div>
+
+          <div
+            v-if="rtcConnectionState === 'CONNECTED'"
+            class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/75 text-[10px] text-google-green font-mono flex items-center gap-1"
+          >
+            <span>WebRTC P2P (30 FPS)</span>
           </div>
         </div>
       </div>
@@ -292,17 +376,27 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NIcon, useMessage } from 'naive-ui'
+import { NIcon, NSpin, useMessage } from 'naive-ui'
 import {
   RefreshOutline,
   DesktopOutline,
-  EyeOutline
+  EyeOutline,
+  VideocamOutline,
+  SparklesOutline,
+  CloseCircleOutline
 } from '@vicons/ionicons5'
 import VBtn from '@/components/common/VBtn.vue'
 import VInput from '@/components/common/VInput.vue'
 import VModal from '@/components/common/VModal.vue'
-import { getAdminTheoryCandidateMonitorsApi } from '@/api/competition'
-import type { AdminTheoryCandidateMonitorVO } from '@/types/competition'
+import VFilterBtnGroup from '@/components/common/VFilterBtnGroup.vue'
+import type { FilterOption } from '@/components/common/types'
+import {
+  getAdminTheoryCandidateMonitorsApi,
+  requestCandidateHighResSnapshotApi,
+  sendAdminTheoryProctorRtcSignalApi
+} from '@/api/competition'
+import type { AdminTheoryCandidateMonitorVO, TheoryProctorRtcSignalDTO } from '@/types/competition'
+import { getGlobalSseClient } from '@/utils/sse'
 
 defineOptions({
   name: 'AdminTheoryCompetitionTeamMonitor'
@@ -315,15 +409,36 @@ const props = defineProps<{
 const { t } = useI18n()
 const message = useMessage()
 
+type FilterMode = 'ALL' | 'ONLINE' | 'VIOLATION' | 'BANNED'
+type InspectMode = 'SNAPSHOT' | 'LIVE_RTC'
+type RtcConnectionState = 'IDLE' | 'CALLING' | 'CONNECTING' | 'CONNECTED' | 'FAILED' | 'CLOSED'
+
 const loading = ref<boolean>(false)
 const autoRefresh = ref<boolean>(true)
 const candidates = ref<AdminTheoryCandidateMonitorVO[]>([])
 const searchKeyword = ref<string>('')
-const filterMode = ref<'ALL' | 'ONLINE' | 'VIOLATION' | 'BANNED'>('ALL')
+const filterMode = ref<FilterMode>('ALL')
 
 const previewModalVisible = ref<boolean>(false)
 const selectedCandidate = ref<AdminTheoryCandidateMonitorVO | null>(null)
+const inspectMode = ref<InspectMode>('SNAPSHOT')
+const requestingSnapshot = ref<boolean>(false)
+
+const rtcVideoRef = ref<HTMLVideoElement | null>(null)
+const rtcConnectionState = ref<RtcConnectionState>('IDLE')
+let rtcPeerConnection: RTCPeerConnection | null = null
+let currentSessionId = ''
+
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let unsubSnapshotUpdated: (() => void) | null = null
+let unsubRtcSignal: (() => void) | null = null
+
+const rtcConfiguration: RTCConfiguration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+}
 
 const onlineCount = computed(() => {
   return candidates.value.filter((c) => c.isOnline).length
@@ -335,6 +450,62 @@ const warningCount = computed(() => {
 
 const bannedCount = computed(() => {
   return candidates.value.filter((c) => c.isBanned).length
+})
+
+const filterOptions = computed<FilterOption<FilterMode>[]>(() => [
+  {
+    value: 'ALL',
+    label: t('common.all', '全部'),
+    count: candidates.value.length
+  },
+  {
+    value: 'ONLINE',
+    label: t('admin.competitions.proctor_filter_online', '仅在线'),
+    count: onlineCount.value
+  },
+  {
+    value: 'VIOLATION',
+    label: t('admin.competitions.proctor_filter_violation', '有违规'),
+    count: warningCount.value
+  },
+  {
+    value: 'BANNED',
+    label: t('admin.competitions.proctor_filter_banned', '已封禁'),
+    count: bannedCount.value
+  }
+])
+
+const inspectModeOptions = computed<FilterOption<InspectMode>[]>(() => [
+  {
+    value: 'SNAPSHOT',
+    label: '高清快照查验'
+  },
+  {
+    value: 'LIVE_RTC',
+    label: 'WebRTC 实时巡视 (P2P)'
+  }
+])
+
+const currentDisplayFrame = computed(() => {
+  if (!selectedCandidate.value) return ''
+  return selectedCandidate.value.highResFrame || selectedCandidate.value.screenFrame || ''
+})
+
+const rtcStatusText = computed(() => {
+  switch (rtcConnectionState.value) {
+    case 'CALLING':
+      return '正在呼叫考生端并请求屏幕视频流...'
+    case 'CONNECTING':
+      return 'ICE 打洞与 P2P 协商中...'
+    case 'CONNECTED':
+      return 'WebRTC P2P 已建立，实时桌面监看中'
+    case 'FAILED':
+      return 'P2P 连线失败或被中断'
+    case 'CLOSED':
+      return '巡视已结束'
+    default:
+      return '未发起实时连线'
+  }
 })
 
 const filteredCandidates = computed(() => {
@@ -368,9 +539,163 @@ function formatLastSeen(timestamp?: number): string {
   return `${min} 分钟前`
 }
 
-function openPreview(candidate: AdminTheoryCandidateMonitorVO) {
+function openPreview(candidate: AdminTheoryCandidateMonitorVO, mode: InspectMode = 'SNAPSHOT') {
   selectedCandidate.value = candidate
+  inspectMode.value = mode
   previewModalVisible.value = true
+  if (mode === 'LIVE_RTC') {
+    startRtcInspection()
+  }
+}
+
+function handleInspectModeChange(mode: InspectMode) {
+  inspectMode.value = mode
+  if (mode === 'LIVE_RTC') {
+    startRtcInspection()
+  } else {
+    stopRtcInspection()
+  }
+}
+
+function handleModalVisibilityChange(visible: boolean) {
+  if (!visible) {
+    stopRtcInspection()
+    selectedCandidate.value = null
+  }
+}
+
+async function handleRequestHighResSnapshot() {
+  if (!props.competitionId || !selectedCandidate.value?.userId) return
+  requestingSnapshot.value = true
+  try {
+    await requestCandidateHighResSnapshotApi(props.competitionId, selectedCandidate.value.userId)
+    message.success('已向考生端发送高清抓拍指令，请稍候')
+  } catch (err: any) {
+    requestingSnapshot.value = false
+    message.error(err?.response?.data?.message || err?.message || '发起高清快照请求失败')
+  }
+}
+
+async function startRtcInspection() {
+  if (!props.competitionId || !selectedCandidate.value) return
+  if (!selectedCandidate.value.isOnline || !selectedCandidate.value.screenActive) {
+    message.warning('该考生当前未在线或屏幕共享流已断开')
+    return
+  }
+
+  stopRtcInspection()
+
+  currentSessionId = `${props.competitionId}_${selectedCandidate.value.userId}_${Date.now()}`
+  rtcConnectionState.value = 'CALLING'
+
+  try {
+    await sendAdminTheoryProctorRtcSignalApi(props.competitionId, {
+      targetUserId: selectedCandidate.value.userId,
+      type: 'CALL',
+      sessionId: currentSessionId
+    })
+  } catch (err: any) {
+    rtcConnectionState.value = 'FAILED'
+    message.error(err?.response?.data?.message || err?.message || '发起实时呼叫信令失败')
+  }
+}
+
+function stopRtcInspection() {
+  if (props.competitionId && selectedCandidate.value && currentSessionId) {
+    sendAdminTheoryProctorRtcSignalApi(props.competitionId, {
+      targetUserId: selectedCandidate.value.userId,
+      type: 'HANGUP',
+      sessionId: currentSessionId
+    }).catch(() => {})
+  }
+
+  if (rtcPeerConnection) {
+    rtcPeerConnection.close()
+    rtcPeerConnection = null
+  }
+  if (rtcVideoRef.value) {
+    rtcVideoRef.value.srcObject = null
+  }
+  rtcConnectionState.value = 'IDLE'
+  currentSessionId = ''
+}
+
+async function handleIncomingAdminRtcSignal(payload: any) {
+  if (!payload || !payload.signal || !selectedCandidate.value) return
+  if (String(payload.senderUserId) !== String(selectedCandidate.value.userId)) return
+
+  const signal: TheoryProctorRtcSignalDTO = payload.signal
+
+  if (signal.type === 'OFFER' && signal.sdp) {
+    rtcConnectionState.value = 'CONNECTING'
+    if (rtcPeerConnection) {
+      rtcPeerConnection.close()
+      rtcPeerConnection = null
+    }
+
+    const pc = new RTCPeerConnection(rtcConfiguration)
+    rtcPeerConnection = pc
+
+    pc.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        if (rtcVideoRef.value) {
+          rtcVideoRef.value.srcObject = event.streams[0]
+          rtcVideoRef.value.play().catch(() => {})
+        }
+        rtcConnectionState.value = 'CONNECTED'
+      }
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && props.competitionId && selectedCandidate.value) {
+        sendAdminTheoryProctorRtcSignalApi(props.competitionId, {
+          targetUserId: selectedCandidate.value.userId,
+          type: 'ICE',
+          candidate: JSON.stringify(event.candidate.toJSON()),
+          sessionId: signal.sessionId
+        }).catch(() => {})
+      }
+    }
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        rtcConnectionState.value = 'CONNECTED'
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        rtcConnectionState.value = 'FAILED'
+      } else if (pc.connectionState === 'closed') {
+        rtcConnectionState.value = 'CLOSED'
+      }
+    }
+
+    await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }))
+    const answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+
+    if (props.competitionId && selectedCandidate.value) {
+      await sendAdminTheoryProctorRtcSignalApi(props.competitionId, {
+        targetUserId: selectedCandidate.value.userId,
+        type: 'ANSWER',
+        sdp: answer.sdp,
+        sessionId: signal.sessionId
+      })
+    }
+  } else if (signal.type === 'ICE' && signal.candidate) {
+    if (rtcPeerConnection) {
+      try {
+        const candidateInit = JSON.parse(signal.candidate)
+        await rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candidateInit))
+      } catch {}
+    }
+  } else if (signal.type === 'HANGUP') {
+    if (rtcPeerConnection) {
+      rtcPeerConnection.close()
+      rtcPeerConnection = null
+    }
+    if (rtcVideoRef.value) {
+      rtcVideoRef.value.srcObject = null
+    }
+    rtcConnectionState.value = 'CLOSED'
+  }
 }
 
 async function fetchCandidates() {
@@ -379,6 +704,12 @@ async function fetchCandidates() {
   try {
     const res = await getAdminTheoryCandidateMonitorsApi(props.competitionId)
     candidates.value = res?.data || []
+    if (selectedCandidate.value) {
+      const refreshed = candidates.value.find((c) => String(c.userId) === String(selectedCandidate.value?.userId))
+      if (refreshed) {
+        selectedCandidate.value = refreshed
+      }
+    }
   } catch (err: any) {
     if (message) {
       message.error(err?.response?.data?.message || err?.message || '拉取监考数据失败')
@@ -413,6 +744,29 @@ onMounted(() => {
       fetchCandidates()
     }, 5000)
   }
+
+  const sse = getGlobalSseClient()
+  sse.connect()
+
+  unsubSnapshotUpdated = sse.on('THEORY_PROCTOR_SNAPSHOT_UPDATED', (payload: any) => {
+    if (!payload || String(payload.competitionId) !== String(props.competitionId)) return
+    const cid = String(payload.candidateUserId)
+    const target = candidates.value.find((c) => String(c.userId) === cid)
+    if (target) {
+      target.highResFrame = payload.highResFrame
+      target.highResTimestamp = payload.highResTimestamp
+    }
+    if (selectedCandidate.value && String(selectedCandidate.value.userId) === cid) {
+      selectedCandidate.value.highResFrame = payload.highResFrame
+      selectedCandidate.value.highResTimestamp = payload.highResTimestamp
+      requestingSnapshot.value = false
+      message.success('已接收到考生的最新高清快照')
+    }
+  })
+
+  unsubRtcSignal = sse.on('THEORY_PROCTOR_RTC_SIGNAL', async (payload: any) => {
+    await handleIncomingAdminRtcSignal(payload)
+  })
 })
 
 onUnmounted(() => {
@@ -420,5 +774,14 @@ onUnmounted(() => {
     clearInterval(pollTimer)
     pollTimer = null
   }
+  if (unsubSnapshotUpdated) {
+    unsubSnapshotUpdated()
+    unsubSnapshotUpdated = null
+  }
+  if (unsubRtcSignal) {
+    unsubRtcSignal()
+    unsubRtcSignal = null
+  }
+  stopRtcInspection()
 })
 </script>

@@ -32,6 +32,10 @@ public class AdminTheoryCandidateMonitorVO implements Serializable {
 
     private String screenFrame;
 
+    private String highResFrame;
+
+    private Long highResTimestamp;
+
     @Builder.Default
     private Integer violationCount = 0;
 

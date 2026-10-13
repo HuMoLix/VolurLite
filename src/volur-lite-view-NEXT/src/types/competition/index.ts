@@ -188,11 +188,29 @@ export interface AdminTheoryCandidateMonitorVO {
   fullscreen: boolean
   screenActive: boolean
   screenFrame?: string | null
+  highResFrame?: string | null
+  highResTimestamp?: number | null
   violationCount: number
   isBanned: boolean
   answeredCount: number
   totalCount: number
   lastHeartbeatTime: number
+}
+
+export interface TheoryProctorSnapshotDTO {
+  screenFrame: string
+  reason?: string
+  timestamp?: number
+}
+
+export interface TheoryProctorRtcSignalDTO {
+  targetUserId: number | string
+  type: 'CALL' | 'OFFER' | 'ANSWER' | 'ICE' | 'HANGUP'
+  sdp?: string
+  candidate?: string
+  sdpMid?: string
+  sdpMLineIndex?: number
+  sessionId?: string
 }
 
 

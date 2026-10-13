@@ -27,8 +27,15 @@ public enum CaptchaType {
         if (!StringUtils.hasText(typeStr)) {
             return null;
         }
+        String cleanType = typeStr.trim().toUpperCase();
+        if ("SLIDER".equals(cleanType) || "PUZZLE".equals(cleanType)) {
+            return SLIDE_PUZZLE;
+        }
+        if ("IMAGE".equals(cleanType)) {
+            return LINE;
+        }
         for (CaptchaType type : values()) {
-            if (type.name().equalsIgnoreCase(typeStr.trim())) {
+            if (type.name().equalsIgnoreCase(cleanType)) {
                 return type;
             }
         }

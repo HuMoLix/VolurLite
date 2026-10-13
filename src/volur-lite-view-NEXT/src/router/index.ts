@@ -4,6 +4,7 @@ import { isDshExpired, buildSessionExpireLocation } from '@/utils/flow'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { normalizeLocale, loadLocaleForRouteAsync, i18n } from '@/i18n'
+import { formatPageTitle } from '@/utils/title'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -28,11 +29,10 @@ router.beforeEach(async (to) => {
   } catch {}
 
   if (typeof document !== 'undefined') {
-    if (to.meta.titleKey) {
-      document.title = `${(i18n.global as any).t(to.meta.titleKey)}`
-    } else if (to.meta.title) {
-      document.title = `${to.meta.title}`
-    }
+    const rawTitle = to.meta.titleKey
+      ? (i18n.global as any).t(to.meta.titleKey)
+      : to.meta.title
+    document.title = formatPageTitle(rawTitle as string | undefined)
   }
 
   if (to.path !== '/v1/info/sessionexpire') {

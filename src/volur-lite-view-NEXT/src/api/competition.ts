@@ -14,6 +14,8 @@ import type {
   TheoryCheatReportVO,
   TheoryProctorHeartbeatDTO,
   TheoryProctorHeartbeatVO,
+  TheoryProctorSnapshotDTO,
+  TheoryProctorRtcSignalDTO,
   AdminTheoryCandidateMonitorVO,
   TheoryCompetitionConfigVO,
   TheoryCompetitionConfigDTO,
@@ -609,6 +611,39 @@ export function getAdminTheoryCandidateMonitorsApi(
 ): Promise<ApiResponse<AdminTheoryCandidateMonitorVO[]>> {
   return get<AdminTheoryCandidateMonitorVO[]>(
     `/admin/competitions/${competitionId}/theory/monitor/candidates`
+  )
+}
+
+export function uploadTheoryProctorSnapshotApi(
+  competitionId: number | string,
+  data: TheoryProctorSnapshotDTO
+): Promise<ApiResponse<void>> {
+  return post<void>(`/competitions/${competitionId}/theory/proctor/snapshot`, data)
+}
+
+export function sendTheoryProctorRtcSignalApi(
+  competitionId: number | string,
+  data: TheoryProctorRtcSignalDTO
+): Promise<ApiResponse<void>> {
+  return post<void>(`/competitions/${competitionId}/theory/proctor/rtc/signal`, data)
+}
+
+export function requestCandidateHighResSnapshotApi(
+  competitionId: number | string,
+  candidateUserId: number | string
+): Promise<ApiResponse<void>> {
+  return post<void>(
+    `/admin/competitions/${competitionId}/theory/monitor/candidates/${candidateUserId}/snapshot-request`
+  )
+}
+
+export function sendAdminTheoryProctorRtcSignalApi(
+  competitionId: number | string,
+  data: TheoryProctorRtcSignalDTO
+): Promise<ApiResponse<void>> {
+  return post<void>(
+    `/admin/competitions/${competitionId}/theory/monitor/rtc/signal`,
+    data
   )
 }
 
