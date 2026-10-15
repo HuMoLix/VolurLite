@@ -5,9 +5,12 @@ import com.humolix.volur.framework.common.exception.authException.tokenException
 import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.domain.enums.UserRole;
+import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.system.service.SystemSettingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import jakarta.servlet.http.Cookie;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -20,9 +23,15 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class JwtUtilTest {
+
+    @Mock
+    private SystemSettingService systemSettingService;
 
     private JwtUtil jwtUtil;
 
@@ -30,15 +39,16 @@ class JwtUtilTest {
 
     @BeforeEach
     void setUp() {
-        jwtUtil = new JwtUtil();
+        lenient().when(systemSettingService.getLong(eq(SystemSettingKeys.AUTH_JWT_EXPIRE_SECONDS), anyLong())).thenReturn(3600L);
+        lenient().when(systemSettingService.getLong(eq(SystemSettingKeys.AUTH_JWT_REFRESH_EXPIRATION_MS), anyLong())).thenReturn(604800000L);
+        lenient().when(systemSettingService.getLong(eq(SystemSettingKeys.AUTH_JWT_REMEMBER_ME_REFRESH_EXPIRATION_MS), anyLong())).thenReturn(2592000000L);
+
+        jwtUtil = new JwtUtil(systemSettingService);
 
         String rawSecret = "12345678901234567890123456789012";
         String base64Secret = Base64.getEncoder().encodeToString(rawSecret.getBytes());
 
         ReflectionTestUtils.setField(jwtUtil, "secretKeyStr", base64Secret);
-        ReflectionTestUtils.setField(jwtUtil, "expireSeconds", 3600L);
-        ReflectionTestUtils.setField(jwtUtil, "refreshTokenExpirationMs", 604800000L);
-        ReflectionTestUtils.setField(jwtUtil, "rememberMeRefreshTokenExpirationMs", 2592000000L);
 
         jwtUtil.init();
 

@@ -181,6 +181,25 @@
         </div>
       </div>
     </div>
+
+    <div class="p-6 rounded-2xl bg-white dark:bg-[#292a2d] border border-google-border-light dark:border-google-border-dark space-y-4">
+      <h3 class="text-sm font-semibold text-google-text-primary dark:text-google-text-darkPrimary border-b border-google-border-light dark:border-google-border-dark pb-3">
+        {{ t('admin.competitions.container_limit_settings', '容器限制') }}
+      </h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
+            {{ t('admin.competitions.form_max_containers_per_team', '单队同时运行容器上限') }}
+          </label>
+          <VInput
+            v-model:value="formData.maxContainersPerTeam"
+            placeholder="默认 2"
+            clearable
+          />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -239,6 +258,7 @@ const formData = ref({
   maxTeamMembers: '4',
   maxLeaders: '1',
   maxTeams: '500',
+  maxContainersPerTeam: '2',
   regRequirements: ''
 })
 
@@ -285,6 +305,7 @@ async function fetchDetail() {
       const currentStatus = runtimeStatus.value === 'ARCHIVED'
         ? 'ARCHIVED'
         : (runtimeStatus.value === 'HIDDEN' ? 'HIDDEN' : (isPublished ? 'PUBLISHED' : 'DRAFT'))
+      const rawMaxContainers = res.data.maxContainersPerTeam ?? res.data.config?.maxContainersPerTeam
       formData.value = {
         title: res.data.title || '',
         slug: res.data.slug || '',
@@ -301,6 +322,7 @@ async function fetchDetail() {
         maxTeamMembers: res.data.maxTeamMembers !== undefined && res.data.maxTeamMembers !== null ? String(res.data.maxTeamMembers) : '4',
         maxLeaders: res.data.maxLeaders !== undefined && res.data.maxLeaders !== null ? String(res.data.maxLeaders) : '1',
         maxTeams: res.data.maxTeams !== undefined && res.data.maxTeams !== null ? String(res.data.maxTeams) : '500',
+        maxContainersPerTeam: rawMaxContainers !== undefined && rawMaxContainers !== null ? String(rawMaxContainers) : '2',
         regRequirements: res.data.regRequirements || ''
       }
       emit('updateTitle', res.data.title || '')
@@ -323,6 +345,11 @@ async function handleSave() {
   const maxM = formData.value.maxTeamMembers ? Number(formData.value.maxTeamMembers) : undefined
   if (minM !== undefined && maxM !== undefined && minM > maxM) {
     message.warning('单队人数下限不能大于单队人数上限')
+    return
+  }
+  const maxContainers = formData.value.maxContainersPerTeam ? Number(formData.value.maxContainersPerTeam) : 2
+  if (isNaN(maxContainers) || maxContainers < 1 || !Number.isInteger(maxContainers)) {
+    message.warning(t('admin.competitions.invalid_max_containers', '单队同时运行容器上限必须为大于等于 1 的整数'))
     return
   }
 
@@ -348,6 +375,7 @@ async function handleSave() {
         maxTeamMembers: maxM,
         maxLeaders: formData.value.maxLeaders ? Number(formData.value.maxLeaders) : undefined,
         maxTeams: formData.value.maxTeams ? Number(formData.value.maxTeams) : undefined,
+        maxContainersPerTeam: maxContainers,
         regRequirements: formData.value.regRequirements.trim() || undefined
       }
     }

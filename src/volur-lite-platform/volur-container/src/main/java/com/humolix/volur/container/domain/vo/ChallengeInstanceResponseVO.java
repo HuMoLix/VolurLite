@@ -10,7 +10,7 @@ import java.io.Serializable;
 import java.time.Instant;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChallengeInstanceResponseVO implements Serializable {

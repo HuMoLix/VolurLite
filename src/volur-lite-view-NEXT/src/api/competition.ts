@@ -52,7 +52,8 @@ import type {
   AdminCompetitionLogVO,
   AdminCompetitionLogStatisticsVO,
   AdminCompetitionLogQueryDTO,
-  CtfCompetitionSubmissionVO
+  CtfCompetitionSubmissionVO,
+  CtfChallengeInstanceVO
 } from '@/types/competition'
 
 export function getCompetitionListApi(
@@ -131,11 +132,20 @@ export function submitCtfFlagApi(
   )
 }
 
+export function getCtfInstanceApi(
+  competitionId: number | string,
+  challengeId: number | string
+): Promise<ApiResponse<CtfChallengeInstanceVO>> {
+  return get<CtfChallengeInstanceVO>(
+    `/competitions/${competitionId}/ctf/challenges/${challengeId}/instance`
+  )
+}
+
 export function startCtfInstanceApi(
   competitionId: number | string,
   challengeId: number | string
-): Promise<ApiResponse<any>> {
-  return post<any>(
+): Promise<ApiResponse<CtfChallengeInstanceVO>> {
+  return post<CtfChallengeInstanceVO>(
     `/competitions/${competitionId}/ctf/challenges/${challengeId}/instance/start`
   )
 }
@@ -152,8 +162,8 @@ export function stopCtfInstanceApi(
 export function extendCtfInstanceApi(
   competitionId: number | string,
   challengeId: number | string
-): Promise<ApiResponse<any>> {
-  return post<any>(
+): Promise<ApiResponse<CtfChallengeInstanceVO>> {
+  return post<CtfChallengeInstanceVO>(
     `/competitions/${competitionId}/ctf/challenges/${challengeId}/instance/extend`
   )
 }

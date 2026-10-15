@@ -42,6 +42,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -63,6 +64,7 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
     private final VolurCacheTemplate cacheTemplate;
     private final RedisOps redisOps;
     private final RealtimePushService realtimePushService;
+    private final ObjectMapper objectMapper;
 
     
 
@@ -111,7 +113,10 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
         }
 
         List<CtfCompetitionChallengeVO> result = new ArrayList<>(cachedBaseList.size());
-        for (CtfCompetitionChallengeVO vo : cachedBaseList) {
+        for (Object item : cachedBaseList) {
+            CtfCompetitionChallengeVO vo = item instanceof CtfCompetitionChallengeVO cvo
+                    ? cvo
+                    : objectMapper.convertValue(item, CtfCompetitionChallengeVO.class);
             result.add(vo.toBuilder()
                     .isSolvedByMyTeam(solvedChallengeIds.contains(vo.getId()))
                     .build());
@@ -173,8 +178,33 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
                 competitionId, competitionChallengeId, myTeam.getId()
         );
 
+        ChallengeInstanceResponseVO instanceVO = null;
+        if (Boolean.TRUE.equals(cachedDetail.getIsContainer())) {
+            List<Long> memberUserIds = Collections.emptyList();
+            Long teamId = null;
+            if (myTeam != null) {
+                teamId = myTeam.getId();
+                List<CompetitionMember> members = memberRepository.findByTeamId(teamId);
+                memberUserIds = members.stream()
+                        .map(m -> m.getUser() != null ? m.getUser().getId() : null)
+                        .filter(Objects::nonNull)
+                        .toList();
+            } else if (userId != null) {
+                memberUserIds = List.of(userId);
+            }
+            ChallengeInstanceResponseVO rawInstVO = containerInstanceService.getTeamInstance(
+                    competitionId, teamId, cachedDetail.getChallengeId(), memberUserIds
+            );
+            if (rawInstVO != null) {
+                instanceVO = rawInstVO.toBuilder()
+                        .challengeId(competitionChallengeId)
+                        .build();
+            }
+        }
+
         return cachedDetail.toBuilder()
                 .isSolvedByMyTeam(isSolved)
+                .instance(instanceVO)
                 .build();
     }
 
@@ -195,7 +225,6 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
 
         Competition competition = compChallenge.getCompetition();
 
-        // Check if team already solved this challenge
         if (solvedRepository.existsByCompetitionIdAndCompetitionChallengeIdAndTeamId(competitionId, competitionChallengeId, team.getId())) {
             recordSubmission(competition, compChallenge, team, userId, request.getFlag(), SubmissionStatus.DUPLICATE, ip);
             throw new BusinessException(HttpStatus.BAD_REQUEST, "您的队伍已经解出过该题目");
@@ -207,7 +236,14 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
         if (challenge.getType() == ChallengeType.STATIC) {
             isCorrect = StringUtils.hasText(challenge.getFlag()) && challenge.getFlag().trim().equalsIgnoreCase(request.getFlag().trim());
         } else {
-            isCorrect = containerInstanceService.verifyFlag(challenge.getId(), userId, request.getFlag().trim());
+            List<CompetitionMember> members = memberRepository.findByTeamId(team.getId());
+            List<Long> memberUserIds = members.stream()
+                    .map(m -> m.getUser() != null ? m.getUser().getId() : null)
+                    .filter(Objects::nonNull)
+                    .toList();
+            isCorrect = containerInstanceService.verifyTeamFlag(
+                    competitionId, team.getId(), challenge.getId(), memberUserIds, request.getFlag().trim()
+            );
         }
 
         if (!isCorrect) {
@@ -215,7 +251,6 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
             return false;
         }
 
-        // Record correct submission
         recordSubmission(competition, compChallenge, team, userId, request.getFlag(), SubmissionStatus.CORRECT, ip);
 
         // Update challenge solve count & calculate points
@@ -328,21 +363,50 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
         CtfCompetitionChallenge compChallenge = challengeRepository.findByIdWithChallenge(competitionChallengeId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
 
-        Long stageId = 0L;
-        String teamToken = null;
+        if (!compChallenge.getCompetition().getId().equals(competitionId) || !Boolean.TRUE.equals(compChallenge.getIsVisible())) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在或尚未公开");
+        }
 
-        // 同战队同赛题防并发重复拉起靶机容器分布式互斥锁
+        CtfChallenge challenge = compChallenge.getChallenge();
+
+        List<CompetitionMember> members = memberRepository.findByTeamId(team.getId());
+        List<Long> memberUserIds = members.stream()
+                .map(m -> m.getUser() != null ? m.getUser().getId() : null)
+                .filter(Objects::nonNull)
+                .toList();
+
+        ChallengeInstanceResponseVO existingVO = containerInstanceService.getTeamInstance(
+                competitionId, team.getId(), challenge.getId(), memberUserIds
+        );
+        if (existingVO != null) {
+            return existingVO.toBuilder()
+                    .challengeId(competitionChallengeId)
+                    .build();
+        }
+
+        Competition competition = compChallenge.getCompetition();
+        CompetitionConfig config = competition.getConfig();
+        int maxQuota = (config != null && config.getMaxContainersPerTeam() != null) ? config.getMaxContainersPerTeam() : 2;
+        long activeCount = containerInstanceService.countActiveInstancesForTeam(
+                competitionId, team.getId(), memberUserIds
+        );
+        if (activeCount >= maxQuota) {
+            throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "本场比赛单支队伍在同一时刻最多允许存在 " + maxQuota + " 个容器，请先销毁已有容器后重试");
+        }
+
+        String teamToken = null;
         String lockKey = "volur:lock:container:start:" + competitionId + ":" + competitionChallengeId + ":" + team.getId();
         try {
-            return redisOps.withLock(lockKey, Duration.ofSeconds(3), Duration.ofSeconds(30), () ->
-                    containerInstanceService.startInstance(
-                            compChallenge.getChallenge().getId(),
-                            userId,
-                            stageId,
-                            team.getId(),
-                            teamToken
-                    )
-            );
+            return redisOps.withLock(lockKey, Duration.ofSeconds(3), Duration.ofSeconds(30), () -> {
+                ChallengeInstanceResponseVO vo = containerInstanceService.startInstance(
+                        challenge.getId(),
+                        userId,
+                        competitionId,
+                        team.getId(),
+                        teamToken
+                );
+                return vo != null ? vo.toBuilder().challengeId(competitionChallengeId).build() : null;
+            });
         } catch (IllegalStateException e) {
             throw new BusinessException(HttpStatus.CONFLICT, "靶机容器正在启动或排队中，请勿重复操作");
         }
@@ -350,22 +414,58 @@ public class CtfCompetitionServiceImpl implements CtfCompetitionService {
 
     @Override
     public void stopInstance(Long competitionId, Long competitionChallengeId, Long userId) {
-        getMyApprovedTeamOrThrow(competitionId, userId);
+        CompetitionTeam team = getMyApprovedTeamOrThrow(competitionId, userId);
 
         CtfCompetitionChallenge compChallenge = challengeRepository.findByIdWithChallenge(competitionChallengeId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
 
-        containerInstanceService.stopInstance(compChallenge.getChallenge().getId(), userId);
+        List<CompetitionMember> members = memberRepository.findByTeamId(team.getId());
+        List<Long> memberUserIds = members.stream()
+                .map(m -> m.getUser() != null ? m.getUser().getId() : null)
+                .filter(Objects::nonNull)
+                .toList();
+
+        containerInstanceService.stopTeamInstance(
+                competitionId, team.getId(), compChallenge.getChallenge().getId(), memberUserIds
+        );
     }
 
     @Override
     public ChallengeInstanceResponseVO extendInstance(Long competitionId, Long competitionChallengeId, Long userId) {
-        getMyApprovedTeamOrThrow(competitionId, userId);
+        CompetitionTeam team = getMyApprovedTeamOrThrow(competitionId, userId);
 
         CtfCompetitionChallenge compChallenge = challengeRepository.findByIdWithChallenge(competitionChallengeId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
 
-        return containerInstanceService.extendInstance(compChallenge.getChallenge().getId(), userId);
+        List<CompetitionMember> members = memberRepository.findByTeamId(team.getId());
+        List<Long> memberUserIds = members.stream()
+                .map(m -> m.getUser() != null ? m.getUser().getId() : null)
+                .filter(Objects::nonNull)
+                .toList();
+
+        ChallengeInstanceResponseVO vo = containerInstanceService.extendTeamInstance(
+                competitionId, team.getId(), compChallenge.getChallenge().getId(), memberUserIds
+        );
+        return vo != null ? vo.toBuilder().challengeId(competitionChallengeId).build() : null;
+    }
+
+    @Override
+    public ChallengeInstanceResponseVO getInstance(Long competitionId, Long competitionChallengeId, Long userId) {
+        CompetitionTeam team = getMyApprovedTeamOrThrow(competitionId, userId);
+
+        CtfCompetitionChallenge compChallenge = challengeRepository.findByIdWithChallenge(competitionChallengeId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "赛题不存在"));
+
+        List<CompetitionMember> members = memberRepository.findByTeamId(team.getId());
+        List<Long> memberUserIds = members.stream()
+                .map(m -> m.getUser() != null ? m.getUser().getId() : null)
+                .filter(Objects::nonNull)
+                .toList();
+
+        ChallengeInstanceResponseVO vo = containerInstanceService.getTeamInstance(
+                competitionId, team.getId(), compChallenge.getChallenge().getId(), memberUserIds
+        );
+        return vo != null ? vo.toBuilder().challengeId(competitionChallengeId).build() : null;
     }
 
     private CompetitionTeam getMyApprovedTeamOrThrow(Long competitionId, Long userId) {

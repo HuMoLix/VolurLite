@@ -24,6 +24,7 @@ public class CtfCompetitionChallengeVO implements Serializable {
     private Integer difficulty;
     private Integer initialPoints;
     private Integer minPoints;
+    private Integer decayCount;
     private Integer currentPoints;
     private Integer solvesCount;
     private Boolean isSolvedByMyTeam;

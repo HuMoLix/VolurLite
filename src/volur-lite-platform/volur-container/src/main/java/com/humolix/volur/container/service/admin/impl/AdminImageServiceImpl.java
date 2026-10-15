@@ -1040,7 +1040,20 @@ public class AdminImageServiceImpl implements AdminImageService {
         }
 
         boolean pulledFromRegistry = false;
-        if (dockerRegistryClient.isAvailable() && imageOpt.isPresent() && Boolean.TRUE.equals(imageOpt.get().getInRegistry())) {
+        boolean inRegistry = (imageOpt.isPresent() && Boolean.TRUE.equals(imageOpt.get().getInRegistry()))
+                || (dockerRegistryClient.isAvailable() && dockerRegistryClient.getManifest(repo, tag) != null);
+        if (dockerRegistryClient.isAvailable() && !inRegistry && repo.contains("/")) {
+            int firstSlash = repo.indexOf('/');
+            String domainPart = repo.substring(0, firstSlash);
+            if (domainPart.contains(".") || domainPart.contains(":")) {
+                String subRepo = repo.substring(firstSlash + 1);
+                if (dockerRegistryClient.getManifest(subRepo, tag) != null) {
+                    inRegistry = true;
+                    registryImageTag = publicRegistryHost + "/" + subRepo + ":" + tag;
+                }
+            }
+        }
+        if (dockerRegistryClient.isAvailable() && inRegistry) {
             log.info("[AdminImageService] 镜像 [{}] 已索引于中心 Registry，尝试通过 Registry 快速下发至节点 [{}] (源: {})...",
                     imageName, targetIp, registryImageTag);
             try {

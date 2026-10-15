@@ -22,6 +22,7 @@ public class AdminTeamListVO implements Serializable {
     private String captainUsername;
     private Integer memberCount;
     private TeamStatus status;
+    private Integer score;
     private String auditReason;
     private Instant createdAt;
 

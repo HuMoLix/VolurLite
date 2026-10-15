@@ -87,48 +87,36 @@
             </div>
 
             <div v-if="activeInstance" class="p-4 rounded-xl border border-blue-200/70 dark:border-blue-900/70 bg-blue-50/40 dark:bg-blue-950/20 space-y-3">
-              <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
-                <span class="text-google-text-muted font-medium">{{ t('competition.instance_target', '靶标网络连接') }}:</span>
-                <div class="flex items-center gap-2 font-mono font-semibold text-google-blue dark:text-google-blue-dark">
-                  <span>{{ instanceConnectionAddress }}</span>
-                  <VTooltip :content="t('common.copy', '复制')">
-                    <button
-                      type="button"
-                      class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded cursor-pointer"
-                      @click="copyHostPort(instanceConnectionAddress)"
-                    >
-                      <n-icon :size="13" :component="CopyOutline" />
-                    </button>
-                  </VTooltip>
-                </div>
+              <div class="flex items-center justify-center text-center text-xs sm:text-sm font-mono font-semibold text-google-blue dark:text-google-blue-dark select-all break-all">
+                <span>{{ instanceConnectionAddress }}</span>
               </div>
 
               <div class="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-blue-200/50 dark:border-blue-900/40 text-xs font-mono">
                 <div class="flex items-center gap-1.5 text-google-text-muted">
                   <n-icon :size="13" :component="TimeOutline" />
-                  <span>{{ t('competition.instance_remaining_time', '租期剩余') }}: {{ formatRemainingSeconds(remainingSecondsVal) }}</span>
+                  <span>{{ t('competition.instance_remaining_time', '容器剩余') }}: {{ formatRemainingSeconds(remainingSecondsVal) }}</span>
                 </div>
 
                 <div class="flex items-center gap-2">
                   <VTooltip :content="t('competition.instance_extend_tip', '延长靶机运行时间 15 分钟')">
-                    <button
-                      type="button"
-                      class="h-7 px-2.5 rounded-lg border border-blue-300 dark:border-blue-800 text-[11px] font-semibold text-google-blue dark:text-google-blue-dark hover:bg-blue-100/60 dark:hover:bg-blue-950 transition-colors cursor-pointer"
+                    <VBtn
+                      clz="primary"
+                      size="small"
                       :disabled="instanceActionLoading"
                       @click="handleExtendInstance"
                     >
                       {{ t('competition.instance_extend', '续期 +15m') }}
-                    </button>
+                    </VBtn>
                   </VTooltip>
                   <VTooltip :content="t('competition.instance_stop_tip', '立即停止并释放当前靶机容器实例')">
-                    <button
-                      type="button"
-                      class="h-7 px-2.5 rounded-lg border border-red-300 dark:border-red-900 text-[11px] font-semibold text-google-red dark:text-google-red-dark hover:bg-red-50 dark:hover:bg-red-950 transition-colors cursor-pointer"
+                    <VBtn
+                      clz="warning"
+                      size="small"
                       :disabled="instanceActionLoading"
                       @click="handleStopInstance"
                     >
-                      {{ t('competition.instance_stop', '销毁靶机') }}
-                    </button>
+                      {{ t('competition.instance_stop', '销毁容器') }}
+                    </VBtn>
                   </VTooltip>
                 </div>
               </div>
@@ -142,7 +130,7 @@
                 @click="handleStartInstance"
               >
                 <n-icon :size="15" :component="RocketOutline" :class="{ 'animate-spin': instanceActionLoading }" />
-                <span>{{ instanceActionLoading ? t('common.loading', '靶机调度启动中...') : t('competition.instance_start', '一键拉起独立动态靶机') }}</span>
+                <span>{{ instanceActionLoading ? t('common.loading', '靶机调度启动中...') : t('competition.instance_start', '启动容器') }}</span>
               </button>
             </div>
           </div>
@@ -268,7 +256,6 @@ import {
   RocketOutline,
   CheckmarkCircleOutline,
   CloudDownloadOutline,
-  CopyOutline,
   TimeOutline,
   DocumentTextOutline,
   TrophyOutline,
@@ -286,6 +273,7 @@ import type { FilterOption } from '@/components/common'
 import {
   submitCtfFlagApi,
   getCtfChallengeDetailApi,
+  getCtfInstanceApi,
   startCtfInstanceApi,
   stopCtfInstanceApi,
   extendCtfInstanceApi
@@ -347,14 +335,51 @@ const tabOptions = computed<FilterOption<string>[]>(() => [
   }
 ])
 
+async function syncInstance() {
+  if (!props.challenge || !props.challenge.isContainer) {
+    activeInstance.value = null
+    clearCountdown()
+    return
+  }
+
+  const inst = props.challenge.instance
+  const remaining = inst ? (inst.remainingTimeSeconds ?? inst.remainingSeconds ?? 0) : 0
+  if (inst && remaining > 0) {
+    activeInstance.value = inst
+    startCountdown()
+    return
+  }
+
+  if (props.competitionId) {
+    const targetId = props.challenge.id || props.challenge.challengeId
+    if (targetId) {
+      try {
+        const res = await getCtfInstanceApi(props.competitionId, targetId)
+        if (res?.data && (res.data.remainingTimeSeconds ?? res.data.remainingSeconds ?? 0) > 0) {
+          activeInstance.value = res.data
+          if (props.challenge) {
+            props.challenge.instance = res.data
+          }
+          startCountdown()
+          return
+        }
+      } catch {
+      }
+    }
+  }
+
+  activeInstance.value = null
+  clearCountdown()
+}
+
 watch(
   () => props.show,
   (newVal) => {
     if (newVal) {
       flagInput.value = ''
-      activeInstance.value = null
       activeTab.value = 'content'
       solvesCurrentPage.value = 1
+      syncInstance()
     } else {
       clearCountdown()
     }
@@ -365,6 +390,9 @@ watch(
   () => props.challenge?.id,
   () => {
     solvesCurrentPage.value = 1
+    if (props.show) {
+      syncInstance()
+    }
   }
 )
 
@@ -498,14 +526,6 @@ const remainingSecondsVal = computed(() => {
   return activeInstance.value.remainingTimeSeconds ?? activeInstance.value.remainingSeconds ?? 0
 })
 
-function copyHostPort(text: string) {
-  if (!text) return
-  navigator.clipboard.writeText(text)
-  if (message) {
-    message.success(t('common.copied_to_clipboard', '靶机地址已复制至剪贴板'))
-  }
-}
-
 async function handleFlagSubmit() {
   if (!props.challenge || !props.competitionId || flagSubmitting.value) return
   const trimmed = flagInput.value.trim()
@@ -579,6 +599,9 @@ async function handleStartInstance() {
     const res = await startCtfInstanceApi(props.competitionId, targetId)
     if (res?.data) {
       activeInstance.value = res.data
+      if (props.challenge) {
+        props.challenge.instance = res.data
+      }
       startCountdown()
       if (message) {
         message.success(res?.message || t('competition.instance_started', '靶机容器已成功拉起并分配独立测试端口'))
@@ -602,6 +625,9 @@ async function handleExtendInstance() {
     const res = await extendCtfInstanceApi(props.competitionId, targetId)
     if (res?.data) {
       activeInstance.value = res.data
+      if (props.challenge) {
+        props.challenge.instance = res.data
+      }
       if (message) {
         message.success(res?.message || t('competition.instance_extended', '靶机租赁时间已成功延长 15 分钟'))
       }
@@ -624,6 +650,9 @@ async function handleStopInstance() {
     const res = await stopCtfInstanceApi(props.competitionId, targetId)
     clearCountdown()
     activeInstance.value = null
+    if (props.challenge) {
+      props.challenge.instance = null
+    }
     if (message) {
       message.success(res?.message || t('competition.instance_stopped', '靶机容器资源已顺利回收与释放'))
     }
@@ -648,6 +677,9 @@ function startCountdown() {
         activeInstance.value.remainingSeconds = next
       } else {
         activeInstance.value = null
+        if (props.challenge) {
+          props.challenge.instance = null
+        }
         clearCountdown()
       }
     }

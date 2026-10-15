@@ -2,6 +2,7 @@ export type AsyncTaskType =
   | 'IMAGE_TRANSFER'
   | 'IMAGE_PULL'
   | 'IMAGE_BACKUP'
+  | 'IMAGE_IMPORT'
   | 'IMAGE_SYNC'
   | 'CONTAINER_BATCH_STOP'
   | 'EMAIL_BATCH_SEND'

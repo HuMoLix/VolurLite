@@ -12,7 +12,8 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "ctf_challenge_instance", indexes = {
-        @Index(name = "idx_ctf_inst_user_chal", columnList = "target_id, challenge_id")
+        @Index(name = "idx_ctf_inst_user_chal", columnList = "target_id, challenge_id"),
+        @Index(name = "idx_ctf_inst_team_chal", columnList = "team_id, challenge_id")
 })
 @Data
 @Builder
@@ -30,6 +31,9 @@ public class CtfChallengeInstance implements Serializable {
     @Builder.Default
     @Column(name = "stage_id", columnDefinition = "BIGINT")
     private Long stageId = 0L;
+
+    @Column(name = "team_id", columnDefinition = "BIGINT")
+    private Long teamId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "challenge_id", nullable = true, columnDefinition = "BIGINT")

@@ -105,9 +105,7 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
 
                 if (StringUtils.hasText(dynamicFlag)) {
                     command.add("--env");
-                    command.add("FLAG=" + dynamicFlag);
-                    command.add("--env");
-                    command.add("GZCTF_FLAG=" + dynamicFlag);
+                    command.add("volurflag=" + dynamicFlag);
                 }
 
                 command.add(imageName);
@@ -256,12 +254,9 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
                 }
             }
 
-            // 自定义 Flag 环境变量注入
             if (StringUtils.hasText(dynamicFlag)) {
                 command.add("--env");
-                command.add("FLAG=" + dynamicFlag);
-                command.add("--env");
-                command.add("GZCTF_FLAG=" + dynamicFlag);
+                command.add("volurflag=" + dynamicFlag);
             }
 
             // 调度节点约束：优先定向绑定指定目标节点

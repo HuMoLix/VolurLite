@@ -30,6 +30,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -89,7 +90,13 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "该题目不需要启动动态容器");
         }
 
-        Optional<CtfChallengeInstance> existing = instanceRepository.findByChallengeIdAndTargetId(challengeId, userId);
+        Optional<CtfChallengeInstance> existing = Optional.empty();
+        if (stageId != null && stageId > 0 && teamId != null) {
+            existing = instanceRepository.findByStageIdAndTeamIdAndChallengeId(stageId, teamId, challengeId);
+        }
+        if (existing.isEmpty()) {
+            existing = instanceRepository.findByChallengeIdAndTargetId(challengeId, userId);
+        }
         if (existing.isPresent()) {
             CtfChallengeInstance inst = existing.get();
             if (inst.getExpiresAt().isAfter(Instant.now())) {
@@ -103,13 +110,16 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
                         .remainingTimeSeconds((int) remaining)
                         .build();
             } else {
-                stopInstance(challengeId, userId);
+                stopContainerSafely(inst.getContainerId());
+                instanceRepository.delete(inst);
             }
         }
 
-        long activeCount = instanceRepository.countByTargetIdAndStatus(userId, InstanceStartupStatus.RUNNING);
-        if (activeCount >= 2) {
-            throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "最多只能同时开启 2 个容器");
+        if (stageId == null || stageId == 0L) {
+            long activeCount = instanceRepository.countByTargetIdAndStatus(userId, InstanceStartupStatus.RUNNING);
+            if (activeCount >= 2) {
+                throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "最多只能同时开启 2 个容器");
+            }
         }
 
         Integer cpu = challenge.getCpuLimit() != null ? challenge.getCpuLimit() : 1;
@@ -142,6 +152,7 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
                 .challenge(challenge)
                 .targetId(userId)
                 .stageId(stageId != null ? stageId : 0L)
+                .teamId(teamId)
                 .imageName(challenge.getImageName())
                 .containerId(runResult.getContainerId())
                 .accessUrl(runResult.getAccessUrl())
@@ -262,6 +273,113 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
                     return (int) Math.max(0, secs);
                 })
                 .orElse(null);
+    }
+
+    @Override
+    public ChallengeInstanceResponseVO getTeamInstance(Long stageId, Long teamId, Long challengeId, Collection<Long> memberUserIds) {
+        Instant now = Instant.now();
+        Optional<CtfChallengeInstance> instOpt = Optional.empty();
+        if (stageId != null && teamId != null) {
+            instOpt = instanceRepository.findByStageIdAndTeamIdAndChallengeId(stageId, teamId, challengeId)
+                    .filter(i -> i.getStatus() == InstanceStartupStatus.RUNNING && i.getExpiresAt().isAfter(now));
+        }
+        if (instOpt.isEmpty() && memberUserIds != null && !memberUserIds.isEmpty()) {
+            instOpt = instanceRepository.findFirstByChallengeIdAndTargetIdInAndStatusAndExpiresAtAfter(
+                    challengeId, memberUserIds, InstanceStartupStatus.RUNNING, now
+            );
+        }
+        return instOpt.map(inst -> ChallengeInstanceResponseVO.builder()
+                .challengeId(challengeId)
+                .accessUrl(inst.getAccessUrl())
+                .status(inst.getStatus())
+                .createdAt(inst.getCreatedAt())
+                .expiresAt(inst.getExpiresAt())
+                .remainingTimeSeconds((int) Duration.between(now, inst.getExpiresAt()).getSeconds())
+                .build()
+        ).orElse(null);
+    }
+
+    @Override
+    public long countActiveInstancesForTeam(Long stageId, Long teamId, Collection<Long> memberUserIds) {
+        Instant now = Instant.now();
+        if (memberUserIds == null || memberUserIds.isEmpty()) {
+            if (stageId != null && teamId != null) {
+                return instanceRepository.countByStageIdAndTeamIdAndStatusAndExpiresAtAfter(
+                        stageId, teamId, InstanceStartupStatus.RUNNING, now
+                );
+            }
+            return 0L;
+        }
+        return instanceRepository.countActiveByStageAndTeamOrTargetIds(
+                stageId != null ? stageId : 0L,
+                teamId != null ? teamId : 0L,
+                memberUserIds,
+                InstanceStartupStatus.RUNNING,
+                now
+        );
+    }
+
+    @Override
+    @Transactional
+    public void stopTeamInstance(Long stageId, Long teamId, Long challengeId, Collection<Long> memberUserIds) {
+        Optional<CtfChallengeInstance> instOpt = Optional.empty();
+        if (stageId != null && teamId != null) {
+            instOpt = instanceRepository.findByStageIdAndTeamIdAndChallengeId(stageId, teamId, challengeId);
+        }
+        if (instOpt.isEmpty() && memberUserIds != null && !memberUserIds.isEmpty()) {
+            instOpt = instanceRepository.findFirstByChallengeIdAndTargetIdIn(challengeId, memberUserIds);
+        }
+        instOpt.ifPresent(inst -> {
+            stopContainerSafely(inst.getContainerId());
+            instanceRepository.delete(inst);
+        });
+    }
+
+    @Override
+    @Transactional
+    public ChallengeInstanceResponseVO extendTeamInstance(Long stageId, Long teamId, Long challengeId, Collection<Long> memberUserIds) {
+        Optional<CtfChallengeInstance> instOpt = Optional.empty();
+        if (stageId != null && teamId != null) {
+            instOpt = instanceRepository.findByStageIdAndTeamIdAndChallengeId(stageId, teamId, challengeId)
+                    .filter(i -> i.getExpiresAt().isAfter(Instant.now()));
+        }
+        if (instOpt.isEmpty() && memberUserIds != null && !memberUserIds.isEmpty()) {
+            instOpt = instanceRepository.findFirstByChallengeIdAndTargetIdInAndStatusAndExpiresAtAfter(
+                    challengeId, memberUserIds, InstanceStartupStatus.RUNNING, Instant.now()
+            );
+        }
+        if (instOpt.isEmpty()) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "未检测到正在运行的靶机容器实例");
+        }
+        CtfChallengeInstance inst = instOpt.get();
+        Instant now = Instant.now();
+        Instant newExpiresAt = inst.getExpiresAt().plus(Duration.ofMinutes(15));
+        inst.setExpiresAt(newExpiresAt);
+        instanceRepository.save(inst);
+        return ChallengeInstanceResponseVO.builder()
+                .challengeId(challengeId)
+                .accessUrl(inst.getAccessUrl())
+                .status(inst.getStatus())
+                .createdAt(inst.getCreatedAt())
+                .expiresAt(inst.getExpiresAt())
+                .remainingTimeSeconds((int) Duration.between(now, newExpiresAt).getSeconds())
+                .build();
+    }
+
+    @Override
+    public boolean verifyTeamFlag(Long stageId, Long teamId, Long challengeId, Collection<Long> memberUserIds, String flag) {
+        if (!StringUtils.hasText(flag)) {
+            return false;
+        }
+        Optional<CtfChallengeInstance> instOpt = Optional.empty();
+        if (stageId != null && teamId != null) {
+            instOpt = instanceRepository.findByStageIdAndTeamIdAndChallengeId(stageId, teamId, challengeId);
+        }
+        if (instOpt.isEmpty() && memberUserIds != null && !memberUserIds.isEmpty()) {
+            instOpt = instanceRepository.findFirstByChallengeIdAndTargetIdIn(challengeId, memberUserIds);
+        }
+        return instOpt.map(inst -> inst.getFlag() != null && inst.getFlag().trim().equalsIgnoreCase(flag.trim()))
+                .orElse(false);
     }
 
     @Scheduled(fixedRate = 60000)

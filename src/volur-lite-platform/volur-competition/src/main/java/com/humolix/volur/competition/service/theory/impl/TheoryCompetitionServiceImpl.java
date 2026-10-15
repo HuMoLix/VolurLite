@@ -32,6 +32,7 @@ import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.CompetitionMemberRepository;
 import com.humolix.volur.competition.repository.CompetitionOperationLogRepository;
 import com.humolix.volur.competition.repository.CompetitionRepository;
+import com.humolix.volur.competition.repository.CompetitionTeamRepository;
 import com.humolix.volur.competition.domain.dto.theory.TheoryProctorSnapshotDTO;
 import com.humolix.volur.competition.domain.dto.theory.TheoryProctorRtcSignalDTO;
 import com.humolix.volur.competition.repository.theory.TheoryCompetitionAnswerRepository;
@@ -73,6 +74,7 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
     private static final Duration VREDIS_COMPETITION_THEORY_MONITOR_TTL = Duration.ofHours(24);
 
     private final CompetitionRepository competitionRepository;
+    private final CompetitionTeamRepository teamRepository;
     private final CompetitionMemberRepository memberRepository;
     private final TheoryCompetitionConfigRepository configRepository;
     private final TheoryCompetitionBankRepository compBankRepository;
@@ -97,8 +99,15 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
         validateUserParticipationOrAdmin(competitionId, userId);
         validateProctorTicket(competitionId, userId);
 
+        User user = userRepository.findById(userId).orElse(null);
+        boolean isAdmin = user != null && (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
+
         TheoryUserPaper userPaper = userPaperRepository.findByCompetitionIdAndUserId(competitionId, userId)
                 .orElseGet(() -> generateUserPaper(competitionId, userId));
+
+        if (!isAdmin && Boolean.TRUE.equals(userPaper.getIsSubmitted())) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队答题已结束，无法查看试卷题目");
+        }
 
         List<TheoryCompetitionPaper> papers = paperRepository.findByUserPaperIdWithChallenge(userPaper.getId());
         if (papers.isEmpty()) {
@@ -140,7 +149,7 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
                 .totalQuestions(questionVOs.size())
                 .totalScore(totalScore)
                 .isSubmitted(isSubmitted)
-                .myTotalScore(myTotalScore)
+                .myTotalScore(isAdmin ? myTotalScore : 0)
                 .questions(questionVOs)
                 .build();
     }
@@ -155,6 +164,10 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
         boolean isAdmin = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
         if (team == null && !isAdmin) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "您尚未加入已审核通过的参赛队伍");
+        }
+
+        if (team != null && team.getStatus() == TeamStatus.ENDED) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "您的战队答题已结束，严禁重复提交");
         }
 
         TheoryUserPaper userPaper = userPaperRepository.findByCompetitionIdAndUserId(competitionId, userId)
@@ -219,14 +232,19 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
         userPaper.setMyTotalScore(scoreObtained);
         userPaperRepository.save(userPaper);
 
+        if (team != null) {
+            team.setStatus(TeamStatus.ENDED);
+            teamRepository.save(team);
+        }
+
         double accuracyRate = papers.isEmpty() ? 0.0 : (double) correctCount / papers.size() * 100.0;
 
         return TheoryPaperResultVO.builder()
                 .totalQuestions(papers.size())
-                .correctCount(correctCount)
-                .totalScore(totalScore)
-                .scoreObtained(scoreObtained)
-                .accuracyRate(Math.round(accuracyRate * 100.0) / 100.0)
+                .correctCount(isAdmin ? correctCount : null)
+                .totalScore(isAdmin ? totalScore : null)
+                .scoreObtained(isAdmin ? scoreObtained : null)
+                .accuracyRate(isAdmin ? (Math.round(accuracyRate * 100.0) / 100.0) : null)
                 .build();
     }
 
@@ -527,7 +545,7 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
             if (team != null && team.getStatus() == TeamStatus.BANNED) {
                 throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队已被封禁，无法参加此场比赛");
             }
-            if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
+            if (team != null && (team.getStatus() == TeamStatus.AUDIT_PASSED || team.getStatus() == TeamStatus.ENDED)) {
                 return team;
             }
         }
@@ -538,19 +556,26 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
         if (userId == null) {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
         }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        boolean isAdmin = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
+
         Optional<CompetitionMember> memberOpt = memberRepository.findMemberWithTeam(competitionId, userId);
         if (memberOpt.isPresent()) {
             CompetitionTeam team = memberOpt.get().getTeam();
             if (team != null && team.getStatus() == TeamStatus.BANNED) {
                 throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队已被封禁，无法参加此场比赛");
             }
+            if (team != null && team.getStatus() == TeamStatus.ENDED && !isAdmin) {
+                throw new BusinessException(HttpStatus.FORBIDDEN, "您的战队答题已结束，无法查看试卷题目");
+            }
             if (team != null && team.getStatus() == TeamStatus.AUDIT_PASSED) {
                 return;
             }
+            if (isAdmin) {
+                return;
+            }
         }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
-        boolean isAdmin = (user.getRole() == UserRole.SUPER_ADMIN || user.getRole() == UserRole.ADMIN);
         if (!isAdmin) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "您尚未加入已审核通过的参赛队伍");
         }
@@ -637,9 +662,7 @@ public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
 
     @Override
     public void registerProctorReady(Long competitionId, Long userId) {
-        if (userId == null) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "用户未登录");
-        }
+        validateUserParticipationOrAdmin(competitionId, userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
 

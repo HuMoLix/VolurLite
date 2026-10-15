@@ -7,9 +7,10 @@ import com.humolix.volur.framework.common.exception.authException.tokenException
 import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.system.constant.SystemSettingKeys;
+import com.humolix.volur.system.service.SystemSettingService;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,23 +39,34 @@ public class JwtUtil {
     private static final String TOKEN_TYPE_CLAIM = "type";
     private static final String REMEMBER_ME_CLAIM = "rememberMe";
 
+    private final SystemSettingService systemSettingService;
+
     @Value("${volur.jwt.secret}")
     private String secretKeyStr;
 
-    @Getter
-    @Value("${volur.jwt.expire-seconds:86400}")
-    private Long expireSeconds;
-
-    @Getter
-    @Value("${volur.jwt.refresh-expiration-ms:604800000}")
-    private Long refreshTokenExpirationMs;
-
-    @Getter
-    @Value("${volur.jwt.remember-me-refresh-expiration-ms:2592000000}")
-    private Long rememberMeRefreshTokenExpirationMs;
-
     private JwtEncoder jwtEncoder;
     private JwtDecoder jwtDecoder;
+
+    public Long getExpireSeconds() {
+        if (systemSettingService == null) {
+            return 86400L;
+        }
+        return systemSettingService.getLong(SystemSettingKeys.AUTH_JWT_EXPIRE_SECONDS, 86400L);
+    }
+
+    public Long getRefreshTokenExpirationMs() {
+        if (systemSettingService == null) {
+            return 604800000L;
+        }
+        return systemSettingService.getLong(SystemSettingKeys.AUTH_JWT_REFRESH_EXPIRATION_MS, 604800000L);
+    }
+
+    public Long getRememberMeRefreshTokenExpirationMs() {
+        if (systemSettingService == null) {
+            return 2592000000L;
+        }
+        return systemSettingService.getLong(SystemSettingKeys.AUTH_JWT_REMEMBER_ME_REFRESH_EXPIRATION_MS, 2592000000L);
+    }
 
     @PostConstruct
     public void init() {
@@ -86,7 +98,7 @@ public class JwtUtil {
                 .map(GrantedAuthority::getAuthority)
                 .toList();
 
-        long accessExpMs = expireSeconds * 1000L;
+        long accessExpMs = getExpireSeconds() * 1000L;
         JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
         JwtClaimsSet claimsSet = JwtClaimsSet.builder()
                 .subject(authentication.getName())
@@ -108,7 +120,7 @@ public class JwtUtil {
     public String generateRefreshToken(Authentication authentication, String jti, boolean rememberMe) {
         final Instant now = Instant.now();
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        long expirationMs = rememberMe ? rememberMeRefreshTokenExpirationMs : refreshTokenExpirationMs;
+        long expirationMs = rememberMe ? getRememberMeRefreshTokenExpirationMs() : getRefreshTokenExpirationMs();
 
         JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
         JwtClaimsSet claimsSet = JwtClaimsSet.builder()
@@ -134,7 +146,7 @@ public class JwtUtil {
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList();
-        long accessExpMs = expireSeconds * 1000L;
+        long accessExpMs = getExpireSeconds() * 1000L;
 
         JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
         JwtClaimsSet claimsSet = JwtClaimsSet.builder()
@@ -156,7 +168,7 @@ public class JwtUtil {
 
     public String generateRefreshTokenFromUser(User user, String jti, boolean rememberMe) {
         final Instant now = Instant.now();
-        long expirationMs = rememberMe ? rememberMeRefreshTokenExpirationMs : refreshTokenExpirationMs;
+        long expirationMs = rememberMe ? getRememberMeRefreshTokenExpirationMs() : getRefreshTokenExpirationMs();
 
         JwsHeader jwsHeader = JwsHeader.with(MacAlgorithm.HS256).build();
         JwtClaimsSet claimsSet = JwtClaimsSet.builder()

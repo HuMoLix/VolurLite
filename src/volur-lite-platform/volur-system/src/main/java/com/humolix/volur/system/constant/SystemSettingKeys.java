@@ -21,6 +21,9 @@ public final class SystemSettingKeys {
     public static final String AUTH_REQUIRE_EMAIL_VERIFICATION = "system.auth.require_email_verification";
     public static final String AUTH_MAX_LOGIN_ATTEMPTS = "system.auth.max_login_attempts";
     public static final String AUTH_EMAIL_WHITELIST_SUFFIXES = "system.auth.email_whitelist_suffixes";
+    public static final String AUTH_JWT_EXPIRE_SECONDS = "system.auth.jwt_expire_seconds";
+    public static final String AUTH_JWT_REFRESH_EXPIRATION_MS = "system.auth.jwt_refresh_expiration_ms";
+    public static final String AUTH_JWT_REMEMBER_ME_REFRESH_EXPIRATION_MS = "system.auth.jwt_remember_me_refresh_expiration_ms";
 
     // ========== 3. 人机验证 (Captcha) ==========
     public static final String CAPTCHA_ENABLED = "system.captcha.enabled";

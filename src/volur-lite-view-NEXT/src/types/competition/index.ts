@@ -134,10 +134,10 @@ export interface TheoryPaperSubmitRequestDTO {
 
 export interface TheoryPaperResultVO {
   totalQuestions: number
-  correctCount: number
-  totalScore: number
-  scoreObtained: number
-  accuracyRate: number
+  correctCount?: number | null
+  totalScore?: number | null
+  scoreObtained?: number | null
+  accuracyRate?: number | null
 }
 
 export type TheoryCheatEventType =
@@ -285,6 +285,7 @@ export type TeamStatus =
   | 'AUDIT_REJECTED'
   | 'DISBANDED'
   | 'BANNED'
+  | 'ENDED'
 
 export type MemberRole = 'CAPTAIN' | 'MEMBER' | 'LEADER'
 
@@ -408,6 +409,7 @@ export interface CtfCompetitionChallengeVO {
   difficulty?: string | number | null
   initialPoints?: number
   minPoints?: number
+  decayCount?: number
   currentPoints: number
   solvesCount: number
   sortOrder?: number
@@ -438,6 +440,7 @@ export interface CtfCompetitionChallengeDetailVO {
   containerHost?: string | null
   topTeams?: string[]
   solves?: CtfChallengeSolveVO[]
+  instance?: CtfChallengeInstanceVO | null
 }
 
 export interface CtfChallengeSolveVO {
@@ -630,6 +633,7 @@ export interface AdminTeamListVO {
   captainUsername: string
   memberCount: number
   status: TeamStatus
+  score?: number | null
   auditReason?: string
   createdAt: string
 }
@@ -640,6 +644,7 @@ export interface AdminTeamStatsVO {
   approved: number
   rejected: number
   banned?: number
+  ended?: number
 }
 
 export interface AdminTeamDetailVO {
@@ -654,6 +659,7 @@ export interface AdminTeamDetailVO {
   captainId: number | string
   captainUsername: string
   status: TeamStatus
+  score?: number | null
   auditReason?: string
   members: CompetitionMemberVO[]
   createdAt: string

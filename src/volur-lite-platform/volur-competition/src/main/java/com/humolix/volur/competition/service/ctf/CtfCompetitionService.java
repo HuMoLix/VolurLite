@@ -23,6 +23,8 @@ public interface CtfCompetitionService {
 
     ChallengeInstanceResponseVO extendInstance(Long competitionId, Long competitionChallengeId, Long userId);
 
+    ChallengeInstanceResponseVO getInstance(Long competitionId, Long competitionChallengeId, Long userId);
+
     List<CtfTeamSolveRecordVO> getTeamSolves(Long competitionId, Long teamId);
 
 }

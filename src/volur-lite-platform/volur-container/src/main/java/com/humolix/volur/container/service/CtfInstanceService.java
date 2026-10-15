@@ -3,6 +3,7 @@ package com.humolix.volur.container.service;
 import com.humolix.volur.container.domain.entity.CtfChallengeInstance;
 import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 
+import java.util.Collection;
 import java.util.Optional;
 
 public interface CtfInstanceService {
@@ -22,5 +23,15 @@ public interface CtfInstanceService {
     String getAccessUrl(Long challengeId, Long userId);
 
     Integer getRemainingSeconds(Long challengeId, Long userId);
+
+    ChallengeInstanceResponseVO getTeamInstance(Long stageId, Long teamId, Long challengeId, Collection<Long> memberUserIds);
+
+    long countActiveInstancesForTeam(Long stageId, Long teamId, Collection<Long> memberUserIds);
+
+    void stopTeamInstance(Long stageId, Long teamId, Long challengeId, Collection<Long> memberUserIds);
+
+    ChallengeInstanceResponseVO extendTeamInstance(Long stageId, Long teamId, Long challengeId, Collection<Long> memberUserIds);
+
+    boolean verifyTeamFlag(Long stageId, Long teamId, Long challengeId, Collection<Long> memberUserIds, String flag);
 
 }

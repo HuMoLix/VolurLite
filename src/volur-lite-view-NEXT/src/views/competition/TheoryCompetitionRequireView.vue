@@ -448,6 +448,14 @@ async function fetchCompetition() {
       currentTeam = null
     }
 
+    if (currentTeam && currentTeam.status === 'ENDED' && !userStore.isAdmin) {
+      if (message) {
+        message.warning(t('competition.theory_exam_ended_tip', '您的战队答题已结束，无法查看试卷题目'))
+      }
+      handleBackToDetail()
+      return
+    }
+
     const isAuthorized = Boolean(userStore.isAdmin) || (currentTeam !== null && currentTeam.status === 'AUDIT_PASSED')
     if (!isAuthorized) {
       if (message) {

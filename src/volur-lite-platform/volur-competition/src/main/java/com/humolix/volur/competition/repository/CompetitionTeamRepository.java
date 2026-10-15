@@ -29,6 +29,8 @@ public interface CompetitionTeamRepository extends JpaRepository<CompetitionTeam
 
     List<CompetitionTeam> findByCompetitionIdAndStatus(Long competitionId, TeamStatus status);
 
+    List<CompetitionTeam> findByCompetitionIdAndStatusIn(Long competitionId, Collection<TeamStatus> statuses);
+
     long countByCompetitionIdAndStatus(Long competitionId, TeamStatus status);
 
     @Query("SELECT t FROM CompetitionTeam t " +

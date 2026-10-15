@@ -22,7 +22,7 @@ spring:
       host: ${VOLUR_REDIS_HOST:localhost}
       port: 6379
       password: ${VOLUR_REDIS_PASSWORD:}
-      database: ${VOLUR_REDIS_DATABASE:0}
+      database: 0
       timeout: 5000ms
       lettuce:
         pool:

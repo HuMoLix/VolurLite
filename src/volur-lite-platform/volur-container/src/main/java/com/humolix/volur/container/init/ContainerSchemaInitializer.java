@@ -35,6 +35,13 @@ public class ContainerSchemaInitializer implements ApplicationRunner {
         } catch (Exception e) {
             log.debug("[ContainerSchemaInitializer] 添加 container_type 字段提示: {}", e.getMessage());
         }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE ctf_challenge_instance ADD COLUMN team_id BIGINT NULL");
+            log.info("[ContainerSchemaInitializer] 成功更新 ctf_challenge_instance 表结构: 添加 team_id 字段");
+        } catch (Exception e) {
+            log.debug("[ContainerSchemaInitializer] 添加 team_id 字段提示: {}", e.getMessage());
+        }
     }
 
 }

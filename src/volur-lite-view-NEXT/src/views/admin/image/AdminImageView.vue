@@ -73,6 +73,59 @@
       </div>
     </div>
 
+    <div
+      v-if="backgroundImportTask"
+      class="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-blue-50/70 dark:bg-google-surface-darkCard border border-google-blue/30 dark:border-google-blue/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 transition-colors"
+    >
+      <div class="flex items-center gap-3 min-w-0 flex-1">
+        <div class="w-9 h-9 rounded-xl bg-google-blue/10 dark:bg-google-blue/20 text-google-blue dark:text-google-blue-dark flex items-center justify-center shrink-0">
+          <n-icon size="20" class="animate-spin">
+            <SyncOutline />
+          </n-icon>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-semibold text-google-text-primary dark:text-google-text-darkPrimary truncate">
+              {{ backgroundImportTask.taskName }}
+            </span>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded font-medium bg-blue-100 dark:bg-blue-900/40 text-google-blue dark:text-google-blue-dark">
+              #{{ backgroundImportTask.id }}
+            </span>
+            <span
+              class="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+              :class="getTaskStatusBadgeClass(backgroundImportTask.status)"
+            >
+              {{ getTaskStatusText(backgroundImportTask.status) }}
+            </span>
+          </div>
+          <p class="text-[11px] text-google-text-secondary dark:text-google-text-darkSecondary mt-0.5 truncate">
+            {{ backgroundImportTask.statusMessage || t('admin.images.asyncImportRunning', '正在后台异步执行镜像解压与 Registry 入库...') }}
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 shrink-0 self-end sm:self-center">
+        <div class="w-32 sm:w-40 flex items-center gap-2">
+          <div class="flex-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+            <div
+              class="h-full bg-google-blue dark:bg-google-blue-dark transition-all duration-300"
+              :style="{ width: `${backgroundImportTask.progress || 0}%` }"
+            />
+          </div>
+          <span class="text-xs font-mono font-semibold text-google-blue dark:text-google-blue-dark">
+            {{ backgroundImportTask.progress || 0 }}%
+          </span>
+        </div>
+        <VBtn
+          clz="normal"
+          size="small"
+          @click="reopenTaskModal"
+        >
+          {{ t('admin.images.viewTaskDetail', '查看进度') }}
+        </VBtn>
+      </div>
+    </div>
+
     <div class="table-card p-3.5 sm:p-6 rounded-xl sm:rounded-2xl bg-white dark:bg-google-surface-darkCard border border-google-border-light dark:border-google-border-dark transition-colors">
       <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 mb-4 sm:mb-6">
         <VSearch
@@ -172,10 +225,12 @@
 
     <VModal
       v-model:show="showImportModal"
-      :title="'导入本地 Docker 镜像归档'"
-      :width="520"
+      :title="importPhase === 'task' ? 'Docker 镜像异步导入任务' : (importPhase === 'uploading' ? '正在上传镜像归档文件...' : '导入本地 Docker 镜像归档')"
+      :width="540"
+      :mask-closable="importPhase !== 'uploading'"
+      @close="closeImportModal"
     >
-      <div class="flex flex-col gap-4 py-2">
+      <div v-if="importPhase === 'select'" class="flex flex-col gap-4 py-2">
         <div class="flex flex-col gap-1.5">
           <label class="text-sm font-medium text-google-text-desc dark:text-google-text-darkDesc">
             选择镜像归档文件 (.tar / .tar.gz / .tgz) *
@@ -183,6 +238,9 @@
           <div
             class="border-2 border-dashed border-google-border-light dark:border-google-border-dark rounded-xl p-4 text-center cursor-pointer hover:border-google-blue dark:hover:border-google-blue transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50/50 dark:bg-google-surface-dark/50"
             @click="triggerFileSelect"
+            @dragover.prevent
+            @dragenter.prevent
+            @drop.prevent="handleFileDrop"
           >
             <input
               ref="fileInputRef"
@@ -228,18 +286,162 @@
         </div>
 
         <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted bg-gray-50 dark:bg-google-surface-dark p-2.5 rounded-lg border border-google-border-light/60 dark:border-google-border-dark/60">
-          上传后系统将在主控节点通过 Docker 解压并加载镜像，自动打标并推送至私有 Registry 资产中心。
+          镜像文件体积通常较大，上传完成后将自动以异步任务模式在主控节点执行解压加载与私有 Registry 入库，避免等待超时。
+        </div>
+      </div>
+
+      <div v-else-if="importPhase === 'uploading'" class="flex flex-col gap-4 py-4">
+        <div class="flex items-center gap-3 p-3.5 rounded-xl bg-blue-50/60 dark:bg-google-surface-dark border border-google-blue/20 dark:border-google-blue/30">
+          <div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-google-blue dark:text-google-blue-dark flex items-center justify-center shrink-0">
+            <n-icon size="22" class="animate-bounce">
+              <CloudUploadOutline />
+            </n-icon>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-semibold text-google-text-primary dark:text-google-text-darkPrimary truncate">
+              {{ selectedFile?.name }}
+            </div>
+            <div class="text-[11px] text-google-text-secondary dark:text-google-text-darkSecondary mt-0.5">
+              文件大小: {{ formatBytes(selectedFile?.size) }}
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-google-text-secondary dark:text-google-text-darkSecondary font-medium">
+              正在上传镜像归档文件...
+            </span>
+            <span class="font-mono font-semibold text-google-blue dark:text-google-blue-dark">
+              {{ uploadProgress }}%
+            </span>
+          </div>
+          <div class="w-full h-2.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+            <div
+              class="h-full bg-google-blue dark:bg-google-blue-dark transition-all duration-150"
+              :style="{ width: `${uploadProgress}%` }"
+            />
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-google-text-muted dark:text-google-text-darkMuted">
+            <span>{{ formatBytes(uploadLoadedBytes) }} / {{ formatBytes(uploadTotalBytes) }}</span>
+            <span>无超时全量传输</span>
+          </div>
+        </div>
+
+        <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted bg-gray-50 dark:bg-google-surface-dark p-2.5 rounded-lg border border-google-border-light/60 dark:border-google-border-dark/60">
+          大体积镜像上传需一定时间，传输期间请保持页面开启。上传完成后将自动提交异步后台解压任务。
+        </div>
+      </div>
+
+      <div v-else-if="importPhase === 'task'" class="flex flex-col gap-4 py-2">
+        <div class="p-3.5 rounded-xl bg-gray-50/80 dark:bg-google-surface-dark border border-google-border-light dark:border-google-border-dark flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted">任务名称</div>
+              <div class="text-xs font-semibold text-google-text-primary dark:text-google-text-darkPrimary truncate mt-0.5">
+                {{ currentImportTask?.taskName }}
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded font-medium bg-blue-100 dark:bg-blue-900/40 text-google-blue dark:text-google-blue-dark">
+                #{{ currentImportTask?.id }}
+              </span>
+              <span
+                class="text-[10px] font-semibold px-2 py-0.5 rounded"
+                :class="getTaskStatusBadgeClass(currentImportTask?.status)"
+              >
+                {{ getTaskStatusText(currentImportTask?.status) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1.5 pt-1">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-google-text-secondary dark:text-google-text-darkSecondary font-medium">任务执行进度</span>
+              <span class="font-mono font-semibold text-google-blue dark:text-google-blue-dark">
+                {{ currentImportTask?.progress ?? 0 }}%
+              </span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+              <div
+                class="h-full transition-all duration-300"
+                :class="currentImportTask?.status === 'FAILED' ? 'bg-google-red dark:bg-google-red-dark' : (currentImportTask?.status === 'SUCCESS' ? 'bg-google-green dark:bg-google-green-dark' : 'bg-google-blue dark:bg-google-blue-dark')"
+                :style="{ width: `${currentImportTask?.progress ?? 0}%` }"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-gray-50/70 dark:bg-google-surface-dark border border-google-border-light/70 dark:border-google-border-dark/70 text-xs">
+          <div class="flex items-start gap-2.5">
+            <n-icon size="16" class="shrink-0 mt-0.5" :class="getTaskStatusIconClass(currentImportTask?.status)">
+              <component :is="getTaskStatusIcon(currentImportTask?.status)" />
+            </n-icon>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-google-text-primary dark:text-google-text-darkPrimary">
+                {{ currentImportTask?.statusMessage || '正在等待主控节点分发处理...' }}
+              </div>
+              <div v-if="currentImportTask?.errorMessage" class="text-google-red dark:text-google-red-dark mt-1 break-all">
+                {{ currentImportTask.errorMessage }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="currentImportTask?.status === 'RUNNING' || currentImportTask?.status === 'PENDING'" class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted bg-gray-50 dark:bg-google-surface-dark p-2.5 rounded-lg border border-google-border-light/60 dark:border-google-border-dark/60">
+          镜像解压与 Registry 入库在后台异步持续执行。您可以点击【后台运行】关闭弹窗，任务完成后系统将自动刷新镜像列表。
+        </div>
+
+        <div v-else-if="currentImportTask?.status === 'SUCCESS'" class="text-[11px] text-google-green dark:text-google-green-dark bg-green-50/60 dark:bg-green-950/20 p-2.5 rounded-lg border border-google-green/30 dark:border-google-green/40">
+          镜像已成功完成 Docker 加载并推送至中心私有 Registry，镜像资产列表已自动刷新。
         </div>
       </div>
 
       <template #footer>
         <div class="flex items-center justify-end gap-3 w-full">
-          <VBtn clz="normal" @click="closeImportModal">
-            {{ t('common.cancel', '取消') }}
-          </VBtn>
-          <VBtn clz="primary" :loading="importing" @click="handleConfirmImport">
-            {{ t('common.confirm', '确认导入') }}
-          </VBtn>
+          <template v-if="importPhase === 'select'">
+            <VBtn clz="normal" @click="closeImportModal">
+              {{ t('common.cancel', '取消') }}
+            </VBtn>
+            <VBtn clz="primary" @click="handleConfirmImport">
+              {{ t('common.confirm', '确认导入') }}
+            </VBtn>
+          </template>
+
+          <template v-else-if="importPhase === 'uploading'">
+            <VBtn clz="danger" @click="cancelUpload">
+              取消上传
+            </VBtn>
+            <VBtn clz="primary" disabled loading>
+              正在上传...
+            </VBtn>
+          </template>
+
+          <template v-else-if="importPhase === 'task'">
+            <template v-if="currentImportTask?.status === 'PENDING' || currentImportTask?.status === 'RUNNING'">
+              <VBtn clz="normal" @click="minimizeToBackground">
+                后台运行
+              </VBtn>
+            </template>
+            <template v-else-if="currentImportTask?.status === 'SUCCESS'">
+              <VBtn clz="primary" @click="closeImportModal">
+                完成并关闭
+              </VBtn>
+            </template>
+            <template v-else-if="currentImportTask?.status === 'FAILED'">
+              <VBtn clz="normal" @click="resetImportState">
+                重新上传
+              </VBtn>
+              <VBtn clz="primary" @click="closeImportModal">
+                关闭
+              </VBtn>
+            </template>
+            <template v-else>
+              <VBtn clz="normal" @click="closeImportModal">
+                关闭
+              </VBtn>
+            </template>
+          </template>
         </div>
       </template>
     </VModal>
@@ -501,7 +703,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, h } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NIcon, NSpin, useMessage, useDialog, type DataTableColumns } from 'naive-ui'
 import {
@@ -513,7 +715,10 @@ import {
   SyncOutline,
   CloudDownloadOutline,
   CloudUploadOutline,
-  CopyOutline
+  CopyOutline,
+  AlertCircleOutline,
+  CloseCircleOutline,
+  TimeOutline
 } from '@vicons/ionicons5'
 import VBtn from '@/components/common/VBtn.vue'
 import VTable from '@/components/common/VTable.vue'
@@ -529,6 +734,7 @@ import type {
   AdminClusterImageStatisticsVO,
   AdminImagePullRequestDTO
 } from '@/types/image'
+import type { AdminAsyncTaskVO } from '@/types/task'
 import {
   getAdminImageStatisticsApi,
   getAdminImageListApi,
@@ -540,6 +746,7 @@ import {
   exportAdminImageApi,
   deleteAdminImageApi
 } from '@/api/image'
+import { getAdminTaskDetailApi } from '@/api/task'
 
 defineOptions({
   name: 'AdminImageView'
@@ -564,7 +771,6 @@ const searchKeyword = ref('')
 
 const scanning = ref(false)
 const pulling = ref(false)
-const importing = ref(false)
 const transferring = ref(false)
 
 const stats = ref<AdminClusterImageStatisticsVO>({
@@ -574,13 +780,24 @@ const stats = ref<AdminClusterImageStatisticsVO>({
   registryImagesCount: 0
 })
 
+type ImportPhase = 'select' | 'uploading' | 'task'
+
 const showImportModal = ref(false)
+const importPhase = ref<ImportPhase>('select')
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 const importForm = ref({
   repository: '',
   tag: ''
 })
+const uploadProgress = ref(0)
+const uploadLoadedBytes = ref(0)
+const uploadTotalBytes = ref(0)
+let uploadAbortController: AbortController | null = null
+
+const currentImportTask = ref<AdminAsyncTaskVO | null>(null)
+const backgroundImportTask = ref<AdminAsyncTaskVO | null>(null)
+let importTaskPollTimer: ReturnType<typeof setInterval> | null = null
 
 const showPullModal = ref(false)
 const pullImageInput = ref('')
@@ -892,16 +1109,84 @@ async function handleConfirmPull() {
   }
 }
 
+function handleFileDrop(e: DragEvent) {
+  if (importPhase.value !== 'select') return
+  const files = e.dataTransfer?.files
+  if (files && files.length > 0) {
+    const file = files[0]
+    const lowerName = file.name.toLowerCase()
+    if (lowerName.endsWith('.tar') || lowerName.endsWith('.tar.gz') || lowerName.endsWith('.tgz')) {
+      selectedFile.value = file
+    } else {
+      message.warning('仅支持导入 .tar, .tar.gz 或 .tgz 格式的镜像归档')
+    }
+  }
+}
+
 function openImportModal() {
-  selectedFile.value = null
-  importForm.value = { repository: '', tag: '' }
+  if (backgroundImportTask.value && (backgroundImportTask.value.status === 'PENDING' || backgroundImportTask.value.status === 'RUNNING')) {
+    currentImportTask.value = backgroundImportTask.value
+    importPhase.value = 'task'
+    showImportModal.value = true
+    return
+  }
+  resetImportState()
   showImportModal.value = true
 }
 
-function closeImportModal() {
-  showImportModal.value = false
+function resetImportState() {
   selectedFile.value = null
   importForm.value = { repository: '', tag: '' }
+  importPhase.value = 'select'
+  uploadProgress.value = 0
+  uploadLoadedBytes.value = 0
+  uploadTotalBytes.value = 0
+  currentImportTask.value = null
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
+}
+
+function cancelUpload() {
+  if (uploadAbortController) {
+    uploadAbortController.abort()
+    uploadAbortController = null
+  }
+  importPhase.value = 'select'
+  uploadProgress.value = 0
+  uploadLoadedBytes.value = 0
+  uploadTotalBytes.value = 0
+  message.info('已取消镜像文件上传')
+}
+
+function minimizeToBackground() {
+  showImportModal.value = false
+  if (currentImportTask.value && (currentImportTask.value.status === 'PENDING' || currentImportTask.value.status === 'RUNNING')) {
+    backgroundImportTask.value = currentImportTask.value
+    message.info('镜像导入任务已转入后台执行，执行进度可在列表上方查看')
+  }
+}
+
+function reopenTaskModal() {
+  if (backgroundImportTask.value) {
+    currentImportTask.value = backgroundImportTask.value
+    importPhase.value = 'task'
+    showImportModal.value = true
+  }
+}
+
+function closeImportModal() {
+  if (importPhase.value === 'uploading') {
+    cancelUpload()
+    showImportModal.value = false
+    return
+  }
+  if (importPhase.value === 'task' && currentImportTask.value && (currentImportTask.value.status === 'PENDING' || currentImportTask.value.status === 'RUNNING')) {
+    minimizeToBackground()
+    return
+  }
+  showImportModal.value = false
+  resetImportState()
 }
 
 function triggerFileSelect() {
@@ -915,29 +1200,177 @@ function handleFileChange(e: Event) {
   }
 }
 
+function stopTaskPolling() {
+  if (importTaskPollTimer) {
+    clearInterval(importTaskPollTimer)
+    importTaskPollTimer = null
+  }
+}
+
+function startPollingTask(taskId: string | number) {
+  stopTaskPolling()
+  const poll = async () => {
+    try {
+      const res = await getAdminTaskDetailApi(taskId)
+      if (res.data) {
+        currentImportTask.value = res.data
+        if (backgroundImportTask.value && String(backgroundImportTask.value.id) === String(res.data.id)) {
+          backgroundImportTask.value = res.data
+        }
+        if (res.data.status === 'SUCCESS') {
+          stopTaskPolling()
+          backgroundImportTask.value = null
+          message.success(`镜像 [${res.data.taskName}] 导入成功，已完成中心私有入库！`)
+          await Promise.all([fetchStats(), fetchImages()])
+        } else if (res.data.status === 'FAILED') {
+          stopTaskPolling()
+          backgroundImportTask.value = null
+          message.error(`镜像 [${res.data.taskName}] 导入失败: ${res.data.errorMessage || '未知异常'}`)
+        } else if (res.data.status === 'CANCELLED') {
+          stopTaskPolling()
+          backgroundImportTask.value = null
+          message.warning('镜像导入任务已被取消')
+        }
+      }
+    } catch {}
+  }
+  poll()
+  importTaskPollTimer = setInterval(poll, 1500)
+}
+
 async function handleConfirmImport() {
   if (!selectedFile.value) {
     message.warning('请选择需要导入的 Docker 镜像归档文件')
     return
   }
-  importing.value = true
+  const file = selectedFile.value
+  const lowerName = file.name.toLowerCase()
+  if (!lowerName.endsWith('.tar') && !lowerName.endsWith('.tar.gz') && !lowerName.endsWith('.tgz')) {
+    message.warning('仅支持导入 .tar, .tar.gz 或 .tgz 格式的镜像归档')
+    return
+  }
+
+  importPhase.value = 'uploading'
+  uploadProgress.value = 0
+  uploadLoadedBytes.value = 0
+  uploadTotalBytes.value = file.size
+  uploadAbortController = new AbortController()
+
+  const formData = new FormData()
+  formData.append('file', file)
+  if (importForm.value.repository.trim()) {
+    formData.append('repository', importForm.value.repository.trim())
+  }
+  if (importForm.value.tag.trim()) {
+    formData.append('tag', importForm.value.tag.trim())
+  }
+
   try {
-    const formData = new FormData()
-    formData.append('file', selectedFile.value)
-    if (importForm.value.repository.trim()) {
-      formData.append('repository', importForm.value.repository.trim())
+    const res = await importAdminImageApi(formData, {
+      signal: uploadAbortController.signal,
+      skipToast: true,
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          uploadLoadedBytes.value = progressEvent.loaded
+          uploadTotalBytes.value = progressEvent.total
+          uploadProgress.value = Math.min(Math.round((progressEvent.loaded / progressEvent.total) * 100), 99)
+        }
+      }
+    })
+
+    uploadProgress.value = 100
+    uploadAbortController = null
+
+    if (res.data) {
+      const submittedTask = res.data
+      currentImportTask.value = {
+        id: submittedTask.taskId,
+        taskName: submittedTask.taskName,
+        taskType: submittedTask.taskType,
+        status: submittedTask.status,
+        progress: 10,
+        statusMessage: '文件已成功上传，正在初始化后台解压与入库任务...',
+        createdAt: new Date().toISOString()
+      }
+      backgroundImportTask.value = currentImportTask.value
+      importPhase.value = 'task'
+      startPollingTask(submittedTask.taskId)
     }
-    if (importForm.value.tag.trim()) {
-      formData.append('tag', importForm.value.tag.trim())
-    }
-    await importAdminImageApi(formData)
-    message.success('镜像导入与中心入库任务已提交后台处理')
-    closeImportModal()
-    await Promise.all([fetchStats(), fetchImages()])
   } catch (err: any) {
-    message.error(err.message || '镜像导入失败')
-  } finally {
-    importing.value = false
+    if (uploadAbortController?.signal.aborted) {
+      return
+    }
+    uploadAbortController = null
+    importPhase.value = 'select'
+    message.error(err.message || '镜像上传失败')
+  }
+}
+
+function getTaskStatusBadgeClass(status?: string): string {
+  switch (status) {
+    case 'PENDING':
+      return 'bg-yellow-50 dark:bg-yellow-900/30 text-google-yellow dark:text-google-yellow-dark'
+    case 'RUNNING':
+      return 'bg-blue-50 dark:bg-blue-900/30 text-google-blue dark:text-google-blue-dark'
+    case 'SUCCESS':
+      return 'bg-green-50 dark:bg-green-900/30 text-google-green dark:text-google-green-dark'
+    case 'FAILED':
+      return 'bg-red-50 dark:bg-red-900/30 text-google-red dark:text-google-red-dark'
+    case 'CANCELLED':
+      return 'bg-gray-100 dark:bg-google-surface-dark text-google-text-muted dark:text-google-text-darkMuted'
+    default:
+      return 'bg-gray-100 dark:bg-google-surface-dark text-google-text-secondary dark:text-google-text-darkSecondary'
+  }
+}
+
+function getTaskStatusText(status?: string): string {
+  switch (status) {
+    case 'PENDING':
+      return '队列排队中'
+    case 'RUNNING':
+      return '解压入库中'
+    case 'SUCCESS':
+      return '入库成功'
+    case 'FAILED':
+      return '执行失败'
+    case 'CANCELLED':
+      return '已取消'
+    default:
+      return status || '-'
+  }
+}
+
+function getTaskStatusIcon(status?: string) {
+  switch (status) {
+    case 'PENDING':
+      return TimeOutline
+    case 'RUNNING':
+      return SyncOutline
+    case 'SUCCESS':
+      return CheckmarkCircleOutline
+    case 'FAILED':
+      return AlertCircleOutline
+    case 'CANCELLED':
+      return CloseCircleOutline
+    default:
+      return TimeOutline
+  }
+}
+
+function getTaskStatusIconClass(status?: string): string {
+  switch (status) {
+    case 'PENDING':
+      return 'text-google-yellow dark:text-google-yellow-dark'
+    case 'RUNNING':
+      return 'text-google-blue dark:text-google-blue-dark animate-spin'
+    case 'SUCCESS':
+      return 'text-google-green dark:text-google-green-dark'
+    case 'FAILED':
+      return 'text-google-red dark:text-google-red-dark'
+    case 'CANCELLED':
+      return 'text-google-text-muted dark:text-google-text-darkMuted'
+    default:
+      return 'text-google-text-muted dark:text-google-text-darkMuted'
   }
 }
 
@@ -1004,5 +1437,13 @@ function handleDeleteImage(id: string | number) {
 onMounted(() => {
   fetchStats()
   fetchImages()
+})
+
+onUnmounted(() => {
+  stopTaskPolling()
+  if (uploadAbortController) {
+    uploadAbortController.abort()
+    uploadAbortController = null
+  }
 })
 </script>

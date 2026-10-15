@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import type { AxiosRequestConfig } from 'axios'
 import type { ApiResponse, PageResponse } from '@/types/common/api'
 import type {
   AdminClusterImageVO,
@@ -51,9 +52,14 @@ export function exportAdminImageApi(id: string | number): Promise<Blob> {
   return request.download(`/admin/images/${id}/export`)
 }
 
-export function importAdminImageApi(formData: FormData): Promise<ApiResponse<AdminAsyncTaskSubmitVO>> {
+export function importAdminImageApi(
+  formData: FormData,
+  config?: AxiosRequestConfig
+): Promise<ApiResponse<AdminAsyncTaskSubmitVO>> {
   return request.post<AdminAsyncTaskSubmitVO>('/admin/images/import', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 0,
+    ...config
   })
 }
 

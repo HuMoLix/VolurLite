@@ -21,7 +21,6 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -48,27 +47,22 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
     private final DockerRegistryClient dockerRegistryClient;
     private final ClusterImageRepository clusterImageRepository;
 
-    @Value("${volur.k3s.namespace:volur-challenges}")
-    private String defaultNamespace;
-
-    @Value("${volur.k3s.public-host:127.0.0.1}")
-    private String defaultPublicHost;
-
-    @Value("${volur.k3s.kubeconfig-path:/etc/rancher/k3s/k3s.yaml}")
-    private String defaultKubeconfigPath;
+    private static final String DEFAULT_NAMESPACE = "volur-challenges";
+    private static final String DEFAULT_PUBLIC_HOST = "127.0.0.1";
+    private static final String DEFAULT_KUBECONFIG_PATH = "/etc/rancher/k3s/k3s.yaml";
 
     private KubernetesClient k8sClient;
 
     private String resolveNamespace() {
-        return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_NAMESPACE, defaultNamespace);
+        return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_NAMESPACE, DEFAULT_NAMESPACE);
     }
 
     private String resolveKubeconfigPath() {
-        return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_KUBECONFIG_PATH, defaultKubeconfigPath);
+        return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_K3S_KUBECONFIG_PATH, DEFAULT_KUBECONFIG_PATH);
     }
 
     private String resolvePublicHost() {
-        return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, defaultPublicHost);
+        return systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_PUBLIC_HOST, DEFAULT_PUBLIC_HOST);
     }
 
     private String resolveEffectiveImageName(String rawImageName) {
@@ -82,14 +76,6 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
             return clean;
         }
 
-        int firstSlash = clean.indexOf('/');
-        if (firstSlash > 0) {
-            String domainPart = clean.substring(0, firstSlash);
-            if (domainPart.contains(".") || domainPart.contains(":")) {
-                return clean;
-            }
-        }
-
         String repo = clean;
         String tag = "latest";
         int colonIdx = clean.lastIndexOf(':');
@@ -99,15 +85,33 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
         }
 
         if (dockerRegistryClient.isAvailable()) {
-            boolean inRegistry = clusterImageRepository.findByRepositoryAndTag(repo, tag)
-                    .map(img -> Boolean.TRUE.equals(img.getInRegistry()))
-                    .orElse(false);
-            if (inRegistry) {
-                return publicRegistryHost + "/" + clean;
+            if (isImageInLocalRegistry(repo, tag)) {
+                return publicRegistryHost + "/" + repo + ":" + tag;
+            }
+
+            int firstSlash = repo.indexOf('/');
+            if (firstSlash > 0) {
+                String domainPart = repo.substring(0, firstSlash);
+                if (domainPart.contains(".") || domainPart.contains(":")) {
+                    String subRepo = repo.substring(firstSlash + 1);
+                    if (isImageInLocalRegistry(subRepo, tag)) {
+                        return publicRegistryHost + "/" + subRepo + ":" + tag;
+                    }
+                }
             }
         }
 
         return clean;
+    }
+
+    private boolean isImageInLocalRegistry(String repo, String tag) {
+        boolean inDb = clusterImageRepository.findByRepositoryAndTag(repo, tag)
+                .map(img -> Boolean.TRUE.equals(img.getInRegistry()))
+                .orElse(false);
+        if (inDb) {
+            return true;
+        }
+        return dockerRegistryClient.getManifest(repo, tag) != null;
     }
 
     public synchronized void resetClient() {
@@ -317,11 +321,8 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                         .addToRequests("memory", new Quantity("64Mi"))
                         .build();
 
-                List<EnvVar> envVars = dynamicFlag != null
-                        ? List.of(
-                        new EnvVarBuilder().withName("FLAG").withValue(dynamicFlag).build(),
-                        new EnvVarBuilder().withName("GZCTF_FLAG").withValue(dynamicFlag).build()
-                )
+                List<EnvVar> envVars = StringUtils.hasText(dynamicFlag)
+                        ? List.of(new EnvVarBuilder().withName("volurflag").withValue(dynamicFlag).build())
                         : Collections.emptyList();
 
                 var podSpecBuilder = new PodSpecBuilder()
@@ -459,8 +460,7 @@ public class K3sRuntimeStrategy implements ContainerRuntimeStrategy {
                     }
                 }
                 if (StringUtils.hasText(dynamicFlag)) {
-                    envVars.add(new EnvVarBuilder().withName("FLAG").withValue(dynamicFlag).build());
-                    envVars.add(new EnvVarBuilder().withName("GZCTF_FLAG").withValue(dynamicFlag).build());
+                    envVars.add(new EnvVarBuilder().withName("volurflag").withValue(dynamicFlag).build());
                 }
 
                 // 3. 数据卷挂载 (Volumes)

@@ -238,7 +238,12 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
             if (cDTO.getRequireTeamAudit() != null) config.setRequireTeamAudit(cDTO.getRequireTeamAudit());
             if (cDTO.getFreezeScoreboardMinutes() != null) config.setFreezeScoreboardMinutes(cDTO.getFreezeScoreboardMinutes());
             if (cDTO.getAllowWriteupSubmission() != null) config.setAllowWriteupSubmission(cDTO.getAllowWriteupSubmission());
-            if (cDTO.getMaxContainersPerTeam() != null) config.setMaxContainersPerTeam(cDTO.getMaxContainersPerTeam());
+            if (cDTO.getMaxContainersPerTeam() != null) {
+                if (cDTO.getMaxContainersPerTeam() < 1) {
+                    throw new BusinessException(HttpStatus.BAD_REQUEST, "单队同时在线容器上限必须大于等于 1");
+                }
+                config.setMaxContainersPerTeam(cDTO.getMaxContainersPerTeam());
+            }
             if (cDTO.getWriteupTemplateUrl() != null) config.setWriteupTemplateUrl(cDTO.getWriteupTemplateUrl());
             if (cDTO.getWriteupTemplateName() != null) config.setWriteupTemplateName(cDTO.getWriteupTemplateName());
             if (cDTO.getWriteupStartTime() != null) config.setWriteupStartTime(cDTO.getWriteupStartTime());

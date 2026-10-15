@@ -22,7 +22,7 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
       <div class="p-4 rounded-xl bg-white dark:bg-[#292a2d] border border-google-border-light dark:border-google-border-dark text-center">
         <div class="text-xl font-bold text-google-text-primary dark:text-google-text-darkPrimary">{{ teamStats.total }}</div>
         <div class="text-xs text-google-text-secondary dark:text-google-text-darkSecondary mt-0.5">全部战队</div>
@@ -34,6 +34,10 @@
       <div class="p-4 rounded-xl bg-white dark:bg-[#292a2d] border border-google-border-light dark:border-google-border-dark text-center">
         <div class="text-xl font-bold text-green-600 dark:text-green-400">{{ teamStats.approved }}</div>
         <div class="text-xs text-google-text-secondary dark:text-google-text-darkSecondary mt-0.5">已通过</div>
+      </div>
+      <div class="p-4 rounded-xl bg-white dark:bg-[#292a2d] border border-google-border-light dark:border-google-border-dark text-center">
+        <div class="text-xl font-bold text-blue-600 dark:text-blue-400">{{ teamStats.ended ?? 0 }}</div>
+        <div class="text-xs text-google-text-secondary dark:text-google-text-darkSecondary mt-0.5">已结束</div>
       </div>
       <div class="p-4 rounded-xl bg-white dark:bg-[#292a2d] border border-google-border-light dark:border-google-border-dark text-center">
         <div class="text-xl font-bold text-red-600 dark:text-red-400">{{ teamStats.rejected }}</div>
@@ -268,6 +272,12 @@
             <span class="text-google-text-secondary dark:text-google-text-darkSecondary">审核状态:</span>
             <div class="font-semibold mt-0.5" :class="getStatusTextColor(selectedTeamDetail.status)">{{ getStatusText(selectedTeamDetail.status) }}</div>
           </div>
+          <div>
+            <span class="text-google-text-secondary dark:text-google-text-darkSecondary">理论考核成绩:</span>
+            <div class="font-semibold text-google-blue dark:text-google-blue-dark mt-0.5 font-mono">
+              {{ selectedTeamDetail.score !== null && selectedTeamDetail.score !== undefined ? `${selectedTeamDetail.score} 分` : '暂无答题成绩' }}
+            </div>
+          </div>
         </div>
 
         <div>
@@ -353,7 +363,7 @@ const loadingTeams = ref(false)
 const teamPage = ref(1)
 const teamPageSize = ref(10)
 const teamTotal = ref(0)
-const teamStats = ref<AdminTeamStatsVO>({ total: 0, pending: 0, approved: 0, rejected: 0, banned: 0 })
+const teamStats = ref<AdminTeamStatsVO>({ total: 0, pending: 0, approved: 0, rejected: 0, banned: 0, ended: 0 })
 
 const searchKeyword = ref('')
 const selectedStatus = ref('')
@@ -376,6 +386,7 @@ const statusFilterOptions = [
   { label: '全部状态', value: '' },
   { label: '待审核', value: 'AUDIT_DRAFT' },
   { label: '已通过', value: 'AUDIT_PASSED' },
+  { label: '已结束', value: 'ENDED' },
   { label: '已驳回', value: 'AUDIT_REJECTED' },
   { label: '已封禁', value: 'BANNED' }
 ]
@@ -413,21 +424,36 @@ const teamColumns = computed<DataTableColumns<AdminTeamListVO>>(() => [
   {
     title: '审核状态',
     key: 'status',
-    width: 100,
+    width: 110,
     align: 'center',
     render(row) {
       const isApproved = row.status === 'AUDIT_PASSED'
+      const isEnded = row.status === 'ENDED'
       const isRejected = row.status === 'AUDIT_REJECTED'
       const isBanned = row.status === 'BANNED'
-      const label = isApproved ? '已通过' : isRejected ? '已驳回' : isBanned ? '已封禁' : '待审核'
+      const label = isApproved ? '已通过' : isEnded ? '答题已结束' : isRejected ? '已驳回' : isBanned ? '已封禁' : '待审核'
       const clz = isApproved
         ? 'text-green-600 dark:text-green-400 font-medium'
-        : isRejected
-          ? 'text-red-600 dark:text-red-400 font-medium'
-          : isBanned
-            ? 'text-red-700 dark:text-red-500 font-semibold'
-            : 'text-yellow-600 dark:text-yellow-400 font-medium'
+        : isEnded
+          ? 'text-blue-600 dark:text-blue-400 font-medium'
+          : isRejected
+            ? 'text-red-600 dark:text-red-400 font-medium'
+            : isBanned
+              ? 'text-red-700 dark:text-red-500 font-semibold'
+              : 'text-yellow-600 dark:text-yellow-400 font-medium'
       return h('span', { class: clz }, label)
+    }
+  },
+  {
+    title: '最终得分',
+    key: 'score',
+    width: 100,
+    align: 'center',
+    render(row) {
+      if (row.score !== null && row.score !== undefined) {
+        return h('span', { class: 'font-mono font-bold text-google-blue dark:text-google-blue-dark' }, `${row.score} 分`)
+      }
+      return h('span', { class: 'text-google-text-muted dark:text-google-text-darkMuted font-mono' }, '-')
     }
   },
   {
@@ -445,7 +471,7 @@ const teamColumns = computed<DataTableColumns<AdminTeamListVO>>(() => [
     align: 'center',
     render(row) {
       return h('div', { class: 'flex items-center justify-center gap-1.5' }, [
-        row.status !== 'AUDIT_PASSED' && row.status !== 'BANNED'
+        row.status !== 'AUDIT_PASSED' && row.status !== 'BANNED' && row.status !== 'ENDED'
           ? h(
               VBtn,
               {
@@ -556,6 +582,7 @@ const memberColumns = computed<DataTableColumns<CompetitionMemberVO>>(() => [
 
 function getStatusText(status?: string): string {
   if (status === 'AUDIT_PASSED') return '已通过'
+  if (status === 'ENDED') return '答题已结束'
   if (status === 'AUDIT_REJECTED') return '已驳回'
   if (status === 'BANNED') return '已封禁'
   return '待审核'
@@ -563,6 +590,7 @@ function getStatusText(status?: string): string {
 
 function getStatusTextColor(status?: string): string {
   if (status === 'AUDIT_PASSED') return 'text-green-600 dark:text-green-400'
+  if (status === 'ENDED') return 'text-blue-600 dark:text-blue-400'
   if (status === 'AUDIT_REJECTED') return 'text-red-600 dark:text-red-400'
   if (status === 'BANNED') return 'text-red-700 dark:text-red-500'
   return 'text-yellow-600 dark:text-yellow-400'

@@ -27,6 +27,7 @@ public class AdminTeamDetailVO implements Serializable {
     private Long captainId;
     private String captainUsername;
     private TeamStatus status;
+    private Integer score;
     private String auditReason;
     private List<CompetitionMemberVO> members;
     private Instant createdAt;

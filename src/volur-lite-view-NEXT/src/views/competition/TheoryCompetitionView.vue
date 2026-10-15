@@ -79,20 +79,6 @@
                 </div>
               </div>
             </VTooltip>
-
-            <VTooltip
-              v-if="isSubmitted"
-              :content="t('competition.theory_my_score_tip', '提交后自动评卷计算的实际最终得分')"
-            >
-              <div class="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-green-50 dark:bg-green-950/50 border border-green-200/60 dark:border-green-900/60 text-center min-w-[90px] cursor-default">
-                <div class="text-[11px] text-google-green dark:text-google-green-dark font-medium">
-                  {{ t('competition.theory_my_score', '最终得分') }}
-                </div>
-                <div class="text-lg font-bold font-mono text-google-green dark:text-google-green-dark mt-0.5">
-                  {{ paper?.myTotalScore ?? 0 }}
-                </div>
-              </div>
-            </VTooltip>
           </div>
         </div>
       </section>
@@ -296,7 +282,7 @@
     <TheoryResultModal
       :show="resultModalVisible"
       :result="examResult"
-      @update:show="resultModalVisible = $event"
+      @update:show="handleResultModalClose"
       @confirm="handleResultConfirmed"
     />
   </CompetitionLayout>
@@ -949,7 +935,6 @@ async function handleConfirmSubmit() {
     examResult.value = res.data
     if (paper.value) {
       paper.value.isSubmitted = true
-      paper.value.myTotalScore = res.data.scoreObtained
     }
 
     submitConfirmVisible.value = false
@@ -969,20 +954,19 @@ async function handleConfirmSubmit() {
   }
 }
 
-async function handleResultConfirmed() {
+function handleResultConfirmed() {
   resultModalVisible.value = false
-  if (competition.value?.id) {
-    try {
-      const res = await getTheoryPaperApi(competition.value.id)
-      if (res?.data) {
-        paper.value = res.data
-        for (const q of res.data.questions || []) {
-          if (q.myAnswer !== undefined && q.myAnswer !== null) {
-            answers[q.paperId] = q.myAnswer
-          }
-        }
-      }
-    } catch {}
+  const isShortLink = route.path.startsWith('/c/')
+  const slug = competition.value?.slug || competition.value?.id || competitionIdentifier.value
+  router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
+}
+
+function handleResultModalClose(val: boolean) {
+  resultModalVisible.value = val
+  if (!val) {
+    const isShortLink = route.path.startsWith('/c/')
+    const slug = competition.value?.slug || competition.value?.id || competitionIdentifier.value
+    router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
   }
 }
 
@@ -1054,6 +1038,16 @@ async function fetchCompetitionAndPaper() {
       return
     }
 
+    if (currentTeam && currentTeam.status === 'ENDED' && !userStore.isAdmin) {
+      if (message) {
+        message.warning(t('competition.theory_exam_ended_tip', '您的战队答题已结束，无法查看试卷题目'))
+      }
+      const isShortLink = route.path.startsWith('/c/')
+      const slug = compData.slug || compData.id
+      router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
+      return
+    }
+
     const isAuthorized = Boolean(userStore.isAdmin) || (currentTeam !== null && currentTeam.status === 'AUDIT_PASSED')
     if (!isAuthorized) {
       if (message) {
@@ -1094,6 +1088,16 @@ async function fetchCompetitionAndPaper() {
           }
           restoreDraftAnswers()
           initProctorSession()
+        } else if (!userStore.isAdmin) {
+          clearDraftAnswers()
+          stopProctoring()
+          if (message) {
+            message.warning(t('competition.theory_exam_ended_tip', '您的战队答题已结束，无法查看试卷题目'))
+          }
+          const isShortLink = route.path.startsWith('/c/')
+          const slug = compData.slug || compData.id
+          router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
+          return
         } else {
           clearDraftAnswers()
           stopProctoring()
@@ -1104,12 +1108,21 @@ async function fetchCompetitionAndPaper() {
     } catch (err: any) {
       const isShortLink = route.path.startsWith('/c/')
       const slug = compData.slug || compData.id
-      if (err?.response?.status === 403) {
+      const status = err?.response?.status || err?.status
+      const msg = err?.response?.data?.message || err?.message
+      if (status === 403) {
+        if (msg && msg.includes('答题已结束')) {
+          if (message) {
+            message.warning(msg)
+          }
+          router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
+          return
+        }
         router.replace(isShortLink ? `/c/${slug}/theory/require` : `/competitions/${slug}/theory/require`)
         return
       }
       if (message) {
-        message.error(err?.response?.data?.message || err?.message || t('competition.fetch_failed', '获取试卷数据失败'))
+        message.error(msg || t('competition.fetch_failed', '获取试卷数据失败'))
       }
       router.replace(isShortLink ? `/c/${slug}` : `/competitions/${slug}`)
       return

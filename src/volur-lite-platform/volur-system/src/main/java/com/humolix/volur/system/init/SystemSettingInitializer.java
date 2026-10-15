@@ -131,6 +131,9 @@ public class SystemSettingInitializer implements ApplicationRunner {
         initDefaultIfAbsent(SystemSettingKeys.AUTH_REGISTRATION_ENABLED, "true", "AUTH", "BOOLEAN", true, "是否开放用户注册");
         initDefaultIfAbsent(SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION, "true", "AUTH", "BOOLEAN", true, "注册是否强制邮箱验证");
         initDefaultIfAbsent(SystemSettingKeys.AUTH_EMAIL_WHITELIST_SUFFIXES, "", "AUTH", "STRING", false, "允许注册的邮箱域名白名单后缀(逗号分隔，留空不限制)");
+        initDefaultIfAbsent(SystemSettingKeys.AUTH_JWT_EXPIRE_SECONDS, "86400", "AUTH", "INTEGER", false, "JWT Access Token 有效期 (秒)");
+        initDefaultIfAbsent(SystemSettingKeys.AUTH_JWT_REFRESH_EXPIRATION_MS, "604800000", "AUTH", "INTEGER", false, "JWT Refresh Token 有效期 (毫秒)");
+        initDefaultIfAbsent(SystemSettingKeys.AUTH_JWT_REMEMBER_ME_REFRESH_EXPIRATION_MS, "2592000000", "AUTH", "INTEGER", false, "记住我 JWT Refresh Token 有效期 (毫秒)");
         initDefaultIfAbsent(SystemSettingKeys.GENERAL_PLATFORM_NAME, "Volur Lite", "GENERAL", "STRING", true, "平台全称");
         initDefaultIfAbsent(SystemSettingKeys.GENERAL_DEFAULT_LOCALE, "zh_CN", "GENERAL", "STRING", true, "系统默认语言");
         initDefaultIfAbsent(SystemSettingKeys.MAINTENANCE_ENABLED, "false", "MAINTENANCE", "BOOLEAN", true, "全站维护模式开关");

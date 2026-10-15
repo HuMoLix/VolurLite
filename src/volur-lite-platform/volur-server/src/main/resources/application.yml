@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: 8080
   tomcat:
     accept-count: 200
     max-connections: 10000
@@ -62,9 +62,6 @@ management:
 volur:
   jwt:
     secret: "${VOLUR_JWT_SECRET:VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}"
-    expire-seconds: ${VOLUR_JWT_EXPIRE_SECONDS:86400} # 24 hours
-    refresh-expiration-ms: ${VOLUR_JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
-    remember-me-refresh-expiration-ms: ${VOLUR_JWT_REMEMBER_ME_REFRESH_EXPIRATION_MS:2592000000} # 30 days
     header: "Authorization"
     token-prefix: "Bearer "
   security:
@@ -99,9 +96,6 @@ volur:
       internal-url: "${VOLUR_CONTAINER_REGISTRY_INTERNAL_URL:http://volur-registry:5000}"
       public-port: ${VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT:5000}
   k3s:
-    namespace: "${VOLUR_K3S_NAMESPACE:volur-challenges}"
-    public-host: "${VOLUR_K3S_PUBLIC_HOST:127.0.0.1}"
-    kubeconfig-path: "${VOLUR_K3S_KUBECONFIG_PATH:/etc/rancher/k3s/k3s.yaml}"
     master-url: "${VOLUR_K3S_MASTER_URL:https://127.0.0.1:6443}"
   captcha:
     puzzle:

@@ -126,7 +126,7 @@ public class CompetitionScoreboardServiceImpl implements CompetitionScoreboardSe
         CompetitionConfig config = configRepository.findByCompetitionId(competitionId).orElse(null);
         boolean isFrozen = config != null && Boolean.TRUE.equals(config.getIsScoreboardFrozen());
 
-        List<CompetitionTeam> teams = teamRepository.findByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_PASSED);
+        List<CompetitionTeam> teams = teamRepository.findByCompetitionIdAndStatusIn(competitionId, List.of(TeamStatus.AUDIT_PASSED, TeamStatus.ENDED));
         CompetitionType type = comp.getType() != null ? comp.getType() : CompetitionType.CTF;
 
         Map<Long, Double> teamScores = new HashMap<>();

@@ -82,6 +82,14 @@ public class CtfCompetitionController {
         return ApiResponseEntity.ok("容器延期成功", ctfCompetitionService.extendInstance(competitionId, challengeId, userId));
     }
 
+    @GetMapping("/challenges/{challengeId}/instance")
+    public ApiResponseEntity<ChallengeInstanceResponseVO> getInstance(
+            @PathVariable Long competitionId,
+            @PathVariable Long challengeId,
+            @CurrentUserId Long userId) {
+        return ApiResponseEntity.ok("获取靶机容器状态成功", ctfCompetitionService.getInstance(competitionId, challengeId, userId));
+    }
+
     @GetMapping("/teams/{teamId}/solves")
     public ApiResponseEntity<List<CtfTeamSolveRecordVO>> getTeamSolves(
             @PathVariable Long competitionId,

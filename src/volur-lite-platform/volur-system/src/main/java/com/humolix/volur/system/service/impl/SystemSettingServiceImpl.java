@@ -77,6 +77,17 @@ public class SystemSettingServiceImpl implements SystemSettingService {
     }
 
     @Override
+    public long getLong(String key, long defaultValue) {
+        String val = getSettingValue(key, String.valueOf(defaultValue));
+        try {
+            return Long.parseLong(val);
+        } catch (NumberFormatException e) {
+            log.warn("Failed to parse long for setting key {}: '{}', using default {}", key, val, defaultValue);
+            return defaultValue;
+        }
+    }
+
+    @Override
     public Map<String, String> getPublicSettingsMap() {
         @SuppressWarnings("unchecked")
         Map<String, String> cachedMap = cacheTemplate.getOrLoad(CacheNames.SYSTEM_SETTING, PUBLIC_SETTINGS_MAP_CACHE_KEY, () -> {

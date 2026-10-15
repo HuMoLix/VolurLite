@@ -175,6 +175,20 @@ BEGIN
         ALTER TABLE `competition_config` ADD COLUMN `third_blood_bonus_percentage` int DEFAULT 2;
     END IF;
 
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_config' AND COLUMN_NAME = 'max_containers_per_team'
+    ) THEN
+        ALTER TABLE `competition_config` ADD COLUMN `max_containers_per_team` int DEFAULT 2;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ctf_challenge_instance' AND COLUMN_NAME = 'team_id'
+    ) THEN
+        ALTER TABLE `ctf_challenge_instance` ADD COLUMN `team_id` bigint DEFAULT NULL;
+    END IF;
+
     -- 3.2 competition_team 表结构扩充
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.COLUMNS 

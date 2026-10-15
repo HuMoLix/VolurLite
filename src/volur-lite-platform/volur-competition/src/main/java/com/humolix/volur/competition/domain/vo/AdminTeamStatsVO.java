@@ -21,4 +21,6 @@ public class AdminTeamStatsVO {
  
     private Long banned;
 
+    private Long ended;
+
 }

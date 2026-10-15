@@ -74,12 +74,12 @@
     </div>
 
     <div class="pt-3 border-t border-google-border-light/70 dark:border-google-border-dark/70 space-y-3">
-      <div v-if="isSubmitted" class="p-3 rounded-xl bg-green-50 dark:bg-green-950/40 border border-green-200/60 dark:border-green-900/50 text-center">
+      <div v-if="isSubmitted" class="p-3 rounded-xl bg-green-50 dark:bg-green-950/40 border border-green-200/60 dark:border-green-900/50 text-center space-y-1">
         <div class="text-xs text-google-green dark:text-google-green-dark font-medium">
           {{ t('competition.theory_submitted_tip', '您已完成本次考核答卷提交') }}
         </div>
-        <div v-if="myTotalScore !== null && myTotalScore !== undefined" class="text-base font-bold text-google-green dark:text-google-green-dark mt-1 font-mono">
-          {{ myTotalScore }} / {{ totalScore }} {{ t('competition.theory_score_unit', '分') }}
+        <div class="text-[11px] text-google-text-muted dark:text-google-text-darkMuted leading-relaxed">
+          {{ t('competition.theory_score_hidden_notice', '答卷已封存归档，最终成绩由管理员在后台统一核定') }}
         </div>
       </div>
 

@@ -18,7 +18,9 @@ import com.humolix.volur.competition.mapper.CompetitionMapper;
 import com.humolix.volur.competition.repository.*;
 import com.humolix.volur.competition.repository.awdp.AwdPlusCompetitionPatchRepository;
 import com.humolix.volur.competition.repository.ctf.CtfCompetitionSubmissionRepository;
+import com.humolix.volur.competition.domain.entity.theory.TheoryUserPaper;
 import com.humolix.volur.competition.repository.theory.TheoryCompetitionAnswerRepository;
+import com.humolix.volur.competition.repository.theory.TheoryUserPaperRepository;
 import com.humolix.volur.competition.service.admin.AdminTeamService;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.common.exception.BusinessException;
@@ -60,6 +62,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
     private final CompetitionTeamInvitationRepository teamInvitationRepository;
     private final CtfCompetitionSubmissionRepository ctfSubmissionRepository;
     private final TheoryCompetitionAnswerRepository theoryAnswerRepository;
+    private final TheoryUserPaperRepository theoryUserPaperRepository;
     private final AwdPlusCompetitionPatchRepository awdPlusPatchRepository;
     private final CompetitionMapper competitionMapper;
     private final ApplicationEventPublisher eventPublisher;
@@ -91,16 +94,27 @@ public class AdminTeamServiceImpl implements AdminTeamService {
         Page<CompetitionTeam> teamPage = teamRepository.findAll(spec, pageable);
         List<Long> teamIds = teamPage.getContent().stream().map(CompetitionTeam::getId).toList();
         Map<Long, Integer> memberCountMap = new HashMap<>();
+        Map<Long, Integer> teamScoreMap = new HashMap<>();
         if (!teamIds.isEmpty()) {
             List<Object[]> memberCounts = memberRepository.countMembersByTeamIdsAndStatus(teamIds, MemberStatus.INVITED_ACCEPTED);
             for (Object[] row : memberCounts) {
                 memberCountMap.put((Long) row[0], ((Number) row[1]).intValue());
+            }
+
+            if (competitionId != null) {
+                List<TheoryUserPaper> userPapers = theoryUserPaperRepository.findByCompetitionIdAndTeam_IdIn(competitionId, teamIds);
+                for (TheoryUserPaper up : userPapers) {
+                    if (up.getTeam() != null && up.getMyTotalScore() != null) {
+                        teamScoreMap.put(up.getTeam().getId(), up.getMyTotalScore());
+                    }
+                }
             }
         }
 
         return PageResponse.of(teamPage.map(team -> {
             AdminTeamListVO vo = competitionMapper.toAdminTeamListVO(team);
             vo.setMemberCount(memberCountMap.getOrDefault(team.getId(), 0));
+            vo.setScore(teamScoreMap.get(team.getId()));
             return vo;
         }));
     }
@@ -112,6 +126,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
         long approved = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_PASSED);
         long rejected = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.AUDIT_REJECTED);
         long banned = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.BANNED);
+        long ended = teamRepository.countByCompetitionIdAndStatus(competitionId, TeamStatus.ENDED);
 
         return AdminTeamStatsVO.builder()
                 .total(total)
@@ -119,6 +134,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                 .approved(approved)
                 .rejected(rejected)
                 .banned(banned)
+                .ended(ended)
                 .build();
     }
 
@@ -130,6 +146,10 @@ public class AdminTeamServiceImpl implements AdminTeamService {
         List<CompetitionMember> members = memberRepository.findByTeamIdWithUserAndProfile(teamId);
         List<CompetitionMemberVO> memberVOs = competitionMapper.toMemberVOList(members);
         populateMemberAvatars(memberVOs, members);
+
+        Integer theoryScore = theoryUserPaperRepository.findFirstByTeam_Id(teamId)
+                .map(TheoryUserPaper::getMyTotalScore)
+                .orElse(null);
 
         return AdminTeamDetailVO.builder()
                 .id(team.getId())
@@ -143,6 +163,7 @@ public class AdminTeamServiceImpl implements AdminTeamService {
                 .captainId(team.getCaptain() != null ? team.getCaptain().getId() : null)
                 .captainUsername(team.getCaptain() != null ? team.getCaptain().getUsername() : null)
                 .status(team.getStatus())
+                .score(theoryScore)
                 .auditReason(team.getAuditReason())
                 .members(memberVOs)
                 .createdAt(team.getCreatedAt())

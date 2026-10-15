@@ -101,6 +101,11 @@ public class AdminCtfMountServiceImpl implements AdminCtfMountService {
         if (request.getDecayCount() != null) compChal.setDecayCount(request.getDecayCount());
         if (request.getSortOrder() != null) compChal.setSortOrder(request.getSortOrder());
         if (request.getIsVisible() != null) compChal.setIsVisible(request.getIsVisible());
+        if (compChal.getSolvesCount() != null && compChal.getSolvesCount() > 0) {
+            double decay = Math.pow((double) (compChal.getSolvesCount() - 1) / (double) Math.max(1, compChal.getDecayCount()), 2);
+            double points = compChal.getMinPoints() + (compChal.getInitialPoints() - compChal.getMinPoints()) * (1.0 / (1.0 + decay));
+            compChal.setCurrentPoints((int) Math.round(Math.max(compChal.getMinPoints(), points)));
+        }
         compChallengeRepository.save(compChal);
 
         cacheTemplate.evict(CacheNames.COMPETITION_STATUS, "ctf:challenges:" + competitionId);

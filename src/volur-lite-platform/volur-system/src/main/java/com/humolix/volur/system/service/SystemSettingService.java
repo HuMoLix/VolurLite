@@ -19,6 +19,8 @@ public interface SystemSettingService {
 
     int getInt(String key, int defaultValue);
 
+    long getLong(String key, long defaultValue);
+
     Map<String, String> getPublicSettingsMap();
 
     List<SystemSettingVO> getAllSettings();

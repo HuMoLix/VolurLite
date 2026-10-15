@@ -128,7 +128,7 @@
             :z-index="3000"
           />
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
               初始分数 (Pts)
@@ -149,6 +149,16 @@
               clearable
             />
           </div>
+          <div>
+            <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
+              衰减梯度 (Decay)
+            </label>
+            <VInput
+              v-model:value="mountForm.decayCount"
+              placeholder="30"
+              clearable
+            />
+          </div>
         </div>
       </div>
       <template #footer>
@@ -163,7 +173,7 @@
     <VModal
       v-model:show="showEditModal"
       title="编辑赛题分值配置"
-      :width="480"
+      :width="540"
     >
       <div class="space-y-4">
         <div>
@@ -174,7 +184,7 @@
             {{ editForm.challengeName }}
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
               初始分数 (Pts) *
@@ -192,6 +202,16 @@
             <VInput
               v-model:value="editForm.minPoints"
               placeholder="100"
+              clearable
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-google-text-secondary dark:text-google-text-darkSecondary mb-1.5">
+              衰减梯度 (Decay) *
+            </label>
+            <VInput
+              v-model:value="editForm.decayCount"
+              placeholder="30"
               clearable
             />
           </div>
@@ -259,7 +279,8 @@ const mounting = ref(false)
 const mountForm = ref({
   challengeId: '',
   initialPoints: '1000',
-  minPoints: '100'
+  minPoints: '100',
+  decayCount: '30'
 })
 
 const showEditModal = ref(false)
@@ -269,7 +290,8 @@ const editForm = ref({
   challengeId: '' as string | number,
   challengeName: '',
   initialPoints: '1000',
-  minPoints: '100'
+  minPoints: '100',
+  decayCount: '30'
 })
 
 const pagination = ref({
@@ -311,6 +333,14 @@ const mountedChallengeColumns = computed<DataTableColumns<CtfCompetitionChalleng
     width: 120,
     render(row) {
       return `${row.currentPoints ?? 0}`
+    }
+  },
+  {
+    title: '衰减梯度',
+    key: 'decayCount',
+    width: 100,
+    render(row) {
+      return `${row.decayCount ?? 30}`
     }
   },
   {
@@ -425,7 +455,8 @@ async function handleConfirmMount() {
     await mountCtfChallengeApi(props.compId, {
       challengeId: mountForm.value.challengeId,
       initialPoints: parseInt(mountForm.value.initialPoints, 10) || 1000,
-      minPoints: parseInt(mountForm.value.minPoints, 10) || 100
+      minPoints: parseInt(mountForm.value.minPoints, 10) || 100,
+      decayCount: parseInt(mountForm.value.decayCount, 10) || 30
     })
     message.success('赛题添加成功')
     showMountModal.value = false
@@ -443,7 +474,8 @@ function openEditModal(row: CtfCompetitionChallengeVO) {
     challengeId: row.challengeId || '',
     challengeName: row.title || row.name || '',
     initialPoints: String(row.initialPoints ?? row.currentPoints ?? 1000),
-    minPoints: String(row.minPoints ?? 100)
+    minPoints: String(row.minPoints ?? 100),
+    decayCount: String(row.decayCount ?? 30)
   }
   showEditModal.value = true
 }
@@ -455,7 +487,8 @@ async function handleConfirmEdit() {
     await updateMountedCtfChallengeApi(props.compId, editForm.value.id, {
       challengeId: Number(editForm.value.challengeId),
       initialPoints: parseInt(editForm.value.initialPoints, 10) || 1000,
-      minPoints: parseInt(editForm.value.minPoints, 10) || 100
+      minPoints: parseInt(editForm.value.minPoints, 10) || 100,
+      decayCount: parseInt(editForm.value.decayCount, 10) || 30
     })
     message.success('赛题配置已更新')
     showEditModal.value = false
