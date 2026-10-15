@@ -1,13 +1,13 @@
-# 归档经典前端至 outdated 分支并清理 main 分支工程文档
+# 归档经典前端至 outdated 分支并清理主分支 (master) 工程文档
 
 ## 1. 变更背景与动因
 随着新一代前端工程 `volur-lite-view-NEXT`（基于 Vue 3 + Tailwind CSS + Naive UI + Google Material / Workspace 色彩体系与自研组件库）全面研发、功能对齐并投入使用，旧版经典前端工程 `volur-lite-view` 已完成其历史使命。
 
 为精简仓库结构、降低依赖包与 CI/CD 维护成本，并明确以 `volur-lite-view-NEXT` 作为单一主干前端真实源，需要对当前版本库执行分支结构治理：
 1. 提交工作区内最新的后端与新一代前端核心改动；
-2. 合并当前开发分支至主干 `main` 分支；
+2. 合并当前开发分支至主分支 `master`；
 3. 从合并后的完整状态切出并保留 `outdated` 分支，用于长久归档和追溯经典版 `volur-lite-view` 代码资产；
-4. 在 `main` 分支彻底移除 `src/volur-lite-view` 及其全部依赖，实现主干轻量化与工程架构纯净化。
+4. 在 `master` 主分支彻底移除 `src/volur-lite-view` 及其全部依赖，实现主干轻量化与工程架构纯净化。
 
 ---
 
@@ -15,13 +15,13 @@
 
 ### 2.1 本地提交与分支合并
 - 在 `feat/auth-login-refactor` 分支完整提交容器配额持久化、理论赛结束态及环境变量精简重构；
-- 创建并切换至 `main` 主干分支，合并 `feat/auth-login-refactor` 最新提交，使其具备平台最新功能。
+- 切换至 `master` 主分支，合并最新开发提交，使其具备平台最新功能。
 
 ### 2.2 归档分支创建
-- 基于合并后的完整 `main` 分支创建并检出 `outdated` 分支，永久封存包含 `volur-lite-view` 的历史版本状态。
+- 基于合并后的完整状态创建并保留 `outdated` 分支，永久封存包含 `volur-lite-view` 的历史版本状态。
 
-### 2.3 `main` 主干分支清理
-- 在 `main` 分支上彻底移除 `src/volur-lite-view` 目录及其下的全部源代码、配置文件与静态资产；
+### 2.3 `master` 主分支清理
+- 在 `master` 分支上彻底移除 `src/volur-lite-view` 目录及其下的全部源代码、配置文件与静态资产；
 - 清理本地未纳入版本追踪的 `dist` 与 `node_modules` 缓存目录，确保工作树彻底干净。
 
 ---
