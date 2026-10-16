@@ -4,6 +4,7 @@ REMOTE="github"
 BRANCH="main"
 TMP_BRANCH="github-export"
 
+git update-index -q --refresh
 if ! git diff-index --quiet HEAD --; then
   echo "[-] You have uncommitted changes. Please commit or stash them before running this script."
   exit 1
