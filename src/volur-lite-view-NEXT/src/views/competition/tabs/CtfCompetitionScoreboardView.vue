@@ -18,6 +18,16 @@
 
         <div class="flex items-center gap-2">
           <VBtn
+            v-if="scoreboard.length > 0"
+            size="small"
+            clz="normal"
+            round
+            :left-icon="DownloadOutline"
+            @click="handleExportPublicScoreboard"
+          >
+            {{ t('competition.export_scoreboard', '导出榜单') }}
+          </VBtn>
+          <VBtn
             size="small"
             clz="normal"
             round
@@ -72,7 +82,8 @@ import type { DataTableColumns } from 'naive-ui'
 import {
   TrophyOutline,
   RefreshOutline,
-  FlagOutline
+  FlagOutline,
+  DownloadOutline
 } from '@vicons/ionicons5'
 import { Medal } from '@vicons/fa'
 import { VTooltip, VTable, VBtn, VPagination } from '@/components/common'
@@ -535,6 +546,27 @@ async function loadChallengeSolves() {
 
 function handleRefresh() {
   loadChallengeSolves()
+}
+
+function handleExportPublicScoreboard() {
+  if (!props.scoreboard || props.scoreboard.length === 0) return
+  const headers = ['排名', '战队名称', '总得分', '解题数']
+  const rows = props.scoreboard.map((item) => [
+    item.rank ?? '-',
+    `"${(item.teamName || '').replace(/"/g, '""')}"`,
+    item.score ?? 0,
+    item.solvesCount ?? 0
+  ])
+  const bom = '\uFEFF'
+  const csvContent = bom + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const title = (props.competition?.title || 'ctf_scoreboard').replace(/[\\/:*?"<>|\s]/g, '_')
+  a.download = `${title}_scoreboard_${Date.now()}.csv`
+  a.click()
+  window.URL.revokeObjectURL(url)
 }
 
 watch(

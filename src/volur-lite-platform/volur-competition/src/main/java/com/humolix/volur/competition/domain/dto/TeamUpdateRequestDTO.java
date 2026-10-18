@@ -30,10 +30,8 @@ public class TeamUpdateRequestDTO {
 
     private com.humolix.volur.competition.domain.enums.OrganizationType organizationType;
 
-    @Valid
-    private List<TeamMemberSignupDTO> members = new ArrayList<>();
+    private List<@Valid TeamMemberSignupDTO> members = new ArrayList<>();
 
-    @Valid
-    private List<TeamLeadersSignupDTO> leaders = new ArrayList<>();
+    private List<@Valid TeamLeadersSignupDTO> leaders = new ArrayList<>();
 
 }

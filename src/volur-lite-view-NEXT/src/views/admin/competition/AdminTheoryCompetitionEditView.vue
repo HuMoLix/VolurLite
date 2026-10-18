@@ -6,6 +6,16 @@
           {{ isEdit ? (competitionTitle || t('admin.competitions.manage_title', '理论竞赛运维')) : t('admin.competitions.modal_create_title', '创建新理论竞赛') }}
         </h2>
       </div>
+      <div v-if="isEdit" class="flex items-center gap-2">
+        <VBtn
+          clz="normal"
+          size="medium"
+          :left-icon="CloudDownloadOutline"
+          @click="showExportModal = true"
+        >
+          {{ t('admin.competitions.export_scores_btn', '导出数据报表') }}
+        </VBtn>
+      </div>
     </div>
 
     <div class="space-y-6">
@@ -53,6 +63,14 @@
         />
       </div>
     </div>
+
+    <AdminCompetitionScoreExportModal
+      v-if="compId"
+      v-model:show="showExportModal"
+      :competition-id="compId"
+      competition-type="THEORY"
+      :competition-title="competitionTitle"
+    />
   </div>
 </template>
 
@@ -66,10 +84,13 @@ import {
   MegaphoneOutline,
   PeopleOutline,
   DesktopOutline,
-  ListOutline
+  ListOutline,
+  CloudDownloadOutline
 } from '@vicons/ionicons5'
+import VBtn from '@/components/common/VBtn.vue'
 import VFilterBtnGroup from '@/components/common/VFilterBtnGroup.vue'
 import type { FilterOption } from '@/components/common/types'
+import AdminCompetitionScoreExportModal from './components/AdminCompetitionScoreExportModal.vue'
 import AdminTheoryCompetitionDetailView from './AdminTheoryCompetitionDetailView.vue'
 import AdminTheoryCompetitionChallengeDetailView from './AdminTheoryCompetitionChallengeDetailView.vue'
 import AdminTheoryCompetitionAnnounceView from './AdminTheoryCompetitionAnnounceView.vue'
@@ -89,6 +110,7 @@ const isEdit = computed(() => Boolean(compId.value))
 
 const activeTab = ref('basic')
 const competitionTitle = ref('')
+const showExportModal = ref(false)
 
 const tabs = computed<FilterOption<string>[]>(() => [
   { value: 'basic', label: t('admin.competitions.tab_basic', '基础信息'), icon: InformationCircleOutline },

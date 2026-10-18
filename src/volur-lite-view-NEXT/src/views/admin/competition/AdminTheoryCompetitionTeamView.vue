@@ -76,6 +76,14 @@
         <VBtn clz="normal" size="medium" @click="handleReset">
           重置
         </VBtn>
+        <VBtn
+          clz="normal"
+          size="medium"
+          :left-icon="CloudDownloadOutline"
+          @click="showExportModal = true"
+        >
+          导出名单
+        </VBtn>
       </div>
 
       <div class="flex items-center gap-2">
@@ -301,6 +309,13 @@
         </div>
       </template>
     </VModal>
+    <AdminCompetitionScoreExportModal
+      v-if="compId"
+      v-model:show="showExportModal"
+      :competition-id="compId"
+      competition-type="THEORY"
+      initial-scope="members"
+    />
   </div>
 </template>
 
@@ -314,7 +329,8 @@ import {
   CloseCircleOutline,
   TrashOutline,
   InformationCircleOutline,
-  BanOutline
+  BanOutline,
+  CloudDownloadOutline
 } from '@vicons/ionicons5'
 import VBtn from '@/components/common/VBtn.vue'
 import VInput from '@/components/common/VInput.vue'
@@ -322,6 +338,7 @@ import VSelection from '@/components/common/VSelection.vue'
 import VTable from '@/components/common/VTable.vue'
 import VPagination from '@/components/common/VPagination.vue'
 import VModal from '@/components/common/VModal.vue'
+import AdminCompetitionScoreExportModal from './components/AdminCompetitionScoreExportModal.vue'
 import type {
   AdminTeamListVO,
   AdminTeamDetailVO,
@@ -369,6 +386,7 @@ const searchKeyword = ref('')
 const selectedStatus = ref('')
 const checkedRowKeys = ref<string[]>([])
 const batchOperating = ref(false)
+const showExportModal = ref(false)
 
 const showRejectModal = ref(false)
 const rejectingTeam = ref<AdminTeamListVO | null>(null)

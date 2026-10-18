@@ -36,10 +36,8 @@ public class TeamSignupRequestDTO {
     private OrganizationType organizationType;
 
     @NotEmpty(message = "参赛成员名册不能为空")
-    @Valid
-    private List<TeamMemberSignupDTO> members = new ArrayList<>();
+    private List<@Valid TeamMemberSignupDTO> members = new ArrayList<>();
 
-    @Valid
-    private List<TeamLeadersSignupDTO> leaders = new ArrayList<>();
+    private List<@Valid TeamLeadersSignupDTO> leaders = new ArrayList<>();
 
 }

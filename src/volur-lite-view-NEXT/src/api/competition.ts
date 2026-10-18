@@ -1,4 +1,4 @@
-import { get, post, put, del } from '@/utils/request'
+import { get, post, put, del, download } from '@/utils/request'
 import type { ApiResponse, PageResponse, SliceResponse } from '@/types/common/api'
 import type {
   CompetitionSummaryVO,
@@ -104,7 +104,36 @@ export function getCtfScoreboardApi(
   return get<CtfScoreboardVO>(`/competitions/${competitionId}/scoreboard/ctf`)
 }
 
-export const getCtfStageScoreboardApi = getCtfScoreboardApi
+export interface ExportFieldOptionVO {
+  key: string
+  label: string
+  group: string
+  defaultSelected: boolean
+}
+
+export function getAdminCompetitionExportFieldsApi(
+  competitionId: number | string,
+  scope: string = 'summary'
+): Promise<ApiResponse<ExportFieldOptionVO[]>> {
+  return get<ExportFieldOptionVO[]>(`/admin/competitions/${competitionId}/scores/export/fields`, {
+    params: { scope }
+  })
+}
+
+export function exportAdminCompetitionScoresApi(
+  competitionId: number | string,
+  format: 'xlsx' | 'csv' | 'json' = 'xlsx',
+  scope: string = 'summary',
+  fields?: string[]
+): Promise<Blob> {
+  const params: Record<string, string | undefined> = { format, scope }
+  if (fields && fields.length > 0) {
+    params.fields = fields.join(',')
+  }
+  return download(`/admin/competitions/${competitionId}/scores/export`, {
+    params
+  })
+}
 
 export function listCtfChallengesApi(
   competitionId: number | string

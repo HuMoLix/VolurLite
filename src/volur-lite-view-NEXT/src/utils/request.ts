@@ -173,5 +173,9 @@ export function patch<T>(url: string, data?: any, config?: AxiosRequestConfig): 
   return request.patch<T>(url, data, config)
 }
 
+export function download(url: string, config?: AxiosRequestConfig): Promise<Blob> {
+  return request.download(url, config)
+}
+
 export default request
 

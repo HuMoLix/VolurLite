@@ -30,10 +30,8 @@ public class AdminTeamUpdateDTO implements Serializable {
 
     private OrganizationType organizationType;
 
-    @Valid
-    private List<AdminTeamMemberDTO> members;
+    private List<@Valid AdminTeamMemberDTO> members;
 
-    @Valid
-    private List<AdminTeamMemberDTO> leaders;
+    private List<@Valid AdminTeamMemberDTO> leaders;
 
 }
