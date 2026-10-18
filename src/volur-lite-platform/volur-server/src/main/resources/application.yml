@@ -16,6 +16,34 @@ spring:
     allow-bean-definition-overriding: true
     banner-mode: console
 
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${VOLUR_MYSQL_HOST:volur-db}:${VOLUR_MYSQL_PORT:3306}/volur_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048
+    username: volur
+    password: ${VOLUR_MYSQL_PASSWORD}
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 60
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 10000
+      validation-timeout: 3000
+
+  data:
+    redis:
+      host: ${VOLUR_REDIS_HOST:localhost}
+      port: ${VOLUR_REDIS_PORT:6379}
+      username: volur
+      password: ${VOLUR_REDIS_PASSWORD:volur_redis_secret_2026}
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 128
+          max-idle: 64
+          min-idle: 16
+          max-wait: 3000ms
+
   servlet:
     multipart:
       max-file-size: 2048MB

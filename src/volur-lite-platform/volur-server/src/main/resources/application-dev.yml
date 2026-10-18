@@ -4,32 +4,8 @@ spring:
       on-profile: dev
 
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${VOLUR_MYSQL_HOST:localhost}:3306/volur_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${VOLUR_MYSQL_USER:root}
-    password: ${VOLUR_MYSQL_PASSWORD:root123456}
     hikari:
-      minimum-idle: 10
-      maximum-pool-size: 60
-      idle-timeout: 30000
-      pool-name: VolurHikariCP
-      max-lifetime: 1800000
-      connection-timeout: 10000
-      validation-timeout: 3000
-
-  data:
-    redis:
-      host: ${VOLUR_REDIS_HOST:localhost}
-      port: 6379
-      password: ${VOLUR_REDIS_PASSWORD:}
-      database: 0
-      timeout: 5000ms
-      lettuce:
-        pool:
-          max-active: 64
-          max-idle: 32
-          min-idle: 8
-          max-wait: 3000ms
+      pool-name: VolurHikariCP-Dev
 
   jpa:
     hibernate:
@@ -39,9 +15,17 @@ spring:
   mongodb:
     uri: mongodb://${VOLUR_MONGO_HOST:localhost}:27017/volur_db
 
+volur:
+  container:
+    docker-host: "${VOLUR_CONTAINER_DOCKER_HOST:unix:///var/run/docker.sock}"
+    registry:
+      internal-url: "${VOLUR_CONTAINER_REGISTRY_INTERNAL_URL:http://localhost:5001}"
+      public-port: ${VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT:5001}
+
 logging:
   level:
     root: INFO
     com.humolix.volur: DEBUG
     org.springframework.web: INFO
+
 
