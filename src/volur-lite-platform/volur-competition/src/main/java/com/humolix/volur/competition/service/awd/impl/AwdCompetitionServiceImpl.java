@@ -39,6 +39,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @RequiredCompetitionStatus(allowed = {CompetitionStatus.RUNNING}, types = {CompetitionType.AWD})
+@Transactional(readOnly = true)
 public class AwdCompetitionServiceImpl implements AwdCompetitionService {
 
     private final CompetitionTeamRepository teamRepository;

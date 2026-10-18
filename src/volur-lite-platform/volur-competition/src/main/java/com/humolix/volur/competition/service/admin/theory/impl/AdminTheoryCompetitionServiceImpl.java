@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminTheoryCompetitionServiceImpl implements AdminTheoryCompetitionService {
 
     private final CompetitionRepository competitionRepository;

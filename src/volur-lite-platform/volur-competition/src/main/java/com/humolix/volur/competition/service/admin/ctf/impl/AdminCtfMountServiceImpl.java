@@ -24,6 +24,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminCtfMountServiceImpl implements AdminCtfMountService {
 
     private final CompetitionRepository competitionRepository;

@@ -48,8 +48,10 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -57,6 +59,7 @@ import java.util.zip.ZipInputStream;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeService {
 
     private final TheoryBankRepository bankRepository;
@@ -84,9 +87,19 @@ public class AdminTheoryChallengeServiceImpl implements AdminTheoryChallengeServ
         };
 
         Page<TheoryBank> bankPage = bankRepository.findAll(spec, pageable);
-        List<TheoryBankListVO> voList = bankPage.getContent().stream().map(bank -> {
+        List<TheoryBank> banks = bankPage.getContent();
+        List<Long> bankIds = banks.stream().map(TheoryBank::getId).toList();
+        Map<Long, Long> questionCountMap = new HashMap<>();
+        if (!bankIds.isEmpty()) {
+            List<Object[]> counts = theoryRepository.countQuestionsByBankIds(bankIds);
+            for (Object[] row : counts) {
+                questionCountMap.put((Long) row[0], ((Number) row[1]).longValue());
+            }
+        }
+
+        List<TheoryBankListVO> voList = banks.stream().map(bank -> {
             TheoryBankListVO vo = challengeMapper.toTheoryBankListVO(bank);
-            vo.setQuestionCount(theoryRepository.countByBankId(bank.getId()));
+            vo.setQuestionCount(questionCountMap.getOrDefault(bank.getId(), 0L));
             return vo;
         }).toList();
 

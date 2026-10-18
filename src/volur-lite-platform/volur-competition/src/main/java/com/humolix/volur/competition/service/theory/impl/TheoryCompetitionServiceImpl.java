@@ -60,6 +60,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @RequiredCompetitionStatus(allowed = {CompetitionStatus.RUNNING}, types = {CompetitionType.THEORY})
+@Transactional(readOnly = true)
 public class TheoryCompetitionServiceImpl implements TheoryCompetitionService {
 
     private static final String VREDIS_COMPETITION_THEORY_CHEAT_KEY_PREFIX = "vredis:competition:theory:cheat:";

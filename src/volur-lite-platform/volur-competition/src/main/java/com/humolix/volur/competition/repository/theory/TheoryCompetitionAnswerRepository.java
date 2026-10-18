@@ -14,6 +14,8 @@ public interface TheoryCompetitionAnswerRepository extends JpaRepository<TheoryC
 
     List<TheoryCompetitionAnswer> findByCompetitionIdAndTeamId(Long competitionId, Long teamId);
 
+    List<TheoryCompetitionAnswer> findByCompetitionId(Long competitionId);
+
     Optional<TheoryCompetitionAnswer> findByPaperIdAndUserId(Long paperId, Long userId);
 
     boolean existsByPaperIdAndUserId(Long paperId, Long userId);

@@ -34,11 +34,15 @@ public interface CompetitionMemberRepository extends JpaRepository<CompetitionMe
 
     @Query("SELECT m FROM CompetitionMember m " +
             "JOIN FETCH m.team t " +
+            "JOIN FETCH t.competition c " +
+            "LEFT JOIN FETCH t.captain cap " +
             "WHERE m.competition.id = :competitionId AND m.user.id = :userId")
     Optional<CompetitionMember> findMemberWithTeam(@Param("competitionId") Long competitionId, @Param("userId") Long userId);
 
     @Query("SELECT m FROM CompetitionMember m " +
             "JOIN FETCH m.team t " +
+            "JOIN FETCH t.competition c " +
+            "LEFT JOIN FETCH t.captain cap " +
             "WHERE m.competition.id = :competitionId AND m.user.id = :userId")
     List<CompetitionMember> findMembersWithTeam(@Param("competitionId") Long competitionId, @Param("userId") Long userId);
 
@@ -86,5 +90,11 @@ public interface CompetitionMemberRepository extends JpaRepository<CompetitionMe
             "LEFT JOIN FETCH m.user u " +
             "WHERE m.team.id = :teamId")
     List<CompetitionMember> findByTeamIdWithUserAndProfile(@Param("teamId") Long teamId);
+
+    @Query("SELECT m FROM CompetitionMember m " +
+            "LEFT JOIN FETCH m.user u " +
+            "LEFT JOIN FETCH m.team t " +
+            "WHERE m.competition.id = :competitionId")
+    List<CompetitionMember> findByCompetitionIdWithUserAndTeam(@Param("competitionId") Long competitionId);
 
 }

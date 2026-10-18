@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
     private final CompetitionRepository competitionRepository;
@@ -830,7 +831,7 @@ public class CompetitionTeamServiceImpl implements CompetitionTeamService {
 
     @Override
     public MyTeamInfoVO getTeamById(Long competitionId, Long teamId, Long userId) {
-        CompetitionTeam team = teamRepository.findById(teamId)
+        CompetitionTeam team = teamRepository.findByIdWithCompetitionAndCaptain(teamId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "队伍不存在"));
         if (!Objects.equals(team.getCompetition().getId(), competitionId)) {
             throw new BusinessException(HttpStatus.NOT_FOUND, "该队伍不属于当前竞赛");

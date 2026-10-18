@@ -27,6 +27,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminAwdPlusChallengeServiceImpl implements AdminAwdPlusChallengeService {
 
     private final AwdPlusChallengeRepository awdPlusRepository;

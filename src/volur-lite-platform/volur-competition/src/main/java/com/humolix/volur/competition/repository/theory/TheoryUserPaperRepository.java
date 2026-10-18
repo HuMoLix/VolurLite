@@ -19,6 +19,8 @@ public interface TheoryUserPaperRepository extends JpaRepository<TheoryUserPaper
 
     boolean existsByCompetitionIdAndUserId(Long competitionId, Long userId);
 
+    List<TheoryUserPaper> findByCompetitionId(Long competitionId);
+
     void deleteByCompetitionId(Long competitionId);
 
 }

@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @RequiredCompetitionStatus(allowed = {CompetitionStatus.RUNNING}, types = {CompetitionType.AWD_PLUS})
+@Transactional(readOnly = true)
 public class AwdPlusCompetitionServiceImpl implements AwdPlusCompetitionService {
 
     private final CompetitionMemberRepository memberRepository;

@@ -52,6 +52,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @RequiredCompetitionStatus(allowed = {CompetitionStatus.RUNNING}, types = {CompetitionType.CTF})
+@Transactional(readOnly = true)
 public class CtfCompetitionServiceImpl implements CtfCompetitionService {
 
     private final CompetitionMemberRepository memberRepository;

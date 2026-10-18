@@ -65,6 +65,7 @@ import java.util.zip.ZipOutputStream;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
 
     private final CtfChallengeRepository challengeRepository;

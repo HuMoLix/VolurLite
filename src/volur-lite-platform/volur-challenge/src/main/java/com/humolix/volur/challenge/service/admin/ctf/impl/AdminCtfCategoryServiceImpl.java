@@ -22,6 +22,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminCtfCategoryServiceImpl implements AdminCtfCategoryService {
 
     private final CtfChallengeCategoryRepository categoryRepository;

@@ -53,6 +53,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminTeamServiceImpl implements AdminTeamService {
 
     private final CompetitionTeamRepository teamRepository;

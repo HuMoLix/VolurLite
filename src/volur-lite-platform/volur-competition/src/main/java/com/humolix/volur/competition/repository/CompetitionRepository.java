@@ -25,11 +25,13 @@ public interface CompetitionRepository extends JpaRepository<Competition, Long>,
 
     @Query("SELECT c FROM Competition c " +
             "LEFT JOIN FETCH c.config " +
+            "LEFT JOIN FETCH c.createdBy " +
             "WHERE c.id = :id")
     Optional<Competition> findByIdWithDetails(@Param("id") Long id);
 
     @Query("SELECT c FROM Competition c " +
             "LEFT JOIN FETCH c.config " +
+            "LEFT JOIN FETCH c.createdBy " +
             "WHERE c.slug = :slug")
     Optional<Competition> findBySlugWithDetails(@Param("slug") String slug);
 

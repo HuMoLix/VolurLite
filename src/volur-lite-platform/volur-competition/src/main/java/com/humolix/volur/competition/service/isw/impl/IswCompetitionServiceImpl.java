@@ -20,6 +20,7 @@ import com.humolix.volur.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @RequiredCompetitionStatus(allowed = {CompetitionStatus.RUNNING}, types = {CompetitionType.ISW})
+@Transactional(readOnly = true)
 public class IswCompetitionServiceImpl implements IswCompetitionService {
 
     private final CompetitionMemberRepository memberRepository;

@@ -15,20 +15,27 @@ public interface TheoryCompetitionPaperRepository extends JpaRepository<TheoryCo
     List<TheoryCompetitionPaper> findByCompetitionIdOrderBySortOrderAsc(Long competitionId);
 
     @Query("SELECT p FROM TheoryCompetitionPaper p " +
-            "JOIN FETCH p.challenge " +
+            "JOIN FETCH p.challenge c " +
+            "LEFT JOIN FETCH c.bank " +
             "WHERE p.competition.id = :competitionId " +
             "ORDER BY p.sortOrder ASC")
     List<TheoryCompetitionPaper> findByCompetitionIdWithChallenge(@Param("competitionId") Long competitionId);
 
     @Query("SELECT p FROM TheoryCompetitionPaper p " +
-            "JOIN FETCH p.challenge " +
+            "JOIN FETCH p.challenge c " +
+            "LEFT JOIN FETCH c.bank " +
             "WHERE p.userPaper.id = :userPaperId " +
             "ORDER BY p.sortOrder ASC")
     List<TheoryCompetitionPaper> findByUserPaperIdWithChallenge(@Param("userPaperId") Long userPaperId);
 
     List<TheoryCompetitionPaper> findByUserPaperIdOrderBySortOrderAsc(Long userPaperId);
 
-    List<TheoryCompetitionPaper> findByCompetitionIdAndUserIdOrderBySortOrderAsc(Long competitionId, Long userId);
+    @Query("SELECT p FROM TheoryCompetitionPaper p " +
+            "JOIN FETCH p.challenge c " +
+            "LEFT JOIN FETCH c.bank " +
+            "WHERE p.competition.id = :competitionId AND p.user.id = :userId " +
+            "ORDER BY p.sortOrder ASC")
+    List<TheoryCompetitionPaper> findByCompetitionIdAndUserIdOrderBySortOrderAsc(@Param("competitionId") Long competitionId, @Param("userId") Long userId);
 
     Optional<TheoryCompetitionPaper> findByCompetitionIdAndChallengeId(Long competitionId, Long challengeId);
 

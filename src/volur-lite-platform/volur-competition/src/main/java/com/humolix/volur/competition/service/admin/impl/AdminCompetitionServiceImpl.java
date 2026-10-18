@@ -42,6 +42,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AdminCompetitionServiceImpl implements AdminCompetitionService {
 
     private final CompetitionRepository competitionRepository;
@@ -105,6 +106,7 @@ public class AdminCompetitionServiceImpl implements AdminCompetitionService {
     }
 
     @Override
+    @Transactional
     public AdminCompetitionDetailVO getCompetition(Long id) {
         Competition competition = competitionRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "竞赛不存在"));
