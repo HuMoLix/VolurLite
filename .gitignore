@@ -50,3 +50,6 @@ dist_delivery/
 # Ai directory
 /src/volur-lite-platform/.workbuddy-ai/
 /.agents
+
+# Local Docker Compose Overrides
+docker-compose.override.yml

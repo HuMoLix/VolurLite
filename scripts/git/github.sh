@@ -32,7 +32,8 @@ echo "[+] Removing files from the temporary branch..."
 git rm -rf --cached --ignore-unmatch \
     .env \
     GEMINI.md \
-    package-amd64.sh \
+    package.sh \
+    docker-compose.override.yml \
     scripts \
     agent \
     .agents
@@ -44,7 +45,8 @@ cat << 'EOF' >> .gitignore
 # ================================
 .env
 GEMINI.md
-package-amd64.sh
+package.sh
+docker-compose.override.yml
 scripts/
 agent/
 .agents/

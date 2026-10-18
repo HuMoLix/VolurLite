@@ -1,0 +1,8 @@
+services:
+  volur-mysql:
+    ports:
+      - "${VOLUR_MYSQL_PORT:-13306}:3306"
+
+  volur-redis:
+    ports:
+      - "${VOLUR_REDIS_PORT:-6379}:6379"

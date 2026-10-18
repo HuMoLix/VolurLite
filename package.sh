@@ -1,60 +1,70 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Volur Lite 一键交付打包脚本 (针对 Linux amd64 平台)
-# 支持在 macOS (Apple Silicon ARM64) 或 Linux x86_64 上直接交叉编译与导出
-# 生成一键解包即可运行的 volur-lite-amd64.tar.gz 交付压缩包
-# ==============================================================================
-
 set -euo pipefail
 
-# 颜色输出定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
-# 脚本所在目录 (项目根目录)
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-# 默认参数
-MODE="slim"                     # [默认] slim: 业务精简包 (仅自有服务 volur-app + volur-nginx); full: 全量离线包 (含 mysql + redis)
-SKIP_BUILD=false                # 是否跳过源码构建直接打包现有镜像
-OUTPUT_FILE="volur-lite-amd64.tar.gz"
+MODE="slim"
+SKIP_BUILD=false
 TARGET_PLATFORM="linux/amd64"
+OUTPUT_FILE=""
+DO_PUSH=false
+REGISTRY_PREFIX=""
+IMAGE_TAG="latest"
 
-# 参数解析
+normalize_platform() {
+    local plat="$1"
+    case "$plat" in
+        amd64|x86_64) echo "linux/amd64" ;;
+        arm64|aarch64) echo "linux/arm64" ;;
+        *) echo "$plat" ;;
+    esac
+}
+
 show_help() {
     cat <<EOF
-Volur Lite Linux amd64 一键交付打包脚本
+Volur Lite 交付打包与推送工具
 
 用法:
-  ./package-amd64.sh [选项]
+  ./package.sh [选项]
 
 选项:
-  --slim            [默认] 仅打包 volur-app 与 volur-nginx 核心业务镜像 (~130MB)，目标机器拉起时自动获取 MySQL/Redis/Registry
-  --full            全量离线交付包，包含全套 5 个 amd64 镜像 (volur-app, volur-nginx, mysql, redis, registry)
-  --skip-build      跳过前后端源码镜像构建，直接导出本地已存在的 amd64 镜像
-  -o, --output <名> 指定输出的 tar.gz 文件名 (默认: volur-lite-amd64.tar.gz)
-  -h, --help        显示帮助信息
+  -p, --platform <架构>   目标平台架构 (默认: linux/amd64，支持 amd64, arm64, linux/amd64, linux/arm64 等)
+  --slim                 [默认] 仅打包 volur-app 与 volur-nginx 核心业务镜像
+  --full                 全量离线交付包，包含 mysql, redis, registry
+  --skip-build           跳过前后端源码镜像构建，直接导出本地现有镜像
+  -o, --output <文件名>   指定输出的 tar.gz 文件名 (默认: volur-lite-<arch>.tar.gz)
+  --push                 构建并推送镜像至远程 Registry (需指定 -r/--registry)
+  -r, --registry <前缀>  远程镜像仓库前缀 (如 docker.io/myorg 或 harbor.example.com/volur)
+  -t, --tag <标签>       镜像版本标签 (默认: latest)
+  -h, --help             显示帮助信息
 
 示例:
-  ./package-amd64.sh                    # 默认仅打包 volur-app 与 volur-nginx 业务镜像
-  ./package-amd64.sh --skip-build       # 跳过构建，直接导出当前本地镜像
-  ./package-amd64.sh --full             # 打包全量含数据库的离线包
-  ./package-amd64.sh -o my-release.tar.gz
+  ./package.sh                                   # 打包默认 Linux amd64 业务镜像
+  ./package.sh -p arm64                          # 打包 Linux arm64 业务镜像
+  ./package.sh -p amd64 --full                   # 打包包含数据库的全量 Linux amd64 离线包
+  ./package.sh -p linux/amd64,linux/arm64 --push -r registry.example.com/volur
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        -p|--platform)
+            TARGET_PLATFORM="$(normalize_platform "$2")"
+            shift 2
+            ;;
         --full)
             MODE="full"
             shift
@@ -71,6 +81,18 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_FILE="$2"
             shift 2
             ;;
+        --push)
+            DO_PUSH=true
+            shift
+            ;;
+        -r|--registry)
+            REGISTRY_PREFIX="${2%/}"
+            shift 2
+            ;;
+        -t|--tag)
+            IMAGE_TAG="$2"
+            shift 2
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -83,35 +105,76 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+SHORT_ARCH=$(echo "$TARGET_PLATFORM" | sed 's|^linux/||' | tr '/' '-' | tr ',' '_')
+if [ -z "$OUTPUT_FILE" ]; then
+    OUTPUT_FILE="volur-lite-${SHORT_ARCH}.tar.gz"
+fi
+
 echo "=================================================================="
-echo -e "${CYAN}             Volur Lite Linux amd64 一键交付打包工具              ${NC}"
+echo -e "${CYAN}             Volur Lite 镜像交付打包与发布工具              ${NC}"
 echo "=================================================================="
 info "项目根目录:   $PROJECT_DIR"
 info "目标架构平台: $TARGET_PLATFORM"
-info "打包模式:     $MODE $([ "$MODE" == "full" ] && echo "(全量离线包，含全部 4 个镜像)" || echo "(轻量业务包)")"
-info "输出目标文件: $OUTPUT_FILE"
-info "是否跳过构建: $SKIP_BUILD"
+info "镜像版本标签: $IMAGE_TAG"
+if [ "$DO_PUSH" = true ]; then
+    info "操作模式:     远程 Registry 推送模式"
+    info "仓库前缀:     $REGISTRY_PREFIX"
+else
+    info "操作模式:     离线归档模式 ($MODE)"
+    info "输出目标文件: $OUTPUT_FILE"
+    info "是否跳过构建: $SKIP_BUILD"
+fi
 echo "------------------------------------------------------------------"
 
-# 1. 环境依赖核验
 if ! command -v docker &>/dev/null; then
     error "未找到 docker 命令，请确保已安装 Docker 并加入环境变量 PATH"
     exit 1
 fi
 
 if ! docker info &>/dev/null; then
-    error "Docker 守护进程未启动或无法连通，请先启动 Docker Desktop 或 Docker 服务"
+    error "Docker 守护进程未启动或无法连通，请先启动 Docker 服务"
     exit 1
 fi
 
-# 检查压缩工具
+if [ "$DO_PUSH" = true ]; then
+    if [ -z "$REGISTRY_PREFIX" ]; then
+        error "启用 --push 时必须通过 -r 或 --registry 指定远程仓库前缀"
+        exit 1
+    fi
+
+    info "正在并行交叉编译并推送前后端镜像至 [$REGISTRY_PREFIX]..."
+    
+    docker buildx build \
+        --platform "$TARGET_PLATFORM" \
+        -t "$REGISTRY_PREFIX/volur-app:$IMAGE_TAG" \
+        -f "$PROJECT_DIR/src/volur-lite-platform/Dockerfile" \
+        "$PROJECT_DIR/src/volur-lite-platform" \
+        --push &
+    PID_APP=$!
+
+    docker buildx build \
+        --platform "$TARGET_PLATFORM" \
+        -t "$REGISTRY_PREFIX/volur-nginx:$IMAGE_TAG" \
+        -f "$PROJECT_DIR/src/volur-lite-view-NEXT/Dockerfile" \
+        "$PROJECT_DIR/src/volur-lite-view-NEXT" \
+        --push &
+    PID_NGINX=$!
+
+    wait "$PID_APP" || { error "后端镜像构建并推送失败"; exit 1; }
+    wait "$PID_NGINX" || { error "前端镜像构建并推送失败"; exit 1; }
+
+    success "多架构镜像构建并推送成功！"
+    success "镜像地址: $REGISTRY_PREFIX/volur-app:$IMAGE_TAG"
+    success "镜像地址: $REGISTRY_PREFIX/volur-nginx:$IMAGE_TAG"
+    exit 0
+fi
+
 COMPRESS_CMD="gzip"
 if command -v pigz &>/dev/null; then
     COMPRESS_CMD="pigz"
     info "检测到多线程压缩工具 pigz，将启用多核极速压缩"
 fi
 
-# 临时工作目录
 STAGING_DIR="$(mktemp -d -t volur-pkg-XXXXXX)"
 PKG_ROOT="$STAGING_DIR/volur-lite"
 mkdir -p "$PKG_ROOT"
@@ -121,7 +184,24 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 2. 编译 / 准备 amd64 镜像
+HOST_ARCH="$(uname -m)"
+LOCAL_APP_ID=$(docker image inspect volur-app:latest --format '{{.Id}}' 2>/dev/null || true)
+LOCAL_NGINX_ID=$(docker image inspect volur-nginx:latest --format '{{.Id}}' 2>/dev/null || true)
+LOCAL_REDIS_ID=$(docker image inspect redis:8.6.2-alpine --format '{{.Id}}' 2>/dev/null || true)
+LOCAL_REGISTRY_ID=$(docker image inspect registry:2 --format '{{.Id}}' 2>/dev/null || true)
+LOCAL_MYSQL_ID=$(docker image inspect mysql:9.6.0 --format '{{.Id}}' 2>/dev/null || true)
+
+restore_local_tags() {
+    if [[ "$HOST_ARCH" =~ ^(arm64|aarch64)$ ]] && [ "$TARGET_PLATFORM" != "linux/arm64" ]; then
+        info "正在恢复宿主机本地原生 ARM64 镜像标签引用..."
+        [ -n "$LOCAL_APP_ID" ] && docker tag "$LOCAL_APP_ID" volur-app:latest 2>/dev/null || true
+        [ -n "$LOCAL_NGINX_ID" ] && docker tag "$LOCAL_NGINX_ID" volur-nginx:latest 2>/dev/null || true
+        [ -n "$LOCAL_REDIS_ID" ] && docker tag "$LOCAL_REDIS_ID" redis:8.6.2-alpine 2>/dev/null || true
+        [ -n "$LOCAL_REGISTRY_ID" ] && docker tag "$LOCAL_REGISTRY_ID" registry:2 2>/dev/null || true
+        [ -n "$LOCAL_MYSQL_ID" ] && docker tag "$LOCAL_MYSQL_ID" mysql:9.6.0 2>/dev/null || true
+    fi
+}
+
 if [ "$SKIP_BUILD" = false ]; then
     info "步骤 1/4: 正在并行交叉编译后端与前端镜像 [$TARGET_PLATFORM]..."
     docker build \
@@ -138,18 +218,17 @@ if [ "$SKIP_BUILD" = false ]; then
         "$PROJECT_DIR/src/volur-lite-view-NEXT" &
     PID_NGINX=$!
 
-    wait "$PID_APP" || { error "后端镜像编译失败"; exit 1; }
-    wait "$PID_NGINX" || { error "前端镜像编译失败"; exit 1; }
+    wait "$PID_APP" || { error "后端镜像编译失败"; restore_local_tags; exit 1; }
+    wait "$PID_NGINX" || { error "前端镜像编译失败"; restore_local_tags; exit 1; }
     success "前后端镜像交叉编译完成！"
 else
     warn "已指定 --skip-build，跳过源码镜像构建阶段"
 fi
 
-# 3. 准备公共基础设施镜像 (Full 模式)
 IMAGES_TO_SAVE=("volur-app:latest" "volur-nginx:latest")
 
 if [ "$MODE" == "full" ]; then
-    info "步骤 2/4: 正在拉取 / 核验基础设施镜像 (amd64 架构)..."
+    info "步骤 2/4: 正在拉取 / 核验基础设施镜像 [$TARGET_PLATFORM]..."
     info "拉取 mysql:9.6.0 ($TARGET_PLATFORM)..."
     docker pull --platform "$TARGET_PLATFORM" mysql:9.6.0
     info "拉取 redis:8.6.2-alpine ($TARGET_PLATFORM)..."
@@ -161,7 +240,6 @@ else
     info "步骤 2/4: Slim 模式下不打包基础组件，目标机拉起时将由 Docker 自动按需获取"
 fi
 
-# 4. 导出 Docker 镜像
 info "步骤 3/4: 正在导出 Docker 镜像为 volur-images.tar..."
 info "打包镜像清单: ${IMAGES_TO_SAVE[*]}"
 
@@ -169,26 +247,71 @@ docker save "${IMAGES_TO_SAVE[@]}" -o "$PKG_ROOT/volur-images.tar"
 IMAGE_TAR_SIZE=$(du -h "$PKG_ROOT/volur-images.tar" | cut -f1)
 success "Docker 镜像包导出完成，未压缩体积: $IMAGE_TAR_SIZE"
 
-# 5. 生成生产纯净版部署套件
+restore_local_tags
+
 info "步骤 4/4: 正在装配独立部署运行套件..."
 
-# 5.1 生产级 docker-compose.yml (移除 build: 代码目录依赖，直接挂载镜像与卷)
 cat <<'EOF' > "$PKG_ROOT/docker-compose.yml"
 services:
   volur-mysql:
     image: mysql:9.6.0
     container_name: volur-mysql
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=1024m
+      - /var/run/mysqld:rw,noexec,nosuid,size=32m
     environment:
-      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}
+      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_ROOT_PASSWORD:-${VOLUR_MYSQL_PASSWORD}}
+      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD}
       MYSQL_DATABASE: volur_db
+      MYSQL_USER: volur
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-time-zone=+08:00
+      - --local-infile=0
+      - --secure-file-priv=/var/lib/mysql-files
+      - --max_connections=500
+      - --max_connect_errors=100000
+      - --back_log=500
+      - --innodb_buffer_pool_size=1024M
+      - --innodb_buffer_pool_instances=4
+      - --innodb_log_buffer_size=16M
+      - --innodb_redo_log_capacity=256M
+      - --innodb_read_io_threads=4
+      - --innodb_write_io_threads=4
+      - --thread_cache_size=64
+      - --table_open_cache=2000
+      - --table_definition_cache=1000
+      - --tmp_table_size=64M
+      - --max_heap_table_size=64M
+      - --innodb_flush_log_at_trx_commit=2
     volumes:
       - volur-mysql-data:/var/lib/mysql
+    ulimits:
+      core: 0
+      nofile:
+        soft: 65535
+        hard: 65535
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4096M
+        reservations:
+          cpus: '1.0'
+          memory: 1024M
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "volur", "-p${VOLUR_MYSQL_PASSWORD}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -199,9 +322,67 @@ services:
   volur-redis:
     image: redis:8.6.2-alpine
     container_name: volur-redis
-    command: [ "redis-server", "--requirepass", "${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}", "--appendonly", "yes" ]
+    user: "999:999"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --user
+      - default
+      - "off"
+      - --user
+      - volur
+      - "on"
+      - ">${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}"
+      - "~*"
+      - "&*"
+      - "+@all"
+      - "-@admin"
+      - "-@dangerous"
+      - --rename-command
+      - MODULE
+      - ""
+      - --rename-command
+      - DEBUG
+      - ""
+      - --maxclients
+      - "10000"
+      - --tcp-backlog
+      - "511"
+      - --timeout
+      - "0"
+      - --tcp-keepalive
+      - "300"
+      - --io-threads
+      - "4"
+      - --io-threads-do-reads
+      - "yes"
+      - --maxmemory
+      - "1536mb"
+      - --maxmemory-policy
+      - "allkeys-lru"
+    ulimits:
+      core: 0
+      nofile:
+        soft: 65535
+        hard: 65535
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     healthcheck:
-      test: [ "CMD", "redis-cli", "-a", "${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}", "ping" ]
+      test: [ "CMD", "redis-cli", "--user", "volur", "-a", "${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -240,8 +421,7 @@ services:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - SERVER_PORT=8080
       - VOLUR_MYSQL_HOST=volur-mysql
-      - VOLUR_MYSQL_USER=${VOLUR_MYSQL_USER:-root}
-      - VOLUR_MYSQL_PASSWORD=${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}
+      - VOLUR_MYSQL_PASSWORD=${VOLUR_MYSQL_PASSWORD}
       - VOLUR_REDIS_HOST=volur-redis
       - VOLUR_REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}
       - VOLUR_JWT_SECRET=${VOLUR_JWT_SECRET:-VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}
@@ -249,6 +429,10 @@ services:
       - VOLUR_CONTAINER_REGISTRY_INTERNAL_URL=http://volur-registry:5000
       - VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT=${REGISTRY_PORT:-5000}
       - VOLUR_CONTAINER_REGISTRY_ENABLED=true
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./uploads:/app/uploads
@@ -277,7 +461,6 @@ volumes:
   volur-redis-data:
 EOF
 
-# 5.2 生产 .env 模板文件
 if [ -f "$PROJECT_DIR/.env" ]; then
     cp "$PROJECT_DIR/.env" "$PKG_ROOT/.env.example"
 elif [ -f "$PROJECT_DIR/.env.example" ]; then
@@ -286,7 +469,6 @@ else
     cat <<'EOF' > "$PKG_ROOT/.env.example"
 NGINX_HTTP_PORT=80
 REGISTRY_PORT=5000
-VOLUR_MYSQL_USER=root
 VOLUR_MYSQL_PASSWORD=volur_mysql_secret_2026
 VOLUR_REDIS_PASSWORD=volur_redis_secret_2026
 VOLUR_JWT_SECRET=VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!
@@ -294,21 +476,14 @@ EOF
 fi
 cp "$PKG_ROOT/.env.example" "$PKG_ROOT/.env"
 
-# 5.3 数据库升级与增量迁移脚本
 if [ -f "$PROJECT_DIR/scripts/upgrade/upgrade_to_latest.sql" ]; then
     cp "$PROJECT_DIR/scripts/upgrade/upgrade_to_latest.sql" "$PKG_ROOT/upgrade_to_latest.sql"
 fi
 
-# 5.4 数据持久化目录与权限占位
 mkdir -p "$PKG_ROOT/uploads" "$PKG_ROOT/data/registry"
 
-# 5.4 一键启动脚本 start.sh
 cat <<'EOF' > "$PKG_ROOT/start.sh"
 #!/usr/bin/env bash
-# ==============================================================================
-# Volur Lite 一键启动脚本
-# ==============================================================================
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -318,7 +493,6 @@ echo "=========================================================="
 echo "              Volur Lite 一键部署拉起                     "
 echo "=========================================================="
 
-# 1. 检查 Docker 环境
 if ! command -v docker &>/dev/null; then
     echo "[错误] 未检测到 docker，请先安装 Docker (或 Docker Engine)" >&2
     exit 1
@@ -329,7 +503,6 @@ if ! docker info &>/dev/null; then
     exit 1
 fi
 
-# 2. 导入镜像离线包 (若存在)
 if [ -f "volur-images.tar" ]; then
     echo "==> 正在导入离线 Docker 镜像包 (volur-images.tar)..."
     docker load -i volur-images.tar
@@ -340,16 +513,13 @@ elif [ -f "volur-images.tar.gz" ]; then
     echo "==> 镜像导入完成！"
 fi
 
-# 3. 配置文件检查
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
     echo "==> 自动从 .env.example 生成 .env 配置文件..."
     cp .env.example .env
 fi
 
-# 4. 创建必要目录
 mkdir -p uploads data/registry
 
-# 5. 针对 K3s 挂载文件的友好处理 (若无 K3s 挂载文件，避免 Docker 自动将其创建为目录)
 if [ ! -e "/etc/rancher/k3s/k3s.yaml" ]; then
     echo "==> 提示: 宿主机当前未发现 /etc/rancher/k3s/k3s.yaml"
     echo "==> 若您计划使用 K3s 模式，请在安装 K3s 后挂载；若使用 Docker Swarm 模式则无需理会"
@@ -357,7 +527,6 @@ if [ ! -e "/etc/rancher/k3s/k3s.yaml" ]; then
     sudo touch /etc/rancher/k3s/k3s.yaml 2>/dev/null || true
 fi
 
-# 6. 拉起服务
 echo "==> 正在启动 Volur Lite 容器集群..."
 docker compose up -d
 
@@ -371,7 +540,6 @@ echo "=========================================================="
 EOF
 chmod +x "$PKG_ROOT/start.sh"
 
-# 5.5 一键停止脚本 stop.sh
 cat <<'EOF' > "$PKG_ROOT/stop.sh"
 #!/usr/bin/env bash
 set -euo pipefail
@@ -384,43 +552,40 @@ echo "==> Volur Lite 服务已成功停止。"
 EOF
 chmod +x "$PKG_ROOT/stop.sh"
 
-# 5.6 部署使用说明 README.md
-cat <<'EOF' > "$PKG_ROOT/README.md"
-# Volur Lite 交付运行说明 (Linux amd64)
+cat <<EOF > "$PKG_ROOT/README.md"
+# Volur Lite 交付运行说明 ($TARGET_PLATFORM)
 
-本安装包是开箱即用的独立运行套件，包含已预编译完成的 Linux amd64 镜像及运行时配置。
+本安装包是开箱即用的独立运行套件，包含已预编译完成的 $TARGET_PLATFORM 镜像及运行时配置。
 
 ## 一、快速运行
 
 在目标服务器上解压后，直接执行一键启动脚本：
 
-```bash
-# 1. 启动服务 (自动导入镜像并运行)
+\`\`\`bash
 chmod +x start.sh stop.sh
 ./start.sh
-```
+\`\`\`
 
-启动完成后，打开浏览器访问：`http://<您的服务器IP>` 即可进入平台。
+启动完成后，打开浏览器访问：\`http://<您的服务器IP>\` 即可进入平台。
 
 ## 二、常用维护命令
 
-- **停止服务**：`./stop.sh`
-- **查看运行日志**：`docker compose logs -f`
-- **查看容器状态**：`docker compose ps`
-- **重启后端应用**：`docker compose restart volur-app`
+- **停止服务**：\`./stop.sh\`
+- **查看运行日志**：\`docker compose logs -f\`
+- **查看容器状态**：\`docker compose ps\`
+- **重启后端应用**：\`docker compose restart volur-app\`
 
 ## 三、目录结构
 
-- `volur-images.tar`：已打包的 amd64 Docker 镜像归档
-- `docker-compose.yml`：轻量级容器编排文件
-- `.env`：系统环境变量配置文件（可修改端口、数据库密码等）
-- `start.sh`：一键导入镜像并拉起系统
-- `stop.sh`：一键关闭系统
-- `uploads/`：用户上传文件、题目附件与静态资源持久化目录
-- `data/registry/`：题目容器私有镜像持久化目录
+- \`volur-images.tar\`：已打包的 $TARGET_PLATFORM Docker 镜像归档
+- \`docker-compose.yml\`：轻量级容器编排文件
+- \`.env\`：系统环境变量配置文件（可修改端口、数据库密码等）
+- \`start.sh\`：一键导入镜像并拉起系统
+- \`stop.sh\`：一键关闭系统
+- \`uploads/\`：用户上传文件、题目附件与静态资源持久化目录
+- \`data/registry/\`：题目容器私有镜像持久化目录
 EOF
 
-# 6. 生成最终交付压缩包
 info "正在生成最终发布压缩包: $OUTPUT_FILE ..."
 if [ "$COMPRESS_CMD" == "pigz" ]; then
     tar -cf - -C "$STAGING_DIR" volur-lite | pigz > "$OUTPUT_FILE"
@@ -435,7 +600,7 @@ success "最终生成文件: $PROJECT_DIR/$OUTPUT_FILE"
 success "最终文件大小: $FINAL_SIZE"
 echo ""
 echo -e "${GREEN}使用指引:${NC}"
-echo "1. 将 $OUTPUT_FILE 复制或 scp 至目标 Linux x86_64 / amd64 服务器:"
+echo "1. 将 $OUTPUT_FILE 复制或 scp 至目标服务器:"
 echo "   scp $OUTPUT_FILE user@<目标服务器IP>:~/"
 echo "2. 在目标服务器上解压并运行:"
 echo "   tar -zxvf $OUTPUT_FILE"
