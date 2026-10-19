@@ -203,7 +203,11 @@ restore_local_tags() {
 }
 
 if [ "$SKIP_BUILD" = false ]; then
-    info "步骤 1/4: 正在并行交叉编译后端与前端镜像 [$TARGET_PLATFORM]..."
+    info "步骤 1/4: 正在核验并准备构建基础镜像 [$TARGET_PLATFORM]..."
+    docker pull --platform "$TARGET_PLATFORM" eclipse-temurin:25-jre-alpine
+    docker pull --platform "$TARGET_PLATFORM" nginx:alpine
+
+    info "正在并行交叉编译后端与前端镜像 [$TARGET_PLATFORM]..."
     docker build \
         --platform "$TARGET_PLATFORM" \
         -t volur-app:latest \
@@ -270,8 +274,8 @@ services:
       - /tmp:rw,noexec,nosuid,size=1024m
       - /var/run/mysqld:rw,noexec,nosuid,size=32m
     environment:
-      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_ROOT_PASSWORD:-${VOLUR_MYSQL_PASSWORD}}
-      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_ROOT_PASSWORD:-${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}}
+      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}
       MYSQL_DATABASE: volur_db
       MYSQL_USER: volur
     command:
@@ -311,7 +315,7 @@ services:
           cpus: '1.0'
           memory: 1024M
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "volur", "-p${VOLUR_MYSQL_PASSWORD}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "volur", "-p${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -421,7 +425,7 @@ services:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - SERVER_PORT=8080
       - VOLUR_MYSQL_HOST=volur-mysql
-      - VOLUR_MYSQL_PASSWORD=${VOLUR_MYSQL_PASSWORD}
+      - VOLUR_MYSQL_PASSWORD=${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}
       - VOLUR_REDIS_HOST=volur-redis
       - VOLUR_REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}
       - VOLUR_JWT_SECRET=${VOLUR_JWT_SECRET:-VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}
@@ -461,20 +465,14 @@ volumes:
   volur-redis-data:
 EOF
 
-if [ -f "$PROJECT_DIR/.env" ]; then
-    cp "$PROJECT_DIR/.env" "$PKG_ROOT/.env.example"
-elif [ -f "$PROJECT_DIR/.env.example" ]; then
-    cp "$PROJECT_DIR/.env.example" "$PKG_ROOT/.env.example"
-else
-    cat <<'EOF' > "$PKG_ROOT/.env.example"
+cat <<'EOF' > "$PKG_ROOT/.env.example"
+SPRING_PROFILES_ACTIVE=prod
 NGINX_HTTP_PORT=80
 REGISTRY_PORT=5000
 VOLUR_MYSQL_PASSWORD=volur_mysql_secret_2026
 VOLUR_REDIS_PASSWORD=volur_redis_secret_2026
 VOLUR_JWT_SECRET=VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!
 EOF
-fi
-cp "$PKG_ROOT/.env.example" "$PKG_ROOT/.env"
 
 if [ -f "$PROJECT_DIR/scripts/upgrade/upgrade_to_latest.sql" ]; then
     cp "$PROJECT_DIR/scripts/upgrade/upgrade_to_latest.sql" "$PKG_ROOT/upgrade_to_latest.sql"
@@ -579,7 +577,8 @@ chmod +x start.sh stop.sh
 
 - \`volur-images.tar\`：已打包的 $TARGET_PLATFORM Docker 镜像归档
 - \`docker-compose.yml\`：轻量级容器编排文件
-- \`.env\`：系统环境变量配置文件（可修改端口、数据库密码等）
+- \`.env.example\`：生产环境变量配置模板（初次运行 \`start.sh\` 时自动复制为 \`.env\`）
+- \`.env\`：运行时系统配置（解压更新包时绝不覆盖已有 \`.env\`）
 - \`start.sh\`：一键导入镜像并拉起系统
 - \`stop.sh\`：一键关闭系统
 - \`uploads/\`：用户上传文件、题目附件与静态资源持久化目录
