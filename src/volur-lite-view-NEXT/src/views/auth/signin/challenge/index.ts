@@ -1,0 +1,7 @@
+export { default as PwdChallengeView } from './pwdChallengeView.vue'
+export { default as RecaptchaChallengeView } from './recaptchaChallengeView.vue'
+export { default as PassKeyChallengeView } from './passkeyChallengeView.vue'
+export { default as EmailotpChallengeView } from './emailotpChallengeView.vue'
+export { default as SmsotpChallengeView } from './smsotpChallengeView.vue'
+export { default as RejectView } from './rejectView.vue'
+export { default as SelectionView } from './selectionView.vue'

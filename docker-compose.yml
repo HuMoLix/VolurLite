@@ -1,0 +1,218 @@
+services:
+  volur-mysql:
+    image: mysql:9.6.0
+    container_name: volur-mysql
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=1024m
+      - /var/run/mysqld:rw,noexec,nosuid,size=32m
+    environment:
+      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_ROOT_PASSWORD:-${VOLUR_MYSQL_PASSWORD}}
+      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD}
+      MYSQL_DATABASE: volur_db
+      MYSQL_USER: volur
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+      - --local-infile=0
+      - --secure-file-priv=/var/lib/mysql-files
+      - --max_connections=500
+      - --max_connect_errors=100000
+      - --back_log=500
+      - --innodb_buffer_pool_size=1024M
+      - --innodb_buffer_pool_instances=4
+      - --innodb_log_buffer_size=16M
+      - --innodb_redo_log_capacity=256M
+      - --innodb_read_io_threads=4
+      - --innodb_write_io_threads=4
+      - --thread_cache_size=64
+      - --table_open_cache=2000
+      - --table_definition_cache=1000
+      - --tmp_table_size=64M
+      - --max_heap_table_size=64M
+      - --innodb_flush_log_at_trx_commit=2
+    volumes:
+      - volur-mysql-data:/var/lib/mysql
+    ulimits:
+      core: 0
+      nofile:
+        soft: 65535
+        hard: 65535
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4096M
+        reservations:
+          cpus: '1.0'
+          memory: 1024M
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "volur", "-p${VOLUR_MYSQL_PASSWORD}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - volur-network
+    restart: always
+
+  volur-redis:
+    image: redis:8.6.2-alpine
+    container_name: volur-redis
+    user: "999:999"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --user
+      - default
+      - "off"
+      - --user
+      - volur
+      - "on"
+      - ">${VOLUR_REDIS_PASSWORD}"
+      - "~*"
+      - "&*"
+      - "+@all"
+      - "-@admin"
+      - "-@dangerous"
+      - --rename-command
+      - MODULE
+      - ""
+      - --rename-command
+      - DEBUG
+      - ""
+      - --maxclients
+      - "10000"
+      - --tcp-backlog
+      - "511"
+      - --timeout
+      - "0"
+      - --tcp-keepalive
+      - "300"
+      - --io-threads
+      - "4"
+      - --io-threads-do-reads
+      - "yes"
+      - --maxmemory
+      - "1536mb"
+      - --maxmemory-policy
+      - "allkeys-lru"
+    ulimits:
+      core: 0
+      nofile:
+        soft: 65535
+        hard: 65535
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--user", "volur", "-a", "${VOLUR_REDIS_PASSWORD}", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - volur-redis-data:/data
+    networks:
+      - volur-network
+    restart: always
+
+  volur-registry:
+    image: registry:2
+    container_name: volur-registry
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    ports:
+      - "${REGISTRY_PORT:-5001}:5000"
+    volumes:
+      - ./data/registry:/var/lib/registry
+    networks:
+      - volur-network
+    restart: always
+
+  volur-app:
+    image: volur-app:latest
+    pull_policy: build
+    build:
+      context: ./src/volur-lite-platform
+      dockerfile: Dockerfile
+    container_name: volur-app
+    depends_on:
+      volur-mysql:
+        condition: service_healthy
+      volur-redis:
+        condition: service_healthy
+      volur-registry:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SERVER_PORT=8080
+      - VOLUR_MYSQL_HOST=volur-mysql
+      - VOLUR_MYSQL_PASSWORD=${VOLUR_MYSQL_PASSWORD}
+      - VOLUR_REDIS_HOST=volur-redis
+      - VOLUR_REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}
+      - VOLUR_JWT_SECRET=${VOLUR_JWT_SECRET}
+      - VOLUR_CONTAINER_DOCKER_HOST=unix:///var/run/docker.sock
+      - VOLUR_CONTAINER_REGISTRY_INTERNAL_URL=http://volur-registry:5000
+      - VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT=${REGISTRY_PORT:-5001}
+      - VOLUR_CONTAINER_REGISTRY_ENABLED=true
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    volumes:
+      - /etc/rancher/k3s/k3s.yaml:/etc/rancher/k3s/k3s.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./uploads:/app/uploads
+    networks:
+      - volur-network
+    restart: always
+
+  volur-nginx:
+    image: volur-nginx:latest
+    pull_policy: build
+    build:
+      context: ./src/volur-lite-view-NEXT
+      dockerfile: Dockerfile
+    container_name: volur-nginx
+    depends_on:
+      - volur-app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./src/volur-lite-view-NEXT/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - volur-network
+    restart: always
+
+networks:
+  volur-network:
+    driver: bridge
+
+volumes:
+  volur-mysql-data:
+  volur-redis-data:

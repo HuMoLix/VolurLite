@@ -1,0 +1,66 @@
+// =============================================================================
+// Google Material Design 3 & Workspace Theme Variables
+// =============================================================================
+
+// Google Core Brand Colors
+$google-blue: #1a73e8;
+$google-blue-hover: #1765cc;
+$google-blue-active: #1557b0;
+$google-blue-dark: #a8c7fa;
+$google-blue-dark-hover: #b6d0f8;
+
+$google-red: #ea4335;
+$google-red-dark: #f28b82;
+$google-green: #34a853;
+$google-green-dark: #81c995;
+$google-yellow: #fbbc04;
+$google-yellow-dark: #fdd663;
+$google-cyan: #24c1e0;
+$google-cyan-dark: #78d9ec;
+
+// Primary Accent
+$primary-color: $google-blue;
+$primary-hover: $google-blue-hover;
+$primary-active: $google-blue-active;
+$primary-suppl: #4285f4;
+
+// Button Theme Colors (Google Rounded Action Style)
+$btn-bg-primary: $google-blue;
+$btn-text-primary: #ffffff;
+$btn-bg-hover: $google-blue-hover;
+$btn-bg-active: $google-blue-active;
+
+// Google Workspace Surface Grays (Light Mode)
+$bg-color-light: #f8f9fa;        // Google Gray 50
+$bg-color-light-card: #ffffff;   // White card
+$sys-color-surface-container: #f0f4f9; // Material 3 Surface Container (#f0f4f9)
+$border-color-light: #dadce0;    // Google Gray 300
+$text-color-light-primary: #202124; // Google Gray 900
+$text-desc: #3c4043;             // Google Gray 700
+$text-muted: #5f6368;            // Google Gray 600
+$text-sub: #80868b;              // Google Gray 500
+
+$bg-color-dark: #1e1f20;
+$bg-color-dark-card: #0e0e0e;
+$bg-color-dark-elevated: #303134;
+$sys-color-surface-container-dark: #1e1f20;
+$border-color-dark: #3c4043;
+$text-color-dark-primary: #e3e3e3;
+$text-color-dark-secondary: #bdc1c6;
+$text-color-dark-muted: #9aa0a6;
+
+// Layout Dimensions
+$header-height: 64px;
+$sidebar-width: 256px;
+$sidebar-collapsed-width: 68px;
+$footer-height: 48px;
+
+// Transitions
+$transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-slow: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+$scrollbar-thumb-light: rgba(60, 64, 67, 0.28);
+$scrollbar-thumb-light-hover: rgba(60, 64, 67, 0.45);
+$scrollbar-thumb-dark: rgba(255, 255, 255, 0.22);
+$scrollbar-thumb-dark-hover: rgba(255, 255, 255, 0.38);

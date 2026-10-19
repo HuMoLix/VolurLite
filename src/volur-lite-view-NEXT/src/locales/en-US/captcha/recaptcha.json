@@ -1,0 +1,16 @@
+{
+  "tip": "To protect your account from automated abuse, please check the box below to complete verification.",
+  "required": "Please complete the verification checkbox to continue",
+  "failed": "Verification failed, please try again",
+  "refresh": "Refresh verification code",
+  "drag_slider": "Drag the slider to complete the puzzle",
+  "click_to_refresh": "Click to refresh",
+  "enter_image_text": "Please enter characters from the image",
+  "puzzle_title": "Please complete the sliding puzzle",
+  "image_title": "Please enter the character verification code",
+  "not_robot": "I'm not a robot",
+  "verified": "Verification passed",
+  "missing_credentials": "Missing verification session credentials",
+  "refresh_failed": "Failed to refresh challenge",
+  "verify_failed": "Verification failed, please try again"
+}

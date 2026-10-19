@@ -1,0 +1,16 @@
+{
+  "tip": "为了保护您的账号不受自动化程序攻击，请勾选下方验证框完成人机身份验证。",
+  "required": "请完成人机验证框以继续",
+  "failed": "人机验证失败，请重试",
+  "refresh": "刷新验证码",
+  "drag_slider": "拖动滑块完成拼图",
+  "click_to_refresh": "点击刷新",
+  "enter_image_text": "请输入图片中的文字",
+  "puzzle_title": "请完成滑动拼图",
+  "image_title": "请输入字符验证码",
+  "not_robot": "我不是机器人",
+  "verified": "验证已通过",
+  "missing_credentials": "缺少人机验证会话凭据",
+  "refresh_failed": "刷新挑战失败",
+  "verify_failed": "验证失败，请重试"
+}

@@ -1,0 +1,146 @@
+server:
+  port: 8080
+  tomcat:
+    accept-count: 200
+    max-connections: 10000
+
+spring:
+  application:
+    name: volur-server
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  threads:
+    virtual:
+      enabled: true
+  main:
+    allow-bean-definition-overriding: true
+    banner-mode: console
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${VOLUR_MYSQL_HOST:volur-db}:${VOLUR_MYSQL_PORT:3306}/volur_db?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048
+    username: volur
+    password: ${VOLUR_MYSQL_PASSWORD}
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 60
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 10000
+      validation-timeout: 3000
+
+  data:
+    redis:
+      host: ${VOLUR_REDIS_HOST:localhost}
+      port: ${VOLUR_REDIS_PORT:6379}
+      username: volur
+      password: ${VOLUR_REDIS_PASSWORD:volur_redis_secret_2026}
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 128
+          max-idle: 64
+          min-idle: 16
+          max-wait: 3000ms
+
+  servlet:
+    multipart:
+      max-file-size: 2048MB
+      max-request-size: 2048MB
+    encoding:
+      enabled: true
+      force: true
+      charset: UTF-8
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+
+# Actuator Configuration (Health & Info only, high-risk endpoints strictly disabled across all profiles)
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: health,info
+        exclude: heapdump,env,threaddump,beans,mappings,configprops,shutdown
+  endpoint:
+    health:
+      enabled: true
+      show-details: always
+    info:
+      enabled: true
+    heapdump:
+      enabled: false
+    env:
+      enabled: false
+    threaddump:
+      enabled: false
+    beans:
+      enabled: false
+    mappings:
+      enabled: false
+    configprops:
+      enabled: false
+    shutdown:
+      enabled: false
+
+volur:
+  jwt:
+    secret: "${VOLUR_JWT_SECRET:VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}"
+    header: "Authorization"
+    token-prefix: "Bearer "
+  security:
+    webauthn:
+      enabled: ${VOLUR_WEBAUTHN_ENABLED:true}
+      rp-id: "${VOLUR_WEBAUTHN_RP_ID:localhost}"
+      rp-name: "${VOLUR_WEBAUTHN_RP_NAME:Volur Lite}"
+      timeout: ${VOLUR_WEBAUTHN_TIMEOUT:60s}
+      user-verification: "${VOLUR_WEBAUTHN_USER_VERIFICATION:preferred}"
+      resident-key: "${VOLUR_WEBAUTHN_RESIDENT_KEY:preferred}"
+      attestation: "${VOLUR_WEBAUTHN_ATTESTATION:none}"
+      allowed-origins:
+        - "http://localhost:5173"
+        - "http://localhost:8080"
+        - "http://127.0.0.1:5173"
+        - "http://127.0.0.1:8080"
+        - "http://localhost:3000"
+        - "http://localhost:3001"
+        - "http://127.0.0.1:3000"
+        - "http://127.0.0.1:3001"
+        - "http://localhost:4173"
+        - "https://localhost:5173"
+        - "https://localhost:8080"
+        - "https://localhost:3001"
+  container:
+    docker-host: "${VOLUR_CONTAINER_DOCKER_HOST:tcp://localhost:2375}" # Or unix:///var/run/docker.sock for Linux
+    default-timeout-minutes: 60
+    max-instances-per-user: 1
+    network-name: "volur-challenge-net"
+    registry:
+      enabled: ${VOLUR_CONTAINER_REGISTRY_ENABLED:true}
+      internal-url: "${VOLUR_CONTAINER_REGISTRY_INTERNAL_URL:http://volur-registry:5000}"
+      public-port: ${VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT:5000}
+  k3s:
+    master-url: "${VOLUR_K3S_MASTER_URL:https://127.0.0.1:6443}"
+  captcha:
+    puzzle:
+      custom-path: "${VOLUR_CAPTCHA_PUZZLE_CUSTOM_PATH:}" # Optional external custom background images directory
+    crypto:
+      rsa-private-key: "${VOLUR_CAPTCHA_RSA_PRIVATE_KEY:}"
+      rsa-public-key: "${VOLUR_CAPTCHA_RSA_PUBLIC_KEY:}"
+      anti-replay-window-ms: ${VOLUR_CAPTCHA_ANTI_REPLAY_WINDOW_MS:120000}
+  cache:
+    enabled: ${VOLUR_CACHE_ENABLED:true}
+    invalidation:
+      enabled: true
+      topic: "${VOLUR_CACHE_TOPIC:vredis:topic:cache:evict}"
+    l2:
+      key-prefix: "${VOLUR_CACHE_KEY_PREFIX:vcache:}"
+    caches:
+      competition_status:
+        l1-enabled: false
+        l2-ttl: 5s
+

@@ -1,0 +1,32 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    hikari:
+      pool-name: VolurHikariCP-Prod
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 50
+          order_inserts: true
+          order_updates: true
+
+  mongodb:
+    uri: mongodb://${VOLUR_MONGO_HOST:localhost}:27017/volur_db
+
+logging:
+  level:
+    root: INFO
+    com.humolix.volur: INFO
+    org.springframework.web: WARN
+    org.hibernate: WARN
+    com.zaxxer.hikari: WARN

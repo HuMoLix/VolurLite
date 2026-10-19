@@ -1,0 +1,5 @@
+export * from './theory'
+export * from './ctf'
+export { default as VCompetitionCard } from './VCompetitionCard.vue'
+export { default as VCompetitionHeader } from './VCompetitionHeader.vue'
+export type { VCompetitionHeaderProps, CountdownLabelsConfig } from './VCompetitionHeader.vue'

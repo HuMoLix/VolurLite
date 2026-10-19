@@ -1,0 +1,31 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    hikari:
+      pool-name: VolurHikariCP-Dev
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  mongodb:
+    uri: mongodb://${VOLUR_MONGO_HOST:localhost}:27017/volur_db
+
+volur:
+  container:
+    docker-host: "${VOLUR_CONTAINER_DOCKER_HOST:unix:///var/run/docker.sock}"
+    registry:
+      internal-url: "${VOLUR_CONTAINER_REGISTRY_INTERNAL_URL:http://localhost:5001}"
+      public-port: ${VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT:5001}
+
+logging:
+  level:
+    root: INFO
+    com.humolix.volur: DEBUG
+    org.springframework.web: INFO
+
+
