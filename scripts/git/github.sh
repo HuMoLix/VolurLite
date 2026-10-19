@@ -34,6 +34,8 @@ git rm -rf --cached --ignore-unmatch \
     GEMINI.md \
     package.sh \
     docker-compose.override.yml \
+    src/volur-lite-view-NEXT/nginx/conf/nginx.conf \
+    src/volur-lite-view-NEXT/nginx/ssl \
     scripts \
     agent \
     .agents
@@ -47,6 +49,8 @@ cat << 'EOF' >> .gitignore
 GEMINI.md
 package.sh
 docker-compose.override.yml
+src/volur-lite-view-NEXT/nginx/conf/nginx.conf
+src/volur-lite-view-NEXT/nginx/ssl/
 scripts/
 agent/
 .agents/
