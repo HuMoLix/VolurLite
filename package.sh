@@ -274,8 +274,8 @@ services:
       - /tmp:rw,noexec,nosuid,size=1024m
       - /var/run/mysqld:rw,noexec,nosuid,size=32m
     environment:
-      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_ROOT_PASSWORD:-${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}}
-      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}
+      MYSQL_ROOT_PASSWORD: ${VOLUR_MYSQL_ROOT_PASSWORD:-${VOLUR_MYSQL_PASSWORD}}
+      MYSQL_PASSWORD: ${VOLUR_MYSQL_PASSWORD}
       MYSQL_DATABASE: volur_db
       MYSQL_USER: volur
     command:
@@ -315,7 +315,7 @@ services:
           cpus: '1.0'
           memory: 1024M
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "volur", "-p${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "volur", "-p${VOLUR_MYSQL_PASSWORD}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -344,7 +344,7 @@ services:
       - --user
       - volur
       - "on"
-      - ">${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}"
+      - ">${VOLUR_REDIS_PASSWORD}"
       - "~*"
       - "&*"
       - "+@all"
@@ -386,7 +386,7 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: [ "CMD", "redis-cli", "--user", "volur", "-a", "${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}", "ping" ]
+      test: [ "CMD", "redis-cli", "--user", "volur", "-a", "${VOLUR_REDIS_PASSWORD}", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -402,7 +402,7 @@ services:
     environment:
       REGISTRY_STORAGE_DELETE_ENABLED: "true"
     ports:
-      - "${REGISTRY_PORT:-5000}:5000"
+      - "${REGISTRY_PORT:-5001}:5000"
     volumes:
       - ./data/registry:/var/lib/registry
     networks:
@@ -425,13 +425,12 @@ services:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
       - SERVER_PORT=8080
       - VOLUR_MYSQL_HOST=volur-mysql
-      - VOLUR_MYSQL_PASSWORD=${VOLUR_MYSQL_PASSWORD:-volur_mysql_secret_2026}
+      - VOLUR_MYSQL_PASSWORD=${VOLUR_MYSQL_PASSWORD}
       - VOLUR_REDIS_HOST=volur-redis
-      - VOLUR_REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD:-volur_redis_secret_2026}
-      - VOLUR_JWT_SECRET=${VOLUR_JWT_SECRET:-VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}
-      - VOLUR_CONTAINER_DOCKER_HOST=unix:///var/run/docker.sock
+      - VOLUR_REDIS_PASSWORD=${VOLUR_REDIS_PASSWORD}
+      - VOLUR_JWT_SECRET=${VOLUR_JWT_SECRET}
       - VOLUR_CONTAINER_REGISTRY_INTERNAL_URL=http://volur-registry:5000
-      - VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT=${REGISTRY_PORT:-5000}
+      - VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT=${REGISTRY_PORT:-5001}
       - VOLUR_CONTAINER_REGISTRY_ENABLED=true
     ulimits:
       nofile:
@@ -468,10 +467,10 @@ EOF
 cat <<'EOF' > "$PKG_ROOT/.env.example"
 SPRING_PROFILES_ACTIVE=prod
 NGINX_HTTP_PORT=80
-REGISTRY_PORT=5000
-VOLUR_MYSQL_PASSWORD=volur_mysql_secret_2026
-VOLUR_REDIS_PASSWORD=volur_redis_secret_2026
-VOLUR_JWT_SECRET=VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!
+REGISTRY_PORT=5001
+VOLUR_MYSQL_PASSWORD=change_this_mysql_password
+VOLUR_REDIS_PASSWORD=change_this_redis_password
+VOLUR_JWT_SECRET=change_this_jwt_secret_min_32_characters_random_string
 EOF
 
 if [ -f "$PROJECT_DIR/scripts/upgrade/upgrade_to_latest.sql" ]; then

@@ -13,8 +13,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getAdminCompetitionByIdApi } from '@/api/competition'
-import AdminCtfCompetitionEditView from './AdminCtfCompetitionEditView.vue'
-import AdminTheoryCompetitionEditView from './AdminTheoryCompetitionEditView.vue'
+import AdminCtfCompetitionEditView from './ctf/AdminCtfCompetitionEditView.vue'
+import AdminTheoryCompetitionEditView from './theory/AdminTheoryCompetitionEditView.vue'
 
 defineOptions({
   name: 'AdminCompetitionEditView'

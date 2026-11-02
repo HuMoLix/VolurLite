@@ -1,2 +1,2 @@
-export { default as PasskeyProtectView } from './passkeyProtectView.vue'
-export { default as TotpProtectView } from './totpProtectView.vue'
+export { default as PasskeyProtectStep } from './PasskeyProtectStep.vue'
+export { default as TotpProtectStep } from './TotpProtectStep.vue'

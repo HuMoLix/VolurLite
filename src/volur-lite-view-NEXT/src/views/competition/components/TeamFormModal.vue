@@ -640,7 +640,7 @@ import {
   cancelInvitationApi
 } from '@/api/competition'
 import { isValidChinaPhone, isValidIdCard } from '@/utils/validation'
-import VAvatar from '@/components/sidebar/VAvatar.vue'
+import { VAvatar } from '@/components/common'
 import { VInput, VSelection, VBtn } from '@/components/common'
 import type {
   CompetitionDetailVO,

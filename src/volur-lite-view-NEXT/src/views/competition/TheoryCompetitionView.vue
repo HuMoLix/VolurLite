@@ -17,7 +17,7 @@
       <div class="progress-bar-secondary" />
     </div>
 
-    <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 flex-1 flex flex-col">
+    <ContainerLayout max-width="7xl" padding="normal">
       <section class="rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-white dark:bg-google-surface-darkCard border border-google-border-light dark:border-google-border-dark shadow-sm transition-colors duration-200">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div class="space-y-1">
@@ -154,8 +154,28 @@
         </div>
       </div>
 
-      <div v-else-if="questions.length > 0" class="flex-1 flex flex-col lg:flex-row items-start gap-6">
-        <div class="flex-1 min-w-0 w-full space-y-5">
+      <TwoColumnLayout
+        v-else-if="questions.length > 0"
+        sidebar-placement="right"
+        sidebar-width="20rem"
+        gap="normal"
+      >
+        <template #sidebar>
+          <TheoryPaperSheet
+            :questions="questions"
+            :answers="answers"
+            :marked-ids="markedIds"
+            :current-index="currentIndex"
+            :is-submitted="isSubmitted"
+            :total-score="paper?.totalScore ?? 0"
+            :my-total-score="paper?.myTotalScore"
+            :submitting="submitting"
+            @select-question="handleSelectQuestion"
+            @submit="handleOpenSubmitConfirm"
+          />
+        </template>
+
+        <div class="space-y-5 w-full">
           <TheoryQuestionCard
             v-if="currentQuestion"
             :question="currentQuestion"
@@ -192,23 +212,8 @@
             </VBtn>
           </div>
         </div>
-
-        <aside class="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-24">
-          <TheoryPaperSheet
-            :questions="questions"
-            :answers="answers"
-            :marked-ids="markedIds"
-            :current-index="currentIndex"
-            :is-submitted="isSubmitted"
-            :total-score="paper?.totalScore ?? 0"
-            :my-total-score="paper?.myTotalScore"
-            :submitting="submitting"
-            @select-question="handleSelectQuestion"
-            @submit="handleOpenSubmitConfirm"
-          />
-        </aside>
-      </div>
-    </div>
+      </TwoColumnLayout>
+    </ContainerLayout>
 
     <n-modal
       :show="warningModalVisible"
@@ -303,7 +308,7 @@ import {
 } from '@vicons/ionicons5'
 import { useUserStore } from '@/store/modules/user'
 import { useProctorStore } from '@/store/modules/proctor'
-import CompetitionLayout from '@/components/layouts/CompetitionLayout.vue'
+import { CompetitionLayout, ContainerLayout, TwoColumnLayout } from '@/layouts'
 import { VTooltip, VBtn } from '@/components/common'
 import {
   TheoryQuestionCard,

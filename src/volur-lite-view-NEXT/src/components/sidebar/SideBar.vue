@@ -14,7 +14,10 @@
         :show-trigger="showTrigger"
         :bordered="bordered"
         :collapse-mode="collapseMode"
-        :menu-options="resolvedMenuOptions"
+        :items="items"
+        :groups="groups"
+        :menu-options="menuOptions"
+        :menu-groups="resolvedMenuGroups"
         :accordion="accordion"
         :collapsed-icon-size="collapsedIconSize"
         :show-logo="showLogo"
@@ -125,7 +128,7 @@
     <div class="sidebar-mobile-view">
       <VBottomBar
         v-model:value="currentValue"
-        :menu-options="resolvedMenuOptions"
+        :menu-options="resolvedFlatMenuOptions"
         :theme="theme"
         :show-bottom-action="showBottomAction"
         :bottom-action-text="bottomActionText"
@@ -148,12 +151,14 @@ import type { Component, VNodeChild } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { NIcon, type MenuOption } from 'naive-ui'
-import { TrophyOutline, MegaphoneOutline } from '@vicons/ionicons5'
+import {TrophyOutline, MegaphoneOutline, RocketOutline, SchoolOutline, CubeOutline} from '@vicons/ionicons5'
 import { useAppStore } from '@/store/modules/app'
 import type { CompetitionSummaryVO } from '@/types/competition'
 import VSideBar from './VSideBar.vue'
 import VBottomBar from './VBottomBar.vue'
-import type { SideBarProps, SidebarNavItem } from './types'
+import type { SideBarProps, SidebarNavItem, SidebarNavGroup, VSideBarGroup } from './types'
+import {BubbleChartOutlined} from "@vicons/material";
+import {BulbOutlined} from "@vicons/antd";
 
 defineOptions({
   name: 'SideBar'
@@ -167,7 +172,9 @@ const props = withDefaults(defineProps<SideBarProps>(), {
   bordered: true,
   collapseMode: 'width',
   items: undefined,
+  groups: undefined,
   menuOptions: undefined,
+  menuGroups: undefined,
   value: undefined,
   accordion: false,
   collapsedIconSize: 22,
@@ -248,28 +255,89 @@ const modelValue = defineModel<string>('value')
 const appStore = useAppStore()
 const router = useRouter()
 const route = useRoute()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
-const defaultNavItems: SidebarNavItem[] = [
+const defaultNavGroups: SidebarNavGroup[] = [
   {
-    key: 'competitions',
-    route: '/competitions',
-    titleKey: 'common.competitions',
-    label: '赛事大厅',
-    icon: 'TrophyOutline'
+    key: 'explore',
+    titleKey: 'common.nav_group_explore',
+    title: 'EXPLORE',
+    items: [
+      {
+        key: 'competitions',
+        route: '/competitions',
+        titleKey: 'common.competitions',
+        label: '赛事大厅',
+        icon: 'TrophyOutline'
+      },
+      {
+        key: 'challenges',
+        route: '/challenges',
+        titleKey: 'common.challenges',
+        label: '题目训练',
+        icon: 'RocketOutline'
+      },
+      {
+        key: 'announcements',
+        route: '/announcements',
+        titleKey: 'common.announcements',
+        label: '公告中心',
+        icon: 'MegaphoneOutline'
+      }
+    ]
   },
-  // {
-  //   key: 'announcements',
-  //   route: '/announcements',
-  //   titleKey: 'common.announcements',
-  //   label: '公告中心',
-  //   icon: 'MegaphoneOutline'
-  // }
+  {
+    key: 'learn',
+    titleKey: 'common.nav_group_learn',
+    title: 'LEARN',
+    items: [
+      {
+        key: 'learning',
+        route: '/learning',
+        titleKey: 'common.learning',
+        label: '学习中心',
+        icon: 'SchoolOutline'
+      }
+    ]
+  },
+  {
+    key: 'more',
+    titleKey: 'common.nav_group_more',
+    title: 'MORE',
+    items: [
+      {
+        key: 'resources',
+        route: '/resources',
+        titleKey: 'common.resources',
+        label: '资源中心',
+        icon: 'CubeOutline'
+      },
+      {
+        key: 'experimental',
+        route: '/experimental',
+        titleKey: 'common.experimental',
+        label: '实验性功能',
+        icon: 'BubbleChartOutlined'
+      },
+      {
+        key: 'help',
+        route: '/help',
+        titleKey: 'common.help_center',
+        label: '帮助中心',
+        icon: 'BulbOutlined'
+      }
+    ]
+  }
 ]
 
 const iconRegistry: Record<string, Component> = {
   TrophyOutline,
-  MegaphoneOutline
+  RocketOutline,
+  SchoolOutline,
+  MegaphoneOutline,
+  CubeOutline,
+  BulbOutlined,
+  BubbleChartOutlined
 }
 
 function resolveItemIcon(icon?: Component | string | (() => VNodeChild)): (() => VNodeChild) | undefined {
@@ -290,7 +358,7 @@ function transformItemsToOptions(navItems: SidebarNavItem[]): MenuOption[] {
   return navItems.map((item) => {
     const option: MenuOption & { route?: string } = {
       key: item.key,
-      label: () => (item.titleKey ? t(item.titleKey) : (typeof item.label === 'function' ? item.label() : item.label || '')),
+      label: () => (item.titleKey && te(item.titleKey) ? t(item.titleKey) : (typeof item.label === 'function' ? item.label() : item.label || (item.titleKey ? t(item.titleKey) : ''))),
       icon: resolveItemIcon(item.icon),
       route: item.route
     }
@@ -301,12 +369,47 @@ function transformItemsToOptions(navItems: SidebarNavItem[]): MenuOption[] {
   })
 }
 
-const resolvedMenuOptions = computed<MenuOption[]>(() => {
+const resolvedMenuGroups = computed<VSideBarGroup[]>(() => {
+  if (props.menuGroups && props.menuGroups.length > 0) {
+    return props.menuGroups
+  }
+  if (props.groups && props.groups.length > 0) {
+    return props.groups.map(g => ({
+      key: g.key,
+      title: g.title,
+      titleKey: g.titleKey,
+      label: g.label,
+      options: transformItemsToOptions(g.items)
+    }))
+  }
+  if (props.menuOptions && props.menuOptions.length > 0) {
+    return []
+  }
+  if (props.items && props.items.length > 0) {
+    return [
+      {
+        key: 'default',
+        options: transformItemsToOptions(props.items)
+      }
+    ]
+  }
+  return defaultNavGroups.map(g => ({
+    key: g.key,
+    title: g.title,
+    titleKey: g.titleKey,
+    label: g.label,
+    options: transformItemsToOptions(g.items)
+  }))
+})
+
+const resolvedFlatMenuOptions = computed<MenuOption[]>(() => {
   if (props.menuOptions && props.menuOptions.length > 0) {
     return props.menuOptions
   }
-  const source = props.items && props.items.length > 0 ? props.items : defaultNavItems
-  return transformItemsToOptions(source)
+  if (props.items && props.items.length > 0) {
+    return transformItemsToOptions(props.items)
+  }
+  return resolvedMenuGroups.value.flatMap(g => g.options)
 })
 
 const keyRouteMap = computed<Map<string, string>>(() => {
@@ -321,8 +424,17 @@ const keyRouteMap = computed<Map<string, string>>(() => {
       }
     }
   }
-  const source = props.items && props.items.length > 0 ? props.items : defaultNavItems
-  traverse(source)
+  if (props.groups && props.groups.length > 0) {
+    for (const g of props.groups) {
+      traverse(g.items)
+    }
+  } else if (props.items && props.items.length > 0) {
+    traverse(props.items)
+  } else {
+    for (const g of defaultNavGroups) {
+      traverse(g.items)
+    }
+  }
   return map
 })
 
@@ -453,7 +565,8 @@ defineExpose({
   isCollapsed,
   isDesktop,
   vSideBarRef,
-  resolvedMenuOptions,
+  resolvedMenuGroups,
+  resolvedFlatMenuOptions,
   keyRouteMap,
   scrollToTop,
   toggleCollapse,

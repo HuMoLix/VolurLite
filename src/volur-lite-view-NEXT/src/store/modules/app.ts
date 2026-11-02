@@ -4,7 +4,7 @@ import {
   type SupportedLocale,
   DEFAULT_LOCALE,
   resolveLocale,
-  normalizeLocale,
+  isSupportedLocale,
   loadLocaleForRouteAsync,
   i18n
 } from '@/i18n'
@@ -80,7 +80,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function setLocale(target: SupportedLocale | string, persist = true): void {
-    const resolved = normalizeLocale(target) || DEFAULT_LOCALE
+    const resolved = isSupportedLocale(target) ? target : DEFAULT_LOCALE
     locale.value = resolved
     if (i18n.global.locale) {
       ;(i18n.global.locale as any).value = resolved
@@ -92,7 +92,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function switchLanguage(targetLocale: SupportedLocale | string, routePath?: string): Promise<void> {
-    const resolved = normalizeLocale(targetLocale) || DEFAULT_LOCALE
+    const resolved = isSupportedLocale(targetLocale) ? targetLocale : DEFAULT_LOCALE
     if (isLangSwitching.value) return
     isLangSwitching.value = true
     langSwitchingText.value =

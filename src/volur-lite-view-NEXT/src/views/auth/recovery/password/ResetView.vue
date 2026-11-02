@@ -7,7 +7,7 @@
       <div class="space-y-4">
         <div class="space-y-3">
           <div>
-            <GoogleTextField
+            <VFieldInput
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               :label="t('auth.recovery.new_password_label')"
@@ -20,7 +20,7 @@
           </div>
 
           <div>
-            <GoogleTextField
+            <VFieldInput
               v-model="confirmPassword"
               :type="showPassword ? 'text' : 'password'"
               :label="t('auth.recovery.confirm_password_label')"
@@ -65,7 +65,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import GoogleTextField from '@/components/google/GoogleTextField.vue'
+import { VFieldInput } from '@/volur-ui'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { submitPasswordResetApi } from '@/api/auth'
 import { encryptFlowCredential } from '@/utils/flow-crypto'

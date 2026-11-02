@@ -19,7 +19,7 @@ FROM eclipse-temurin:25-jre-alpine
 
 WORKDIR /app
 
-ENV TZ=Asia/Shanghai
+ENV TZ=UTC
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk add --no-cache docker-cli
@@ -28,4 +28,4 @@ COPY --from=builder /build/volur-server/target/volur-server.jar app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-XX:+UseZGC", "-Djava.awt.headless=true", "-Dsun.java2d.xrender=false", "-Dsun.java2d.pmoffscreen=false", "-Duser.timezone=Asia/Shanghai", "-Dfile.encoding=UTF-8", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseZGC", "-Djava.awt.headless=true", "-Dsun.java2d.xrender=false", "-Dsun.java2d.pmoffscreen=false", "-Duser.timezone=UTC", "-Dfile.encoding=UTF-8", "-jar", "app.jar"]

@@ -1,1 +1,1 @@
-export { default as RecaptchaChallengeView } from './recaptchaChallengeView.vue'
+export { default as RecaptchaChallengePanel } from './RecaptchaChallengePanel.vue'

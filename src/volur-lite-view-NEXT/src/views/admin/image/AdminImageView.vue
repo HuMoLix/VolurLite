@@ -727,7 +727,7 @@ import VPagination from '@/components/common/VPagination.vue'
 import VModal from '@/components/common/VModal.vue'
 import VInput from '@/components/common/VInput.vue'
 import VSelectBox from '@/components/common/VSelectBox.vue'
-import VDrawer from '@/components/sidebar/VDrawer.vue'
+import { VDrawer } from '@/components/common'
 import type {
   AdminClusterImageVO,
   AdminClusterImageDetailVO,

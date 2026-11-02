@@ -267,7 +267,7 @@ import {
   FolderOutline
 } from '@vicons/ionicons5'
 import { Medal } from '@vicons/fa'
-import VAvatar from '@/components/sidebar/VAvatar.vue'
+import { VAvatar } from '@/components/common'
 import { VTooltip, VFilterBtnGroup, VInput, VBtn } from '@/components/common'
 import type { FilterOption } from '@/components/common'
 import {

@@ -3,7 +3,7 @@ import { routes } from './router'
 import { isDshExpired, buildSessionExpireLocation } from '@/utils/flow'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
-import { normalizeLocale, loadLocaleForRouteAsync, i18n } from '@/i18n'
+import { isSupportedLocale, loadLocaleForRouteAsync, i18n } from '@/i18n'
 import { formatPageTitle } from '@/utils/title'
 
 const router = createRouter({
@@ -18,9 +18,8 @@ router.beforeEach(async (to) => {
   const appStore = useAppStore()
   if (to.query.lang) {
     const rawLang = Array.isArray(to.query.lang) ? to.query.lang[0] : to.query.lang
-    const normalized = normalizeLocale(rawLang)
-    if (normalized && normalized !== appStore.locale) {
-      appStore.setLocale(normalized)
+    if (isSupportedLocale(rawLang) && rawLang !== appStore.locale) {
+      appStore.setLocale(rawLang)
     }
   }
 

@@ -162,7 +162,7 @@ import { IosArrowForward } from '@vicons/ionicons4'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import type { SupportedLocale } from '@/i18n'
-import VCard from './VCard.vue'
+import { VCard } from '@/components/common'
 import VFeedback from './VFeedback.vue'
 import type { VSettingCardProps } from './types'
 

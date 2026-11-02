@@ -42,7 +42,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import AppFooter from '@/components/common/Footer.vue'
+import { AppFooter } from '@/layouts'
 
 defineOptions({
   name: 'NotFoundView'

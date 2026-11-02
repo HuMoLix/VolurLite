@@ -36,7 +36,7 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -331,7 +331,7 @@ public class AdminRiskServiceImpl implements AdminRiskService {
         long activeBanned = ipRuleRepository.countByRuleTypeAndStatus(IpRuleType.BLACKLIST, IpRuleStatus.ACTIVE);
         long totalWhitelisted = ipRuleRepository.countByRuleTypeAndStatus(IpRuleType.WHITELIST, IpRuleStatus.ACTIVE);
 
-        Instant startOfToday = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant startOfToday = LocalDate.now(ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant();
         long todayAutoBanned = ipRuleRepository.countBySourceTypeAndCreatedAtAfter(IpRuleSource.AUTO_TRIGGER, startOfToday);
         long todayManualBanned = ipRuleRepository.countBySourceTypeAndCreatedAtAfter(IpRuleSource.MANUAL, startOfToday);
 

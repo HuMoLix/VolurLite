@@ -316,7 +316,7 @@ import VInput from '@/components/common/VInput.vue'
 import VSelection from '@/components/common/VSelection.vue'
 import VSearch from '@/components/common/VSearch.vue'
 import VPagination from '@/components/common/VPagination.vue'
-import VAvatar from '@/components/sidebar/VAvatar.vue'
+import { VAvatar } from '@/components/common'
 import {
   getAdminUserStatisticsApi,
   getAdminUserListApi,

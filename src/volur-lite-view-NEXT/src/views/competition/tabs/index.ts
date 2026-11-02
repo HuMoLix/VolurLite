@@ -1,4 +1,4 @@
-export { default as CtfCompetitionChallengeListView } from './CtfCompetitionChallengeListView.vue'
-export { default as CtfCompetitionAnnouncementListView } from './CtfCompetitionAnnouncementListView.vue'
-export { default as CtfCompetitionScoreboardView } from './CtfCompetitionScoreboardView.vue'
-export { default as CtfCompetitionTeamView } from './CtfCompetitionTeamView.vue'
+export { default as CtfChallengeTab } from './CtfChallengeTab.vue'
+export { default as CtfNoticeTab } from './CtfNoticeTab.vue'
+export { default as CtfScoreboardTab } from './CtfScoreboardTab.vue'
+export { default as CtfTeamTab } from './CtfTeamTab.vue'

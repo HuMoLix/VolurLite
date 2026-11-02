@@ -79,7 +79,7 @@ import { useI18n } from 'vue-i18n'
 import { NIcon } from 'naive-ui'
 import { HourglassOutline } from '@vicons/ionicons5'
 import { VBtn } from '@/components/common'
-import VAvatar from '@/components/sidebar/VAvatar.vue'
+import { VAvatar } from '@/components/common'
 import VWriteupModal from './VWriteupModal.vue'
 import type { CompetitionDetailVO, MyTeamInfoVO } from '@/types/competition'
 

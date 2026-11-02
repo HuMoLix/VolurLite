@@ -147,7 +147,7 @@ import { NButton } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { useUserStore } from '@/store/modules/user'
-import { probeAccountChooserApi, removeAccountChooserApi } from '@/api/auth'
+import { getAccountChooserApi, removeAccountChooserApi } from '@/api/auth'
 import type { AccountChooserItemVO } from '@/types/auth/flow'
 import { AuthCardShell } from '@/components/auth'
 import { useFormError } from '@/composables/useFormError'
@@ -202,7 +202,7 @@ async function loadAndProbeAccounts(): Promise<void> {
   }))
 
   try {
-    const probeRes = await probeAccountChooserApi({
+    const probeRes = await getAccountChooserApi({
       identifiers: cached.map((c) => c.identifier)
     })
     if (probeRes.data?.accounts && probeRes.data.accounts.length > 0) {

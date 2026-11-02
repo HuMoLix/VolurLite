@@ -105,7 +105,7 @@ class SigninServiceImplTest {
     }
 
     @Test
-    void probeAccounts_withExistingAndNonExistingUsers_shouldReturnStatusAndDetails() {
+    void getAccounts_withExistingAndNonExistingUsers_shouldReturnStatusAndDetails() {
         AccountChooserProbeRequestDTO request = new AccountChooserProbeRequestDTO(List.of("alice", "unknown"));
 
         User alice = new User();
@@ -121,7 +121,7 @@ class SigninServiceImplTest {
         given(userRepository.findByEmail("unknown")).willReturn(Optional.empty());
         given(userProfileRepository.findById(101L)).willReturn(Optional.of(profile));
 
-        AccountChooserProbeResponseVO response = signinService.probeAccounts(request);
+        AccountChooserProbeResponseVO response = signinService.getAccounts(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(2, response.getAccounts().size());
@@ -130,6 +130,14 @@ class SigninServiceImplTest {
         Assertions.assertEquals("SIGNED_OUT", response.getAccounts().get(0).getSessionStatus());
         Assertions.assertEquals("unknown", response.getAccounts().get(1).getUsername());
         Assertions.assertEquals("SIGNED_OUT", response.getAccounts().get(1).getSessionStatus());
+    }
+
+    @Test
+    void getAccounts_withoutParams_shouldReturnEmptyAccountsWhenUnauthenticated() {
+        AccountChooserProbeResponseVO response = signinService.getAccounts();
+
+        Assertions.assertNotNull(response);
+        Assertions.assertTrue(response.getAccounts().isEmpty());
     }
 
     @Test

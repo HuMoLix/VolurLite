@@ -10,7 +10,11 @@ import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 
 public interface SigninService {
 
-    AccountChooserProbeResponseVO probeAccounts(AccountChooserProbeRequestDTO request);
+    AccountChooserProbeResponseVO getAccounts(AccountChooserProbeRequestDTO request);
+
+    default AccountChooserProbeResponseVO getAccounts() {
+        return getAccounts(new AccountChooserProbeRequestDTO());
+    }
 
     SignInFlowResponseVO selectAccount(AccountChooserSelectRequestDTO request);
 

@@ -16,7 +16,7 @@
       <div class="progress-bar-secondary" />
     </div>
 
-    <div class="max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 flex-1 flex flex-col justify-center">
+    <ContainerLayout max-width="4xl" padding="normal" content-class="justify-center">
       <section class="rounded-2xl sm:rounded-3xl p-6 sm:p-8 bg-white dark:bg-google-surface-darkCard border border-google-border-light dark:border-google-border-dark shadow-sm transition-colors space-y-6">
         <div class="flex items-start gap-4">
           <div class="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-google-blue dark:text-google-blue-dark border border-blue-100 dark:border-blue-900/50">
@@ -218,7 +218,7 @@
           </div>
         </div>
       </section>
-    </div>
+    </ContainerLayout>
   </CompetitionLayout>
 </template>
 
@@ -238,7 +238,7 @@ import {
 } from '@vicons/ionicons5'
 import { useUserStore } from '@/store/modules/user'
 import { useProctorStore } from '@/store/modules/proctor'
-import CompetitionLayout from '@/components/layouts/CompetitionLayout.vue'
+import { CompetitionLayout, ContainerLayout } from '@/layouts'
 import { VBtn } from '@/components/common'
 import {
   getCompetitionByIdApi,

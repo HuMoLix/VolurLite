@@ -21,7 +21,8 @@ const zhCnCaptcha = {
 
 const localeModules = import.meta.glob(['../locales/**/*.json', '!../locales/zh-CN/**/*.json', '!../locales/zh-CN/*.json'])
 
-export type SupportedLocale = 'zh-CN' | 'zh-TW' | 'en-US'
+export const SUPPORTED_LOCALES = ['zh-CN', 'zh-TW', 'en-US'] as const
+export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
 export type LocaleNamespace = 'common' | 'auth' | 'captcha' | 'admin' | 'competition' | 'all'
 
 export const DEFAULT_LOCALE: SupportedLocale = 'zh-CN'
@@ -37,41 +38,16 @@ const loadedPaths = new Set<string>([
   '../locales/zh-CN/admin.json'
 ])
 
-export function normalizeLocale(val: unknown): SupportedLocale | null {
-  if (typeof val !== 'string') return null
-  const cleaned = val.trim().toLowerCase().replace('_', '-')
-  if (cleaned === 'zh-cn' || cleaned === 'zh') {
-    return 'zh-CN'
-  }
-  if (cleaned === 'zh-tw' || cleaned === 'zh-hk' || cleaned === 'zh-mo') {
-    return 'zh-TW'
-  }
-  if (cleaned === 'en-us' || cleaned === 'en' || cleaned === 'en-gb') {
-    return 'en-US'
-  }
-  return null
-}
-
-export function toUrlLang(locale: SupportedLocale): string {
-  switch (locale) {
-    case 'zh-TW':
-      return 'zh-tw'
-    case 'en-US':
-      return 'en-us'
-    case 'zh-CN':
-    default:
-      return 'zh-cn'
-  }
+export function isSupportedLocale(val: unknown): val is SupportedLocale {
+  return typeof val === 'string' && (SUPPORTED_LOCALES as readonly string[]).includes(val)
 }
 
 export function resolveLocale(urlLang?: unknown, storeLocale?: unknown): SupportedLocale {
-  const fromUrl = normalizeLocale(urlLang)
-  if (fromUrl) {
-    return fromUrl
+  if (isSupportedLocale(urlLang)) {
+    return urlLang
   }
-  const fromStore = normalizeLocale(storeLocale)
-  if (fromStore) {
-    return fromStore
+  if (isSupportedLocale(storeLocale)) {
+    return storeLocale
   }
   return DEFAULT_LOCALE
 }

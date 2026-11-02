@@ -49,10 +49,10 @@ export function submitSignInIdentifierApi(
   return post<SignInFlowResponseVO>('/auth/signin/identifier', data, { skipToast: true })
 }
 
-export function probeAccountChooserApi(
-  data: AccountChooserProbeRequestDTO
+export function getAccountChooserApi(
+  params?: AccountChooserProbeRequestDTO
 ): Promise<ApiResponse<AccountChooserProbeResponseVO>> {
-  return post<AccountChooserProbeResponseVO>('/auth/signin/accountchooser/probe', data, { skipToast: true })
+  return get<AccountChooserProbeResponseVO>('/auth/signin/accountchooser', { params, skipToast: true })
 }
 
 export function selectAccountChooserApi(

@@ -17,7 +17,7 @@ RUN npm run build
 
 FROM nginx:alpine
 
-ENV TZ=Asia/Shanghai
+ENV TZ=UTC
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 

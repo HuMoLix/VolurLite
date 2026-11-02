@@ -27,13 +27,13 @@ public class DockerRegistryClient {
 
     private final SystemSettingService systemSettingService;
 
-    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.internal-url:${VOLUR_CONTAINER_REGISTRY_INTERNAL_URL:http://volur-registry:5000}}")
+    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.internal-url}")
     private String registryInternalUrl;
 
-    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.public-port:${VOLUR_CONTAINER_REGISTRY_PUBLIC_PORT:5000}}")
+    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.public-port}")
     private int registryPublicPort;
 
-    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.enabled:${VOLUR_CONTAINER_REGISTRY_ENABLED:true}}")
+    @org.springframework.beans.factory.annotation.Value("${volur.container.registry.enabled:true}")
     private boolean registryEnabled;
 
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(6);

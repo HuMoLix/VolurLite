@@ -55,7 +55,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NInput, NButton } from 'naive-ui'
-import VDrawer from './VDrawer.vue'
+import { VDrawer } from '@/components/common'
 import type { VFeedbackProps } from './types'
 
 defineOptions({

@@ -97,18 +97,40 @@
           name="menu"
           :collapsed="isCollapsed"
           :options="computedMenuOptions"
+          :groups="computedNavGroups"
           :value="currentValue"
         >
-          <n-menu
-            :collapsed="isCollapsed"
-            :collapsed-width="Number(collapsedWidth)"
-            :collapsed-icon-size="collapsedIconSize"
-            :options="computedMenuOptions"
-            :value="currentValue"
-            :accordion="accordion"
-            class="v-menu"
-            @update:value="handleMenuSelect"
-          />
+          <div class="sidebar-nav-groups">
+            <div
+              v-for="(group, groupIndex) in computedNavGroups"
+              :key="group.key"
+              class="sidebar-nav-group"
+            >
+              <div
+                v-if="isCollapsed && groupIndex > 0"
+                class="sidebar-group-divider"
+                role="separator"
+              />
+
+              <div
+                v-if="!isCollapsed && (group.title || group.titleKey || group.label)"
+                class="sidebar-group-title"
+              >
+                <span>{{ resolveGroupTitle(group) }}</span>
+              </div>
+
+              <n-menu
+                :collapsed="isCollapsed"
+                :collapsed-width="Number(collapsedWidth)"
+                :collapsed-icon-size="collapsedIconSize"
+                :options="group.options"
+                :value="currentValue"
+                :accordion="accordion"
+                class="v-menu"
+                @update:value="handleMenuSelect"
+              />
+            </div>
+          </div>
         </slot>
 
         <slot name="menu-bottom" />
@@ -579,7 +601,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h, type VNodeChild } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -592,7 +614,10 @@ import {
 } from 'naive-ui'
 import {
   TrophyOutline,
+  RocketOutline,
+  SchoolOutline,
   MegaphoneOutline,
+  CubeOutline,
   MenuOutline,
   AddOutline,
   SearchOutline,
@@ -603,18 +628,19 @@ import {
   AppsSharp,
   ArrowBackOutline
 } from '@vicons/ionicons5'
-import { MenuOpenOutlined } from '@vicons/material'
+import { MenuOpenOutlined, BubbleChartOutlined } from '@vicons/material'
+import { BulbOutlined } from '@vicons/antd'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { useNotificationStore } from '@/store/modules/notification'
 import type { CompetitionSummaryVO } from '@/types/competition'
 import VSearchTool from './VSearchTool.vue'
-import VAvatar from './VAvatar.vue'
+import { VAvatar } from '@/components/common'
 import VNotice from './VNotice.vue'
 import VUserCard from './VUserCard.vue'
 import VSettingCard from './VSettingCard.vue'
 import VTooltip from '@/components/common/VTooltip.vue'
-import type { VSideBarProps } from './types'
+import type { VSideBarProps, SidebarNavItem, VSideBarGroup } from './types'
 
 defineOptions({
   name: 'VSideBar'
@@ -628,7 +654,9 @@ const props = withDefaults(defineProps<VSideBarProps>(), {
   bordered: true,
   collapseMode: 'width',
   items: undefined,
+  groups: undefined,
   menuOptions: undefined,
+  menuGroups: undefined,
   value: undefined,
   accordion: false,
   collapsedIconSize: 22,
@@ -707,7 +735,7 @@ const modelCollapsed = defineModel<boolean>('collapsed')
 const modelValue = defineModel<string>('value')
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, te } = useI18n()
 const appStore = useAppStore()
 const userStore = useUserStore()
 const notificationStore = useNotificationStore()
@@ -776,24 +804,144 @@ const primaryActionIconComponent = computed(() => {
   return props.primaryActionIcon || AddOutline
 })
 
-const defaultMenuOptions = computed<MenuOption[]>(() => [
+const defaultNavGroups = computed<VSideBarGroup[]>(() => [
   {
-    label: () => t('common.competitions'),
-    key: 'competitions',
-    icon: () => h(NIcon, null, { default: () => h(TrophyOutline) })
+    key: 'explore',
+    titleKey: 'common.nav_group_explore',
+    title: 'EXPLORE',
+    options: [
+      {
+        label: () => (te('common.competitions') ? t('common.competitions') : '赛事大厅'),
+        key: 'competitions',
+        icon: () => h(NIcon, null, { default: () => h(TrophyOutline) })
+      },
+      {
+        label: () => (te('common.challenges') ? t('common.challenges') : '题目训练'),
+        key: 'challenges',
+        icon: () => h(NIcon, null, { default: () => h(RocketOutline) })
+      },
+      {
+        label: () => (te('common.announcements') ? t('common.announcements') : '公告中心'),
+        key: 'announcements',
+        icon: () => h(NIcon, null, { default: () => h(MegaphoneOutline) })
+      }
+    ]
   },
   {
-    label: () => t('common.announcements'),
-    key: 'announcements',
-    icon: () => h(NIcon, null, { default: () => h(MegaphoneOutline) })
+    key: 'learn',
+    titleKey: 'common.nav_group_learn',
+    title: 'LEARN',
+    options: [
+      {
+        label: () => (te('common.learning') ? t('common.learning') : '学习中心'),
+        key: 'learning',
+        icon: () => h(NIcon, null, { default: () => h(SchoolOutline) })
+      }
+    ]
+  },
+  {
+    key: 'more',
+    titleKey: 'common.nav_group_more',
+    title: 'MORE',
+    options: [
+      {
+        label: () => (te('common.resources') ? t('common.resources') : '资源中心'),
+        key: 'resources',
+        icon: () => h(NIcon, null, { default: () => h(CubeOutline) })
+      },
+      {
+        label: () => (te('common.experimental') ? t('common.experimental') : '实验性功能'),
+        key: 'experimental',
+        icon: () => h(NIcon, null, { default: () => h(BubbleChartOutlined) })
+      },
+      {
+        label: () => (te('common.help_center') ? t('common.help_center') : '帮助中心'),
+        key: 'help',
+        icon: () => h(NIcon, null, { default: () => h(BulbOutlined) })
+      }
+    ]
   }
 ])
 
-const computedMenuOptions = computed<MenuOption[]>(() => {
-  if (props.menuOptions && props.menuOptions.length > 0) {
-    return props.menuOptions
+function resolveGroupTitle(group: VSideBarGroup): string {
+  if (group.titleKey && te(group.titleKey)) {
+    return t(group.titleKey)
   }
-  return defaultMenuOptions.value
+  if (typeof group.label === 'function') {
+    const res = group.label()
+    return typeof res === 'string' ? res : ''
+  }
+  if (group.title) {
+    return group.title
+  }
+  if (group.titleKey) {
+    return t(group.titleKey)
+  }
+  if (typeof group.label === 'string') {
+    return group.label
+  }
+  return ''
+}
+
+function transformNavItemsToMenuOptions(navItems: SidebarNavItem[]): MenuOption[] {
+  return navItems.map((item) => {
+    const option: MenuOption & { route?: string } = {
+      key: item.key,
+      label: () => (item.titleKey && te(item.titleKey) ? t(item.titleKey) : (typeof item.label === 'function' ? item.label() : item.label || (item.titleKey ? t(item.titleKey) : ''))),
+      icon: typeof item.icon === 'function'
+        ? (item.icon as () => VNodeChild)
+        : (item.icon ? () => h(NIcon, null, { default: () => h(item.icon as any) }) : undefined),
+      route: item.route
+    }
+    if (item.children && item.children.length > 0) {
+      option.children = transformNavItemsToMenuOptions(item.children)
+    }
+    return option
+  })
+}
+
+const computedNavGroups = computed<VSideBarGroup[]>(() => {
+  if (props.menuGroups && props.menuGroups.length > 0) {
+    return props.menuGroups
+  }
+  if (props.groups && props.groups.length > 0) {
+    return props.groups.map((g) => ({
+      key: g.key,
+      title: g.title,
+      titleKey: g.titleKey,
+      label: g.label,
+      options: transformNavItemsToMenuOptions(g.items)
+    }))
+  }
+  if (props.menuOptions && props.menuOptions.length > 0) {
+    const hasGroup = props.menuOptions.some(opt => opt.type === 'group')
+    if (hasGroup) {
+      return props.menuOptions.map((opt, idx) => ({
+        key: String(opt.key || `group-${idx}`),
+        title: typeof opt.label === 'function' ? String(opt.label()) : String(opt.label || ''),
+        options: (opt.children as MenuOption[]) || []
+      }))
+    }
+    return [
+      {
+        key: 'default',
+        options: props.menuOptions
+      }
+    ]
+  }
+  if (props.items && props.items.length > 0) {
+    return [
+      {
+        key: 'default',
+        options: transformNavItemsToMenuOptions(props.items)
+      }
+    ]
+  }
+  return defaultNavGroups.value
+})
+
+const computedMenuOptions = computed<MenuOption[]>(() => {
+  return computedNavGroups.value.flatMap(g => g.options)
 })
 
 const isLoggedIn = computed<boolean>(() => {
@@ -1282,6 +1430,8 @@ defineExpose({
   isSettingPopoverShow,
   isCollapsedSettingPopoverShow,
   unreadCount,
+  computedNavGroups,
+  computedMenuOptions,
   userTooltipText,
   userCardWidth,
   siderRef,
@@ -1357,6 +1507,47 @@ defineExpose({
       align-items: center;
       scrollbar-gutter: auto;
 
+      .sidebar-nav-groups {
+        align-items: center;
+        gap: 12px;
+        padding: 4px 0 16px;
+      }
+
+      .sidebar-nav-group {
+        align-items: center;
+        gap: 6px;
+
+        .sidebar-group-title {
+          display: none !important;
+        }
+
+        .sidebar-group-divider {
+          display: block;
+          width: 32px;
+          height: 1px;
+          margin: 0 auto;
+          background-color: #d7d8da;
+          flex-shrink: 0;
+        }
+
+        .v-menu {
+          width: 38px !important;
+          margin: 0 auto;
+          gap: 6px;
+
+          &.n-menu,
+          :deep(.n-menu) {
+            width: 38px !important;
+            gap: 6px;
+          }
+
+          :deep(.n-menu-item) {
+            width: 38px !important;
+            margin: 0 auto !important;
+          }
+        }
+      }
+
       .v-menu {
         width: 38px !important;
         margin: 0 auto;
@@ -1375,7 +1566,7 @@ defineExpose({
 
         :deep(.n-menu-item) {
           width: 38px !important;
-          margin: 6px auto;
+          margin: 0 auto !important;
           flex-shrink: 0 !important;
 
           .n-menu-item-content {
@@ -1661,6 +1852,49 @@ defineExpose({
       }
     }
 
+    .sidebar-nav-groups {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 4px 0 16px;
+      user-select: none;
+    }
+
+    .sidebar-nav-group {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      .sidebar-group-divider {
+        display: none;
+      }
+
+      .sidebar-group-title {
+        height: 20px;
+        line-height: 20px;
+        padding: 0 12px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #5f6368;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-sizing: border-box;
+      }
+
+      .v-menu {
+        padding: 0;
+      }
+    }
+
     .v-menu {
       user-select: none;
       padding: 4px 0 16px;
@@ -1668,7 +1902,7 @@ defineExpose({
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
       overflow: visible !important;
       flex-shrink: 0 !important;
       height: auto !important;
@@ -1678,7 +1912,7 @@ defineExpose({
       :deep(.n-menu) {
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 6px;
         width: 100%;
         overflow: visible !important;
         flex-shrink: 0 !important;
@@ -1687,7 +1921,7 @@ defineExpose({
       }
 
       :deep(.n-menu-item) {
-        margin: 2px 0;
+        margin: 0;
         height: 40px;
         width: 100%;
         border-radius: 16px;
@@ -2250,6 +2484,16 @@ html.dark {
 
         &:hover {
           background: rgba(255, 255, 255, 0.35);
+        }
+      }
+
+      .sidebar-nav-group {
+        .sidebar-group-title {
+          color: #9aa0a6;
+        }
+
+        .sidebar-group-divider {
+          background-color: #3c4043;
         }
       }
 

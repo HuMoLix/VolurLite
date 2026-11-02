@@ -30,7 +30,7 @@
     <form v-else class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleNext">
       <div class="space-y-3">
         <div>
-          <GoogleTextField
+          <VFieldInput
             v-model="email"
             type="email"
             :label="t('auth.email_label')"
@@ -64,7 +64,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import GoogleTextField from '@/components/google/GoogleTextField.vue'
+import { VFieldInput } from '@/volur-ui'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { submitRecoveryEmailApi } from '@/api/auth'
 import { AuthCardShell, AuthActionBar } from '@/components/auth'

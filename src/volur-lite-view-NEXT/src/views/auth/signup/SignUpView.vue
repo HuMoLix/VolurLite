@@ -20,13 +20,13 @@ import { useI18n } from 'vue-i18n'
 import { useSignupFlowStore } from '@/store/modules/flow'
 import { AuthCardShell, AuthAccountChip } from '@/components/auth'
 import {
-  NameStepView,
-  EmailStepView,
-  EtotpChallengeStepView,
-  PasswordStepView,
-  OptionsChallengeStepView
+  NameStep,
+  EmailStep,
+  EtotpChallengeStep,
+  PasswordStep,
+  OptionsChallengeStep
 } from './steps'
-import { PasskeyProtectView, TotpProtectView } from './protect'
+import { PasskeyProtectStep, TotpProtectStep } from './protect'
 
 defineOptions({
   name: 'SignUpView'
@@ -45,13 +45,13 @@ const stepParam = computed(() => {
 
 const activeStepComponent = computed(() => {
   const s = stepParam.value
-  if (s === 'email') return EmailStepView
-  if (s === 'challenge/etotp' || s === 'etotp') return EtotpChallengeStepView
-  if (s === 'password') return PasswordStepView
-  if (s === 'pt/options' || s === 'challenge/options' || s === 'options') return OptionsChallengeStepView
-  if (s === 'pt/pk' || s === 'protect/pk' || s === 'pt/passkey') return PasskeyProtectView
-  if (s === 'pt/totp' || s === 'protect/totp' || s === 'pt/2fa') return TotpProtectView
-  return NameStepView
+  if (s === 'email') return EmailStep
+  if (s === 'challenge/etotp' || s === 'etotp') return EtotpChallengeStep
+  if (s === 'password') return PasswordStep
+  if (s === 'pt/options' || s === 'challenge/options' || s === 'options') return OptionsChallengeStep
+  if (s === 'pt/pk' || s === 'protect/pk' || s === 'pt/passkey') return PasskeyProtectStep
+  if (s === 'pt/totp' || s === 'protect/totp' || s === 'pt/2fa') return TotpProtectStep
+  return NameStep
 })
 
 const showAccountChip = computed(() => {

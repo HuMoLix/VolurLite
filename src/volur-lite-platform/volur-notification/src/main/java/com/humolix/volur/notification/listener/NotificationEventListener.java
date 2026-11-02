@@ -14,7 +14,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
@@ -24,7 +24,7 @@ import java.util.Map;
 public class NotificationEventListener {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.systemDefault());
+            .withZone(ZoneOffset.UTC);
 
     private final NotificationService notificationService;
     private final VolurThreadManager volurThreadManager;

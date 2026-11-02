@@ -5,7 +5,7 @@
   >
     <div class="flex flex-col">
       <div>
-        <GoogleTextField
+        <VFieldInput
           v-model="identifier"
           :label="t('auth.signin.identifier_label')"
           autocomplete="username"
@@ -61,7 +61,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import GoogleTextField from '@/components/google/GoogleTextField.vue'
+import { VFieldInput } from '@/volur-ui'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { useUserStore } from '@/store/modules/user'
 import { AuthCardShell, AuthActionBar } from '@/components/auth'

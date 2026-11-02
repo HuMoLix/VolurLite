@@ -114,8 +114,7 @@ import { useUserStore } from '@/store/modules/user'
 import { logoutApi } from '@/api/auth'
 import { removeCookie } from '@/utils/cookie'
 import VTooltip from '@/components/common/VTooltip.vue'
-import VCard from './VCard.vue'
-import VAvatar from './VAvatar.vue'
+import { VCard, VAvatar } from '@/components/common'
 import type { VUserCardProps } from './types'
 
 defineOptions({

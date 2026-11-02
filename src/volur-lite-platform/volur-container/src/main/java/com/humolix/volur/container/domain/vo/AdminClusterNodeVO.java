@@ -1,6 +1,5 @@
 package com.humolix.volur.container.domain.vo;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -63,10 +62,8 @@ public class AdminClusterNodeVO {
 
     private String clusterNodeId;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Instant joinTime;
 
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Instant lastHeartbeat;
 
 }

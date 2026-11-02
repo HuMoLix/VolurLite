@@ -1,13 +1,14 @@
 package com.humolix.volur.container.flag.resolver;
 
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.humolix.volur.container.flag.DynamicFlagContext;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Set;
 
 @Component
@@ -62,7 +63,7 @@ public class RandomPlaceholderResolver implements FlagPlaceholderResolver {
             case "RANDOM_NUM_6" -> RandomUtil.randomNumbers(6);
             case "TIMESTAMP" -> String.valueOf(System.currentTimeMillis());
             case "TIMESTAMP_SEC" -> String.valueOf(System.currentTimeMillis() / 1000);
-            case "DATE", "YYYYMMDD" -> DateUtil.format(new Date(), "yyyyMMdd");
+            case "DATE", "YYYYMMDD" -> DateTimeFormatter.BASIC_ISO_DATE.format(LocalDate.now(ZoneOffset.UTC));
             default -> resolveDynamic(upper);
         };
     }

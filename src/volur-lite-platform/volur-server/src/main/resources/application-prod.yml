@@ -20,9 +20,6 @@ spring:
           order_inserts: true
           order_updates: true
 
-  mongodb:
-    uri: mongodb://${VOLUR_MONGO_HOST:localhost}:27017/volur_db
-
 logging:
   level:
     root: INFO

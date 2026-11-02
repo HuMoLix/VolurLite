@@ -1,5 +1,5 @@
 <template>
-  <div class="competition-detail-view flex-1 flex flex-col min-w-0 px-4 sm:px-6 lg:px-8 py-8 sm:py-12 transition-colors">
+  <div class="competition-detail-view flex-1 flex flex-col min-w-0 transition-colors">
     <div
       v-if="loading"
       class="fixed top-0 left-0 right-0 h-1 z-50 overflow-hidden bg-blue-100 dark:bg-blue-950"
@@ -8,7 +8,7 @@
       <div class="progress-bar-secondary" />
     </div>
 
-    <div class="flex-1 flex flex-col w-full max-w-7xl mx-auto space-y-6">
+    <ContainerLayout max-width="7xl" padding="large">
       <nav class="flex items-center gap-3.5 flex-wrap min-w-0">
         <button
           type="button"
@@ -390,10 +390,12 @@
 
       </section>
 
-      <footer class="mt-auto pt-8">
-        <AppFooter />
-      </footer>
-    </div>
+      <template #footer>
+        <div class="pt-8">
+          <AppFooter />
+        </div>
+      </template>
+    </ContainerLayout>
 
     <TeamFormModal
       v-model:show="teamFormModalVisible"
@@ -450,8 +452,8 @@ import type {
 import { useUserStore } from '@/store/modules/user'
 import { formatBannerUrl } from '@/utils/imageUrl'
 import { renderMarkdown } from '@/utils/markdown'
-import AppFooter from '@/components/common/Footer.vue'
-import VAvatar from '@/components/sidebar/VAvatar.vue'
+import { AppFooter, ContainerLayout } from '@/layouts'
+import { VAvatar } from '@/components/common'
 import { VBtn } from '@/components/common'
 import TeamFormModal from './components/TeamFormModal.vue'
 import TeamInvitationsModal from './components/TeamInvitationsModal.vue'

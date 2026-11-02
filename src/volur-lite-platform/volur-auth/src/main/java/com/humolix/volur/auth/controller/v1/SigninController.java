@@ -12,6 +12,7 @@ import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,12 +25,11 @@ public class SigninController {
 
     private final SigninService signinService;
 
-    @Syslog(module = "AUTH", value = "探测账号选择器状态", logType = "AUTH", recordParams = false)
-    @PostMapping("/accountchooser/probe")
-    public ApiResponseEntity<AccountChooserProbeResponseVO> probeAccounts(
-            @Valid @RequestBody AccountChooserProbeRequestDTO request) {
-        AccountChooserProbeResponseVO response = signinService.probeAccounts(request);
-        return ApiResponseEntity.ok("账号状态探测成功", response);
+    @GetMapping("/accountchooser")
+    public ApiResponseEntity<AccountChooserProbeResponseVO> getAccounts(
+            @Valid AccountChooserProbeRequestDTO request) {
+        AccountChooserProbeResponseVO response = signinService.getAccounts(request);
+        return ApiResponseEntity.ok("获取账号列表成功", response);
     }
 
     @Syslog(module = "AUTH", value = "选择账号推进认证流", logType = "AUTH", recordParams = false)

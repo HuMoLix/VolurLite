@@ -8,7 +8,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { AuthCardShell } from '@/components/auth'
-import { RecaptchaChallengeView } from './challenge'
+import { RecaptchaChallengePanel } from './challenge'
 
 defineOptions({
   name: 'RecoveryChallengeView'
@@ -25,8 +25,8 @@ const challengeType = computed(() => {
 const activeChallengeComponent = computed(() => {
   const type = challengeType.value
   if (type === 'recaptcha') {
-    return RecaptchaChallengeView
+    return RecaptchaChallengePanel
   }
-  return RecaptchaChallengeView
+  return RecaptchaChallengePanel
 })
 </script>

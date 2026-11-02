@@ -18,13 +18,13 @@ import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { AuthCardShell, AuthAccountChip } from '@/components/auth'
 import {
-  PwdChallengeView,
-  RecaptchaChallengeView,
-  PassKeyChallengeView,
-  EmailotpChallengeView,
-  SmsotpChallengeView,
-  RejectView,
-  SelectionView
+  PwdChallengePanel,
+  RecaptchaChallengePanel,
+  PasskeyChallengePanel,
+  EmailOtpChallengePanel,
+  SmsOtpChallengePanel,
+  RejectPanel,
+  SelectionPanel
 } from './challenge'
 
 defineOptions({
@@ -45,27 +45,27 @@ const challengeType = computed(() => {
 const activeChallengeComponent = computed(() => {
   const type = challengeType.value
   if (type === 'rejected' || type === 'reject') {
-    return RejectView
+    return RejectPanel
   }
   if (type === 'selection') {
-    return SelectionView
+    return SelectionPanel
   }
   if (type === 'pwd' || type === 'password') {
-    return PwdChallengeView
+    return PwdChallengePanel
   }
   if (type === 'recaptcha') {
-    return RecaptchaChallengeView
+    return RecaptchaChallengePanel
   }
   if (type === 'passkey' || type === 'pk' || type === 'device') {
-    return PassKeyChallengeView
+    return PasskeyChallengePanel
   }
   if (type === 'emailotp' || type === 'etotp' || type === 'email') {
-    return EmailotpChallengeView
+    return EmailOtpChallengePanel
   }
   if (type === 'smsotp' || type === 'sms' || type === 'totp') {
-    return SmsotpChallengeView
+    return SmsOtpChallengePanel
   }
-  return PwdChallengeView
+  return PwdChallengePanel
 })
 
 const displayIdentifier = computed(() => {

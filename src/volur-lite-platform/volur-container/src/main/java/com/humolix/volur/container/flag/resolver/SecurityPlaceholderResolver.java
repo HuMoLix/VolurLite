@@ -9,9 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Set;
 
-/**
- * 安全摘要、防作弊水印与哈希签名占位符解析器
- */
 @Component
 @Order(30)
 public class SecurityPlaceholderResolver implements FlagPlaceholderResolver {
@@ -26,7 +23,7 @@ public class SecurityPlaceholderResolver implements FlagPlaceholderResolver {
             "WATERMARK"
     );
 
-    @Value("${volur.jwt.secret:VolurLitePlatformSecretKeyForJwtAuthentication2026SecureString!}")
+    @Value("${volur.jwt.secret}")
     private String systemSecret;
 
     @Override
@@ -53,7 +50,6 @@ public class SecurityPlaceholderResolver implements FlagPlaceholderResolver {
             case "MD5_32" -> SecureUtil.md5(payload);
             case "SHA256" -> SecureUtil.sha256(payload).substring(0, 32);
             case "SIGN", "HMAC", "WATERMARK" -> {
-                // HMAC-MD5 防作弊水印：结合系统密钥与用户/题目标识，生成 12 位可溯源水印
                 String hmac = SecureUtil.hmacMd5(systemSecret).digestHex(userIdStr + ":" + challengeIdStr + ":" + teamIdStr);
                 yield hmac.substring(0, 12);
             }

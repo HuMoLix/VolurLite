@@ -17,56 +17,58 @@
       <div class="progress-bar-secondary" />
     </div>
 
-    <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 flex-1 flex flex-col">
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-google-border-light/80 dark:border-google-border-dark/80 pb-3">
-        <div class="shrink-0">
+    <ContainerLayout max-width="7xl" padding="normal">
+      <TabLayout>
+        <template #tabs>
           <VFilterBtnGroup
             v-model="activeTab"
             :options="tabOptions"
           />
-        </div>
-        <div class="flex-1 min-w-0 lg:max-w-xl xl:max-w-2xl">
-          <VCompetitionNotification
-            :competition-id="competition?.id"
-          />
-        </div>
-      </div>
+        </template>
+        <template #extra>
+          <div class="w-full lg:max-w-xl xl:max-w-2xl">
+            <VCompetitionNotification
+              :competition-id="competition?.id"
+            />
+          </div>
+        </template>
 
-      <CtfCompetitionChallengeListView
-        v-if="activeTab === 'challenges'"
-        :competition="competition"
-        :challenges="challenges"
-        :my-team="myTeam"
-        :scoreboard="scoreboard"
-        @flag-solved="handleFlagSolved"
-        @time-up="handleTimeUp"
-      />
+        <CtfChallengeTab
+          v-if="activeTab === 'challenges'"
+          :competition="competition"
+          :challenges="challenges"
+          :my-team="myTeam"
+          :scoreboard="scoreboard"
+          @flag-solved="handleFlagSolved"
+          @time-up="handleTimeUp"
+        />
 
-      <CtfCompetitionAnnouncementListView
-        v-else-if="activeTab === 'announcements'"
-        :announcements="announcements"
-      />
+        <CtfNoticeTab
+          v-else-if="activeTab === 'announcements'"
+          :announcements="announcements"
+        />
 
-      <CtfCompetitionScoreboardView
-        v-else-if="activeTab === 'scoreboard'"
-        :scoreboard="scoreboard"
-        :my-team="myTeam"
-        :challenges="challenges"
-        :competition="competition"
-        @select-team="handleSelectTeam"
-      />
+        <CtfScoreboardTab
+          v-else-if="activeTab === 'scoreboard'"
+          :scoreboard="scoreboard"
+          :my-team="myTeam"
+          :challenges="challenges"
+          :competition="competition"
+          @select-team="handleSelectTeam"
+        />
 
-      <CtfCompetitionTeamView
-        v-else-if="activeTab === 'team'"
-        :competition="competition"
-        :my-team="myTeam"
-        :solved-challenges="solvedChallenges"
-        :my-team-score="myTeamScore"
-        :scoreboard="scoreboard"
-        :challenges="challenges"
-        :team-id="routeTeamId"
-      />
-    </div>
+        <CtfTeamTab
+          v-else-if="activeTab === 'team'"
+          :competition="competition"
+          :my-team="myTeam"
+          :solved-challenges="solvedChallenges"
+          :my-team-score="myTeamScore"
+          :scoreboard="scoreboard"
+          :challenges="challenges"
+          :team-id="routeTeamId"
+        />
+      </TabLayout>
+    </ContainerLayout>
   </CompetitionLayout>
 </template>
 
@@ -81,14 +83,14 @@ import {
   PeopleOutline,
   MegaphoneOutline
 } from '@vicons/ionicons5'
-import CompetitionLayout from '@/components/layouts/CompetitionLayout.vue'
+import { CompetitionLayout, ContainerLayout, TabLayout } from '@/layouts'
 import { VFilterBtnGroup } from '@/components/common'
 import { VCompetitionNotification } from './components'
 import {
-  CtfCompetitionChallengeListView,
-  CtfCompetitionAnnouncementListView,
-  CtfCompetitionScoreboardView,
-  CtfCompetitionTeamView
+  CtfChallengeTab,
+  CtfNoticeTab,
+  CtfScoreboardTab,
+  CtfTeamTab
 } from './tabs'
 import {
   getCompetitionByIdApi,

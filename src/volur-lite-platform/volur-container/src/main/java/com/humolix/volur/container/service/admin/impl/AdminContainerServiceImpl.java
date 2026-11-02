@@ -40,7 +40,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -171,8 +171,8 @@ public class AdminContainerServiceImpl implements AdminContainerService {
         ));
         long failed = instanceRepository.countByStatus(InstanceStartupStatus.FAILED);
 
-        Instant todayStart = LocalDate.now(ZoneId.systemDefault())
-                .atStartOfDay(ZoneId.systemDefault())
+        Instant todayStart = LocalDate.now(ZoneOffset.UTC)
+                .atStartOfDay(ZoneOffset.UTC)
                 .toInstant();
         long todayCreated = instanceRepository.countByCreatedAtAfter(todayStart);
 

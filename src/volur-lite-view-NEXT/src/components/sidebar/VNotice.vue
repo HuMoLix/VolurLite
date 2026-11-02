@@ -204,7 +204,7 @@ import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'
 import { useNotificationStore } from '@/store/modules/notification'
 import type { NotificationVO } from '@/types/notification'
-import VCard from './VCard.vue'
+import { VCard } from '@/components/common'
 import type { VNoticeProps } from './types'
 
 defineOptions({

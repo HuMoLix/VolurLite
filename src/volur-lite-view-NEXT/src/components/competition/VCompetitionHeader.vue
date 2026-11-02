@@ -176,8 +176,7 @@ import {
   PersonOutline,
   CheckmarkOutline
 } from '@vicons/ionicons5'
-import VAvatar from '@/components/sidebar/VAvatar.vue'
-import { VCard } from '@/components/sidebar'
+import { VAvatar, VCard } from '@/components/common'
 import { VTooltip } from '@/components/common'
 import { useAppStore } from '@/store/modules/app'
 import { useUserStore } from '@/store/modules/user'

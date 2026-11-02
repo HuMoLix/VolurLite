@@ -12,7 +12,6 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
 import tools.jackson.databind.ser.std.ToStringSerializer;
 
-import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -28,8 +27,7 @@ public class JacksonConfig {
 
         JsonMapper.Builder builder = JsonMapper.builder()
                 .addModule(longToStringModule)
-                .defaultDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .defaultTimeZone(TimeZone.getTimeZone("Asia/Shanghai"))
+                .defaultTimeZone(TimeZone.getTimeZone("UTC"))
                 .disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);

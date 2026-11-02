@@ -3,7 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 export const competitionRoutes: RouteRecordRaw[] = [
   {
     path: '/',
-    component: () => import('@/components/layouts/AppLayout.vue'),
+    component: () => import('@/layouts/primary/AppLayout.vue'),
     children: [
       {
         path: 'competitions',

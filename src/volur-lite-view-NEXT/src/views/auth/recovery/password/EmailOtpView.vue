@@ -6,7 +6,7 @@
     <form class="space-y-6 flex flex-col justify-between h-full" @submit.prevent="handleVerify">
       <div class="space-y-4">
         <div>
-          <GoogleTextField
+          <VFieldInput
             v-model="code"
             type="text"
             maxlength="6"
@@ -56,7 +56,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import GoogleTextField from '@/components/google/GoogleTextField.vue'
+import { VFieldInput } from '@/volur-ui'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { sendPasswordRecoveryEmailOtpApi, verifyPasswordRecoveryEmailOtpApi } from '@/api/auth'
 import { AuthCardShell, AuthActionBar } from '@/components/auth'

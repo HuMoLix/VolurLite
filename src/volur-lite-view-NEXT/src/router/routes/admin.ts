@@ -3,7 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 export const adminRoutes: RouteRecordRaw[] = [
   {
     path: '/admin',
-    component: () => import('@/components/layouts/AdminLayout.vue'),
+    component: () => import('@/layouts/primary/AdminLayout.vue'),
     redirect: '/admin/dashboard',
     meta: {
       requiredAuth: true,
@@ -169,7 +169,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: 'competitions/ctf/:id/edit',
         name: 'AdminCtfCompetitionEdit',
-        component: () => import('@/views/admin/competition/AdminCtfCompetitionEditView.vue'),
+        component: () => import('@/views/admin/competition/ctf/AdminCtfCompetitionEditView.vue'),
         meta: {
           title: 'CTF 竞赛运维',
           titleKey: 'admin.competitions.manage_title',
@@ -193,7 +193,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       {
         path: 'competitions/theory/:id/edit',
         name: 'AdminTheoryCompetitionEdit',
-        component: () => import('@/views/admin/competition/AdminTheoryCompetitionEditView.vue'),
+        component: () => import('@/views/admin/competition/theory/AdminTheoryCompetitionEditView.vue'),
         meta: {
           title: '理论竞赛运维',
           titleKey: 'admin.competitions.manage_title',

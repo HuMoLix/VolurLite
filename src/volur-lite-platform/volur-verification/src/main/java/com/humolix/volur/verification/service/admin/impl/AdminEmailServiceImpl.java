@@ -29,7 +29,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -95,7 +95,7 @@ public class AdminEmailServiceImpl implements AdminEmailService {
         long success = emailLogRepository.countByStatusIn(List.of("DELIVERED", "SENT", "SUCCESS"));
         long failed = emailLogRepository.countByStatusIn(List.of("FAILED", "BOUNCED", "COMPLAINED"));
 
-        Instant startOfToday = LocalDate.now(ZoneId.of("Asia/Shanghai")).atStartOfDay(ZoneId.of("Asia/Shanghai")).toInstant();
+        Instant startOfToday = LocalDate.now(ZoneOffset.UTC).atStartOfDay(ZoneOffset.UTC).toInstant();
         long today = emailLogRepository.countByCreatedAtAfter(startOfToday);
 
         return AdminEmailStatisticsVO.builder()

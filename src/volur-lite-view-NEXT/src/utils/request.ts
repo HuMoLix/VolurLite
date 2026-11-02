@@ -18,6 +18,9 @@ const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 15000,
   withCredentials: true,
+  paramsSerializer: {
+    indexes: null
+  },
   headers: {
     'Content-Type': 'application/json;charset=UTF-8'
   }

@@ -3,7 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 export const authRoutes: RouteRecordRaw[] = [
   {
     path: '/v1',
-    component: () => import('@/components/layouts/auth/AuthLayout.vue'),
+    component: () => import('@/layouts/primary/AuthLayout.vue'),
     children: [
       {
         path: 'signin',
@@ -184,7 +184,7 @@ export const authRoutes: RouteRecordRaw[] = [
       {
         path: 'info/sessionexpire',
         name: 'V1SessionExpire',
-        component: () => import('@/views/auth/sessionExpireView.vue'),
+        component: () => import('@/views/auth/SessionExpireView.vue'),
         meta: {
           title: '会话已超时 - Volur',
           titleKey: 'auth.meta_title_sessionexpire',

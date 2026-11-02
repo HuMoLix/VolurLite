@@ -69,7 +69,7 @@ public class SigninServiceImpl implements SigninService {
     private static final long IDENTIFIER_RECAPTCHA_THRESHOLD = 5L;
 
     @Override
-    public AccountChooserProbeResponseVO probeAccounts(AccountChooserProbeRequestDTO request) {
+    public AccountChooserProbeResponseVO getAccounts(AccountChooserProbeRequestDTO request) {
         String currentUsername = SecurityUtils.getCurrentUsernameSafe();
         boolean authenticated = SecurityUtils.isAuthenticated();
 
@@ -153,6 +153,11 @@ public class SigninServiceImpl implements SigninService {
         return AccountChooserProbeResponseVO.builder()
                 .accounts(list)
                 .build();
+    }
+
+    @Override
+    public AccountChooserProbeResponseVO getAccounts() {
+        return getAccounts(new AccountChooserProbeRequestDTO());
     }
 
     @Override

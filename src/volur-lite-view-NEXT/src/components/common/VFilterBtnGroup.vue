@@ -126,7 +126,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NPopover, NIcon } from 'naive-ui'
 import { MenuOutline, CheckmarkOutline } from '@vicons/ionicons5'
-import { VCard } from '@/components/sidebar'
+import VCard from './VCard.vue'
 import { useAppStore } from '@/store/modules/app'
 import type { FilterOption, VFilterBtnGroupProps } from './types'
 

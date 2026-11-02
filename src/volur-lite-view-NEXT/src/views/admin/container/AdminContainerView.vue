@@ -189,7 +189,7 @@
       </div>
     </div>
 
-    <AdminContainerLanuchModal
+    <AdminContainerLaunchModal
       v-model:show="showStartModal"
       @success="handleLaunchSuccess"
     />
@@ -258,7 +258,7 @@ import VTable from '@/components/common/VTable.vue'
 import VPagination from '@/components/common/VPagination.vue'
 import VModal from '@/components/common/VModal.vue'
 import VSearch from '@/components/common/VSearch.vue'
-import AdminContainerLanuchModal from './AdminContainerLanuchModal.vue'
+import AdminContainerLaunchModal from './components/AdminContainerLaunchModal.vue'
 import type {
   AdminContainerInstanceVO,
   AdminContainerStatisticsVO,

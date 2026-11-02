@@ -305,3 +305,48 @@ export interface VDatePickerProps {
   separator?: string
   isDateDisabled?: (current: number) => boolean
 }
+
+export interface VAvatarProps {
+  src?: string
+  alt?: string
+  text?: string
+  size?: number | string
+  shape?: 'square' | 'circle'
+  round?: boolean
+  radius?: number | string
+  ring?: boolean
+  ringColor?: string
+  theme?: 'light' | 'dark'
+  editable?: boolean
+  uploadFolder?: string
+  accept?: string
+  uploadApi?: (file: File) => Promise<any>
+}
+
+export interface VCardProps {
+  theme?: 'light' | 'dark'
+  width?: number | string
+  minWidth?: number | string
+  maxWidth?: number | string
+  height?: number | string
+  padding?: string
+  radius?: number | string
+  gap?: number | string
+  bordered?: boolean
+  closable?: boolean
+  title?: string
+  closeAriaLabel?: string
+}
+
+export interface VDrawerProps {
+  show?: boolean
+  title?: string
+  width?: number | string
+  placement?: 'right' | 'left'
+  closable?: boolean
+  mask?: boolean
+  maskClosable?: boolean
+  theme?: 'light' | 'dark'
+  closeAriaLabel?: string
+}
+

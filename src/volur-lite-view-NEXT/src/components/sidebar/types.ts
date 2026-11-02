@@ -1,5 +1,8 @@
 import type { Component, CSSProperties, VNodeChild } from 'vue'
 import type { MenuOption } from 'naive-ui'
+import type { VAvatarProps, VCardProps, VDrawerProps } from '@/components/common'
+
+export type { VAvatarProps, VCardProps, VDrawerProps }
 
 export interface SidebarNavItem {
   key: string
@@ -10,6 +13,22 @@ export interface SidebarNavItem {
   children?: SidebarNavItem[]
 }
 
+export interface SidebarNavGroup {
+  key: string
+  title?: string
+  titleKey?: string
+  label?: string | (() => string | VNodeChild)
+  items: SidebarNavItem[]
+}
+
+export interface VSideBarGroup {
+  key: string
+  title?: string
+  titleKey?: string
+  label?: string | (() => string | VNodeChild)
+  options: MenuOption[]
+}
+
 export interface VSearchToolProps {
   show?: boolean
   placeholder?: string
@@ -18,22 +37,6 @@ export interface VSearchToolProps {
   theme?: 'light' | 'dark'
 }
 
-export interface VAvatarProps {
-  src?: string
-  alt?: string
-  text?: string
-  size?: number | string
-  shape?: 'square' | 'circle'
-  round?: boolean
-  radius?: number | string
-  ring?: boolean
-  ringColor?: string
-  theme?: 'light' | 'dark'
-  editable?: boolean
-  uploadFolder?: string
-  accept?: string
-  uploadApi?: (file: File) => Promise<any>
-}
 
 export interface VSideBarProps {
   width?: number | string
@@ -43,7 +46,9 @@ export interface VSideBarProps {
   bordered?: boolean
   collapseMode?: 'width' | 'transform'
   items?: SidebarNavItem[]
+  groups?: SidebarNavGroup[]
   menuOptions?: MenuOption[]
+  menuGroups?: VSideBarGroup[]
   value?: string
   accordion?: boolean
   collapsedIconSize?: number
@@ -93,7 +98,9 @@ export interface VSideBarProps {
 export interface VBottomBarProps {
   value?: string
   items?: SidebarNavItem[]
+  groups?: SidebarNavGroup[]
   menuOptions?: MenuOption[]
+  menuGroups?: VSideBarGroup[]
   theme?: 'light' | 'dark'
   showBottomAction?: boolean
   bottomActionText?: string
@@ -108,20 +115,6 @@ export interface VNoticeProps {
   maxItems?: number
 }
 
-export interface VCardProps {
-  theme?: 'light' | 'dark'
-  width?: number | string
-  minWidth?: number | string
-  maxWidth?: number | string
-  height?: number | string
-  padding?: string
-  radius?: number | string
-  gap?: number | string
-  bordered?: boolean
-  closable?: boolean
-  title?: string
-  closeAriaLabel?: string
-}
 
 export interface VUserCardProps {
   theme?: 'light' | 'dark'
@@ -154,17 +147,6 @@ export interface VSettingCardProps {
   closeAriaLabel?: string
 }
 
-export interface VDrawerProps {
-  show?: boolean
-  title?: string
-  width?: number | string
-  placement?: 'right' | 'left'
-  closable?: boolean
-  mask?: boolean
-  maskClosable?: boolean
-  theme?: 'light' | 'dark'
-  closeAriaLabel?: string
-}
 
 export interface VFeedbackProps {
   show?: boolean

@@ -1,5 +1,5 @@
 <template>
-  <div class="competition-list-view flex-1 flex flex-col min-w-0" style="padding: 48px 24px 24px 24px;">
+  <div class="competition-list-view flex-1 flex flex-col min-w-0">
     <div
       v-if="loading"
       class="fixed top-0 left-0 right-0 h-1 z-50 overflow-hidden bg-blue-100 dark:bg-blue-950"
@@ -8,14 +8,16 @@
       <div class="progress-bar-secondary"></div>
     </div>
 
-    <div class="flex-1 flex flex-col w-full max-w-7xl mx-auto">
-      <header class="competition-header">
-        <h2 class="competition-title">
-          {{ t('competition.competition_list') }}
-        </h2>
-      </header>
+    <ContainerLayout max-width="7xl" padding="large">
+      <template #header>
+        <header class="competition-header">
+          <h2 class="competition-title">
+            {{ t('competition.competition_list') }}
+          </h2>
+        </header>
+      </template>
 
-      <main class="flex-1 flex flex-col gap-6">
+      <div class="flex-1 flex flex-col gap-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <VFilterBtnGroup
             v-model="selectedType"
@@ -60,20 +62,22 @@
           <p class="competition-prompt-desc">
             {{ t('competition.prompt_desc') }}
           </p>
-          <VBtn
-            clz="normal"
+          <v-button
+            variant="normal"
             class="competition-import-btn"
             @click="handleImportClick"
           >
             {{ t('competition.import_competition') }}
-          </VBtn>
+          </v-button>
         </div>
-      </main>
+      </div>
 
-      <footer class="mt-auto pt-8">
-        <AppFooter />
-      </footer>
-    </div>
+      <template #footer>
+        <div class="pt-8">
+          <AppFooter />
+        </div>
+      </template>
+    </ContainerLayout>
   </div>
 </template>
 
@@ -85,8 +89,9 @@ import { NSpin } from 'naive-ui'
 import { getCompetitionSliceApi } from '@/api/competition'
 import type { CompetitionSummaryVO, CompetitionType } from '@/types/competition'
 import { VCompetitionCard } from '@/components/competition'
-import { VFilterBtnGroup, VSearch, VBtn } from '@/components/common'
-import AppFooter from '@/components/common/Footer.vue'
+import { VFilterBtnGroup, VSearch } from '@/components/common'
+import { VButton } from '@/volur-ui'
+import { AppFooter, ContainerLayout } from '@/layouts'
 
 defineOptions({
   name: 'CompetitionListView'

@@ -128,32 +128,20 @@ function handleClick(ev: MouseEvent) {
     height: 36px;
     padding: 0 12px;
     border-radius: 12px;
-    border: 1px solid #d7d8da;
-    color: #2b2d31;
-    background-color: transparent;
+    border: 1px solid var(--color-v1-outline);
+    color: var(--color-v1-text-on-button);
+    background-color: var(--color-v1-button-container);
     gap: 6px;
 
     &:hover:not(:disabled) {
-      background-color: #EAEAEB;
+      background-color: var(--color-v1-button-container-high);
+      border-color: var(--color-v1-outline);
+      color: var(--color-v1-text-on-button);
     }
 
     &:focus,
     &:active {
-      border-color: #d7d8da;
-    }
-
-    html.dark & {
-      border-color: #333;
-      color: #fcfcfc;
-
-      &:hover:not(:disabled) {
-        background-color: #2a2b2d;
-      }
-
-      &:focus,
-      &:active {
-        border-color: #333;
-      }
+      border-color: var(--color-v1-outline);
     }
   }
 
