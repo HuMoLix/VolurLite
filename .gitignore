@@ -1,0 +1,68 @@
+# Compiled class file
+*.class
+
+# Log file
+*.log
+logs/
+
+# Package Files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Maven build targets
+target/
+**/target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Uploaded files
+uploads/**
+
+# Runtime data & certificates
+data/
+
+# Delivery artifacts
+dist_delivery/
+
+# Ai directory
+/src/volur-lite-platform/.workbuddy-ai/
+/.agents
+
+# Local Docker Compose Overrides
+docker-compose.override.yml
+
+# ================================
+# GitHub Public Release Ignores
+# ================================
+.env
+GEMINI.md
+package.sh
+docker-compose.override.yml
+src/volur-lite-view-NEXT/nginx/conf/nginx.conf
+src/volur-lite-view-NEXT/nginx/ssl/
+scripts/
+agent/
+.agents/

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volur Lite Account Deletion Verification</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #fafafa;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+        .wrapper {
+            width: 100%;
+            table-layout: fixed;
+            padding-top: 50px;
+            background-color: #fafafa;
+            padding-bottom: 40px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+        .header {
+            padding: 40px 32px 20px;
+            text-align: left;
+        }
+        .content {
+            padding: 20px 32px 40px;
+            color: #111111;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin: 0 0 8px 0;
+            color: #d03050;
+        }
+        .subtitle {
+            font-size: 15px;
+            color: #666666;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+        .code-container {
+            background-color: #fff1f0;
+            border: 1px solid #ffa39e;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 24px 0;
+        }
+        .code-text {
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 8px;
+            color: #cf1322;
+            margin: 0;
+        }
+        .warning-text {
+            font-size: 13px;
+            color: #cf1322;
+            line-height: 1.5;
+            margin-top: 16px;
+            padding: 12px;
+            background-color: #fff2f0;
+            border-radius: 6px;
+        }
+        .info-text {
+            font-size: 14px;
+            color: #888888;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .footer {
+            padding: 0 32px 40px;
+            font-size: 12px;
+            color: #aaaaaa;
+            line-height: 1.5;
+            border-top: 1px solid #f0f0f0;
+            padding-top: 24px;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="container">
+        <div class="header">
+            <h2 style="margin: 0; font-size: 20px; color: #111111;">Volur Lite</h2>
+        </div>
+        <div class="content">
+            <h1 class="title">注销账号双重安全验证</h1>
+            <div class="subtitle">
+                您好 <strong>{{username}}</strong>，您正在申请注销您的 Volur Lite 账号。为了保障您的账户安全，请输入下方 6 位数字验证码：
+            </div>
+            <div class="code-container">
+                <div class="code-text">{{code}}</div>
+            </div>
+            <div class="warning-text">
+                ⚠️ <strong>高风险操作提醒</strong>：账号注销将永久抹除个人主页资料与登录凭据，操作不可逆。若非您本人操作，请立即登录并修改密码。
+            </div>
+            <p class="info-text" style="margin-top: 20px;">
+                验证码将在 {{expirationMinutes}} 分钟后失效。请勿将此验证码透露给任何人。
+            </p>
+        </div>
+        <div class="footer">
+            此为系统自动发送的邮件，请勿直接回复。<br>
+            © 2026 Volur Lite Platform. All rights reserved.
+        </div>
+    </div>
+</div>
+</body>
+</html>

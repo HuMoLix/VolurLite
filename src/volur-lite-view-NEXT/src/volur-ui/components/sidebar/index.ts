@@ -1,0 +1,8 @@
+export { default as VSideBar } from './VSideBar.vue'
+export { default as SideBarLayout } from './layout/SideBarLayout.vue'
+export { default as SideBarNavHeader } from './components/SideBarNavHeader.vue'
+export { default as SideBarNavContent } from './components/SideBarNavContent.vue'
+export { default as SideBarNavGroup } from './components/SideBarNavGroup.vue'
+export { default as SideBarNavFooter } from './components/SideBarNavFooter.vue'
+export * from './types'
+export * from './context'

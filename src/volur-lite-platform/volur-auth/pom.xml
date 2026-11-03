@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.humolix.volur</groupId>
+        <artifactId>volur-lite-platform</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>volur-auth</artifactId>
+    <packaging>jar</packaging>
+    <name>volur-auth</name>
+    <description>Authentication, authorization, token security and permissions</description>
+
+    <dependencies>
+        <!-- Volur Core Framework & Internal Modules -->
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-framework</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-logging</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-system</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-user</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-verification</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-notification</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Bouncy Castle (SM3/SM4) -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+        </dependency>
+
+        <!-- JWT (OAuth2 JOSE) -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
+
+        <!-- Hutool -->
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

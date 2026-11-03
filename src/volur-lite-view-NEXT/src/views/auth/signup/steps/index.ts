@@ -1,0 +1,5 @@
+export { default as NameStep } from './NameStep.vue'
+export { default as EmailStep } from './EmailStep.vue'
+export { default as EtotpChallengeStep } from './EtotpChallengeStep.vue'
+export { default as PasswordStep } from './PasswordStep.vue'
+export { default as OptionsChallengeStep } from './OptionsChallengeStep.vue'

@@ -1,0 +1,7 @@
+export { default as PwdChallengePanel } from './PwdChallengePanel.vue'
+export { default as RecaptchaChallengePanel } from './RecaptchaChallengePanel.vue'
+export { default as PasskeyChallengePanel } from './PasskeyChallengePanel.vue'
+export { default as EmailOtpChallengePanel } from './EmailOtpChallengePanel.vue'
+export { default as SmsOtpChallengePanel } from './SmsOtpChallengePanel.vue'
+export { default as RejectPanel } from './RejectPanel.vue'
+export { default as SelectionPanel } from './SelectionPanel.vue'

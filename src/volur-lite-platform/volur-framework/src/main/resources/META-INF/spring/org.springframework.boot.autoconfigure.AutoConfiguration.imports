@@ -1,0 +1,2 @@
+com.humolix.volur.framework.id.config.SnowflakeAutoConfiguration
+com.humolix.volur.framework.cache.VolurCacheAutoConfiguration
