@@ -3,20 +3,25 @@
 :root .dark-theme,
 .light-theme,
 .dark-theme {
+
   --color-v1-surface: light-dark(#fff, #191919);
   --color-v1-text: light-dark(#1b1b1e, #d4d4d4);
+  --color-v1-text-var: light-dark(#565b61,#8c8c8c);
+  --color-v1-text-link: light-dark(#2483e2,#87a9ff);
   --color-v1-text-disable: light-dark(#85898e,#575757);
   --color-v1-button-container: light-dark(#fff, #323232);
   --color-v1-button-container-high: light-dark(#eaeaeb, #424242);
   --color-v1-outline: light-dark(#d7d8da, #333);
+  --color-v1-outline-var: light-dark(#d7d8da80,#262626);
   --color-v1-text-on-button: light-dark(#2b2d31, #fcfcfc);
   --color-v1-primary-highest: light-dark(#0b57d0, #a8c7fa);
   --color-v1-on-primary-highest: light-dark(#fff, #062e6f);
 
-  --color-v1-surface-left-nav: light-dark(#fafafa,#191919);
-  --color-v1-outline-var: light-dark(#d7d8da80,#262626);
-  --color-v1-nav-item-active: light-dark(#ececef,#2a2a2a);
+  --v1-shadow-sm: 0 1px 3px 0 rgba(10, 13, 18, 0.1), 0 1px 2px -1px rgba(10, 13, 18, 0.1);
 
+  --color-v1-surface-left-nav: light-dark(#fafafa,#191919);
+  --color-v1-nav-item-active: light-dark(#ececef,#2a2a2a);
+  --color-v1-nav-item-hover: light-dark(#efefef, #2a2a2a);
 
   --color-v1-auth-backgroud: light-dark(#fff, #000);
   --color-v1-auth-surface: light-dark(#f0f4f9, #1e1f20);

@@ -1,4 +1,10 @@
 {
+  "nav": {
+    "main": "MAIN",
+    "challenges": "CHALLENGES",
+    "dispatch": "DISPATCH",
+    "security": "SECURITY"
+  },
   "layout": {
     "admin_badge": "Admin Console",
     "return_platform": "Back to Platform",

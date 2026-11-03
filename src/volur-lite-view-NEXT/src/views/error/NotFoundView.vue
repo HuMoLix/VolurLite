@@ -34,7 +34,7 @@
     </main>
 
     <footer class="w-full max-w-5xl">
-      <AppFooter />
+      <VFooter />
     </footer>
   </div>
 </template>
@@ -42,7 +42,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { AppFooter } from '@/layouts'
+import { VFooter } from '@/volur-ui'
 
 defineOptions({
   name: 'NotFoundView'

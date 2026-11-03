@@ -47,7 +47,7 @@
       </main>
 
       <slot name="footer">
-        <AppFooter v-if="showFooter" />
+        <VFooter v-if="showFooter" />
       </slot>
     </div>
   </div>
@@ -56,7 +56,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import AppFooter from '../components/AppFooter.vue'
+import { VFooter } from '@/volur-ui'
 import VCompetitionHeader from '@/components/competition/VCompetitionHeader.vue'
 import type { CompetitionDetailVO, CompetitionSummaryVO } from '@/types/competition'
 import type { CountdownLabelsConfig } from '@/components/competition/VCompetitionHeader.vue'

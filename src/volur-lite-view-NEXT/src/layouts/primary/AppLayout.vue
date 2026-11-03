@@ -1,7 +1,7 @@
 <template>
   <div class="app-layout h-screen max-h-screen flex overflow-hidden bg-white dark:bg-[#191919] transition-colors duration-300">
     <slot name="sidebar" :collapsed="isCollapsed" :toggle-collapse="toggleCollapse">
-      <SideBar
+      <VSideBar
         v-if="showSidebar"
         ref="sideBarRef"
         v-model:collapsed="isCollapsed"
@@ -13,7 +13,6 @@
         :collapse-mode="collapseMode"
         :items="items"
         :groups="groups"
-        :menu-options="menuOptions"
         :menu-groups="menuGroups"
         :accordion="accordion"
         :collapsed-icon-size="collapsedIconSize"
@@ -115,7 +114,7 @@
         <template v-if="$slots['bottom-nav-items']" #bottom-nav-items="slotProps">
           <slot name="bottom-nav-items" v-bind="slotProps" />
         </template>
-      </SideBar>
+      </VSideBar>
     </slot>
 
     <div
@@ -139,9 +138,8 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { Component, CSSProperties } from 'vue'
-import type { MenuOption } from 'naive-ui'
-import SideBar from '@/components/sidebar/SideBar.vue'
-import type { SidebarNavItem, SidebarNavGroup, VSideBarGroup } from '@/components/sidebar/types'
+import VSideBar from '@/volur-ui/components/sidebar/VSideBar.vue'
+import type { SidebarNavItem, SidebarNavGroup, VSideBarGroup } from '@/volur-ui/components/sidebar'
 import { useAppStore } from '@/store/modules/app'
 import type { CompetitionSummaryVO } from '@/types/competition'
 
@@ -158,7 +156,6 @@ export interface AppLayoutProps {
   collapseMode?: 'width' | 'transform'
   items?: SidebarNavItem[]
   groups?: SidebarNavGroup[]
-  menuOptions?: MenuOption[]
   menuGroups?: VSideBarGroup[]
   value?: string
   accordion?: boolean
@@ -210,7 +207,7 @@ export interface AppLayoutProps {
 
 const props = withDefaults(defineProps<AppLayoutProps>(), {
   showSidebar: true,
-  width: 256,
+  width: 220,
   collapsedWidth: 74,
   collapsed: undefined,
   showTrigger: false,
@@ -218,7 +215,6 @@ const props = withDefaults(defineProps<AppLayoutProps>(), {
   collapseMode: 'width',
   items: undefined,
   groups: undefined,
-  menuOptions: undefined,
   menuGroups: undefined,
   value: undefined,
   accordion: false,
@@ -268,7 +264,7 @@ const props = withDefaults(defineProps<AppLayoutProps>(), {
 })
 
 const emit = defineEmits<{
-  select: [key: string, item: MenuOption]
+  select: [key: string, item: SidebarNavItem]
   collapse: []
   expand: []
   'logo-click': [ev: MouseEvent]
@@ -297,7 +293,7 @@ const modelValue = defineModel<string>('value')
 const appStore = useAppStore()
 const route = useRoute()
 
-const sideBarRef = ref<InstanceType<typeof SideBar> | null>(null)
+const sideBarRef = ref<InstanceType<typeof VSideBar> | null>(null)
 const appMainRef = ref<HTMLElement | null>(null)
 
 watch(
@@ -339,7 +335,7 @@ const currentValue = computed<string | undefined>({
   }
 })
 
-function handleSelect(key: string, item: MenuOption) {
+function handleSelect(key: string, item: SidebarNavItem) {
   emit('select', key, item)
   if (modelValue.value !== undefined) {
     modelValue.value = key
@@ -437,6 +433,8 @@ defineExpose({
 
 .app-content {
   position: relative;
+  padding: 48px 24px 24px 24px;
+  box-sizing: border-box;
 }
 
 main {

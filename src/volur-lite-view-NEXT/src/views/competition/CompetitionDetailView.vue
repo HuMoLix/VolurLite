@@ -392,7 +392,7 @@
 
       <template #footer>
         <div class="pt-8">
-          <AppFooter />
+          <VFooter />
         </div>
       </template>
     </ContainerLayout>
@@ -452,7 +452,8 @@ import type {
 import { useUserStore } from '@/store/modules/user'
 import { formatBannerUrl } from '@/utils/imageUrl'
 import { renderMarkdown } from '@/utils/markdown'
-import { AppFooter, ContainerLayout } from '@/layouts'
+import { ContainerLayout } from '@/layouts'
+import { VFooter } from '@/volur-ui'
 import { VAvatar } from '@/components/common'
 import { VBtn } from '@/components/common'
 import TeamFormModal from './components/TeamFormModal.vue'

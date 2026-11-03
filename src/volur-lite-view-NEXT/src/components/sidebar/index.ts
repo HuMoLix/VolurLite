@@ -1,6 +1,5 @@
 export { default as VSideBar } from './VSideBar.vue'
 export { default as VBottomBar } from './VBottomBar.vue'
-export { default as SideBar } from './SideBar.vue'
 export { default as VSearchTool } from './VSearchTool.vue'
 export { default as VNotice } from './VNotice.vue'
 export { default as VUserCard } from './VUserCard.vue'

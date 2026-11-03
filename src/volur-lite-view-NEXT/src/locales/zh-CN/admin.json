@@ -1,4 +1,10 @@
 {
+  "nav": {
+    "main": "主要",
+    "challenges": "赛题",
+    "dispatch": "调度",
+    "security": "安全"
+  },
   "layout": {
     "admin_badge": "管理后台",
     "return_platform": "返回前台",

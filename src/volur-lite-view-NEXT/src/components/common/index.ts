@@ -1,4 +1,4 @@
-export { default as VTooltip } from './VTooltip.vue'
+export { VTooltip } from '@/volur-ui/components/tooltip'
 export { default as VFilterBtnGroup } from './VFilterBtnGroup.vue'
 export { default as VInput } from './VInput.vue'
 export { default as VSelection } from './VSelection.vue'

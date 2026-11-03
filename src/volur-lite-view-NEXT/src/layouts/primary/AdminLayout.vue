@@ -1,10 +1,10 @@
 <template>
   <div class="admin-layout h-screen max-h-screen flex overflow-hidden bg-google-surface-light dark:bg-google-surface-dark transition-colors duration-300">
-    <SideBar
+    <VSideBar
       ref="sideBarRef"
       v-model:collapsed="isCollapsed"
       :value="activeKey"
-      :menu-options="adminMenuOptions"
+      :groups="adminNavGroups"
       :show-logo="true"
       :logo-route="'/admin/dashboard'"
       :show-bottom-action="true"
@@ -35,10 +35,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, h } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { NIcon, type MenuOption } from 'naive-ui'
 import {
   SpeedometerOutline,
   PeopleOutline,
@@ -49,7 +48,6 @@ import {
   ShieldCheckmarkOutline,
   TrophyOutline,
   MegaphoneOutline,
-  ServerOutline,
   HardwareChipOutline,
   CubeOutline,
   LayersOutline,
@@ -62,7 +60,8 @@ import {
   SettingsOutline,
   ArrowBackOutline
 } from '@vicons/ionicons5'
-import SideBar from '@/components/sidebar/SideBar.vue'
+import VSideBar from '@/volur-ui/components/sidebar/VSideBar.vue'
+import type { SidebarNavItem, SidebarNavGroup } from '@/volur-ui/components/sidebar'
 import { useAppStore } from '@/store/modules/app'
 
 defineOptions({
@@ -74,7 +73,7 @@ const route = useRoute()
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const sideBarRef = ref<InstanceType<typeof SideBar> | null>(null)
+const sideBarRef = ref<InstanceType<typeof VSideBar> | null>(null)
 const adminMainRef = ref<HTMLElement | null>(null)
 
 watch(
@@ -121,149 +120,191 @@ const activeKey = computed<string>(() => {
   return 'dashboard'
 })
 
-const adminMenuOptions = computed<MenuOption[]>(() => [
+const adminNavGroups = computed<SidebarNavGroup[]>(() => [
   {
-    label: () => t('admin.dashboard.title', '工作台'),
-    key: 'dashboard',
-    route: '/admin/dashboard',
-    icon: () => h(NIcon, null, { default: () => h(SpeedometerOutline) })
+    key: 'main',
+    titleKey: 'admin.nav.main',
+    title: '主要',
+    items: [
+      {
+        key: 'dashboard',
+        titleKey: 'admin.dashboard.title',
+        label: () => t('admin.dashboard.title', '工作台'),
+        route: '/admin/dashboard',
+        icon: SpeedometerOutline
+      },
+      {
+        key: 'users',
+        titleKey: 'admin.users.title',
+        label: () => t('admin.users.title', '用户管理'),
+        route: '/admin/users',
+        icon: PeopleOutline
+      },
+      {
+        key: 'competitions',
+        titleKey: 'admin.competitions.title',
+        label: () => t('admin.competitions.title', '竞赛管理'),
+        route: '/admin/competitions',
+        icon: TrophyOutline
+      },
+      {
+        key: 'broadcasts',
+        titleKey: 'admin.broadcasts.title',
+        label: () => t('admin.broadcasts.title', '公告管理'),
+        route: '/admin/broadcasts',
+        icon: MegaphoneOutline
+      }
+    ]
   },
   {
-    label: () => t('admin.users.title', '用户管理'),
-    key: 'users',
-    route: '/admin/users',
-    icon: () => h(NIcon, null, { default: () => h(PeopleOutline) })
-  },
-  {
-    label: () => t('admin.challenges.title', '题库管理'),
     key: 'challenges',
-    icon: () => h(NIcon, null, { default: () => h(LibraryOutline) }),
-    children: [
+    titleKey: 'admin.nav.challenges',
+    title: '赛题',
+    items: [
       {
-        label: () => t('admin.challenges.ctf_title', 'CTF 题库'),
-        key: 'challenge-ctf',
-        route: '/admin/challenges/ctf',
-        icon: () => h(NIcon, null, { default: () => h(FlagOutline) })
-      },
-      {
-        label: () => t('admin.challenges.theory_title', '理论题库'),
-        key: 'challenge-theory',
-        route: '/admin/challenges/theory',
-        icon: () => h(NIcon, null, { default: () => h(DocumentTextOutline) })
-      },
-      {
-        label: () => t('admin.challenges.isw_title', 'ISW 题库'),
-        key: 'challenge-isw',
-        route: '/admin/challenges/isw',
-        icon: () => h(NIcon, null, { default: () => h(TerminalOutline) })
-      },
-      {
-        label: () => t('admin.challenges.awd_title', 'AWD 题库'),
-        key: 'challenge-awd',
-        route: '/admin/challenges/awd',
-        icon: () => h(NIcon, null, { default: () => h(ShieldOutline) })
-      },
-      {
-        label: () => t('admin.challenges.awd_plus_title', 'AWD+ 题库'),
-        key: 'challenge-awdp',
-        route: '/admin/challenges/awdp',
-        icon: () => h(NIcon, null, { default: () => h(ShieldCheckmarkOutline) })
+        key: 'challenges',
+        titleKey: 'admin.challenges.title',
+        label: () => t('admin.challenges.title', '题库管理'),
+        icon: LibraryOutline,
+        children: [
+          {
+            key: 'challenge-ctf',
+            titleKey: 'admin.challenges.ctf_title',
+            label: () => t('admin.challenges.ctf_title', 'CTF 题库'),
+            route: '/admin/challenges/ctf',
+            icon: FlagOutline
+          },
+          {
+            key: 'challenge-theory',
+            titleKey: 'admin.challenges.theory_title',
+            label: () => t('admin.challenges.theory_title', '理论题库'),
+            route: '/admin/challenges/theory',
+            icon: DocumentTextOutline
+          },
+          {
+            key: 'challenge-isw',
+            titleKey: 'admin.challenges.isw_title',
+            label: () => t('admin.challenges.isw_title', 'ISW 题库'),
+            route: '/admin/challenges/isw',
+            icon: TerminalOutline
+          },
+          {
+            key: 'challenge-awd',
+            titleKey: 'admin.challenges.awd_title',
+            label: () => t('admin.challenges.awd_title', 'AWD 题库'),
+            route: '/admin/challenges/awd',
+            icon: ShieldOutline
+          },
+          {
+            key: 'challenge-awdp',
+            titleKey: 'admin.challenges.awd_plus_title',
+            label: () => t('admin.challenges.awd_plus_title', 'AWD+ 题库'),
+            route: '/admin/challenges/awdp',
+            icon: ShieldCheckmarkOutline
+          }
+        ]
       }
     ]
   },
   {
-    label: () => t('admin.competitions.title', '竞赛管理'),
-    key: 'competitions',
-    route: '/admin/competitions',
-    icon: () => h(NIcon, null, { default: () => h(TrophyOutline) })
-  },
-  {
-    label: () => t('admin.broadcasts.title', '公告管理'),
-    key: 'broadcasts',
-    route: '/admin/broadcasts',
-    icon: () => h(NIcon, null, { default: () => h(MegaphoneOutline) })
-  },
-  {
-    label: () => t('admin.clusters.group_title', '集群容器'),
-    key: 'cluster-group',
-    icon: () => h(NIcon, null, { default: () => h(ServerOutline) }),
-    children: [
+    key: 'dispatch',
+    titleKey: 'admin.nav.dispatch',
+    title: '调度',
+    items: [
       {
-        label: () => t('admin.clusters.title', '集群设置'),
         key: 'clusters',
+        titleKey: 'admin.clusters.title',
+        label: () => t('admin.clusters.title', '集群设置'),
         route: '/admin/clusters',
-        icon: () => h(NIcon, null, { default: () => h(HardwareChipOutline) })
+        icon: HardwareChipOutline
       },
       {
-        label: () => t('admin.containers.title', '容器管理'),
         key: 'containers',
+        titleKey: 'admin.containers.title',
+        label: () => t('admin.containers.title', '容器管理'),
         route: '/admin/containers',
-        icon: () => h(NIcon, null, { default: () => h(CubeOutline) })
+        icon: CubeOutline
       },
       {
-        label: () => t('admin.images.title', '镜像管理'),
         key: 'images',
+        titleKey: 'admin.images.title',
+        label: () => t('admin.images.title', '镜像管理'),
         route: '/admin/images',
-        icon: () => h(NIcon, null, { default: () => h(LayersOutline) })
+        icon: LayersOutline
+      },
+      {
+        key: 'logs',
+        titleKey: 'admin.logs.title',
+        label: () => t('admin.logs.title', '系统日志'),
+        route: '/admin/logs',
+        icon: DocumentTextOutline
+      },
+      {
+        key: 'tasks',
+        titleKey: 'admin.tasks.title',
+        label: () => t('admin.tasks.title', '任务管理'),
+        route: '/admin/tasks',
+        icon: ListOutline
+      },
+      {
+        key: 'emails',
+        titleKey: 'admin.emails.title',
+        label: () => t('admin.emails.title', '邮件管理'),
+        route: '/admin/emails',
+        icon: MailOutline
       }
     ]
   },
   {
-    label: () => t('admin.logs.title', '系统日志'),
-    key: 'logs',
-    route: '/admin/logs',
-    icon: () => h(NIcon, null, { default: () => h(DocumentTextOutline) })
-  },
-  {
-    label: () => t('admin.tasks.title', '任务管理'),
-    key: 'tasks',
-    route: '/admin/tasks',
-    icon: () => h(NIcon, null, { default: () => h(ListOutline) })
-  },
-  {
-    label: () => t('admin.emails.title', '邮件管理'),
-    key: 'emails',
-    route: '/admin/emails',
-    icon: () => h(NIcon, null, { default: () => h(MailOutline) })
-  },
-  {
-    label: () => t('admin.risk.title', '风控管理'),
-    key: 'risk-group',
-    icon: () => h(NIcon, null, { default: () => h(ShieldCheckmarkOutline) }),
-    children: [
+    key: 'security',
+    titleKey: 'admin.nav.security',
+    title: '安全',
+    items: [
       {
-        label: () => t('admin.risk.settings.title', '风控设置'),
-        key: 'risk-settings',
-        route: '/admin/risk/settings',
-        icon: () => h(NIcon, null, { default: () => h(OptionsOutline) })
+        key: 'risk-group',
+        titleKey: 'admin.risk.title',
+        label: () => t('admin.risk.title', '风控管理'),
+        icon: ShieldCheckmarkOutline,
+        children: [
+          {
+            key: 'risk-settings',
+            titleKey: 'admin.risk.settings.title',
+            label: () => t('admin.risk.settings.title', '风控设置'),
+            route: '/admin/risk/settings',
+            icon: OptionsOutline
+          },
+          {
+            key: 'risk-rules',
+            titleKey: 'admin.risk.policy.title',
+            label: () => t('admin.risk.policy.title', '策略设置'),
+            route: '/admin/risk/rules',
+            icon: FlashOutline
+          },
+          {
+            key: 'risk-ip',
+            titleKey: 'admin.risk.ip.title',
+            label: () => t('admin.risk.ip.title', 'IP 治理'),
+            route: '/admin/risk/ip',
+            icon: GlobeOutline
+          }
+        ]
       },
       {
-        label: () => t('admin.risk.policy.title', '策略设置'),
-        key: 'risk-rules',
-        route: '/admin/risk/rules',
-        icon: () => h(NIcon, null, { default: () => h(FlashOutline) })
-      },
-      {
-        label: () => t('admin.risk.ip.title', 'IP 治理'),
-        key: 'risk-ip',
-        route: '/admin/risk/ip',
-        icon: () => h(NIcon, null, { default: () => h(GlobeOutline) })
+        key: 'system',
+        titleKey: 'admin.system.title',
+        label: () => t('admin.system.title', '后台设置'),
+        route: '/admin/system',
+        icon: SettingsOutline
       }
     ]
-  },
-  {
-    label: () => t('admin.system.title', '后台设置'),
-    key: 'system',
-    route: '/admin/system',
-    icon: () => h(NIcon, null, { default: () => h(SettingsOutline) })
   }
 ])
 
-function handleSelect(key: string, item: MenuOption) {
-  if ((item as any)?.children && (item as any).children.length > 0) {
+function handleSelect(key: string, item: SidebarNavItem) {
+  if (item.children && item.children.length > 0) {
     return
   }
-  const targetRoute = (item as MenuOption & { route?: string })?.route || `/admin/${key}`
+  const targetRoute = item.route || `/admin/${key}`
   if (targetRoute && route.path !== targetRoute) {
     router.push(targetRoute).catch(() => {})
   }

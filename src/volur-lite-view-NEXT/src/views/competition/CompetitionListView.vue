@@ -8,7 +8,7 @@
       <div class="progress-bar-secondary"></div>
     </div>
 
-    <ContainerLayout max-width="7xl" padding="large">
+    <VViewlayout>
       <template #header>
         <header class="competition-header">
           <h2 class="competition-title">
@@ -71,13 +71,7 @@
           </v-button>
         </div>
       </div>
-
-      <template #footer>
-        <div class="pt-8">
-          <AppFooter />
-        </div>
-      </template>
-    </ContainerLayout>
+    </VViewlayout>
   </div>
 </template>
 
@@ -90,8 +84,7 @@ import { getCompetitionSliceApi } from '@/api/competition'
 import type { CompetitionSummaryVO, CompetitionType } from '@/types/competition'
 import { VCompetitionCard } from '@/components/competition'
 import { VFilterBtnGroup, VSearch } from '@/components/common'
-import { VButton } from '@/volur-ui'
-import { AppFooter, ContainerLayout } from '@/layouts'
+import { VButton, VViewlayout } from '@/volur-ui'
 
 defineOptions({
   name: 'CompetitionListView'
@@ -252,7 +245,6 @@ onUnmounted(() => {
 .competition-list-view {
   display: flex;
   flex-direction: column;
-  padding: 48px 24px 24px 24px;
   box-sizing: border-box;
 }
 

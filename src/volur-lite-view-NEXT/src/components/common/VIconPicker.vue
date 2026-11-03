@@ -153,7 +153,7 @@ import { useAppStore } from '@/store/modules/app'
 import VIcon, { ICON_SETS, getAllIconNames } from './VIcon.vue'
 import VSearch from './VSearch.vue'
 import VFilterBtnGroup from './VFilterBtnGroup.vue'
-import VTooltip from './VTooltip.vue'
+import { VTooltip } from '@/volur-ui'
 import VPagination from './VPagination.vue'
 import type { VIconPickerProps, FilterOption } from './types'
 

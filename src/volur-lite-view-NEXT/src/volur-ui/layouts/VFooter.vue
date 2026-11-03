@@ -27,7 +27,7 @@ import { computed } from 'vue'
 import { useSystemStore } from '@/store/modules/system'
 
 defineOptions({
-  name: 'AppFooter'
+  name: 'VFooter'
 })
 
 interface Props {
