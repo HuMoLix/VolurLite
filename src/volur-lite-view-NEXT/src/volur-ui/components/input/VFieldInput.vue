@@ -225,8 +225,8 @@ defineExpose({
 
     &--focused,
     &:not(&--disabled):focus-within {
-      border-color: var(--color-v1-auth-primary);
-      box-shadow: 0 0 0 1px var(--color-v1-auth-primary);
+      border-color: var(--color-v1-primary-highest);
+      box-shadow: 0 0 0 1px var(--color-v1-primary-highest);
     }
 
     &--error,
@@ -255,7 +255,7 @@ defineExpose({
     font-size: 16px;
     font-family: inherit;
     color: var(--color-v1-auth-on-surface, light-dark(#202124, #e3e3e3));
-    caret-color: var(--color-v1-auth-primary);
+    caret-color: var(--color-v1-primary-highest);
     background: transparent;
     border: none;
     outline: none;
@@ -305,7 +305,7 @@ defineExpose({
     }
 
     &--focused {
-      color: var(--color-v1-auth-primary);
+      color: var(--color-v1-primary-highest);
     }
 
     &--error,
@@ -323,7 +323,7 @@ defineExpose({
   }
 
   &:not(&--error) &__input:focus ~ &__label {
-    color: var(--color-v1-auth-primary) !important;
+    color: var(--color-v1-primary-highest) !important;
   }
 
   &--error &__label,

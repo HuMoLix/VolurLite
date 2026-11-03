@@ -31,11 +31,13 @@ import {
 } from '@/volur-ui'
 import LanguageSwitcher from '@/components/common/LanguageSwitcher.vue'
 import { useAppStore } from '@/store/modules/app'
+import { useSystemStore } from '@/store/modules/system'
 import { initDeviceFingerprint } from '@/utils/fingerprint'
 import { refreshTokenApi } from '@/api/auth'
 import { formatPageTitle } from '@/utils/title'
 
 const appStore = useAppStore()
+const systemStore = useSystemStore()
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
@@ -113,6 +115,10 @@ onMounted(() => {
 
   inspectAndRenewToken()
   tokenRefreshTimer = setInterval(inspectAndRenewToken, 15000)
+
+  if (!systemStore.isLoaded) {
+    systemStore.fetchPublicSettings().catch(() => {})
+  }
 })
 
 onUnmounted(() => {

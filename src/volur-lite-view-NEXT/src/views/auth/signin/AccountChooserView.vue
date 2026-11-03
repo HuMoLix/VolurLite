@@ -109,32 +109,33 @@
 
     <div class="flex items-center justify-between pt-6 sm:pt-8">
       <div>
-        <n-button
+        <VButton
           v-if="!isRemoveMode && accountList.length > 0"
-          quaternary
-          type="primary"
+          variant="secondary-lowest"
+          size="large"
           :round="true"
-          class="auth-action-btn btn-remove-account"
+          class="btn-remove-account"
           :disabled="loading"
-          :isScrim="true"
+          is-scrim="true"
           @click="handleEnterRemoveMode"
         >
           {{ t('auth.remove_account') }}
-        </n-button>
+        </VButton>
       </div>
 
       <div class="flex items-center gap-2.5">
-        <n-button
+        <VButton
           v-if="isRemoveMode"
-          type="primary"
+          variant="primary-highest"
+          size="large"
           :round="true"
-          class="auth-action-btn btn-next-step"
+          class="btn-next-step"
           :disabled="loading"
-          :isScrim="true"
+          is-scrim="true"
           @click="handleExitRemoveMode"
         >
           {{ t('common.done') }}
-        </n-button>
+        </VButton>
       </div>
     </div>
   </AuthCardShell>
@@ -143,7 +144,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton } from 'naive-ui'
+import { VButton } from '@/volur-ui'
 import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore } from '@/store/modules/flow'
 import { useUserStore } from '@/store/modules/user'

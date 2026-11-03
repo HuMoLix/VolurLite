@@ -5,16 +5,23 @@
 .dark-theme {
   --color-v1-surface: light-dark(#fff, #191919);
   --color-v1-text: light-dark(#1b1b1e, #d4d4d4);
+  --color-v1-text-disable: light-dark(#85898e,#575757);
   --color-v1-button-container: light-dark(#fff, #323232);
   --color-v1-button-container-high: light-dark(#eaeaeb, #424242);
   --color-v1-outline: light-dark(#d7d8da, #333);
   --color-v1-text-on-button: light-dark(#2b2d31, #fcfcfc);
+  --color-v1-primary-highest: light-dark(#0b57d0, #a8c7fa);
+  --color-v1-on-primary-highest: light-dark(#fff, #062e6f);
+
+  --color-v1-surface-left-nav: light-dark(#fafafa,#191919);
+  --color-v1-outline-var: light-dark(#d7d8da80,#262626);
+  --color-v1-nav-item-active: light-dark(#ececef,#2a2a2a);
+
 
   --color-v1-auth-backgroud: light-dark(#fff, #000);
   --color-v1-auth-surface: light-dark(#f0f4f9, #1e1f20);
   --color-v1-auth-surface-container-lowest: light-dark(#fff, #0e0e0e);
   --color-v1-auth-on-surface: light-dark(#1f1f1f, #e3e3e3);
-  --color-v1-auth-primary: light-dark(#0b57d0, #a8c7fa);
 
   --color-v3-surface: light-dark(#fff, #191919);
   --color-v3-overlay-background: light-dark(rgba(252, 252, 252, 0.3), rgba(25, 25, 25, 0.3));

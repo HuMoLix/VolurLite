@@ -3,6 +3,7 @@ package com.humolix.volur.system.service.impl;
 import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.framework.cache.VolurCacheTemplate;
 import com.humolix.volur.framework.common.exception.BusinessException;
+import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.domain.dto.SystemSettingUpdateDTO;
 import com.humolix.volur.system.domain.entity.SystemSettingEntity;
 import com.humolix.volur.system.domain.vo.AdminSystemOverviewVO;
@@ -95,18 +96,26 @@ public class SystemSettingServiceImpl implements SystemSettingService {
                     .filter(setting -> setting.getSettingKey().startsWith("system."))
                     .collect(Collectors.toMap(
                             SystemSettingEntity::getSettingKey,
-                            setting -> getSettingValue(setting.getSettingKey(), setting.getSettingValue()),
+                            this::resolveEntityValue,
                             (existing, replacing) -> replacing
                     ));
         });
 
         Map<String, String> map = new HashMap<>(cachedMap != null ? cachedMap : Map.of());
-        String maintenanceEnabled = String.valueOf(getBoolean(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_ENABLED, false));
-        String maintenanceNotice = getSettingValue(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, "系统正在全站维护升级中，暂不可用，请稍后访问。");
-        map.put(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_ENABLED, maintenanceEnabled);
-        map.put(com.humolix.volur.system.constant.SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, maintenanceNotice);
+        String maintenanceEnabled = String.valueOf(getBoolean(SystemSettingKeys.MAINTENANCE_ENABLED, false));
+        String maintenanceNotice = getSettingValue(SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, "系统正在全站维护升级中，暂不可用，请稍后访问。");
+        map.put(SystemSettingKeys.MAINTENANCE_ENABLED, maintenanceEnabled);
+        map.put(SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE, maintenanceNotice);
 
         return map;
+    }
+
+    private String resolveEntityValue(SystemSettingEntity entity) {
+        if (StringUtils.hasText(entity.getSettingValue())) {
+            return entity.getSettingValue();
+        }
+        String envVal = environment.getProperty("volur.setting." + entity.getSettingKey().toLowerCase().replace('_', '-'));
+        return StringUtils.hasText(envVal) ? envVal : "";
     }
 
     @Override
@@ -176,9 +185,9 @@ public class SystemSettingServiceImpl implements SystemSettingService {
 
         boolean isPublic = dto.getKey().startsWith("system.general.")
                 || dto.getKey().startsWith("system.maintenance.")
-                || com.humolix.volur.system.constant.SystemSettingKeys.CAPTCHA_ENABLED.equals(dto.getKey())
-                || com.humolix.volur.system.constant.SystemSettingKeys.AUTH_REGISTRATION_ENABLED.equals(dto.getKey())
-                || com.humolix.volur.system.constant.SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION.equals(dto.getKey());
+                || SystemSettingKeys.CAPTCHA_ENABLED.equals(dto.getKey())
+                || SystemSettingKeys.AUTH_REGISTRATION_ENABLED.equals(dto.getKey())
+                || SystemSettingKeys.AUTH_REQUIRE_EMAIL_VERIFICATION.equals(dto.getKey());
 
         SystemSettingEntity entity = systemSettingRepository.findBySettingKey(dto.getKey())
                 .orElseGet(() -> SystemSettingEntity.builder()
@@ -218,7 +227,6 @@ public class SystemSettingServiceImpl implements SystemSettingService {
 
     @Override
     public void evictLocalCache(String key) {
-        // 由 VolurCache 与 CacheEvictListener 自动在集群范围内单向监听广播并清理本机 L1
         evictCache(key);
     }
 

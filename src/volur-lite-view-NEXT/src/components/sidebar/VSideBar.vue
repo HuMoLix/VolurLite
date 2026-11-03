@@ -1452,8 +1452,8 @@ defineExpose({
 <style scoped lang="scss">
 .v-sidebar {
   height: 100%;
-  background-color: #fafafa !important;
-  border-right: none !important;
+  background-color: var(--color-v1-surface-left-nav) !important;
+  border-right: 1px solid var(--color-v1-outline-var) !important;
   z-index: 10;
   overflow: hidden !important;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease, border-color 0.25s ease;
@@ -1467,7 +1467,7 @@ defineExpose({
   }
 
   :deep(.n-layout-sider__border) {
-    background-color: #d7d8da80 !important;
+    background-color: var(--color-v1-outline-var) !important;
   }
 
   &:not(.is-collapsed):not(.n-layout-sider--collapsed) {
@@ -1879,7 +1879,7 @@ defineExpose({
         font-weight: 600;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: #5f6368;
+        color: var(--color-v1-text-disable);
         display: flex;
         align-items: center;
         justify-content: flex-start;
@@ -2410,12 +2410,6 @@ defineExpose({
 
 html.dark {
   .v-sidebar {
-    background-color: #191919 !important;
-
-    :deep(.n-layout-sider__border) {
-      background-color: #262626 !important;
-    }
-
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
 
@@ -2488,10 +2482,6 @@ html.dark {
       }
 
       .sidebar-nav-group {
-        .sidebar-group-title {
-          color: #9aa0a6;
-        }
-
         .sidebar-group-divider {
           background-color: #3c4043;
         }

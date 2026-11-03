@@ -57,37 +57,39 @@
           </div>
 
           <div class="passkey-modal-footer">
-            <n-button
-              quaternary
-              type="primary"
+            <VButton
+              variant="secondary-lowest"
+              size="large"
               :round="true"
-              class="auth-action-btn btn-create-account"
+              class="btn-create-account"
               :disabled="isScrimLoading"
-              :isScrim="true"
+              is-scrim="true"
               @click="handleClose"
             >
               {{ displayCancelText }}
-            </n-button>
-            <n-button
-              quaternary
-              type="primary"
+            </VButton>
+            <VButton
+              variant="secondary-lowest"
+              size="large"
               :round="true"
-              class="auth-action-btn btn-create-account"
+              class="btn-create-account"
               :disabled="isScrimLoading"
-              :isScrim="true"
+              is-scrim="true"
               @click="handleOtherDevice"
             >
               {{ displayOtherDeviceText }}
-            </n-button>
-            <n-button
-              type="primary"
-              class="auth-action-btn btn-next-step"
+            </VButton>
+            <VButton
+              variant="primary-highest"
+              size="large"
+              :round="true"
+              class="btn-next-step"
               :disabled="isScrimLoading"
-              :isScrim="true"
+              is-scrim="true"
               @click="handlePrimaryAction"
             >
               {{ displayPrimaryText }}
-            </n-button>
+            </VButton>
           </div>
         </div>
       </div>
@@ -107,7 +109,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { NButton } from 'naive-ui'
+import { VButton } from '@/volur-ui'
 import { useI18n } from 'vue-i18n'
 import Passkey from './PasskeyVerifier.vue'
 

@@ -1,10 +1,10 @@
 <template>
   <footer class="w-full bg-transparent py-4 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-xs text-google-text-muted dark:text-google-text-darkMuted select-none transition-colors duration-200">
-    <div class="flex items-center gap-1.5">
-      <span>{{ copyright }}</span>
+    <div v-if="effectiveCopyright" class="flex items-center gap-1.5">
+      <span>{{ effectiveCopyright }}</span>
     </div>
-    <div class="hidden sm:inline-block text-google-border-light dark:text-google-border-dark">·</div>
-    <div class="flex items-center gap-1.5">
+    <div v-if="effectiveIcpText" class="hidden sm:inline-block text-google-border-light dark:text-google-border-dark">·</div>
+    <div v-if="effectiveIcpText" class="flex items-center gap-1.5">
       <a
         :href="icpUrl"
         target="_blank"
@@ -16,13 +16,16 @@
           alt="工信部备案图标"
           class="w-3.5 h-3.5 object-contain"
         />
-        <span>{{ icpText }}</span>
+        <span>{{ effectiveIcpText }}</span>
       </a>
     </div>
   </footer>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useSystemStore } from '@/store/modules/system'
+
 defineOptions({
   name: 'AppFooter'
 })
@@ -33,9 +36,13 @@ interface Props {
   icpUrl?: string
 }
 
-withDefaults(defineProps<Props>(), {
-  copyright: '© 2026 Volur, Inc.',
-  icpText: '',
+const props = withDefaults(defineProps<Props>(), {
+  copyright: undefined,
+  icpText: undefined,
   icpUrl: 'https://beian.miit.gov.cn/'
 })
+
+const systemStore = useSystemStore()
+const effectiveCopyright = computed(() => (props.copyright !== undefined ? props.copyright : systemStore.copyright || '© 2026 Volur, Inc.'))
+const effectiveIcpText = computed(() => (props.icpText !== undefined ? props.icpText : systemStore.icpNumber))
 </script>

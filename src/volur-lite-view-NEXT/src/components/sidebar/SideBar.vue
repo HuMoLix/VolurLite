@@ -599,6 +599,7 @@ defineExpose({
     width: var(--v-sidebar-width, 256px);
     flex-shrink: 0;
     z-index: 30;
+    background-color: var(--color-v1-surface-left-nav);
     transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
     @media (min-width: 840px) {

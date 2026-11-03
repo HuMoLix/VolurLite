@@ -1,4 +1,13 @@
-export type VButtonVariant = 'primary' | 'normal' | 'tonal' | 'danger' | 'warning' | 'text'
+export type VButtonVariant =
+  | 'primary'
+  | 'primary-highest'
+  | 'secondary'
+  | 'secondary-lowest'
+  | 'normal'
+  | 'tonal'
+  | 'danger'
+  | 'warning'
+  | 'text'
 export type VButtonPresetSize = 'tiny' | 'small' | 'medium' | 'large'
 export type VButtonSize = VButtonPresetSize | number | string
 export type VButtonIconPlacement = 'left' | 'right'

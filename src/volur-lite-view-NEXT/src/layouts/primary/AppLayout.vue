@@ -393,11 +393,7 @@ defineExpose({
   max-height: 100vh;
   max-height: 100dvh;
   overflow: hidden;
-  background-color: #fff;
-
-  html.dark & {
-    background-color: #191919;
-  }
+  background-color: var(--color-v1-surface);
 }
 
 .app-main {
@@ -411,7 +407,7 @@ defineExpose({
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--v-scrollbar-thumb) transparent;
-  background: #fff;
+  background-color: var(--color-v1-surface);
   transition: background-color 0.3s ease;
 
   &::-webkit-scrollbar {
@@ -436,10 +432,6 @@ defineExpose({
 
   &::-webkit-scrollbar-corner {
     background: transparent;
-  }
-
-  html.dark & {
-    background-color: #191919;
   }
 }
 

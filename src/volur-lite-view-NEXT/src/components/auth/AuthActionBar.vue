@@ -1,36 +1,37 @@
 <template>
-  <div class="flex items-center justify-end gap-2.5 pt-6 sm:pt-8">
+  <div class="flex items-center justify-end gap-6 pt-6 sm:pt-8">
     <slot name="extra" />
-    <n-button
+    <VButton
       v-if="showSecondary && secondaryText"
-      quaternary
-      type="primary"
+      variant="secondary-lowest"
+      size="large"
       :round="true"
-      :class="['auth-action-btn', secondaryClass]"
+      is-scrim="true"
+      :class="secondaryClass"
       :disabled="secondaryDisabled"
       :loading="secondaryLoading"
-      :isScrim="isScrim"
       @click="emit('secondary')"
     >
       {{ secondaryText }}
-    </n-button>
-    <n-button
+    </VButton>
+    <VButton
       v-if="primaryText"
-      type="primary"
+      variant="primary-highest"
+      size="large"
       :round="true"
-      :class="['auth-action-btn', primaryClass]"
+      is-scrim="true"
+      :class="primaryClass"
       :disabled="primaryDisabled"
       :loading="primaryLoading"
-      :isScrim="isScrim"
       @click="emit('primary')"
     >
       {{ primaryText }}
-    </n-button>
+    </VButton>
   </div>
 </template>
 
 <script setup lang="ts">
-import { NButton } from 'naive-ui'
+import { VButton } from '@/volur-ui'
 
 defineOptions({
   name: 'AuthActionBar'

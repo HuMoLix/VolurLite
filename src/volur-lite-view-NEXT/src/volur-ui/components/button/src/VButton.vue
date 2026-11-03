@@ -216,15 +216,6 @@ defineExpose({
     transform: scale(0.985);
   }
 
-  &.is-pill {
-    border-radius: 9999px;
-  }
-
-  &.is-circle {
-    border-radius: 50%;
-    padding: 0;
-  }
-
   &.is-block {
     display: flex;
     width: 100%;
@@ -245,7 +236,7 @@ defineExpose({
     --volur-btn-focus-ring: light-dark(#1a73e8, #a8c7fa);
 
     &:focus-visible {
-      box-shadow: 0 0 0 2px var(--v-bg-base, #ffffff), 0 0 0 4px var(--volur-btn-focus-ring, light-dark(#1a73e8, #a8c7fa));
+      box-shadow: 0 0 0 2px var(--color-v1-surface, #ffffff), 0 0 0 4px var(--volur-btn-focus-ring, light-dark(#1a73e8, #a8c7fa));
     }
   }
 
@@ -262,6 +253,62 @@ defineExpose({
 
     &:active:not(.is-disabled) {
       background-color: var(--v-btn-primary-active, light-dark(#1557b0, #a8c7fa));
+    }
+  }
+
+  &.volur-btn--primary-highest {
+    --volur-btn-ripple: var(--color-v1-primary-highest);
+    background-color: var(--color-v1-primary-highest);
+    color: var(--color-v1-on-primary-highest);
+    border-color: transparent;
+    min-width: 88px;
+
+    &:hover:not(.is-disabled) {
+      background-color: light-dark(#0e4eb5, #b6d0f8);
+      box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    }
+
+    &:active:not(.is-disabled) {
+      background-color: light-dark(#063980, #a8c7fa);
+      transform: scale(0.98);
+      box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3);
+    }
+  }
+
+  &.volur-btn--secondary {
+    --volur-btn-ripple: var(--color-v1-primary-highest);
+    background-color: transparent;
+    color: var(--color-v1-primary-highest);
+    border-color: var(--color-v1-outline);
+
+    &:hover:not(.is-disabled) {
+      background-color: light-dark(rgba(11, 87, 208, 0.08), rgba(168, 199, 250, 0.08));
+    }
+
+    &:active:not(.is-disabled) {
+      background-color: light-dark(rgba(11, 87, 208, 0.16), rgba(168, 199, 250, 0.16));
+    }
+  }
+
+  &.volur-btn--secondary-lowest {
+    --volur-btn-ripple: light-dark(rgba(11, 87, 208, 0.25), rgba(168, 199, 250, 0.25));
+    background-color: transparent;
+    color: var(--color-v1-primary-highest);
+    border-color: transparent;
+
+    &:hover:not(.is-disabled) {
+      background-color: light-dark(#f7f8fe, #141517);
+      color: var(--color-v1-primary-highest);
+    }
+
+    &:active:not(.is-disabled) {
+      background-color: light-dark(rgba(11, 87, 208, 0.16), #141517);
+      transform: scale(0.985);
+    }
+
+    &.is-disabled {
+      opacity: 0.38;
+      background-color: transparent;
     }
   }
 
@@ -364,16 +411,36 @@ defineExpose({
   }
 
   &.volur-btn--large {
-    height: 44px;
-    padding: 0 20px;
-    font-size: 15px;
+    height: 40px;
+    font-size: 0.875rem;
     border-radius: 12px;
     gap: 8px;
 
+    &.volur-btn--primary,
+    &.volur-btn--primary-highest {
+      min-width: 88px;
+      padding: 0 24px;
+    }
+
+    &.volur-btn--secondary,
+    &.volur-btn--secondary-lowest {
+      padding: 0 14px;
+    }
+
     &.is-circle {
+      min-width: 44px;
       width: 44px;
       padding: 0;
     }
+  }
+
+  &.is-pill {
+    border-radius: 9999px;
+  }
+
+  &.is-circle {
+    border-radius: 50%;
+    padding: 0;
   }
 
   .volur-btn__icon {

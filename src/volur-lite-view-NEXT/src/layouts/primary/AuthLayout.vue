@@ -82,12 +82,15 @@
         <a :href="`/accounts/privacy?lang=${currentUrlLang}`" class="auth-btn-link text-[12px]">{{ t('common.privacy') }}</a>
         <a :href="`/accounts/terms?lang=${currentUrlLang}`" class="auth-btn-link text-[12px]">{{ t('common.terms') }}</a>
 
-        <span class="auth-footer__copyright whitespace-nowrap px-2 text-[12px] inline-flex items-center h-8 select-none">
-          <span class="hidden md:inline">© 2026 Volur, Inc.</span>
-          <span class="inline md:hidden">© 2026 Volur</span>
+        <span
+          v-if="copyright"
+          class="auth-footer__copyright whitespace-nowrap px-2 text-[12px] inline-flex items-center h-8 select-none"
+        >
+          {{ copyright }}
         </span>
 
         <a
+          v-if="icpNumber"
           href="https://beian.miit.gov.cn/"
           target="_blank"
           rel="noopener noreferrer"
@@ -99,7 +102,7 @@
             alt="备案"
             class="w-3.5 h-3.5 object-contain shrink-0"
           />
-          <span class="hidden md:inline"></span>
+          <span class="hidden md:inline">{{ icpNumber }}</span>
         </a>
       </div>
     </footer>
@@ -117,14 +120,19 @@ import { NDropdown } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useSigninFlowStore, useSignupFlowStore, MIN_LOADING_DURATION_MS } from '@/store/modules/flow'
 import { useAppStore } from '@/store/modules/app'
+import { useSystemStore } from '@/store/modules/system'
 import { isSupportedLocale } from '@/i18n'
 
 const props = withDefaults(
   defineProps<{
     loading?: boolean
+    icpNumber?: string
+    copyright?: string
   }>(),
   {
-    loading: undefined
+    loading: undefined,
+    icpNumber: undefined,
+    copyright: undefined
   }
 )
 
@@ -132,8 +140,23 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const systemStore = useSystemStore()
 const signinFlowStore = useSigninFlowStore()
 const signupFlowStore = useSignupFlowStore()
+
+const icpNumber = computed(() => {
+  if (props.icpNumber !== undefined) {
+    return props.icpNumber
+  }
+  return systemStore.icpNumber
+})
+
+const copyright = computed(() => {
+  if (props.copyright !== undefined) {
+    return props.copyright
+  }
+  return systemStore.copyright || '© 2026 Volur, Inc.'
+})
 
 const languageOptions = [
   { label: '简体中文', key: 'zh-CN' },
@@ -159,6 +182,9 @@ function syncLangFromQuery(): void {
 
 onMounted(() => {
   syncLangFromQuery()
+  if (!systemStore.isLoaded) {
+    systemStore.fetchPublicSettings().catch(() => {})
+  }
 })
 
 watch(
