@@ -21,6 +21,8 @@ import com.humolix.volur.challenge.mapper.ChallengeMapper;
 import com.humolix.volur.challenge.repository.ctf.CtfChallengeCategoryRepository;
 import com.humolix.volur.challenge.repository.ctf.CtfChallengeRepository;
 import com.humolix.volur.challenge.service.admin.ctf.AdminCtfChallengeService;
+import com.humolix.volur.challenge.service.spi.ChallengeDeletionGuard;
+import org.springframework.beans.factory.ObjectProvider;
 import com.humolix.volur.challenge.util.InMemoryMultipartFile;
 import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.framework.common.api.PageResponse;
@@ -77,6 +79,7 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
     private final SystemSettingService systemSettingService;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
+    private final ObjectProvider<ChallengeDeletionGuard> deletionGuard;
 
     @Override
     public PageResponse<CtfChallengeListVO> listChallenges(Integer page, Integer size, Long categoryId, String name) {
@@ -246,6 +249,13 @@ public class AdminCtfChallengeServiceImpl implements AdminCtfChallengeService {
     @Transactional
     @CacheEvict(cacheNames = CacheNames.CTF_CHALLENGE_DETAIL, key = "#id")
     public void deleteChallenge(Long id) {
+        if (!challengeRepository.existsById(id)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "题目不存在");
+        }
+        ChallengeDeletionGuard guard = deletionGuard.getIfAvailable();
+        if (guard != null && guard.isReferenced(id)) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, 153905, "该题目已被训练模块引用，无法删除");
+        }
         challengeRepository.deleteById(id);
     }
 

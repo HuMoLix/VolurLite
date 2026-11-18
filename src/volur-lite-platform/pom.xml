@@ -27,6 +27,7 @@
         <module>volur-auth</module>
         <module>volur-challenge</module>
         <module>volur-container</module>
+        <module>volur-training</module>
         <module>volur-competition</module>
         <module>volur-notification</module>
         <module>volur-logging</module>
@@ -98,6 +99,11 @@
             <dependency>
                 <groupId>com.humolix.volur</groupId>
                 <artifactId>volur-container</artifactId>
+                <version>${volur.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.humolix.volur</groupId>
+                <artifactId>volur-training</artifactId>
                 <version>${volur.version}</version>
             </dependency>
             <dependency>

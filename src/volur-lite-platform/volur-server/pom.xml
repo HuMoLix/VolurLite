@@ -50,6 +50,10 @@
             <artifactId>volur-container</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.humolix.volur</groupId>
+            <artifactId>volur-training</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.fabric8</groupId>
             <artifactId>kubernetes-httpclient-jdk</artifactId>
         </dependency>
