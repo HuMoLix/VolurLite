@@ -66,3 +66,4 @@ src/volur-lite-view-NEXT/nginx/ssl/
 scripts/
 agent/
 .agents/
+src/volur-lite-view-NEXT/vite.https.config.ts

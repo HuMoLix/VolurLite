@@ -3,6 +3,12 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 import { publicResourceMappingPlugin } from './plugins/publicResourceMapping'
 
+// 本地联调可用环境变量覆盖（默认行为不变）：
+//   VITE_DEV_PROXY_TARGET    API/WS 代理目标后端，默认 http://localhost:8080
+//   VITE_DEV_HMR_CLIENT_PORT HMR 客户端端口，默认 443（走反代 HTTPS 的场景）
+const proxyTarget = process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:8080'
+const hmrClientPort = Number(process.env.VITE_DEV_HMR_CLIENT_PORT || 443)
+
 export default defineConfig({
   plugins: [
     vue({
@@ -26,18 +32,18 @@ export default defineConfig({
       'test-platform.volurctf.com'
     ],
     hmr: {
-      clientPort: 443
+      clientPort: hmrClientPort
     },
     open: false,
     cors: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: proxyTarget,
         changeOrigin: true,
         xfwd: true
       },
       '/ws': {
-        target: 'http://localhost:8080',
+        target: proxyTarget,
         ws: true,
         changeOrigin: true
       }
