@@ -47,6 +47,7 @@ import {
   ShieldOutline,
   ShieldCheckmarkOutline,
   TrophyOutline,
+  BarbellOutline,
   MegaphoneOutline,
   HardwareChipOutline,
   CubeOutline,
@@ -106,6 +107,7 @@ const activeKey = computed<string>(() => {
   if (route.path.startsWith('/admin/challenges/awdp')) return 'challenge-awdp'
   if (route.path.startsWith('/admin/challenges/awd')) return 'challenge-awd'
   if (route.path.startsWith('/admin/competitions')) return 'competitions'
+  if (route.path.startsWith('/admin/training')) return 'training'
   if (route.path.startsWith('/admin/broadcasts')) return 'broadcasts'
   if (route.path.startsWith('/admin/clusters')) return 'clusters'
   if (route.path.startsWith('/admin/containers')) return 'containers'
@@ -146,6 +148,13 @@ const adminNavGroups = computed<SidebarNavGroup[]>(() => [
         label: () => t('admin.competitions.title', '竞赛管理'),
         route: '/admin/competitions',
         icon: TrophyOutline
+      },
+      {
+        key: 'training',
+        titleKey: 'admin.training.title',
+        label: () => t('admin.training.title', '训练管理'),
+        route: '/admin/training',
+        icon: BarbellOutline
       },
       {
         key: 'broadcasts',

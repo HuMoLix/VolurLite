@@ -157,6 +157,12 @@ export async function encryptFlowCredential(
     return plainText
   }
 
+  // crypto.subtle 仅在安全上下文（HTTPS 或 localhost）可用；非安全上下文下
+  // 加密必然失败，应尽早给出可理解的报错，而不是让流程带着空会话句柄继续。
+  if (typeof crypto === 'undefined' || !crypto.subtle) {
+    throw new Error('当前浏览器环境不支持安全加密（WebCrypto 不可用），请通过 HTTPS 或 http://localhost 访问本站')
+  }
+
   const targetDsh = dsh || ''
   const timestamp = Date.now()
   const dynamicStr = `${flowName || ''}:${flowEntry || ''}:${targetDsh}:${timestamp}`

@@ -1,0 +1,22 @@
+{
+  "title": "公告中心",
+  "subtitle": "平台公告、活动与维护通知，重要信息不错过",
+  "search_placeholder": "搜索公告标题或内容",
+  "category_all": "全部",
+  "category_system": "系统公告",
+  "category_promotion": "运营活动",
+  "empty": "暂无公告",
+  "important": "重要",
+  "expire_at": "有效期至",
+  "no_content": "暂无公告内容",
+  "open_link": "查看相关链接",
+  "hero_eyebrow": "NEWSROOM",
+  "total_prefix": "共",
+  "total_suffix": "条公告",
+  "featured": "置顶",
+  "read_more": "阅读全文",
+  "view_detail": "查看详情",
+  "empty_title": "还没有公告",
+  "empty_desc": "平台公告、活动与维护通知会第一时间发布在这里",
+  "platform": "平台团队"
+}

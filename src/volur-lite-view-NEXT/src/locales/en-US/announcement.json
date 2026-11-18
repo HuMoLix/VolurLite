@@ -1,0 +1,22 @@
+{
+  "title": "Announcements",
+  "subtitle": "Platform announcements, events and maintenance notices",
+  "search_placeholder": "Search announcement title or content",
+  "category_all": "All",
+  "category_system": "System",
+  "category_promotion": "Events",
+  "empty": "No announcements yet",
+  "important": "Important",
+  "expire_at": "Valid until",
+  "no_content": "No content",
+  "open_link": "Open related link",
+  "hero_eyebrow": "NEWSROOM",
+  "total_prefix": "Total",
+  "total_suffix": "announcements",
+  "featured": "Pinned",
+  "read_more": "Read more",
+  "view_detail": "View details",
+  "empty_title": "No announcements yet",
+  "empty_desc": "Platform announcements, events and maintenance notices will appear here.",
+  "platform": "Platform Team"
+}

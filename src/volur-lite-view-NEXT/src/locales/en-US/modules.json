@@ -1,0 +1,35 @@
+{
+  "badge": "Coming soon",
+  "coming_soon_title": "This module is under construction",
+  "coming_soon_desc": "We are polishing the content and experience. It will show up here as soon as it is ready.",
+  "go_training": "Practice now",
+  "go_competitions": "Browse competitions",
+  "learning": {
+    "title": "Learning Center",
+    "desc": "Structured learning paths and hands-on courses, from beginner to advanced",
+    "feature1": "Structured learning paths",
+    "feature2": "Exercises and course notes",
+    "feature3": "Progress tracking"
+  },
+  "resources": {
+    "title": "Resource Center",
+    "desc": "Tools, images and documentation in one place",
+    "feature1": "Common tools and images",
+    "feature2": "Official docs and standards",
+    "feature3": "Search and favorites"
+  },
+  "experimental": {
+    "title": "Experimental Features",
+    "desc": "New capabilities in incubation — try them first",
+    "feature1": "Feature previews",
+    "feature2": "Experimental toolset",
+    "feature3": "Direct feedback"
+  },
+  "help": {
+    "title": "Help Center",
+    "desc": "FAQ, usage guides and support channels",
+    "feature1": "Frequently asked questions",
+    "feature2": "Platform usage guides",
+    "feature3": "Contact support"
+  }
+}

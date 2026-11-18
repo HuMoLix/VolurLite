@@ -215,6 +215,18 @@ export const adminRoutes: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'training',
+        name: 'AdminTraining',
+        component: () => import('@/views/admin/training/AdminTrainingView.vue'),
+        meta: {
+          title: '训练管理',
+          titleKey: 'admin.training.title',
+          requiredAuth: true,
+          requiredAdmin: true,
+          roles: ['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']
+        }
+      },
+      {
         path: 'broadcasts',
         name: 'AdminBroadcasts',
         component: () => import('@/views/admin/broadcast/AdminBroadcastView.vue'),

@@ -6,6 +6,9 @@ import zhCnAuthSignup from '../locales/zh-CN/auth/signup.json'
 import zhCnAuthRecovery from '../locales/zh-CN/auth/recovery.json'
 import zhCnCaptchaRecaptcha from '../locales/zh-CN/captcha/recaptcha.json'
 import zhCnCompetition from '../locales/zh-CN/competition.json'
+import zhCnTraining from '../locales/zh-CN/training.json'
+import zhCnAnnouncement from '../locales/zh-CN/announcement.json'
+import zhCnModules from '../locales/zh-CN/modules.json'
 import zhCnAdmin from '../locales/zh-CN/admin.json'
 
 const zhCnAuth = {
@@ -23,7 +26,16 @@ const localeModules = import.meta.glob(['../locales/**/*.json', '!../locales/zh-
 
 export const SUPPORTED_LOCALES = ['zh-CN', 'zh-TW', 'en-US'] as const
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
-export type LocaleNamespace = 'common' | 'auth' | 'captcha' | 'admin' | 'competition' | 'all'
+export type LocaleNamespace =
+  | 'common'
+  | 'auth'
+  | 'captcha'
+  | 'admin'
+  | 'competition'
+  | 'training'
+  | 'announcement'
+  | 'modules'
+  | 'all'
 
 export const DEFAULT_LOCALE: SupportedLocale = 'zh-CN'
 
@@ -35,6 +47,9 @@ const loadedPaths = new Set<string>([
   '../locales/zh-CN/auth/recovery.json',
   '../locales/zh-CN/captcha/recaptcha.json',
   '../locales/zh-CN/competition.json',
+  '../locales/zh-CN/training.json',
+  '../locales/zh-CN/announcement.json',
+  '../locales/zh-CN/modules.json',
   '../locales/zh-CN/admin.json'
 ])
 
@@ -58,6 +73,15 @@ export function getNamespaceForPath(filePath: string): LocaleNamespace {
   }
   if (filePath.includes('/captcha/')) {
     return 'captcha'
+  }
+  if (filePath.endsWith('/training.json')) {
+    return 'training'
+  }
+  if (filePath.endsWith('/announcement.json')) {
+    return 'announcement'
+  }
+  if (filePath.endsWith('/modules.json')) {
+    return 'modules'
   }
   if (filePath.endsWith('/admin.json') || filePath.includes('/admin/')) {
     return 'admin'
@@ -84,6 +108,21 @@ export function getNamespacesForRoute(routePath: string): LocaleNamespace[] {
   }
   if (routePath.startsWith('/competitions') || routePath.startsWith('/c/')) {
     namespaces.push('competition')
+  }
+  const isSection = (base: string) => routePath === base || routePath.startsWith(`${base}/`)
+  if (isSection('/challenges')) {
+    namespaces.push('training')
+  }
+  if (isSection('/announcements')) {
+    namespaces.push('announcement')
+  }
+  if (
+    isSection('/learning') ||
+    isSection('/resources') ||
+    isSection('/experimental') ||
+    isSection('/help')
+  ) {
+    namespaces.push('modules')
   }
   return namespaces
 }
@@ -177,6 +216,9 @@ export const i18n = createI18n({
       auth: zhCnAuth,
       captcha: zhCnCaptcha,
       competition: zhCnCompetition,
+      training: zhCnTraining,
+      announcement: zhCnAnnouncement,
+      modules: zhCnModules,
       admin: zhCnAdmin
     },
     'zh': {
@@ -184,6 +226,9 @@ export const i18n = createI18n({
       auth: zhCnAuth,
       captcha: zhCnCaptcha,
       competition: zhCnCompetition,
+      training: zhCnTraining,
+      announcement: zhCnAnnouncement,
+      modules: zhCnModules,
       admin: zhCnAdmin
     }
   }
