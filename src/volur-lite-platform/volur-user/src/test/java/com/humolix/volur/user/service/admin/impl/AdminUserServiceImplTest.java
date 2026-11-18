@@ -15,11 +15,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class AdminUserServiceImplTest {
@@ -89,6 +92,45 @@ class AdminUserServiceImplTest {
         request.setEmail("existing@example.com");
 
         Assertions.assertDoesNotThrow(() -> adminUserService.updateUser(1002L, request));
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void deleteUser_whenAlreadyDeleted_shouldBeIdempotent() {
+        User user = User.builder()
+                .id(1003L)
+                .username("already_deleted")
+                .email("deleted@example.com")
+                .role(UserRole.USER)
+                .status(false)
+                .deletedAt(Instant.now())
+                .build();
+
+        given(userRepository.findById(1003L)).willReturn(Optional.of(user));
+
+        Assertions.assertDoesNotThrow(() -> adminUserService.deleteUser(1003L));
+        Assertions.assertEquals("already_deleted", user.getUsername());
+        verify(userRepository, never()).save(any(User.class));
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void deleteUser_withLongUsername_shouldTruncateWithinColumnLimit() {
+        User user = User.builder()
+                .id(1004L)
+                .username("u".repeat(64))
+                .email("long@example.com")
+                .role(UserRole.USER)
+                .status(true)
+                .build();
+
+        given(userRepository.findById(1004L)).willReturn(Optional.of(user));
+
+        Assertions.assertDoesNotThrow(() -> adminUserService.deleteUser(1004L));
+        Assertions.assertTrue(user.getUsername().length() <= 64);
+        Assertions.assertTrue(user.getUsername().contains("_deleted_"));
+        Assertions.assertFalse(user.getStatus());
+        Assertions.assertNotNull(user.getDeletedAt());
         verify(userRepository).save(user);
     }
 }

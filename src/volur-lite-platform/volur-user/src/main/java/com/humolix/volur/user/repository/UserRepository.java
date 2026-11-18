@@ -38,4 +38,10 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     long countByStatus(Boolean status);
 
+    long countByDeletedAtIsNull();
+
+    long countByRoleInAndDeletedAtIsNull(List<UserRole> roles);
+
+    long countByStatusAndDeletedAtIsNull(Boolean status);
+
 }

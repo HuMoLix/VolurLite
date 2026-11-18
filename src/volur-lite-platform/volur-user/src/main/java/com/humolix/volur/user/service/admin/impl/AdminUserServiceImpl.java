@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -38,6 +39,9 @@ import java.util.List;
 public class AdminUserServiceImpl implements AdminUserService {
 
     public static final String SUPER_ADMIN_USERNAME = "VolurSuperAdmin";
+
+    private static final int USERNAME_MAX_LENGTH = 64;
+    private static final int EMAIL_MAX_LENGTH = 255;
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
@@ -52,6 +56,9 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         Specification<User> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            // 软删除账号不再出现在管理列表中
+            predicates.add(cb.isNull(root.get("deletedAt")));
 
             if (StringUtils.hasText(request.getKeyword())) {
                 String cleanKeyword = request.getKeyword();
@@ -106,10 +113,10 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Override
     public AdminUserStatisticsVO getUserStatistics() {
-        long totalUsers = userRepository.count();
-        long adminCount = userRepository.countByRoleIn(List.of(UserRole.ADMIN, UserRole.SUPER_ADMIN));
-        long bannedCount = userRepository.countByStatus(false);
-        long activeCount = userRepository.countByStatus(true);
+        long totalUsers = userRepository.countByDeletedAtIsNull();
+        long adminCount = userRepository.countByRoleInAndDeletedAtIsNull(List.of(UserRole.ADMIN, UserRole.SUPER_ADMIN));
+        long bannedCount = userRepository.countByStatusAndDeletedAtIsNull(false);
+        long activeCount = userRepository.countByStatusAndDeletedAtIsNull(true);
 
         return AdminUserStatisticsVO.builder()
                 .totalUsers(totalUsers)
@@ -255,10 +262,21 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new BusinessException(HttpStatus.FORBIDDEN, "超级管理员账号禁止删除");
         }
 
+        // 幂等：已软删除的账号再次删除直接返回，避免重复追加后缀导致用户名超长
+        if (user.getDeletedAt() != null) {
+            return;
+        }
+
         user.setStatus(false);
-        long timestamp = System.currentTimeMillis();
-        user.setUsername(user.getUsername() + "_deleted_" + timestamp);
-        user.setEmail(user.getEmail() + "_deleted_" + timestamp);
+        user.setDeletedAt(Instant.now());
+
+        String suffix = "_deleted_" + System.currentTimeMillis();
+        if (StringUtils.hasText(user.getUsername())) {
+            user.setUsername(appendSuffixWithinLimit(user.getUsername(), suffix, USERNAME_MAX_LENGTH));
+        }
+        if (StringUtils.hasText(user.getEmail())) {
+            user.setEmail(appendSuffixWithinLimit(user.getEmail(), suffix, EMAIL_MAX_LENGTH));
+        }
         if (user.getPhone() != null) {
             user.setPhone(null);
         }
@@ -320,6 +338,15 @@ public class AdminUserServiceImpl implements AdminUserService {
                         .description(r.getDescription())
                         .build())
                 .toList();
+    }
+
+    /**
+     * 在不超过字段长度的前提下追加后缀：超出部分从原值尾部截断，保证 UPDATE 不会因超长失败。
+     */
+    private static String appendSuffixWithinLimit(String value, String suffix, int maxLength) {
+        int keep = Math.max(0, maxLength - suffix.length());
+        String head = value.length() > keep ? value.substring(0, keep) : value;
+        return head + suffix;
     }
 
 }

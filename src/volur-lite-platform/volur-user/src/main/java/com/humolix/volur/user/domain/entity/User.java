@@ -74,6 +74,9 @@ public class User implements Serializable {
     @Column(name = "status", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean status = true;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Instant createdAt;
