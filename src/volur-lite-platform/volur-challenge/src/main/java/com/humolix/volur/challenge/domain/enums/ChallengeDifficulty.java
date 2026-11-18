@@ -51,25 +51,33 @@ public enum ChallengeDifficulty implements EnumEntity {
 
     @JsonCreator
     public static ChallengeDifficulty fromValue(Object value) {
+        return fromValueStrict(value).orElse(EASY);
+    }
+
+    /**
+     * 严格解析：识别枚举名/描述值/中文别名，未识别时返回 empty（不回退默认值）。
+     * 供筛选类接口校验入参，避免拼写错误被静默映射为 EASY。
+     */
+    public static java.util.Optional<ChallengeDifficulty> fromValueStrict(Object value) {
         if (value == null) {
-            return null;
+            return java.util.Optional.empty();
         }
         if (value instanceof Number num) {
-            return fromCode(num.intValue());
+            return java.util.Optional.of(fromCode(num.intValue()));
         }
         String str = value.toString().trim().toLowerCase();
         for (ChallengeDifficulty diff : values()) {
             if (diff.description.equalsIgnoreCase(str) || diff.name().equalsIgnoreCase(str)) {
-                return diff;
+                return java.util.Optional.of(diff);
             }
         }
         return switch (str) {
-            case "入门", "签到", "baby" -> EASY;
-            case "简单" -> NORMAL;
-            case "中等", "medium" -> MID;
-            case "进阶" -> HARD;
-            case "困难", "硬核", "hardcore" -> DIFFICULT;
-            default -> EASY;
+            case "入门", "签到", "baby" -> java.util.Optional.of(EASY);
+            case "简单" -> java.util.Optional.of(NORMAL);
+            case "中等", "medium" -> java.util.Optional.of(MID);
+            case "进阶" -> java.util.Optional.of(HARD);
+            case "困难", "硬核", "hardcore" -> java.util.Optional.of(DIFFICULT);
+            default -> java.util.Optional.empty();
         };
     }
 
