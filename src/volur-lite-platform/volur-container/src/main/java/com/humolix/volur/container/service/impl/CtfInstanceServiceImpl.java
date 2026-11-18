@@ -49,9 +49,18 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
     private final ClusterNodeRepository clusterNodeRepository;
     private final ClusterImageRepository clusterImageRepository;
     private final AdminImageService adminImageService;
+    private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
     private static final int DEFAULT_INSTANCE_DURATION_MINUTES = 30;
-    private static final int MAX_EXTEND_MINUTES = 15;
+    /** 每次延期增加的分钟数（步长） */
+    private static final int EXTEND_STEP_MINUTES = 15;
+    /** 剩余时间低于初始时长的该百分比才允许延期 */
+    private static final int EXTEND_THRESHOLD_PERCENT = 20;
+    /** 个人模式启动限速：每用户每窗口最多 N 次 */
+    private static final int INSTANCE_START_RATE_LIMIT = 1;
+    private static final java.time.Duration INSTANCE_START_RATE_WINDOW = java.time.Duration.ofSeconds(10);
+    private static final String INSTANCE_START_RATE_KEY_PREFIX = "volur:instance:start:rate:";
+    private static final int EC_INSTANCE_START_RATE_LIMITED = 123905;
 
     private ContainerRuntimeStrategy getRuntimeStrategy() {
         String containerType = systemSettingService.getSettingValue(SystemSettingKeys.CONTAINER_TYPE, "DOCKER_SWARM");
@@ -59,6 +68,23 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
             return dockerSwarmRuntimeStrategy;
         }
         return k3sRuntimeStrategy;
+    }
+
+    /** 个人模式（训练/自练）启动限速，防止高频开关容器刷资源；Redis 异常时放行 */
+    private void checkPersonalStartRateLimit(Long userId) {
+        try {
+            String key = INSTANCE_START_RATE_KEY_PREFIX + userId;
+            // SET NX EX 原子执行，避免 INCR+EXPIRE 之间崩溃遗留无 TTL 的孤儿 key
+            Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", INSTANCE_START_RATE_WINDOW);
+            if (!Boolean.TRUE.equals(acquired)) {
+                throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, EC_INSTANCE_START_RATE_LIMITED,
+                        "靶机启动过于频繁，请稍后再试");
+            }
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("[Volur-Container] 个人靶机启动限速校验异常，放行: userId={}", userId, ex);
+        }
     }
 
     private void stopContainerSafely(String containerId) {
@@ -83,6 +109,9 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
     @Override
     @Transactional
     public ChallengeInstanceResponseVO startInstance(Long challengeId, Long userId, Long stageId, Long teamId, String teamToken) {
+        if (stageId == null || stageId == 0L) {
+            checkPersonalStartRateLimit(userId);
+        }
         CtfChallenge challenge = challengeRepository.findById(challengeId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "题目不存在"));
 
@@ -227,7 +256,14 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "容器已过期，请重新开启");
         }
 
-        Instant newExpiresAt = inst.getExpiresAt().plus(Duration.ofMinutes(MAX_EXTEND_MINUTES));
+        long initialSeconds = DEFAULT_INSTANCE_DURATION_MINUTES * 60L;
+        long remainingSeconds = Duration.between(now, inst.getExpiresAt()).getSeconds();
+        if (remainingSeconds > initialSeconds * EXTEND_THRESHOLD_PERCENT / 100) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST,
+                    "剩余时间充足，请在剩余时间低于 " + EXTEND_THRESHOLD_PERCENT + "% 后再延期");
+        }
+
+        Instant newExpiresAt = inst.getExpiresAt().plus(Duration.ofMinutes(EXTEND_STEP_MINUTES));
         inst.setExpiresAt(newExpiresAt);
         instanceRepository.save(inst);
 
@@ -243,8 +279,32 @@ public class CtfInstanceServiceImpl implements CtfInstanceService {
 
     @Override
     public Optional<CtfChallengeInstance> getInstance(Long challengeId, Long userId) {
-        return instanceRepository.findByChallengeIdAndTargetId(challengeId, userId)
+        Optional<CtfChallengeInstance> instanceOpt = instanceRepository
+                .findByChallengeIdAndTargetId(challengeId, userId)
                 .filter(inst -> inst.getExpiresAt().isAfter(Instant.now()));
+        instanceOpt.ifPresent(this::refreshStartupStatusIfNeeded);
+        return instanceOpt;
+    }
+
+    /**
+     * Swarm 任务从 Preparing 到 Running 往往超过启动等待窗口（3.5s），
+     * 查询靶机状态时顺带同步一次最新任务状态，避免实例永远停留在 STARTING。
+     */
+    private void refreshStartupStatusIfNeeded(CtfChallengeInstance instance) {
+        if (instance.getStatus() != InstanceStartupStatus.STARTING
+                || !StringUtils.hasText(instance.getContainerId())
+                || !instance.getContainerId().startsWith("swarm-")) {
+            return;
+        }
+        try {
+            InstanceStartupStatus latest = dockerSwarmRuntimeStrategy.checkInstanceStatus(instance.getContainerId());
+            if (latest != null && latest != InstanceStartupStatus.STARTING) {
+                instance.setStatus(latest);
+                instanceRepository.save(instance);
+            }
+        } catch (Exception ex) {
+            log.warn("[Volur-Container] 同步靶机任务状态失败: containerId={}", instance.getContainerId(), ex);
+        }
     }
 
     @Override
