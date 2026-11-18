@@ -1,0 +1,35 @@
+{
+  "badge": "建设中",
+  "coming_soon_title": "该模块正在建设中",
+  "coming_soon_desc": "我们正在打磨内容与交互，上线后会第一时间在这里与你见面。",
+  "go_training": "去题目训练",
+  "go_competitions": "去赛事大厅",
+  "learning": {
+    "title": "学习中心",
+    "desc": "系统化的学习路径与实战课程，从入门到进阶",
+    "feature1": "体系化学习路径",
+    "feature2": "配套练习与讲义",
+    "feature3": "学习进度跟踪"
+  },
+  "resources": {
+    "title": "资源中心",
+    "desc": "工具、镜像与文档资料，一站获取",
+    "feature1": "常用工具与镜像",
+    "feature2": "官方文档与规范",
+    "feature3": "资源检索与收藏"
+  },
+  "experimental": {
+    "title": "实验性功能",
+    "desc": "正在孵化中的新能力，抢先体验",
+    "feature1": "新功能预览",
+    "feature2": "实验性工具集",
+    "feature3": "意见反馈直达"
+  },
+  "help": {
+    "title": "帮助中心",
+    "desc": "常见问题、使用指南与支持渠道",
+    "feature1": "常见问题解答",
+    "feature2": "平台使用指南",
+    "feature3": "联系技术支持"
+  }
+}

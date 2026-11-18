@@ -1,0 +1,35 @@
+{
+  "badge": "建設中",
+  "coming_soon_title": "該模組正在建設中",
+  "coming_soon_desc": "我們正在打磨內容與互動，上線後會第一時間在這裡與你見面。",
+  "go_training": "去題目訓練",
+  "go_competitions": "去賽事大廳",
+  "learning": {
+    "title": "學習中心",
+    "desc": "系統化的學習路徑與實戰課程，從入門到進階",
+    "feature1": "體系化學習路徑",
+    "feature2": "配套練習與講義",
+    "feature3": "學習進度追蹤"
+  },
+  "resources": {
+    "title": "資源中心",
+    "desc": "工具、鏡像與文件資料，一站取得",
+    "feature1": "常用工具與鏡像",
+    "feature2": "官方文件與規範",
+    "feature3": "資源檢索與收藏"
+  },
+  "experimental": {
+    "title": "實驗性功能",
+    "desc": "正在孵化中的新能力，搶先體驗",
+    "feature1": "新功能預覽",
+    "feature2": "實驗性工具集",
+    "feature3": "意見回饋直達"
+  },
+  "help": {
+    "title": "幫助中心",
+    "desc": "常見問題、使用指南與支援管道",
+    "feature1": "常見問題解答",
+    "feature2": "平台使用指南",
+    "feature3": "聯絡技術支援"
+  }
+}

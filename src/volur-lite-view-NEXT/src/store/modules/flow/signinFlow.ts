@@ -138,7 +138,13 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
           newQuery.TL = tl.value
           changed = true
         }
-      } catch {
+      } catch (err) {
+        console.error('[signinFlow] 流程会话初始化失败', err)
+        setAccountError(
+          err instanceof Error && err.message
+            ? `会话初始化失败：${err.message}`
+            : '会话初始化失败，请刷新页面重试'
+        )
       }
     } else {
       if (isDshExpired(dsh.value)) {
@@ -179,6 +185,9 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       }
       throw new Error('会话已超时，请重新开始')
     }
+    if (!dsh.value) {
+      throw new Error('登录会话尚未初始化，请刷新页面重试')
+    }
     return withLoading(async () => {
       const res = await submitSignInIdentifierApi({
         identifier: trimmedVal,
@@ -212,6 +221,9 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
         window.location.href = buildSessionExpireHref()
       }
       throw new Error('会话已超时，请重新开始')
+    }
+    if (!dsh.value) {
+      throw new Error('登录会话尚未初始化，请刷新页面重试')
     }
     return withLoading(async () => {
       const res = await selectAccountChooserApi({
@@ -252,6 +264,9 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
         window.location.href = buildSessionExpireHref()
       }
       throw new Error('会话已超时，请重新开始')
+    }
+    if (!dsh.value) {
+      throw new Error('登录会话尚未初始化，请刷新页面重试')
     }
     return withLoading(async () => {
       const targetStep = (challengeType || activeChallengeType.value || '').trim().toLowerCase()
@@ -364,6 +379,9 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
       }
       throw new Error('会话已超时，请重新开始')
     }
+    if (!dsh.value) {
+      throw new Error('登录会话尚未初始化，请刷新页面重试')
+    }
     return withLoading(async () => {
       const res = await selectSignInChallengeApi({
         dsh: dsh.value,
@@ -392,6 +410,9 @@ export const useSigninFlowStore = defineStore('signinFlow', () => {
         window.location.href = buildSessionExpireHref()
       }
       throw new Error('会话已超时，请重新开始')
+    }
+    if (!dsh.value) {
+      throw new Error('登录会话尚未初始化，请刷新页面重试')
     }
     return withLoading(async () => {
       const res = await submitSignInAuthenticateApi({

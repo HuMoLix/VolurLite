@@ -136,7 +136,15 @@ export const useSignupFlowStore = defineStore('signupFlow', () => {
           newQuery.TL = tl.value
           changed = true
         }
-      } catch {
+      } catch (err) {
+        console.error('[signupFlow] 流程会话初始化失败', err)
+        if (typeof window !== 'undefined' && window.$message) {
+          window.$message.error(
+            err instanceof Error && err.message
+              ? `会话初始化失败：${err.message}`
+              : '会话初始化失败，请刷新页面重试'
+          )
+        }
       }
     } else {
       if (isDshExpired(dsh.value)) {

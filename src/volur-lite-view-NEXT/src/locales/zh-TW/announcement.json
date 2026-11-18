@@ -1,0 +1,22 @@
+{
+  "title": "公告中心",
+  "subtitle": "平台公告、活動與維護通知，重要資訊不錯過",
+  "search_placeholder": "搜尋公告標題或內容",
+  "category_all": "全部",
+  "category_system": "系統公告",
+  "category_promotion": "營運活動",
+  "empty": "暫無公告",
+  "important": "重要",
+  "expire_at": "有效期至",
+  "no_content": "暫無公告內容",
+  "open_link": "查看相關連結",
+  "hero_eyebrow": "NEWSROOM",
+  "total_prefix": "共",
+  "total_suffix": "則公告",
+  "featured": "置頂",
+  "read_more": "閱讀全文",
+  "view_detail": "查看詳情",
+  "empty_title": "還沒有公告",
+  "empty_desc": "平台公告、活動與維護通知會第一時間發佈在這裡",
+  "platform": "平台團隊"
+}
