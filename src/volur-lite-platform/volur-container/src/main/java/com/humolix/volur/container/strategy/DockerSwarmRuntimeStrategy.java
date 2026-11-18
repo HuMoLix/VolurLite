@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
 
 import java.io.BufferedReader;
@@ -674,6 +675,13 @@ public class DockerSwarmRuntimeStrategy implements ContainerRuntimeStrategy {
         String clean = name.toLowerCase().replaceAll("[^a-z0-9_-]", "-");
         if (!clean.startsWith("swarm-")) {
             clean = "swarm-" + clean;
+        }
+        // Docker 服务名上限 63 字符：雪花 ID 资源名极易超限，超长时保留前缀并用
+        // 原始名哈希保证唯一性（毫秒级时间戳已包含在哈希输入中）。
+        if (clean.length() > 63) {
+            String hash = DigestUtils.md5DigestAsHex(
+                    name.getBytes(StandardCharsets.UTF_8)).substring(0, 10);
+            clean = "swarm-" + hash;
         }
         return clean;
     }
