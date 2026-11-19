@@ -6,22 +6,11 @@ import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
 import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.training.domain.dto.TrainingFlagSubmitDTO;
-import com.humolix.volur.training.domain.vo.TrainingCategoryVO;
-import com.humolix.volur.training.domain.vo.TrainingChallengeDetailVO;
-import com.humolix.volur.training.domain.vo.TrainingChallengeListVO;
-import com.humolix.volur.training.domain.vo.TrainingFlagResultVO;
-import com.humolix.volur.training.domain.vo.TrainingLeaderboardVO;
-import com.humolix.volur.training.domain.vo.TrainingProgressVO;
+import com.humolix.volur.training.domain.vo.*;
 import com.humolix.volur.training.service.TrainingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 

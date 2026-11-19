@@ -1,17 +1,13 @@
 package com.humolix.volur.auth.service.impl;
 
-import com.humolix.volur.auth.domain.dto.signin.AccountChooserProbeRequestDTO;
-import com.humolix.volur.auth.domain.dto.signin.AccountChooserRemoveRequestDTO;
-import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
-import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
-import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
+import com.humolix.volur.auth.domain.dto.signin.*;
 import com.humolix.volur.auth.domain.vo.AccountChooserResponseVO;
+import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 import com.humolix.volur.auth.security.cookie.AuthCookieService;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.framework.cache.redis.RedisOps;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.session.RequestDeviceParams;
-import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 import com.humolix.volur.security.flow.TransitionLockManager;
 import com.humolix.volur.security.flow.domain.Flow;
 import com.humolix.volur.security.risk.DeviceEnvironmentMatrixEvaluator;
@@ -39,14 +35,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.util.List;
 import java.util.Optional;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
-class SigninServiceImplTest {
+class SignInServiceImplTest {
 
     private SessionManager sessionManager;
     private TransitionLockManager transitionLockManager;
@@ -61,7 +54,7 @@ class SigninServiceImplTest {
     private AuthCookieService authCookieService;
     private DeviceEnvironmentMatrixEvaluator deviceEnvironmentMatrixEvaluator;
     private SessionDeviceBaselineValidator sessionDeviceBaselineValidator;
-    private SigninServiceImpl signinService;
+    private SignInServiceImpl signinService;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -88,7 +81,7 @@ class SigninServiceImplTest {
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
         given(deviceEnvironmentMatrixEvaluator.evaluate(any(), any())).willReturn(RiskLevel.LOW);
 
-        signinService = new SigninServiceImpl(
+        signinService = new SignInServiceImpl(
                 sessionManager,
                 transitionLockManager,
                 riskEvaluationEngine,

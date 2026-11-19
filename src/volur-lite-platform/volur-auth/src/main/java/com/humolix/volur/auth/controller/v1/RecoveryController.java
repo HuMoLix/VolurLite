@@ -1,25 +1,21 @@
 package com.humolix.volur.auth.controller.v1;
 
-import com.humolix.volur.auth.domain.dto.recovery.PasswordRecoveryEmailOtpRequestDTO;
-import com.humolix.volur.auth.domain.dto.recovery.PasswordRecoveryResetRequestDTO;
-import com.humolix.volur.auth.domain.dto.recovery.PasswordRecoverySelectRequestDTO;
-import com.humolix.volur.auth.domain.dto.recovery.UsernameRecoveryEmailRequestDTO;
-import com.humolix.volur.auth.domain.dto.recovery.UsernameRecoverySelectRequestDTO;
+import com.humolix.volur.auth.domain.dto.recovery.*;
 import com.humolix.volur.auth.domain.vo.PasswordRecoveryOptionsVO;
 import com.humolix.volur.auth.domain.vo.RecoveryFlowResponseVO;
 import com.humolix.volur.auth.domain.vo.UsernameRecoveryOptionsVO;
 import com.humolix.volur.auth.service.RecoveryService;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import com.humolix.volur.framework.ratelimit.annotation.RateLimit;
+import com.humolix.volur.framework.ratelimit.enums.RateLimitType;
 import com.humolix.volur.logging.annotation.Syslog;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.CacheControl;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
+@Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth/recovery")
@@ -30,7 +26,9 @@ public class RecoveryController {
     @GetMapping("/username/options")
     public ApiResponseEntity<UsernameRecoveryOptionsVO> getUsernameRecoveryOptions() {
         UsernameRecoveryOptionsVO response = recoveryService.getUsernameRecoveryOptions();
-        return ApiResponseEntity.ok("获取找回用户名选项成功", response);
+        return ApiResponseEntity
+                .ok("获取找回用户名选项成功", response)
+                .cacheControl(CacheControl.noStore());
     }
 
     @PostMapping("/username/select")
@@ -41,6 +39,7 @@ public class RecoveryController {
     }
 
     @Syslog(module = "AUTH", value = "提交找回用户名邮箱", logType = "AUTH", recordParams = false)
+    @RateLimit(key = "#request.email", count = 1, window = 60, message = "发送过于频繁，请 60 秒后再试")
     @PostMapping("/username/email")
     public ApiResponseEntity<RecoveryFlowResponseVO> submitRecoveryEmail(
             @Valid @RequestBody UsernameRecoveryEmailRequestDTO request) {
@@ -53,7 +52,9 @@ public class RecoveryController {
     public ApiResponseEntity<PasswordRecoveryOptionsVO> getPasswordRecoveryOptions(
             @RequestParam("dsh") String dsh) {
         PasswordRecoveryOptionsVO response = recoveryService.getPasswordRecoveryOptions(dsh);
-        return ApiResponseEntity.ok("获取找回密码选项成功", response);
+        return ApiResponseEntity
+                .ok("获取找回密码选项成功", response)
+                .cacheControl(CacheControl.noStore());
     }
 
     @PostMapping("/password/select")
@@ -64,6 +65,7 @@ public class RecoveryController {
     }
 
     @Syslog(module = "AUTH", value = "发送找回密码邮箱验证码", logType = "AUTH", recordParams = false)
+    @RateLimit(key = "#dsh", count = 1, window = 60, message = "发送过于频繁，请 60 秒后再试")
     @PostMapping("/password/emailotp/send")
     public ApiResponseEntity<Void> sendPasswordRecoveryEmailOtp(
             @RequestParam("dsh") String dsh,
@@ -73,6 +75,7 @@ public class RecoveryController {
     }
 
     @Syslog(module = "AUTH", value = "核销找回密码邮箱验证码", logType = "AUTH", recordParams = false)
+    @RateLimit(key = "#request.dsh", type = RateLimitType.BRUTE_FORCE, count = 5, window = 300, lockSeconds = 600, message = "验证码连续错误次数过多，请稍后再试")
     @PostMapping("/password/emailotp/verify")
     public ApiResponseEntity<RecoveryFlowResponseVO> verifyPasswordRecoveryEmailOtp(
             @Valid @RequestBody PasswordRecoveryEmailOtpRequestDTO request) {

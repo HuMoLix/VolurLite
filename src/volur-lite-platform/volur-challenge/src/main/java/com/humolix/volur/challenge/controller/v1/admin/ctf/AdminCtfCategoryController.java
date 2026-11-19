@@ -4,7 +4,6 @@ import com.humolix.volur.challenge.domain.dto.ctf.CtfCategoryCreateRequestDTO;
 import com.humolix.volur.challenge.domain.dto.ctf.CtfCategoryUpdateRequestDTO;
 import com.humolix.volur.challenge.domain.vo.ctf.CtfCategoryVO;
 import com.humolix.volur.challenge.service.admin.ctf.AdminCtfCategoryService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
 import jakarta.validation.Valid;

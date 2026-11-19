@@ -3,7 +3,7 @@ package com.humolix.volur.auth.controller.v1;
 import com.humolix.volur.auth.domain.dto.signin.AccountChooserProbeRequestDTO;
 import com.humolix.volur.auth.domain.vo.AccountChooserItemVO;
 import com.humolix.volur.auth.domain.vo.AccountChooserResponseVO;
-import com.humolix.volur.auth.service.SigninService;
+import com.humolix.volur.auth.service.SignInService;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,16 +17,16 @@ import java.util.List;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
-class SigninControllerTest {
+class SignInControllerTest {
 
     @Mock
-    private SigninService signinService;
+    private SignInService signinService;
 
-    private SigninController signinController;
+    private SignInController signinController;
 
     @BeforeEach
     void setUp() {
-        signinController = new SigninController(signinService);
+        signinController = new SignInController(signinService);
     }
 
     @Test

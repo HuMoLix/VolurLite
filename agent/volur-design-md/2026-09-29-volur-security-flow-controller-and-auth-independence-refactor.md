@@ -78,7 +78,7 @@
   - `com.humolix.volur.auth.service.TokenService` & `TokenServiceImpl`。
 - **移除对 `volur-security` 的引用**：
   - `volur-auth/pom.xml` 移除 `volur-security` 依赖；
-  - 内部类如 `AuthServiceImpl`、`SigninServiceImpl`、`SuperAdminInitializer`、`AuthVerificationCrossValidationTest` 等统一从 `com.humolix.volur.auth.*` 和 `com.humolix.volur.framework.*` 导入。
+  - 内部类如 `AuthServiceImpl`、`SignInServiceImpl`、`SuperAdminInitializer`、`AuthVerificationCrossValidationTest` 等统一从 `com.humolix.volur.auth.*` 和 `com.humolix.volur.framework.*` 导入。
 
 ### 3.3 `volur-framework` 状态机流转基础底座
 - `com.humolix.volur.framework.security.flow.AuthFlowSession`：通用分布式状态机会话模型；
@@ -88,8 +88,8 @@
 
 ### 3.4 登录控制器与前端流程初始化收敛 (`initSession` 彻底废除)
 - **后端登录接口收敛**：
-  - 彻底移除 `SigninController` 中冗余的历史初始化端点（`GET /api/v1/auth/signin/init` 与 `/session/init`）；
-  - 同步清理 `SigninService` 及 `SigninServiceImpl` 中的 `initSession` 方法；
+  - 彻底移除 `SignInController` 中冗余的历史初始化端点（`GET /api/v1/auth/signin/init` 与 `/session/init`）；
+  - 同步清理 `SignInService` 及 `SignInServiceImpl` 中的 `initSession` 方法；
   - 彻底删除废弃的响应实体 `SignInInitVO.java`；
   - 登录全阶段仅保留标识符提交 (`/api/v1/auth/signin/identifier`) 与挑战裁决 (`/api/v1/auth/signin/challenge`)，会话与上下文生命周期统一交由 `volur-security` 的 `/api/v1/flow/initSess` 统一签发。
 - **前端 API 与状态机对齐 (`src/volur-lite-view-NEXT`)**：

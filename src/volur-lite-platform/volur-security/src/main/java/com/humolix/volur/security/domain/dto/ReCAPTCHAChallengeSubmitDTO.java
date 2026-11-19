@@ -2,11 +2,7 @@ package com.humolix.volur.security.domain.dto;
 
 import com.humolix.volur.framework.common.annotation.Trimmed;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 @Data

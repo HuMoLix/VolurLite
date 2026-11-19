@@ -1,11 +1,11 @@
 package com.humolix.volur.security.session.domain;
 
-import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.security.domain.session.RequestDeviceParams;
 import com.humolix.volur.security.domain.session.RequestHeader;
 import com.humolix.volur.security.flow.domain.Flow;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;

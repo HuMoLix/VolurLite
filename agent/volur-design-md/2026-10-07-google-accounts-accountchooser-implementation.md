@@ -25,7 +25,7 @@
    - [`AccountChooserItemVO.java`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-auth/src/main/java/com/humolix/volur/auth/domain/vo/AccountChooserItemVO.java)：输出账号的脱敏信息、头像 `avatarUrl` 以及状态 `sessionStatus`（`ACTIVE`、`SIGNED_OUT`、`DISABLED`）；
    - [`AccountChooserProbeResponseVO.java`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-auth/src/main/java/com/humolix/volur/auth/domain/vo/AccountChooserProbeResponseVO.java)：包装列表响应。
 
-2. **服务层抽象与实现 (`SigninService` & `SigninServiceImpl`)**：
+2. **服务层抽象与实现 (`SignInService` & `SignInServiceImpl`)**：
    - `probeAccounts`：批量查询用户与其画像资料（[`UserProfileRepository`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-user/src/main/java/com/humolix/volur/user/repository/UserProfileRepository.java)），利用当前请求上下文（[`SecurityUtils`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-auth/src/main/java/com/humolix/volur/auth/security/util/SecurityUtils.java)）判定是否为当前有效登录者，严格防止异常并确保零敏感信息外泄；
    - `selectAccount`：通过会话句柄恢复状态机会话，注入所选 `identifier`，联合风控评估引擎（[`RiskEvaluationEngine`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-verification/src/main/java/com/humolix/volur/verification/risk/engine/RiskEvaluationEngine.java)）与设备矩阵（`DeviceEnvironmentMatrixEvaluator`），动态签发第一阶段事务锁（`tl`）与首个挑战步骤（`nextStep="pwd"` 或高危下的 `"recaptcha"`）；
    - `removeAccount`：当用户在选择器中移除账号时，若为当前登录态自动清理 Cookie，并物理删除当前设备指纹在 [`UserTrustedDeviceRepository`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-user/src/main/java/com/humolix/volur/user/repository/UserTrustedDeviceRepository.java) 中的信任绑定。

@@ -3,7 +3,6 @@ package com.humolix.volur.competition.controller.v1;
 import com.humolix.volur.competition.domain.vo.scoreboard.CompositeScoreboardVO;
 import com.humolix.volur.competition.domain.vo.scoreboard.CtfScoreboardVO;
 import com.humolix.volur.competition.service.CompetitionScoreboardService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;

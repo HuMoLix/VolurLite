@@ -1,10 +1,6 @@
 package com.humolix.volur.auth.service;
 
-import com.humolix.volur.auth.domain.dto.recovery.PasswordRecoveryEmailOtpRequestDTO;
-import com.humolix.volur.auth.domain.dto.recovery.PasswordRecoveryResetRequestDTO;
-import com.humolix.volur.auth.domain.dto.recovery.PasswordRecoverySelectRequestDTO;
-import com.humolix.volur.auth.domain.dto.recovery.UsernameRecoveryEmailRequestDTO;
-import com.humolix.volur.auth.domain.dto.recovery.UsernameRecoverySelectRequestDTO;
+import com.humolix.volur.auth.domain.dto.recovery.*;
 import com.humolix.volur.auth.domain.vo.PasswordRecoveryOptionsVO;
 import com.humolix.volur.auth.domain.vo.RecoveryFlowResponseVO;
 import com.humolix.volur.auth.domain.vo.UsernameRecoveryOptionsVO;

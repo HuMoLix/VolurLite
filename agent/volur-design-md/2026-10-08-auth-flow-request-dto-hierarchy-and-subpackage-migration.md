@@ -77,8 +77,8 @@
    - 移除旧平铺 DTO 引用与通配符 `.*` 导入；
    - 显式引入对应 `signin`、`signup`、`recovery` 子包下的 DTO；
 2. **服务接口与实现层**：
-   - `SigninService` / `SigninServiceImpl`：入参类型完全对齐；
-   - `SignupService` / `SignupServiceImpl`：入参类型完全对齐；
+   - `SignInService` / `SignInServiceImpl`：入参类型完全对齐；
+   - `SignUpService` / `SignUpServiceImpl`：入参类型完全对齐；
    - `RecoveryService` / `RecoveryServiceImpl`：入参类型完全对齐；
 3. **测试用例层**：
    - 修复全部测试类中针对多参数构造函数的旧式调用，统一采用 Lombok `@SuperBuilder` 构建器语法，杜绝参数位置混淆隐患；

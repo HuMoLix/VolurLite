@@ -1,17 +1,12 @@
 package com.humolix.volur.auth.service;
 
-import com.humolix.volur.auth.domain.dto.signup.SignUpCompleteRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpEmailRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpEmailResendRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpEtotpChallengeRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpNameRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpPasswordRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.*;
 import com.humolix.volur.auth.domain.vo.SignUpFlowResponseVO;
 import com.humolix.volur.auth.domain.vo.SignUpOptionVO;
 
 import java.util.List;
 
-public interface SignupService {
+public interface SignUpService {
 
     SignUpFlowResponseVO name(SignUpNameRequestDTO request);
 

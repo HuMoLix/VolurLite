@@ -26,7 +26,7 @@
   - 指纹一致性：核验当前请求中的设备指纹与会话初创时的基线指纹，发生突变直接抛出 403 异常阻断；
   - 异构环境跳跃：若 IP 发生跳变且浏览器家族（Browser Family）不一致，判定为跨端窃取，立即阻断。
 - **调用链路集成**：
-  - 在 `SigninServiceImpl` 的 `challenge`、`selectChallenge`、`authenticate` 方法入口处前置调用 `sessionDeviceBaselineValidator.validateBaseline(session)`。
+  - 在 `SignInServiceImpl` 的 `challenge`、`selectChallenge`、`authenticate` 方法入口处前置调用 `sessionDeviceBaselineValidator.validateBaseline(session)`。
 
 ### 2.3 阶段三：用户受信设备体系与新设备自适应 MFA
 - **持久化实体与仓库**：
@@ -37,7 +37,7 @@
   - [`UserTrustedDeviceServiceImpl.java`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-user/src/main/java/com/humolix/volur/user/service/impl/UserTrustedDeviceServiceImpl.java)
 - **数据库增量平滑迁移**：
   - 在 [`scripts/upgrade/upgrade_to_latest.sql`](file:///H:/HuMoLix/github/Volur-Lite/scripts/upgrade/upgrade_to_latest.sql) 中幂等新建 `user_trusted_device` 表结构与索引。
-- **自适应登录状态机编排 (`SigninServiceImpl`)**：
+- **自适应登录状态机编排 (`SignInServiceImpl`)**：
   - 密码验证成功后：
     - 若设备为受信设备：记录活跃时间并直接推进至 `authenticate` 终态；
     - 若为新设备/异地登录且绑定邮箱：动态将 `SigninFlow.waitingSteps` 调整为 `["etotp", "authenticate"]`，自动发送邮箱验证码并向前端返回 `nextStep: "etotp"`；

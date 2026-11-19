@@ -1,6 +1,5 @@
 package com.humolix.volur.system.controller.v1.admin;
 
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.logging.annotation.Syslog;

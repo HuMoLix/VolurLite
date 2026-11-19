@@ -1,6 +1,5 @@
 package com.humolix.volur.system.controller.v1;
 
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.system.service.SystemSettingService;
 import lombok.RequiredArgsConstructor;

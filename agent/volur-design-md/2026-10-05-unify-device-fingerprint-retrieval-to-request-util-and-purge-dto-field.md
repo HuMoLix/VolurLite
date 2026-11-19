@@ -22,7 +22,7 @@ String rawFp = StringUtils.hasText(request.getDeviceFingerprint())
 3. **前端实际从未传递该字段**：
    - 前端 `submitSignInIdentifierApi` 早已不再发送 `deviceFingerprint`，生产流量实质上全部走 Cookie 分支；保留该字段徒增契约复杂性；
 4. **覆盖完整设备特征矩阵的风险**：
-   - 原代码在 `identifier` 中构造了仅有 2 个字段的 `RequestDeviceParams.of(clientIp, rawFp)` 传给 `recoverySession`，会导致会话在 `initSess` 阶段解密采集的 14 项完整设备参数（WebGL、Canvas、屏幕分辨率等）被覆盖；应统一像 `SignupServiceImpl` 一样传入 `null` 保留原始会话特征。
+   - 原代码在 `identifier` 中构造了仅有 2 个字段的 `RequestDeviceParams.of(clientIp, rawFp)` 传给 `recoverySession`，会导致会话在 `initSess` 阶段解密采集的 14 项完整设备参数（WebGL、Canvas、屏幕分辨率等）被覆盖；应统一像 `SignUpServiceImpl` 一样传入 `null` 保留原始会话特征。
 
 ---
 

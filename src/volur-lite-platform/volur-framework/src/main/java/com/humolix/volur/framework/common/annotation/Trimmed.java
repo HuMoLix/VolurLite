@@ -4,11 +4,7 @@ import com.fasterxml.jackson.annotation.JacksonAnnotationsInside;
 import com.humolix.volur.framework.common.jackson.StringTrimmingDeserializer;
 import tools.jackson.databind.annotation.JsonDeserialize;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.lang.annotation.*;
 
 @Target({ElementType.FIELD, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)

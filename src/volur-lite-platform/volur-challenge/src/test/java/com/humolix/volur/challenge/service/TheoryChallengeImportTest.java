@@ -1,12 +1,12 @@
 package com.humolix.volur.challenge.service;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 import com.humolix.volur.challenge.domain.dto.theory.TheoryChallengeImportDTO;
 import com.humolix.volur.challenge.domain.enums.TheoryType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.File;
 import java.nio.file.Files;

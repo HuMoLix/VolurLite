@@ -105,16 +105,16 @@
 
 根据进一步的架构规范与未来注册（SignUp）/找回密码（Recovery）等场景复用需求，进行了二次深度重构：
 
-### 4.1 控制器与服务层单一职责隔离 (`SigninController` & `SigninService`)
-1. **独立抽离 `SigninController`**：
+### 4.1 控制器与服务层单一职责隔离 (`SignInController` & `SignInService`)
+1. **独立抽离 `SignInController`**：
    - 路径定位：`com.humolix.volur.auth.controller.v1.SigninController`；
    - 类级别统一注解：`@RequestMapping("/api/v1/auth/signin")`；
    - 统一收拢三个核心端点：
      - `GET /api/v1/auth/signin/init`（兼容别名 `/session/init`）：用于首次访问或缺少句柄时初始化会话；
      - `POST /api/v1/auth/signin/identifier`：用于提交账号标识并触发风控判定；
      - `POST /api/v1/auth/signin/challenge`：用于提交各类安全挑战核验。
-2. **独立抽离 `SigninService` / `SigninServiceImpl`**：
-   - 将原平铺在 `AuthServiceImpl` 中的登录状态机编排逻辑（会话初始化、风控综合评估、人机挑战核销、密码散列核验、2FA 递增等）完整下沉至 `SigninServiceImpl`；
+2. **独立抽离 `SignInService` / `SignInServiceImpl`**：
+   - 将原平铺在 `AuthServiceImpl` 中的登录状态机编排逻辑（会话初始化、风控综合评估、人机挑战核销、密码散列核验、2FA 递增等）完整下沉至 `SignInServiceImpl`；
    - 彻底将 `transitionLockManager` 与 `riskEvaluationEngine` 从 `AuthServiceImpl` 中解耦移除，`AuthService` 重新聚焦传统账号注册、修改密码与注销事务，严格遵循 `Rules.md` Thin Controller 与高内聚低耦合原则；
 3. **前端 API 请求路径对齐**：
    - 在 [`src/volur-lite-view-NEXT/src/api/auth.ts`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-view-NEXT/src/api/auth.ts) 中将初始化接口路径调整为 `/auth/signin/init`，与后端 Controller 的 `@RequestMapping("/api/v1/auth/signin")` 实现 100% 路径对称。
@@ -132,8 +132,8 @@
    - 在 [`SecurityWhitelistProperties`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-auth/src/main/java/com/humolix/volur/auth/config/SecurityWhitelistProperties.java) 中同步预先将 `/api/v1/auth/signup/**` 纳入白名单放行清单，确保注册阶段化流转无阻。
 
 ### 4.3 后端冗余参数清理 (`HttpServletRequest` 解耦)
-- **背景与原因**：`SigninServiceImpl` 与 `SigninController` 中原先声明的 `HttpServletRequest` 形参并没有被实际使用；系统内部的客户端特征获取工具 `RequestUtil.getClientIp()` 与 `RequestUtil.getUserAgent()` 已经通过 Spring 框架底层的 `RequestContextHolder.getRequestAttributes()` 从线程局部上下文（ThreadLocal / 虚拟线程上下文）安全获取当前请求对象。
-- **改动动作**：彻底移除了 `SigninService`、`SigninServiceImpl` 与 `SigninController` 中 `initSession`、`identifier` 与 `challenge` 上的 `HttpServletRequest` 冗余形参，净化接口签名。
+- **背景与原因**：`SignInServiceImpl` 与 `SignInController` 中原先声明的 `HttpServletRequest` 形参并没有被实际使用；系统内部的客户端特征获取工具 `RequestUtil.getClientIp()` 与 `RequestUtil.getUserAgent()` 已经通过 Spring 框架底层的 `RequestContextHolder.getRequestAttributes()` 从线程局部上下文（ThreadLocal / 虚拟线程上下文）安全获取当前请求对象。
+- **改动动作**：彻底移除了 `SignInService`、`SignInServiceImpl` 与 `SignInController` 中 `initSession`、`identifier` 与 `challenge` 上的 `HttpServletRequest` 冗余形参，净化接口签名。
 
 ### 4.4 前端与状态机流转入口状态机制对齐 (`flowEntry: ServiceLogin <-> SignUp`)
 - **对齐 Google Accounts 行为哲学**：
@@ -156,7 +156,7 @@
 
 ### 5.1 架构设计思想：统一工作流控制器 (`FlowController`) 与服务抽象
 1. **职责分离与跨业务面扩展**：
-   - 之前在 `SigninController` 中保留 `initSession` 存在职责边界模糊的问题，无法优雅服务未来的注册（SignUp）、多因素恢复（Recovery）、设备授权等多种非登录工作流；
+   - 之前在 `SignInController` 中保留 `initSession` 存在职责边界模糊的问题，无法优雅服务未来的注册（SignUp）、多因素恢复（Recovery）、设备授权等多种非登录工作流；
    - 建立全新的全局工作流控制中心 [`FlowController`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-auth/src/main/java/com/humolix/volur/auth/controller/v1/FlowController.java)，类级别注解 `@RequestMapping("/api/v1/flow")`；
    - 核心端点：`GET /api/v1/flow/initSess?flowEntry=WebServiceLogin&flowName=VlifWebLogin&fp=<MD5指纹>&t=<时间戳>&dsh=<可选已存在会话>`；
    - 核心领域模型 [`FlowInitVO`](file:///H:/HuMoLix/github/Volur-Lite/src/volur-lite-platform/volur-auth/src/main/java/com/humolix/volur/auth/domain/vo/FlowInitVO.java)：携带签发的 `dsh`、`flowName`、`flowEntry`、步骤序号 `cid: 0`、浏览器指纹校验码 `fp` 以及服务端绝对时间戳 `serverTime`。

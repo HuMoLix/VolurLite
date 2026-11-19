@@ -29,7 +29,7 @@
 2. **废弃字段残留**：
    在先前的无状态化演进中已明确废除 `tokenType: "Bearer"` 的显式传输需求，但在 `SignInFlowResponseVO` 与 `SignUpFlowResponseVO` 中依然声明了 `tokenType`，并在业务层进行了硬编码赋值。
 3. **控制器职责倒挂 (Thin Controller 反模式)**：
-   `SigninController` 与 `SignupController` 此前通过检查 `response.getAccessToken()` 来调用 `authCookieService.writeAuthCookies(httpRequest, httpResponse, ...)`。控制器被迫注入 `AuthCookieService` 并解析领域视图内部的敏感令牌，违背了轻量控制器与关注点分离原则。
+   `SignInController` 与 `SignUpController` 此前通过检查 `response.getAccessToken()` 来调用 `authCookieService.writeAuthCookies(httpRequest, httpResponse, ...)`。控制器被迫注入 `AuthCookieService` 并解析领域视图内部的敏感令牌，违背了轻量控制器与关注点分离原则。
 
 ---
 
@@ -65,20 +65,20 @@ public void clearAuthCookies() {
 ```
 该设计支持直接在服务层安全提取当前请求与响应管道，且在单测场景下具备安全的空指针防御与易 Mock 性。
 
-### 2.3 业务服务层凭证下发收敛 (`SigninServiceImpl` & `SignupServiceImpl`)
+### 2.3 业务服务层凭证下发收敛 (`SignInServiceImpl` & `SignUpServiceImpl`)
 将 Cookie 写入动作下沉至业务完成的终端节点：
-1. **`SigninServiceImpl`**：
+1. **`SignInServiceImpl`**：
    - 依赖注入 `AuthCookieService`；
    - 在 `pwd` 挑战成功终态及 `2fa`/`totp` 验证成功终态中，生成 JWT 后立即调用 `authCookieService.writeAuthCookies(accessToken, refreshToken, rememberMe)`；
    - 构造返回的 `SignInFlowResponseVO` 仅包含 `status: "SUCCESS"` 与 `identifier`，不携带任何敏感 Token。
-2. **`SignupServiceImpl`**：
+2. **`SignUpServiceImpl`**：
    - 依赖注入 `AuthCookieService`；
    - 在 `password` 方法创建用户后，立即下发会话 Cookie `authCookieService.writeAuthCookies(accessToken, refreshToken, false)`；
    - 在 `complete` 完成所有安全选项配置终态时，若存在有效会话凭证亦触发写入并销毁会话；
    - 返回的 `SignUpFlowResponseVO` 严格杜绝 Token 字段。
 
-### 2.4 控制器瘦身与契约纯粹化 (`SigninController` & `SignupController`)
-- 彻底移除 `SigninController` 与 `SignupController` 中的 `AuthCookieService` 依赖注入；
+### 2.4 控制器瘦身与契约纯粹化 (`SignInController` & `SignUpController`)
+- 彻底移除 `SignInController` 与 `SignUpController` 中的 `AuthCookieService` 依赖注入；
 - 从方法签名中剔除 `HttpServletRequest` 与 `HttpServletResponse` 入参；
 - 移除所有手动判断 `response.getAccessToken()` 并补发 Cookie 的业务胶水代码，控制器回归 100% 纯粹转发。
 
@@ -87,7 +87,7 @@ public void clearAuthCookies() {
 ## 3. 测试验证与审计结果
 
 ### 3.1 单元测试与端到端断言
-- **`SigninServiceImplTest`**：
+- **`SignInServiceImplTest`**：
   - 注入 `AuthCookieService` Mock 对象；
   - 新增 `challenge_pwd_success_shouldWriteAuthCookiesAndReturnSuccess()` 专项用例，严格断言密码挑战验证成功后通过 `authCookieService.writeAuthCookies(...)` 下发 Cookie，且断言返回的 `SignInFlowResponseVO` 仅包含 `SUCCESS` 状态及账号标识。
 - **全平台编译与测试矩阵**：

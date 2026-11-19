@@ -1,7 +1,7 @@
 # 登录服务早期调试桩代码清理与 Zero-Mock 规范对齐记录
 
 ## 1. 变更背景与原因
-在早期的登录脚手架和流程调试阶段，`SigninServiceImpl` 中遗留了两处临时调试桩代码：
+在早期的登录脚手架和流程调试阶段，`SignInServiceImpl` 中遗留了两处临时调试桩代码：
 1. **关键词伪判定**：在 `identifier` 函数中，存在 `lowerIdentifier.contains("bot") || lowerIdentifier.contains("captcha") || lowerIdentifier.contains("robot")` 判断，强行触发人机验证；
 2. **用户名伪两步验证触发**：在 `pwd` 挑战处理中，存在 `boolean require2fa = lusername.contains("2fa") || lusername.contains("totp");`，强行注入 `2fa` 挑战步骤。
 

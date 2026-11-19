@@ -4,10 +4,9 @@ import com.humolix.volur.competition.domain.dto.CompetitionWriteupAuditDTO;
 import com.humolix.volur.competition.domain.entity.CompetitionWriteup;
 import com.humolix.volur.competition.domain.vo.CompetitionWriteupVO;
 import com.humolix.volur.competition.repository.CompetitionWriteupRepository;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
-import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.api.PageResponse;
+import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.logging.annotation.Syslog;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -17,8 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/competitions/{competitionId}/writeups")

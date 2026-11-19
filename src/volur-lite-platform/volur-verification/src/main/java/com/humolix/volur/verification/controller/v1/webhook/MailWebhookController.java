@@ -1,6 +1,5 @@
 package com.humolix.volur.verification.controller.v1.webhook;
 
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.verification.service.MailWebhookService;
 import lombok.RequiredArgsConstructor;

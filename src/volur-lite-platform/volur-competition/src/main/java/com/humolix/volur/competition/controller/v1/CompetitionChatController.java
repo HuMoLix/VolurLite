@@ -7,7 +7,6 @@ import com.humolix.volur.competition.domain.vo.chat.ChatMessageVO;
 import com.humolix.volur.competition.domain.vo.chat.ChatUnreadCountVO;
 import com.humolix.volur.competition.domain.vo.chat.RefereeTeamSummaryVO;
 import com.humolix.volur.competition.service.CompetitionChatService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.CursorResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;

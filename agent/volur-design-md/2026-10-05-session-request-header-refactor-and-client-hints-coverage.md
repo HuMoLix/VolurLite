@@ -10,7 +10,7 @@
 因此，本次重构的核心目标为：
 - 在 `com.humolix.volur.security.domain.session` 下创建强类型且具备全量覆盖能力的 `RequestHeader` 模型；
 - 将基础会话 `Session` 中的 `userAgent` 属性升级重构为 `requestHeader`；
-- 全链路同步改造 `TransitionLockManager`、`FlowServiceImpl`、`SigninServiceImpl`、`SignupServiceImpl` 及相关单元测试；
+- 全链路同步改造 `TransitionLockManager`、`FlowServiceImpl`、`SignInServiceImpl`、`SignUpServiceImpl` 及相关单元测试；
 - 保持 Jackson 序列化在 Redis 中的完全无缝双向兼容。
 
 ---

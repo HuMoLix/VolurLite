@@ -1,6 +1,5 @@
 package com.humolix.volur.verification.controller.v1;
 
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.verification.crypto.CaptchaCryptoService;
 import com.humolix.volur.verification.domain.dto.CaptchaGenerateRequestDTO;

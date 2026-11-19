@@ -1,6 +1,5 @@
 package com.humolix.volur.competition.service.impl;
 
-import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.competition.annotation.RequiredCompetitionStatus;
 import com.humolix.volur.competition.domain.dto.*;
 import com.humolix.volur.competition.domain.entity.Competition;
@@ -33,6 +32,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

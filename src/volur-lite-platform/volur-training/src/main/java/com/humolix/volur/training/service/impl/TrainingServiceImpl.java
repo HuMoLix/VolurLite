@@ -15,13 +15,7 @@ import com.humolix.volur.training.constant.TrainingConstants;
 import com.humolix.volur.training.domain.entity.TrainingChallenge;
 import com.humolix.volur.training.domain.entity.TrainingSolveRecord;
 import com.humolix.volur.training.domain.enums.TrainingChallengeStatus;
-import com.humolix.volur.training.domain.vo.TrainingAttachmentVO;
-import com.humolix.volur.training.domain.vo.TrainingCategoryVO;
-import com.humolix.volur.training.domain.vo.TrainingChallengeDetailVO;
-import com.humolix.volur.training.domain.vo.TrainingChallengeListVO;
-import com.humolix.volur.training.domain.vo.TrainingFlagResultVO;
-import com.humolix.volur.training.domain.vo.TrainingLeaderboardVO;
-import com.humolix.volur.training.domain.vo.TrainingProgressVO;
+import com.humolix.volur.training.domain.vo.*;
 import com.humolix.volur.training.repository.TrainingChallengeRepository;
 import com.humolix.volur.training.repository.TrainingSolveRecordRepository;
 import com.humolix.volur.training.service.TrainingRateLimitService;
@@ -41,19 +35,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j

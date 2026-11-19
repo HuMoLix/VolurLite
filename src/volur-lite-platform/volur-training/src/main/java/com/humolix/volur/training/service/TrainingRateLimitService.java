@@ -11,9 +11,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
-import static com.humolix.volur.training.constant.TrainingConstants.EC_FLAG_COOLDOWN;
-import static com.humolix.volur.training.constant.TrainingConstants.EC_FLAG_GLOBAL_RATE_LIMITED;
-import static com.humolix.volur.training.constant.TrainingConstants.EC_FLAG_LOCKED;
+import static com.humolix.volur.training.constant.TrainingConstants.*;
 
 /**
  * flag 提交限流（Redis 固定窗口）：

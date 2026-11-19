@@ -3,7 +3,7 @@
 ## 1. 方案背景与目标
 
 在 Volur Lite 统一安全中心与身份认证体系中：
-1. **API 对称性与领域收敛**：此前 通行密钥（Passkey）的创建选项与注册绑定已完整收敛至 `volur-security` 模块的 `PasskeyController`（路径 `/api/v1/captcha/challenge/pk`），而动态身份验证器（TOTP）的绑定逻辑却孤立在 `volur-auth` 的 `SignupController`（路径 `/api/v1/auth/signup/protect/totp/*`）中，且 `TOTPChallengeController` 仅为一个空占位类。
+1. **API 对称性与领域收敛**：此前 通行密钥（Passkey）的创建选项与注册绑定已完整收敛至 `volur-security` 模块的 `PasskeyController`（路径 `/api/v1/captcha/challenge/pk`），而动态身份验证器（TOTP）的绑定逻辑却孤立在 `volur-auth` 的 `SignUpController`（路径 `/api/v1/auth/signup/protect/totp/*`）中，且 `TOTPChallengeController` 仅为一个空占位类。
 2. **端点路径规范化**：
    - 获取 TOTP 绑定配置：统一采用 `/setup` 路径（`GET /api/v1/captcha/challenge/totp/setup`）；
    - 核验并首次启用 TOTP：统一重构为 `enableTotp`，采用 `/enable` 路径（`POST /api/v1/captcha/challenge/totp/enable`）；

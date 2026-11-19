@@ -1,6 +1,5 @@
 package com.humolix.volur.notification.redis;
 
-import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.notification.domain.bo.RealtimeMessageBO;
 import com.humolix.volur.notification.sse.GlobalSseManager;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +8,7 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 

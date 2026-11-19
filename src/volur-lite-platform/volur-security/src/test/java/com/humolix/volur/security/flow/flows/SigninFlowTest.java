@@ -1,7 +1,7 @@
 package com.humolix.volur.security.flow.flows;
 
-import com.humolix.volur.security.flow.domain.FlowNames;
 import com.humolix.volur.security.flow.domain.Flow;
+import com.humolix.volur.security.flow.domain.FlowNames;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

@@ -1,10 +1,9 @@
 package com.humolix.volur.security.flow.flows;
 
-import com.humolix.volur.security.flow.domain.FlowNames;
 import com.humolix.volur.security.flow.domain.Flow;
+import com.humolix.volur.security.flow.domain.FlowNames;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
 

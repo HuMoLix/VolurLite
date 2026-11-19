@@ -8,7 +8,6 @@ import com.humolix.volur.container.domain.vo.AdminClusterImageDetailVO;
 import com.humolix.volur.container.domain.vo.AdminClusterImageStatisticsVO;
 import com.humolix.volur.container.domain.vo.AdminClusterImageVO;
 import com.humolix.volur.container.service.admin.AdminImageService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.logging.annotation.Syslog;

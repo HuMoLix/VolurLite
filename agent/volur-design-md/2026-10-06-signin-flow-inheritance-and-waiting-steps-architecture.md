@@ -66,7 +66,7 @@ SigninFlow (登录流程专用领域实体)
 
 1. **单元测试全量通过**：
    - `SigninFlowTest`：覆盖默认构造初始化、静态 `create()` 构建、`from()` 转换保留上下文、`waitingSteps` 动态出入队与核销流转（5/5 测试通过）；
-   - `SigninServiceImplTest`：增加对 `session.getFlow()` 实例类型（`SigninFlow`）及其 `waitingSteps` 队列在各分支下推进状态的断言（全部 7 个测试通过）；
+   - `SignInServiceImplTest`：增加对 `session.getFlow()` 实例类型（`SigninFlow`）及其 `waitingSteps` 队列在各分支下推进状态的断言（全部 7 个测试通过）；
    - `volur-security` 与 `volur-auth` 联合构建测试 100% 成功（54 个测试全绿）；
    - 全平台 13 个模块 `mvn test-compile` 0 警告 0 错误编译通过。
 2. **前端构建验证**：

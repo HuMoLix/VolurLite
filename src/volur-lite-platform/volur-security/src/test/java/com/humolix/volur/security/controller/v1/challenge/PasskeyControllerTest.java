@@ -2,18 +2,14 @@ package com.humolix.volur.security.controller.v1.challenge;
 
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.security.domain.dto.PasskeyAssertionVerifyRequestDTO;
-import com.humolix.volur.security.domain.dto.PasskeyRegisterRequestDTO;
 import com.humolix.volur.security.domain.vo.FlowResponseVO;
 import com.humolix.volur.security.domain.vo.PasskeyAuthenticatorOptionVO;
 import com.humolix.volur.security.domain.vo.PasskeyCredentialVO;
-import com.humolix.volur.security.domain.vo.PasskeyRegisterResponseVO;
 import com.humolix.volur.security.service.PasskeyService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.security.web.webauthn.api.PublicKeyCredentialCreationOptions;
-import org.springframework.security.web.webauthn.api.PublicKeyCredentialRequestOptions;
 
 import java.util.List;
 

@@ -25,7 +25,7 @@ if (requestDeviceParams != null && !Objects.equals(existing.getRequestDevicePara
     modified = true;
 }
 ```
-但在 `SigninServiceImpl` 外部紧随其后仍冗余保留了：
+但在 `SignInServiceImpl` 外部紧随其后仍冗余保留了：
 ```java
 session.setRequestHeader(requestHeader);
 session.setRequestDeviceParams(deviceParams);

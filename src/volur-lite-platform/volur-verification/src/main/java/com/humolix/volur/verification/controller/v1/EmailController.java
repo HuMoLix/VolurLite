@@ -1,7 +1,7 @@
 package com.humolix.volur.verification.controller.v1;
 
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
+import com.humolix.volur.framework.ratelimit.annotation.RateLimit;
 import com.humolix.volur.logging.annotation.Syslog;
 import com.humolix.volur.verification.domain.dto.EmailCaptchaRequestDTO;
 import com.humolix.volur.verification.service.EmailService;
@@ -20,6 +20,8 @@ public class EmailController {
     private final EmailService emailService;
 
     @Syslog(module = "VERIFICATION", value = "发送注册邮箱验证码", logType = "AUTH", recordParams = true)
+    @RateLimit(key = "#request.email", count = 1, window = 60, message = "发送过于频繁，请 60 秒后再试")
+    @RateLimit(key = "#ip", count = 10, window = 3600, message = "IP 请求发信过于频繁，请一小时后再试")
     @PostMapping("/captcha/register")
     public ApiResponseEntity<Void> sendVerificationEmail(@Valid @RequestBody EmailCaptchaRequestDTO request) {
         emailService.sendVerificationEmail(request);

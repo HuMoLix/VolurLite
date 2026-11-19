@@ -1,13 +1,13 @@
 package com.humolix.volur.notification.listener;
 
 import com.humolix.volur.framework.common.thread.VolurThreadManager;
+import com.humolix.volur.framework.common.util.JsonUtils;
 import com.humolix.volur.notification.domain.bo.SendNotificationBO;
 import com.humolix.volur.notification.domain.enums.NotificationActionStatus;
 import com.humolix.volur.notification.domain.enums.NotificationType;
 import com.humolix.volur.notification.event.SecurityNotificationEvent;
 import com.humolix.volur.notification.event.SendNotificationEvent;
 import com.humolix.volur.notification.service.NotificationService;
-import com.humolix.volur.framework.common.util.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;

@@ -2,6 +2,7 @@ package com.humolix.volur.framework.common.api;
 
 import com.humolix.volur.framework.common.util.MessageUtils;
 import com.humolix.volur.framework.common.util.RequestUtil;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -35,6 +36,16 @@ public class ApiResponseEntity<T> extends ResponseEntity<ApiResponse<T>> {
     public ApiResponseEntity<T> header(String headerName, String... headerValues) {
         for (String val : headerValues) {
             this.getHeaders().add(headerName, val);
+        }
+        return this;
+    }
+
+    public ApiResponseEntity<T> cacheControl(CacheControl cacheControl) {
+        if (cacheControl != null) {
+            String headerValue = cacheControl.getHeaderValue();
+            if (headerValue != null && !headerValue.isBlank()) {
+                this.getHeaders().setCacheControl(headerValue);
+            }
         }
         return this;
     }

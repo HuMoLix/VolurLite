@@ -8,7 +8,7 @@
    - 将原底层生成方法 `generateTL` 升级为面向业务领域语义的 `createTransLock`；
    - 将状态机推进方法 `advanceTransitionTicket` 升级为紧凑且与事务锁强关联的 `nextTransLock`；
    - 将校验方法 `validateTransitionTicket` 与 `validateStepAndTl` 参考 `createTransLock` 与 `nextTransLock` 的命名规范，统一收敛并简化重构为重载方法 **`validateTransLock`**；
-   - 全链路同步修改 `TransitionLockManager`、`PasskeyServiceImpl`、`RecaptchaServiceImpl`、`SigninServiceImpl`、`SignupServiceImpl` 以及对应单元测试类，杜绝兼容性桥接与历史包袱。
+   - 全链路同步修改 `TransitionLockManager`、`PasskeyServiceImpl`、`RecaptchaServiceImpl`、`SignInServiceImpl`、`SignUpServiceImpl` 以及对应单元测试类，杜绝兼容性桥接与历史包袱。
 3. **关键安全校验与生命周期深度剖析**：
    - 对比剖析 `validateTransLock` 4 参（强状态机步进与核销）与 3 参（阶段内挑战与辅助操作核验）的区别与安全边界；
    - 深入剖析 `burnAndCompleteSession` 的会话生命周期终局原子核销与一次性票据防护价值。
@@ -92,4 +92,4 @@ public void burnAndCompleteSession(String dsh, String currentTl, int currentCid,
    - `TransitionLockManagerTest`：重构后的 `createTransLock`、`nextTransLock`、重载 `validateTransLock`、跳步防护与 `burnAndCompleteSession` 全部通过；
    - `SessionServiceImplTest`：会话初始化与强校验全部通过。
 2. `volur-auth` 模块全量执行：58 个用例全部通过（`BUILD SUCCESS`，0 Failures，0 Errors）；
-   - `SigninServiceImplTest`：包括人机自适应降级、ETOTP 邮箱挑战、密码验证与最终 `burnAndCompleteSession` 签发 Token 全部验证通过。
+   - `SignInServiceImplTest`：包括人机自适应降级、ETOTP 邮箱挑战、密码验证与最终 `burnAndCompleteSession` 签发 Token 全部验证通过。

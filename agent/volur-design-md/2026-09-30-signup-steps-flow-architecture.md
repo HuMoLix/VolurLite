@@ -12,7 +12,7 @@
   - 维持完整的 URL Query 参数全链路透传（`continue`, `followup`, `flowName=VlifWebSignUp`, `flowEntry=WebSignUp`, `dsh`, `TL`, `pstMsg`, `cid`）。
 - **后端工程 (`volur-auth`)**：
   - 严格采用 `@RequestMapping("/api/v1/auth/signup")` 路径前缀；
-  - 实现控制器 `SignupController`，服务层 `SignupService` / `SignupServiceImpl`，以及配套 DTO / VO 模型；
+  - 实现控制器 `SignUpController`，服务层 `SignUpService` / `SignUpServiceImpl`，以及配套 DTO / VO 模型；
   - 基于 `TransitionLockManager` 实现对 `name`、`email`、`challenge/etotp`、`password`、`challenge/options` 的严格顺序推进与防跳步核验；
   - 根据系统配置 `system.auth.require_email_verification` 动态决策是否执行邮箱验证流程。
 

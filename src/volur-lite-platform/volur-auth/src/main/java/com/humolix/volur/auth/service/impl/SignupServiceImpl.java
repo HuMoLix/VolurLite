@@ -1,25 +1,19 @@
 package com.humolix.volur.auth.service.impl;
 
 import cn.hutool.core.util.IdUtil;
-import com.humolix.volur.auth.domain.dto.signup.SignUpCompleteRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpEmailRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpEmailResendRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpEtotpChallengeRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpNameRequestDTO;
-import com.humolix.volur.auth.domain.dto.signup.SignUpPasswordRequestDTO;
+import com.humolix.volur.auth.domain.dto.signup.*;
 import com.humolix.volur.auth.domain.vo.SignUpFlowResponseVO;
 import com.humolix.volur.auth.domain.vo.SignUpOptionVO;
 import com.humolix.volur.auth.security.cookie.AuthCookieService;
-import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
-import com.humolix.volur.auth.service.SignupService;
+import com.humolix.volur.auth.service.SignUpService;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.framework.common.util.SpringContextHolder;
-import com.humolix.volur.security.domain.session.RequestDeviceParams;
+import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.security.domain.session.RequestHeader;
-import com.humolix.volur.security.flow.domain.FlowNames;
 import com.humolix.volur.security.flow.TransitionLockManager;
+import com.humolix.volur.security.flow.domain.FlowNames;
 import com.humolix.volur.security.service.FlowCryptoService;
 import com.humolix.volur.security.session.SessionManager;
 import com.humolix.volur.security.session.domain.Session;
@@ -42,14 +36,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SignupServiceImpl implements SignupService {
+public class SignUpServiceImpl implements SignUpService {
 
     private final SessionManager sessionManager;
     private final TransitionLockManager transitionLockManager;

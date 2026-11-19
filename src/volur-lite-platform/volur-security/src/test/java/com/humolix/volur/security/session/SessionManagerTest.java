@@ -1,12 +1,11 @@
 package com.humolix.volur.security.session;
 
-import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.session.RequestDeviceParams;
 import com.humolix.volur.security.domain.session.RequestHeader;
-import com.humolix.volur.security.session.generator.DeviceSessionHashGenerator;
 import com.humolix.volur.security.flow.domain.Flow;
 import com.humolix.volur.security.session.domain.Session;
+import com.humolix.volur.security.session.generator.DeviceSessionHashGenerator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 

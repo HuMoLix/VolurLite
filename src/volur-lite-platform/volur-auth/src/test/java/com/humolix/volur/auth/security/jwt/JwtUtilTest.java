@@ -1,24 +1,22 @@
 package com.humolix.volur.auth.security.jwt;
 
-import com.humolix.volur.auth.service.TokenService;
 import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMalformedException;
 import com.humolix.volur.framework.common.exception.authException.tokenException.TokenMissingException;
-import com.humolix.volur.user.domain.entity.User;
-import com.humolix.volur.user.domain.enums.UserRole;
 import com.humolix.volur.system.constant.SystemSettingKeys;
 import com.humolix.volur.system.service.SystemSettingService;
+import com.humolix.volur.user.domain.entity.User;
+import com.humolix.volur.user.domain.enums.UserRole;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import jakarta.servlet.http.Cookie;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Base64;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;

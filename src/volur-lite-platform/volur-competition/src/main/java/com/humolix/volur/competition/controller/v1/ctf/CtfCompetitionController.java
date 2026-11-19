@@ -7,7 +7,6 @@ import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeVO;
 import com.humolix.volur.competition.domain.vo.ctf.CtfTeamSolveRecordVO;
 import com.humolix.volur.competition.service.ctf.CtfCompetitionService;
 import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
 import jakarta.servlet.http.HttpServletRequest;

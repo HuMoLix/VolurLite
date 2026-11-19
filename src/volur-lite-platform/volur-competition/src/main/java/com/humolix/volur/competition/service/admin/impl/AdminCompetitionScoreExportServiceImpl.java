@@ -1,6 +1,5 @@
 package com.humolix.volur.competition.service.admin.impl;
 
-import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.challenge.domain.entity.theory.TheoryChallenge;
 import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionMember;
@@ -33,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.URLEncoder;

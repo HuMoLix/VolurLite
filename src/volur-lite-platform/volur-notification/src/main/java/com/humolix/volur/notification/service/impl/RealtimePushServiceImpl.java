@@ -1,6 +1,5 @@
 package com.humolix.volur.notification.service.impl;
 
-import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.id.generator.SnowflakeIdGenerator;
 import com.humolix.volur.notification.domain.bo.RealtimeMessageBO;
 import com.humolix.volur.notification.domain.dto.BroadcastMessageDTO;
@@ -14,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.UUID;

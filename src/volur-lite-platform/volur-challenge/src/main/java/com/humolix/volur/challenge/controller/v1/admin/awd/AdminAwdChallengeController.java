@@ -6,7 +6,6 @@ import com.humolix.volur.challenge.domain.enums.AwdCategory;
 import com.humolix.volur.challenge.domain.vo.awd.AwdChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.awd.AwdChallengeListVO;
 import com.humolix.volur.challenge.service.admin.awd.AdminAwdChallengeService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;

@@ -2,9 +2,9 @@ package com.humolix.volur.competition.controller.v1.admin.theory;
 
 import com.humolix.volur.competition.domain.dto.theory.TheoryCompetitionConfigDTO;
 import com.humolix.volur.competition.domain.dto.theory.TheoryCompetitionPaperGenerateRequestDTO;
+import com.humolix.volur.competition.domain.vo.theory.AdminTheoryCandidateMonitorVO;
 import com.humolix.volur.competition.domain.vo.theory.TheoryCompetitionConfigVO;
 import com.humolix.volur.competition.domain.vo.theory.TheoryPaperQuestionAdminVO;
-import com.humolix.volur.competition.domain.vo.theory.AdminTheoryCandidateMonitorVO;
 import com.humolix.volur.competition.service.admin.theory.AdminTheoryCompetitionService;
 import com.humolix.volur.competition.service.theory.TheoryCompetitionService;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;

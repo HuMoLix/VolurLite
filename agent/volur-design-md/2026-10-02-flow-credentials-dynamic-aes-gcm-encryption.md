@@ -71,10 +71,10 @@
    - 新增 `FlowCryptoService` 接口与 `FlowCryptoServiceImpl` 实现类；
    - 依赖注入采用不可变 `private final` 与 Lombok `@RequiredArgsConstructor`；
    - 编写 `FlowCryptoServiceTest` 单元测试，全面验证正常加解密、会话句柄（`dsh`）不匹配校验、时间戳过期防重放判定与信封格式破坏拦截。
-2. **`SigninServiceImpl` 登录服务**：
+2. **`SignInServiceImpl` 登录服务**：
    - 注入 `FlowCryptoService`；
    - 在处理 `pwd` 口令挑战时，检测密码是否以 `$V1$GCM$` 开头，若以信封形式传递则调用 `flowCryptoService.decrypt(...)` 解密，解密后再与数据库 SM3 散列进行 `passwordEncoder.matches(...)` 匹配。
-3. **`SignupServiceImpl` 注册服务**：
+3. **`SignUpServiceImpl` 注册服务**：
    - 注入 `FlowCryptoService`；
    - 在 `name` 步骤中解密 `username`，并在解密后校验长度 3~32 位及 `^[a-zA-Z0-9_-]+$` 字符集规则；
    - 在 `password` 步骤中分别解密 `password` 与 `confirmPassword`，校验两者一致性与 8~64 位长度约束，并将解密后的明文密码通过 `passwordEncoder.encode(plainPassword)` 计算 SM3 散列后安全存入数据库。
@@ -86,7 +86,7 @@
 ## 6. 验证与审计结果
 
 1. **后端单元测试**：
-   - `mvn test -pl volur-security,volur-auth`：54 个用例全部通过（0 failures, 0 errors），涵盖 `FlowCryptoServiceTest`、`SigninServiceImplTest`、`TokenServiceImplTest` 等；
+   - `mvn test -pl volur-security,volur-auth`：54 个用例全部通过（0 failures, 0 errors），涵盖 `FlowCryptoServiceTest`、`SignInServiceImplTest`、`TokenServiceImplTest` 等；
    - 验证跨语言加解密一致性：前端 JavaScript 生成的 AES-GCM 信封由 Java 端成功解密还原为原始明文。
 2. **前端构建与类型校验**：
    - `npm run build`（`vue-tsc --noEmit && vite build`）通过，无任何 TypeScript 报错，成功产出生产构建包。

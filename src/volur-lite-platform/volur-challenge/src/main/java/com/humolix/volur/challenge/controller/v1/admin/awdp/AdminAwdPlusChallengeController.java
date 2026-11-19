@@ -5,7 +5,6 @@ import com.humolix.volur.challenge.domain.dto.awdp.AwdPlusChallengeUpdateRequest
 import com.humolix.volur.challenge.domain.vo.awdp.AwdPlusChallengeDetailVO;
 import com.humolix.volur.challenge.domain.vo.awdp.AwdPlusChallengeListVO;
 import com.humolix.volur.challenge.service.admin.awdp.AdminAwdPlusChallengeService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;

@@ -18,7 +18,7 @@
 
 - **`RecaptchaService` / `RecaptchaServiceImpl`**：
   - 核心职责：生成自适应图形/点触/滑块 reCAPTCHA 挑战，验证客户端非对称加密公私钥载荷，签发人机校验通过凭证（Burn Ticket）；
-  - `SigninServiceImpl` 依赖直接重构注入 `RecaptchaService`，彻底移除旧 `ChallengeService` 桥接与别名；
+  - `SignInServiceImpl` 依赖直接重构注入 `RecaptchaService`，彻底移除旧 `ChallengeService` 桥接与别名；
   - 配合单元测试 `RecaptchaServiceImplTest` 覆盖常规核销与签名伪造防御。
 - **`PasskeyService` / `PasskeyServiceImpl`**：
   - 核心职责：生成符合 Relying Party（信赖方）配置规范的 `PublicKeyCredentialCreationOptions`，存入 Redis（5 分钟 TTL），在客户端签名完成后调用 `WebAuthnRelyingPartyOperations.registerCredential` 核验签名并持久化；
@@ -55,8 +55,8 @@
 
 1. **路由与步骤名标准化**：
    - 将注册流中的选项步骤由原 `challenge/options` 重构规范为 `pt/options`（Protect Options）；
-   - 后端 `SignupController` 的选项接口由 `@GetMapping("/challenge/options")` 同步重命名为 `@GetMapping("/protect/options")`；
-   - 后端 `SignupServiceImpl`、`PasskeyServiceImpl` 及前端 `auth.ts`、`signupFlow.ts` 同步全链路更新；
+   - 后端 `SignUpController` 的选项接口由 `@GetMapping("/challenge/options")` 同步重命名为 `@GetMapping("/protect/options")`；
+   - 后端 `SignUpServiceImpl`、`PasskeyServiceImpl` 及前端 `auth.ts`、`signupFlow.ts` 同步全链路更新；
 2. **保护子视图物理隔离与参数穿透**：
    - 当用户在 `/v1/signup/steps/pt/options` 点击“通行密钥”时，带齐当前流转全量状态参数（`continue`、`followup`、`flowName`、`flowEntry`、`dsh`、`tl`、`pstMsg`、`cid`）安全跳转至 `/v1/signup/steps/pt/pk`；
    - 对应前端实现组件独立收敛至 `src/views/auth/signup/protect/passkeyProtectView.vue`，承载原生 WebAuthn（指纹/面容/安全密钥）注册与状态展示；
@@ -79,7 +79,7 @@
    - 所有架构决策与逻辑推导统一外置收敛至本文档。
 2. **重构彻底性原则**：
    - 彻底废除并物理删除了旧 `ChallengeService.java`、`ChallengeServiceImpl.java` 及其测试用例，未保留任何别名或废弃兼容层；
-   - `SigninServiceImpl` 同步更新引用。
+   - `SignInServiceImpl` 同步更新引用。
 3. **数据库幂等性迁移规范**：
    - 在 `scripts/upgrade/upgrade_to_latest.sql` 中新增的 `user_credentials` 表使用 `CREATE TABLE IF NOT EXISTS`，具备完全幂等性，可在生产环境中重复安全执行。
 

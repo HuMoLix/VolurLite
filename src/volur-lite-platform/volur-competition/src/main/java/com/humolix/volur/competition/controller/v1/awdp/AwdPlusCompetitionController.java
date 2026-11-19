@@ -4,7 +4,6 @@ import com.humolix.volur.competition.annotation.CompetitionLog;
 import com.humolix.volur.competition.domain.dto.awdp.AwdPlusPatchUploadRequestDTO;
 import com.humolix.volur.competition.domain.vo.awdp.AwdPlusTargetStatusVO;
 import com.humolix.volur.competition.service.awdp.AwdPlusCompetitionService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
 import jakarta.validation.Valid;

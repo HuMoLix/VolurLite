@@ -1,6 +1,5 @@
 package com.humolix.volur.competition.service;
 
-import com.humolix.volur.competition.domain.entity.Competition;
 import com.humolix.volur.competition.domain.entity.CompetitionAnnouncement;
 import com.humolix.volur.competition.domain.entity.CompetitionMember;
 import com.humolix.volur.competition.domain.entity.CompetitionTeam;
@@ -33,7 +32,8 @@ import java.util.concurrent.Callable;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CompetitionServiceImplTest {

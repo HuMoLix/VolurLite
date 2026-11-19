@@ -5,7 +5,6 @@ import com.humolix.volur.competition.domain.dto.CompetitionUpdateRequestDTO;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionDetailVO;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionListVO;
 import com.humolix.volur.competition.service.admin.AdminCompetitionService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;

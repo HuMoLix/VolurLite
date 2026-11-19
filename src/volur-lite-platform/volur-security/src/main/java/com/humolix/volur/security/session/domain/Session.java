@@ -1,8 +1,8 @@
 package com.humolix.volur.security.session.domain;
 
-import com.humolix.volur.security.flow.domain.Flow;
 import com.humolix.volur.security.domain.session.RequestDeviceParams;
 import com.humolix.volur.security.domain.session.RequestHeader;
+import com.humolix.volur.security.flow.domain.Flow;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -2,15 +2,15 @@
 
 ## 1. 变更背景与需求溯源
 
-在原有的系统设计中，登录流程（Sign-in Flow）中的各种验证挑战（密码挑战 `pwd`、邮箱动态验证码 `etotp`、短信验证码 `totp` / `2fa`、人机验证 `recaptcha`）以及挑战选择 (`selectChallenge`) 与备选核验列表 (`getChallengeSelection`) 均平铺耦合在 `volur-auth` 模块的 `SigninController` 中。
+在原有的系统设计中，登录流程（Sign-in Flow）中的各种验证挑战（密码挑战 `pwd`、邮箱动态验证码 `etotp`、短信验证码 `totp` / `2fa`、人机验证 `recaptcha`）以及挑战选择 (`selectChallenge`) 与备选核验列表 (`getChallengeSelection`) 均平铺耦合在 `volur-auth` 模块的 `SignInController` 中。
 
 这种集中式的设计存在以下严重问题：
-1. **职责过载与单点膨胀**：`SigninController` 承担了账号标识判定、最终认证发牌、人机验证处理、密码哈希校验、双因子多途径切换与验证码重发等多种职责，违反单一职责原则（SRP）；
+1. **职责过载与单点膨胀**：`SignInController` 承担了账号标识判定、最终认证发牌、人机验证处理、密码哈希校验、双因子多途径切换与验证码重发等多种职责，违反单一职责原则（SRP）；
 2. **前后端路由语义不一致**：前端在 `/v1/signin/challenge/{nextStep}` 页面流转时，统一向 `/api/v1/auth/signin/challenge` 发起宽泛的聚合请求，未能体现出每种挑战的具体路由与独立参数约束；
 3. **架构分层倒挂**：通用安全核验能力（如人机验证 `recaptcha`、密码验证器 `Sm3PasswordEncoder`、通行密钥 `passkey`）属于底层安全控制能力，应属于 `volur-security` 模块，而此前 `volur-security` 中仅有空壳或零散类，无法形成闭环。
 
 针对上述架构缺陷，本次重构完成了以下核心升级：
-1. **解耦拆分挑战控制器**：将 `challenge`、`selectChallenge`、`getChallengeSelection` 从 `volur-auth` 的 `SigninController` 中剥离，下沉到 `volur-security` 模块的 `com.humolix.volur.security.controller.v1.challenge` 目录下；
+1. **解耦拆分挑战控制器**：将 `challenge`、`selectChallenge`、`getChallengeSelection` 从 `volur-auth` 的 `SignInController` 中剥离，下沉到 `volur-security` 模块的 `com.humolix.volur.security.controller.v1.challenge` 目录下；
 2. **RESTful 精细化分权控制器**：
    - `ChallengeController`：负责安全挑战的切换选择 (`POST /api/v1/captcha/challenge/select`) 与备选方式获取 (`GET /api/v1/captcha/challenge/selection`)；
    - `PasswordController`：负责密码凭据解密与校验 (`POST /api/v1/captcha/challenge/pwd`)；
@@ -25,7 +25,7 @@
    - 将流转模型 `SignInFlowResponseVO` 与 `ChallengeOptionVO` 下沉至 `volur-security.domain.vo`；
    - 在 `volur-security` 中构建独立的 `ChallengeService` 与 `ChallengeServiceImpl`，承载各挑战的防暴破、防重放、受信设备检测与状态机推进逻辑；
 4. **Thin Controller 原则在 `volur-auth` 的彻底实践**：
-   - `SigninController` 仅保留账号提交 `POST /api/v1/auth/signin/identifier` 与终态认证发牌 `POST /api/v1/auth/signin/authenticate`，保持极度轻量与高内聚；
+   - `SignInController` 仅保留账号提交 `POST /api/v1/auth/signin/identifier` 与终态认证发牌 `POST /api/v1/auth/signin/authenticate`，保持极度轻量与高内聚；
 5. **前端全链路 100% 路由对齐**：
    - 前端 `src/volur-lite-view-NEXT` 的 `src/api/auth.ts`、`src/api/captcha.ts`、`src/store/modules/flow/signinFlow.ts` 与视图组件全面对齐后端 `/api/v1/captcha/challenge/{nextStep}` 路由规范，消除任意假值与隐式 Mock。
 

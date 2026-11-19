@@ -7,7 +7,6 @@ import com.humolix.volur.competition.domain.dto.TeamUpdateRequestDTO;
 import com.humolix.volur.competition.domain.vo.MyTeamInfoVO;
 import com.humolix.volur.competition.domain.vo.TeamInvitationVO;
 import com.humolix.volur.competition.service.CompetitionTeamService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;
 import jakarta.validation.Valid;

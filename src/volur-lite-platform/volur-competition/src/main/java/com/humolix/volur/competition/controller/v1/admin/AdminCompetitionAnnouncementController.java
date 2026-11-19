@@ -7,7 +7,6 @@ import com.humolix.volur.competition.repository.CompetitionAnnouncementRepositor
 import com.humolix.volur.competition.repository.CompetitionRepository;
 import com.humolix.volur.framework.cache.CacheNames;
 import com.humolix.volur.framework.cache.VolurCacheTemplate;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.security.annotation.CurrentUserId;

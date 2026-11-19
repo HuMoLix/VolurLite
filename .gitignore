@@ -66,6 +66,9 @@ docker-compose.override.yml
 
 # Scripts and packaging
 package.sh
+agent/volur-design-scripts/annotations/
+agent/volur-design-scripts/captcha_dataset/
+agent/volur-design-scripts/val2017/
 # Sensitive configuration files
 nginx.conf
 **/nginx.conf

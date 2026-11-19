@@ -1,6 +1,5 @@
 package com.humolix.volur.security.service.impl;
 
-import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.security.domain.dto.ChallengeSelectRequestDTO;
 import com.humolix.volur.security.domain.dto.EmailOTPChallengeRequestDTO;
 import com.humolix.volur.security.domain.dto.ReCAPTCHAChallengeSubmitDTO;
@@ -19,8 +18,8 @@ import com.humolix.volur.system.service.SystemSettingService;
 import com.humolix.volur.user.domain.entity.User;
 import com.humolix.volur.user.repository.UserRepository;
 import com.humolix.volur.user.service.UserTrustedDeviceService;
-import com.humolix.volur.verification.service.EmailService;
 import com.humolix.volur.verification.risk.engine.RiskEvaluationEngine;
+import com.humolix.volur.verification.service.EmailService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +33,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.util.List;
 import java.util.Optional;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;

@@ -4,7 +4,6 @@ import com.humolix.volur.competition.domain.dto.AdminCompetitionLogQueryDTO;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionLogStatisticsVO;
 import com.humolix.volur.competition.domain.vo.AdminCompetitionLogVO;
 import com.humolix.volur.competition.service.admin.AdminCompetitionLogService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.framework.common.api.PageResponse;
 import lombok.RequiredArgsConstructor;

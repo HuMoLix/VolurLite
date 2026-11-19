@@ -2,7 +2,6 @@ package com.humolix.volur.auth.security;
 
 import com.humolix.volur.auth.config.SecurityConfig;
 import com.humolix.volur.auth.security.crypto.Sm3AuthProvider;
-import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import com.humolix.volur.auth.security.exception.SecurityAccessDeniedHandler;
 import com.humolix.volur.auth.security.exception.SecurityAuthenticationEntryPoint;
 import com.humolix.volur.auth.security.filter.CsrfProtectionFilter;
@@ -10,6 +9,7 @@ import com.humolix.volur.auth.security.filter.MaintenanceModeFilter;
 import com.humolix.volur.auth.security.filter.RiskIpFilter;
 import com.humolix.volur.auth.security.jwt.JwtAuthFilter;
 import com.humolix.volur.auth.security.util.SecurityWhitelistMatcher;
+import com.humolix.volur.security.crypto.Sm3PasswordEncoder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)

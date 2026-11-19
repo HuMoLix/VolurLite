@@ -2,10 +2,10 @@ package com.humolix.volur.container.strategy;
 
 import com.humolix.volur.challenge.domain.entity.Challenge;
 import com.humolix.volur.challenge.domain.entity.Containerizable;
+import com.humolix.volur.container.client.DockerRegistryClient;
 import com.humolix.volur.container.domain.dto.*;
 import com.humolix.volur.container.domain.enums.InstanceStartupStatus;
 import com.humolix.volur.container.domain.vo.AdminContainerTerminalInfoVO;
-import com.humolix.volur.container.client.DockerRegistryClient;
 import com.humolix.volur.container.repository.ClusterImageRepository;
 import com.humolix.volur.container.repository.ClusterNodeRepository;
 import com.humolix.volur.container.util.ContainerPortAllocator;

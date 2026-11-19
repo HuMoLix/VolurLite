@@ -2,12 +2,7 @@ package com.humolix.volur.training.service;
 
 import com.humolix.volur.container.domain.vo.ChallengeInstanceResponseVO;
 import com.humolix.volur.framework.common.api.PageResponse;
-import com.humolix.volur.training.domain.vo.TrainingCategoryVO;
-import com.humolix.volur.training.domain.vo.TrainingChallengeDetailVO;
-import com.humolix.volur.training.domain.vo.TrainingChallengeListVO;
-import com.humolix.volur.training.domain.vo.TrainingFlagResultVO;
-import com.humolix.volur.training.domain.vo.TrainingLeaderboardVO;
-import com.humolix.volur.training.domain.vo.TrainingProgressVO;
+import com.humolix.volur.training.domain.vo.*;
 
 import java.util.List;
 

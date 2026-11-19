@@ -1,8 +1,6 @@
 package com.humolix.volur.security.service.impl;
 
 import cn.hutool.core.util.IdUtil;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 import com.humolix.volur.framework.common.exception.BusinessException;
 import com.humolix.volur.framework.common.util.RequestUtil;
 import com.humolix.volur.security.domain.dto.RecaptchaVerifyRequestDTO;
@@ -20,16 +18,14 @@ import com.humolix.volur.verification.risk.enums.CaptchaScene;
 import com.humolix.volur.verification.risk.enums.CaptchaType;
 import com.humolix.volur.verification.risk.enums.RiskLevel;
 import com.humolix.volur.verification.service.CaptchaService;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.Serial;
 import java.io.Serializable;

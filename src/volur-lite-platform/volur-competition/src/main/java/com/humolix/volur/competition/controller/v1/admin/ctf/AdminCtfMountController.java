@@ -4,7 +4,6 @@ import com.humolix.volur.competition.domain.dto.ctf.CtfChallengeBatchMountReques
 import com.humolix.volur.competition.domain.dto.ctf.CtfChallengeMountRequestDTO;
 import com.humolix.volur.competition.domain.vo.ctf.CtfCompetitionChallengeVO;
 import com.humolix.volur.competition.service.admin.ctf.AdminCtfMountService;
-import com.humolix.volur.framework.common.api.ApiResponse;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
 import jakarta.validation.Valid;
