@@ -54,7 +54,7 @@ dist_delivery/
 
 # Ai directory
 /src/volur-lite-platform/.workbuddy-ai/
-/.agents
+.agents/
 
 # Sensitive environment credentials
 .env
