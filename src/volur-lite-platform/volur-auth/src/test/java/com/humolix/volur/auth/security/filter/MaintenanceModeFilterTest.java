@@ -52,7 +52,7 @@ class MaintenanceModeFilterTest {
     void testMaintenanceDisabledPermitsAll() throws ServletException, IOException {
         when(systemSettingService.getBoolean(SystemSettingKeys.MAINTENANCE_ENABLED, false)).thenReturn(false);
 
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/register");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/users/profile");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, filterChain);
@@ -62,11 +62,11 @@ class MaintenanceModeFilterTest {
     }
 
     @Test
-    @DisplayName("维护模式下白名单接口放行 (如 login)")
+    @DisplayName("维护模式下白名单接口放行 (如 signin)")
     void testMaintenanceEnabledPermitsExemptPaths() throws ServletException, IOException {
         when(systemSettingService.getBoolean(SystemSettingKeys.MAINTENANCE_ENABLED, false)).thenReturn(true);
 
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/signin/identifier");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, filterChain);
@@ -76,13 +76,13 @@ class MaintenanceModeFilterTest {
     }
 
     @Test
-    @DisplayName("维护模式下注册接口被拦截并抛出 MaintenanceModeException 交由 resolver 处理")
+    @DisplayName("维护模式下非白名单业务接口被拦截并抛出 MaintenanceModeException 交由 resolver 处理")
     void testMaintenanceEnabledInterceptsRegister() throws ServletException, IOException {
         when(systemSettingService.getBoolean(SystemSettingKeys.MAINTENANCE_ENABLED, false)).thenReturn(true);
         when(systemSettingService.getSettingValue(eq(SystemSettingKeys.MAINTENANCE_NOTICE_MESSAGE), anyString()))
                 .thenReturn("系统正在全站维护，暂不可用");
 
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/register");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/users/profile");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, filterChain);

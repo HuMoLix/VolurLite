@@ -49,7 +49,7 @@ class RiskIpFilterTest {
     @Test
     @DisplayName("OPTIONS 请求直接放行")
     void testOptionsRequestDirectlyPassed() throws ServletException, IOException {
-        MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/v1/auth/login");
+        MockHttpServletRequest request = new MockHttpServletRequest("OPTIONS", "/api/v1/auth/signin/identifier");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, filterChain);
@@ -66,7 +66,7 @@ class RiskIpFilterTest {
         when(systemSettingService.getSettingValue(eq(SystemSettingKeys.RISK_BAN_NOTICE_MESSAGE), anyString()))
                 .thenReturn("您的 IP 存在异常访问行为，已被系统安全机制拦截。");
 
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/signin/identifier");
         request.setRemoteAddr(bannedIp);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -92,7 +92,7 @@ class RiskIpFilterTest {
         when(systemSettingService.getInt(SystemSettingKeys.SECURITY_RATE_LIMIT_MAX_REQUESTS, 120)).thenReturn(120);
         when(rateLimiter.tryAcquire(anyString(), eq(120), any(Duration.class))).thenReturn(true);
 
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/signin/identifier");
         request.setRemoteAddr(clientIp);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -112,7 +112,7 @@ class RiskIpFilterTest {
         when(systemSettingService.getInt(SystemSettingKeys.SECURITY_RATE_LIMIT_MAX_REQUESTS, 120)).thenReturn(120);
         when(rateLimiter.tryAcquire(anyString(), eq(120), any(Duration.class))).thenReturn(false);
 
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/signin/identifier");
         request.setRemoteAddr(clientIp);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -135,7 +135,7 @@ class RiskIpFilterTest {
         when(systemSettingService.getBoolean(SystemSettingKeys.RISK_ENABLED, true)).thenReturn(true);
         when(systemSettingService.getBoolean(SystemSettingKeys.RISK_BYPASS_LOOPBACK, true)).thenReturn(true);
 
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/signin/identifier");
         request.setRemoteAddr(loopbackIp);
         MockHttpServletResponse response = new MockHttpServletResponse();
 

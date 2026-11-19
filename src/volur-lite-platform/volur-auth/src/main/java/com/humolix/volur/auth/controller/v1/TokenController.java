@@ -25,7 +25,7 @@ public class TokenController {
     @PostMapping("/refresh")
     public ApiResponseEntity<Void> refreshToken() {
         tokenService.refreshToken();
-        return ApiResponseEntity.success("Token 刷新成功");
+        return ApiResponseEntity.success("刷新成功");
     }
 
 }

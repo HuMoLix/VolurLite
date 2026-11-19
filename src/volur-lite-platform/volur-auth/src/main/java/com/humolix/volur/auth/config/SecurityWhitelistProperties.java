@@ -15,16 +15,11 @@ public record SecurityWhitelistProperties(
     public static final List<String> WHITE_LIST_PATHS = List.of(
 
             // Authentication and Authorization
-            "/api/v1/auth/login",
             "/api/v1/auth/signin/**",
             "/api/v1/auth/signup/**",
             "/api/v1/auth/recovery/**",
             "/api/v1/session/**",
-            "/api/v1/auth/register",
             "/api/v1/auth/logout",
-            "/api/v1/auth/forgot-password",
-            "/api/v1/auth/password-resets",
-            "/api/v1/auth/reset-password-confirm",
             "/api/v1/auth/refresh",
 
             // Verification and Notification

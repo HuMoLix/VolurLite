@@ -24,21 +24,18 @@ public class SignupController {
 
     private final SignupService signupService;
 
-    @Syslog(module = "AUTH", value = "确认注册用户名", logType = "AUTH", recordParams = false)
     @PostMapping("/name")
     public ApiResponseEntity<SignUpFlowResponseVO> name(@Valid @RequestBody SignUpNameRequestDTO request) {
         SignUpFlowResponseVO response = signupService.name(request);
         return ApiResponseEntity.ok("用户名确认成功", response);
     }
 
-    @Syslog(module = "AUTH", value = "提交注册邮箱", logType = "AUTH", recordParams = false)
     @PostMapping("/email")
     public ApiResponseEntity<SignUpFlowResponseVO> email(@Valid @RequestBody SignUpEmailRequestDTO request) {
         SignUpFlowResponseVO response = signupService.email(request);
         return ApiResponseEntity.ok("邮箱核验成功，验证码已发送", response);
     }
 
-    @Syslog(module = "AUTH", value = "重发注册邮箱验证码", logType = "AUTH", recordParams = false)
     @PostMapping("/email/resend")
     public ApiResponseEntity<Void> resendEmailCode(@Valid @RequestBody SignUpEmailResendRequestDTO request) {
         signupService.resendEmailCode(request);
@@ -59,7 +56,6 @@ public class SignupController {
         return ApiResponseEntity.ok("密码设置成功，用户已创建", response);
     }
 
-    @Syslog(module = "AUTH", value = "获取注册可选安全扩展", logType = "AUTH", recordParams = false)
     @GetMapping("/protect/options")
     public ApiResponseEntity<List<SignUpOptionVO>> getOptions(
             @RequestParam("dsh") String dsh,

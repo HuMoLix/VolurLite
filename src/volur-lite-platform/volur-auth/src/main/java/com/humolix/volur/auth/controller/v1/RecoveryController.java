@@ -27,14 +27,12 @@ public class RecoveryController {
 
     private final RecoveryService recoveryService;
 
-    @Syslog(module = "AUTH", value = "获取找回用户名方式选项", logType = "AUTH", recordParams = false)
     @GetMapping("/username/options")
     public ApiResponseEntity<UsernameRecoveryOptionsVO> getUsernameRecoveryOptions() {
         UsernameRecoveryOptionsVO response = recoveryService.getUsernameRecoveryOptions();
         return ApiResponseEntity.ok("获取找回用户名选项成功", response);
     }
 
-    @Syslog(module = "AUTH", value = "选择找回用户名方式并初始化安全挑战", logType = "AUTH", recordParams = false)
     @PostMapping("/username/select")
     public ApiResponseEntity<RecoveryFlowResponseVO> selectRecoveryMethod(
             @Valid @RequestBody UsernameRecoverySelectRequestDTO request) {
@@ -58,7 +56,6 @@ public class RecoveryController {
         return ApiResponseEntity.ok("获取找回密码选项成功", response);
     }
 
-    @Syslog(module = "AUTH", value = "选择找回密码方式并初始化安全挑战", logType = "AUTH", recordParams = false)
     @PostMapping("/password/select")
     public ApiResponseEntity<RecoveryFlowResponseVO> selectPasswordRecoveryMethod(
             @Valid @RequestBody PasswordRecoverySelectRequestDTO request) {

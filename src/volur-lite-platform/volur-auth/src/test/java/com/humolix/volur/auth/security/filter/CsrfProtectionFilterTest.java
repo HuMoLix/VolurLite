@@ -53,7 +53,7 @@ class CsrfProtectionFilterTest {
 
     @Test
     void shouldPassUnauthenticatedRequests() throws ServletException, IOException {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/signin/authenticate");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, filterChain);
