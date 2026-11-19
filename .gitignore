@@ -35,6 +35,7 @@ out/
 
 # OS generated files
 .DS_Store
+*.rdb
 Thumbs.db
 desktop.ini
 
@@ -43,6 +44,10 @@ uploads/**
 
 # Runtime data & certificates
 data/
+*.key
+*.crt
+*.pem
+**/nginx/ssl/
 
 # Delivery artifacts
 dist_delivery/
@@ -51,5 +56,17 @@ dist_delivery/
 /src/volur-lite-platform/.workbuddy-ai/
 /.agents
 
+# Sensitive environment credentials
+.env
+.env.*
+!.env.example
+
 # Local Docker Compose Overrides
 docker-compose.override.yml
+
+# Scripts and packaging
+package.sh
+
+# Sensitive configuration files
+nginx.conf
+**/nginx.conf
