@@ -210,7 +210,7 @@ export interface AccountChooserItemVO {
   sessionStatus: 'ACTIVE' | 'SIGNED_OUT' | 'DISABLED' | 'EXPIRED'
 }
 
-export interface AccountChooserProbeResponseVO {
+export interface AccountChooserResponseVO {
   accounts: AccountChooserItemVO[]
 }
 

@@ -27,7 +27,7 @@ import type {
   PasskeyCredentialVO,
   TotpStatusVO,
   AccountChooserProbeRequestDTO,
-  AccountChooserProbeResponseVO,
+  AccountChooserResponseVO,
   AccountChooserSelectRequestDTO,
   AccountChooserRemoveRequestDTO
 } from '@/types/auth/flow'
@@ -51,8 +51,8 @@ export function submitSignInIdentifierApi(
 
 export function getAccountChooserApi(
   params?: AccountChooserProbeRequestDTO
-): Promise<ApiResponse<AccountChooserProbeResponseVO>> {
-  return get<AccountChooserProbeResponseVO>('/auth/signin/accountchooser', { params, skipToast: true })
+): Promise<ApiResponse<AccountChooserResponseVO>> {
+  return get<AccountChooserResponseVO>('/auth/signin/accountchooser', { params, skipToast: true })
 }
 
 export function selectAccountChooserApi(

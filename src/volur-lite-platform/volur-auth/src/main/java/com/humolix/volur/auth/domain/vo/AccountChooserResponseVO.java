@@ -15,7 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class AccountChooserProbeResponseVO implements Serializable {
+public class AccountChooserResponseVO implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;

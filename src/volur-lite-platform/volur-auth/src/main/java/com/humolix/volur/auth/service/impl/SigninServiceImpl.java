@@ -8,7 +8,7 @@ import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
 import com.humolix.volur.auth.domain.vo.AccountChooserItemVO;
-import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
+import com.humolix.volur.auth.domain.vo.AccountChooserResponseVO;
 import com.humolix.volur.auth.security.cookie.AuthCookieService;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.auth.security.util.SecurityUtils;
@@ -69,7 +69,7 @@ public class SigninServiceImpl implements SigninService {
     private static final long IDENTIFIER_RECAPTCHA_THRESHOLD = 5L;
 
     @Override
-    public AccountChooserProbeResponseVO getAccounts(AccountChooserProbeRequestDTO request) {
+    public AccountChooserResponseVO getAccounts(AccountChooserProbeRequestDTO request) {
         String currentUsername = SecurityUtils.getCurrentUsernameSafe();
         boolean authenticated = SecurityUtils.isAuthenticated();
 
@@ -150,13 +150,13 @@ public class SigninServiceImpl implements SigninService {
             }
         }
 
-        return AccountChooserProbeResponseVO.builder()
+        return AccountChooserResponseVO.builder()
                 .accounts(list)
                 .build();
     }
 
     @Override
-    public AccountChooserProbeResponseVO getAccounts() {
+    public AccountChooserResponseVO getAccounts() {
         return getAccounts(new AccountChooserProbeRequestDTO());
     }
 

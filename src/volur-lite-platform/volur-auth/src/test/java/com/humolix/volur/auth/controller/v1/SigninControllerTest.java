@@ -2,7 +2,7 @@ package com.humolix.volur.auth.controller.v1;
 
 import com.humolix.volur.auth.domain.dto.signin.AccountChooserProbeRequestDTO;
 import com.humolix.volur.auth.domain.vo.AccountChooserItemVO;
-import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
+import com.humolix.volur.auth.domain.vo.AccountChooserResponseVO;
 import com.humolix.volur.auth.service.SigninService;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import org.junit.jupiter.api.Assertions;
@@ -32,7 +32,7 @@ class SigninControllerTest {
     @Test
     void getAccounts_shouldReturnOkResponseEntityWithAccounts() {
         AccountChooserProbeRequestDTO request = new AccountChooserProbeRequestDTO(List.of("alice"));
-        AccountChooserProbeResponseVO vo = AccountChooserProbeResponseVO.builder()
+        AccountChooserResponseVO vo = AccountChooserResponseVO.builder()
                 .accounts(List.of(
                         AccountChooserItemVO.builder()
                                 .identifier("alice")
@@ -43,7 +43,7 @@ class SigninControllerTest {
                 .build();
         given(signinService.getAccounts(request)).willReturn(vo);
 
-        ApiResponseEntity<AccountChooserProbeResponseVO> response = signinController.getAccounts(request);
+        ApiResponseEntity<AccountChooserResponseVO> response = signinController.getAccounts(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(200, response.getStatusCode().value());

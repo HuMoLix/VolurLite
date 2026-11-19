@@ -5,14 +5,14 @@ import com.humolix.volur.auth.domain.dto.signin.AccountChooserRemoveRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
-import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
+import com.humolix.volur.auth.domain.vo.AccountChooserResponseVO;
 import com.humolix.volur.auth.domain.vo.SignInFlowResponseVO;
 
 public interface SigninService {
 
-    AccountChooserProbeResponseVO getAccounts(AccountChooserProbeRequestDTO request);
+    AccountChooserResponseVO getAccounts(AccountChooserProbeRequestDTO request);
 
-    default AccountChooserProbeResponseVO getAccounts() {
+    default AccountChooserResponseVO getAccounts() {
         return getAccounts(new AccountChooserProbeRequestDTO());
     }
 

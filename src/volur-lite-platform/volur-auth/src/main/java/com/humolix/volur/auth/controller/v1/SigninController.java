@@ -5,7 +5,7 @@ import com.humolix.volur.auth.domain.dto.signin.AccountChooserRemoveRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
-import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
+import com.humolix.volur.auth.domain.vo.AccountChooserResponseVO;
 import com.humolix.volur.auth.service.SigninService;
 import com.humolix.volur.framework.common.api.ApiResponseEntity;
 import com.humolix.volur.logging.annotation.Syslog;
@@ -26,9 +26,9 @@ public class SigninController {
     private final SigninService signinService;
 
     @GetMapping("/accountchooser")
-    public ApiResponseEntity<AccountChooserProbeResponseVO> getAccounts(
+    public ApiResponseEntity<AccountChooserResponseVO> getAccounts(
             @Valid AccountChooserProbeRequestDTO request) {
-        AccountChooserProbeResponseVO response = signinService.getAccounts(request);
+        AccountChooserResponseVO response = signinService.getAccounts(request);
         return ApiResponseEntity.ok("获取账号列表成功", response);
     }
 
@@ -40,7 +40,6 @@ public class SigninController {
         return ApiResponseEntity.ok("账号选择成功", response);
     }
 
-    @Syslog(module = "AUTH", value = "从选择器移除账号", logType = "AUTH", recordParams = false)
     @PostMapping("/accountchooser/remove")
     public ApiResponseEntity<Void> removeAccount(
             @Valid @RequestBody AccountChooserRemoveRequestDTO request) {

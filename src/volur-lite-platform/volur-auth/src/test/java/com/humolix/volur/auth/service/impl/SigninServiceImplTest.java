@@ -5,7 +5,7 @@ import com.humolix.volur.auth.domain.dto.signin.AccountChooserRemoveRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.AccountChooserSelectRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.SignInAuthenticateRequestDTO;
 import com.humolix.volur.auth.domain.dto.signin.SignInIdentifierRequestDTO;
-import com.humolix.volur.auth.domain.vo.AccountChooserProbeResponseVO;
+import com.humolix.volur.auth.domain.vo.AccountChooserResponseVO;
 import com.humolix.volur.auth.security.cookie.AuthCookieService;
 import com.humolix.volur.auth.security.jwt.JwtUtil;
 import com.humolix.volur.framework.cache.redis.RedisOps;
@@ -121,7 +121,7 @@ class SigninServiceImplTest {
         given(userRepository.findByEmail("unknown")).willReturn(Optional.empty());
         given(userProfileRepository.findById(101L)).willReturn(Optional.of(profile));
 
-        AccountChooserProbeResponseVO response = signinService.getAccounts(request);
+        AccountChooserResponseVO response = signinService.getAccounts(request);
 
         Assertions.assertNotNull(response);
         Assertions.assertEquals(2, response.getAccounts().size());
@@ -134,7 +134,7 @@ class SigninServiceImplTest {
 
     @Test
     void getAccounts_withoutParams_shouldReturnEmptyAccountsWhenUnauthenticated() {
-        AccountChooserProbeResponseVO response = signinService.getAccounts();
+        AccountChooserResponseVO response = signinService.getAccounts();
 
         Assertions.assertNotNull(response);
         Assertions.assertTrue(response.getAccounts().isEmpty());
